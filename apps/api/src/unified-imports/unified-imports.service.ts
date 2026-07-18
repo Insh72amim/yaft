@@ -7,10 +7,11 @@ import { InvestmentsService } from '../investments/investments.service';
 import { SalaryService } from '../salary/salary.service';
 import { UnifiedImportUploadDto } from './unified-imports.dto';
 
-export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS'] as const;
+export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'CREDIT_CARD_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS'] as const;
 export type UnifiedImportKind = (typeof UNIFIED_IMPORT_KINDS)[number];
 export type BankImportSource = 'SBI' | 'PNB' | 'AXIS';
-export type UnifiedImportSource = BankImportSource | 'GOLDMAN_SACHS' | 'ZERODHA_KITE' | 'GROWW';
+export type CreditCardImportSource = 'HDFC_CC' | 'ICICI_CC' | 'SBI_CC' | 'AXIS_CC';
+export type UnifiedImportSource = BankImportSource | CreditCardImportSource | 'GOLDMAN_SACHS' | 'ZERODHA_KITE' | 'GROWW';
 
 type SourceSpec = {
   kind: UnifiedImportKind;
@@ -43,10 +44,23 @@ const SOURCE_SPECS: readonly SourceSpec[] = [
   { kind: 'BROKER_HOLDINGS', source: 'GROWW', label: 'Groww',
     description: 'Groww mutual funds XLSX report.', extensions: ['.xlsx'], maxBytes: 5 * MIB,
     accountRequired: true, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
+  { kind: 'CREDIT_CARD_STATEMENT', source: 'HDFC_CC', label: 'HDFC Bank Credit Card',
+    description: 'HDFC credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
+    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+  { kind: 'CREDIT_CARD_STATEMENT', source: 'ICICI_CC', label: 'ICICI Bank Credit Card',
+    description: 'ICICI credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
+    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+  { kind: 'CREDIT_CARD_STATEMENT', source: 'SBI_CC', label: 'SBI Credit Card',
+    description: 'SBI credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
+    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+  { kind: 'CREDIT_CARD_STATEMENT', source: 'AXIS_CC', label: 'Axis Bank Credit Card',
+    description: 'Axis credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
+    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
 ];
 
 const KIND_LABELS: Record<UnifiedImportKind, { label: string; description: string }> = {
   BANK_STATEMENT: { label: 'Bank statement', description: 'Stage reconciled transactions for review before adding them to the ledger.' },
+  CREDIT_CARD_STATEMENT: { label: 'Credit card statement', description: 'Stage credit card transactions for review before adding them to the ledger.' },
   SALARY_PAYSLIP: { label: 'Salary payslip', description: 'Review reconciled payroll facts before saving the salary month.' },
   BROKER_HOLDINGS: { label: 'Broker holdings', description: 'Replace a broker account snapshot atomically after full reconciliation.' },
 };
@@ -72,7 +86,7 @@ export class UnifiedImportsService {
           source: spec.source, label: spec.label, description: spec.description,
           extensions: spec.extensions, maxBytes: spec.maxBytes, accountRequired: spec.accountRequired,
           commitMode: spec.commitMode,
-          pdfPasswordSupported: spec.kind === 'BANK_STATEMENT',
+          pdfPasswordSupported: spec.kind === 'BANK_STATEMENT' || spec.kind === 'CREDIT_CARD_STATEMENT',
           rememberPasswordSupported: spec.kind === 'BANK_STATEMENT' && spec.source === 'SBI',
           eligibleAccountIds: safeAccounts.filter((account) => this.accountIsEligible(account, spec)).map((account) => account.id),
         })),
@@ -81,20 +95,24 @@ export class UnifiedImportsService {
   }
 
   async pending(userId: string) {
-    const [bankReviews, salaryReviews, accounts] = await Promise.all([
+    const [bankAndCcReviews, salaryReviews, accounts] = await Promise.all([
       this.imports.pendingAll(userId), this.salary.pendingAll(userId),
-      this.prisma.account.findMany({ where: { userId }, select: { id: true, institution: true } }),
+      this.prisma.account.findMany({ where: { userId }, select: { id: true, type: true, institution: true } }),
     ]);
-    const institutionByAccount = new Map(accounts.map((account) => [account.id, account.institution]));
+    const accountByid = new Map(accounts.map((account) => [account.id, account]));
     const pending = [
-      ...bankReviews.map((review) => ({
-        kind: 'BANK_STATEMENT' as const,
-        source: bankSourceForInstitution(institutionByAccount.get(review.account.id) ?? undefined) ?? 'UNKNOWN',
-        mode: 'REVIEW_REQUIRED' as const,
-        createdAt: review.createdAt,
-        review: this.safeBankReview(review),
-        actions: this.bankActions(review.id),
-      })),
+      ...bankAndCcReviews.map((review) => {
+        const account = accountByid.get(review.account.id);
+        const isCreditCard = account?.type === 'CREDIT_CARD';
+        return {
+          kind: (isCreditCard ? 'CREDIT_CARD_STATEMENT' : 'BANK_STATEMENT') as 'CREDIT_CARD_STATEMENT' | 'BANK_STATEMENT',
+          source: isCreditCard ? 'UNKNOWN' : (bankSourceForInstitution(account?.institution ?? undefined) ?? 'UNKNOWN'),
+          mode: 'REVIEW_REQUIRED' as const,
+          createdAt: review.createdAt,
+          review: this.safeBankReview(review),
+          actions: this.bankActions(review.id),
+        };
+      }),
       ...salaryReviews.map((review) => ({
         kind: 'SALARY_PAYSLIP' as const,
         source: 'GOLDMAN_SACHS' as const,
@@ -115,7 +133,7 @@ export class UnifiedImportsService {
     const extension = this.extension(file.originalname);
     const passwordWasSent = dto.pdfPassword !== undefined;
     const rememberWasSent = dto.rememberPassword !== undefined;
-    if (spec.kind !== 'BANK_STATEMENT' || extension !== '.pdf') {
+    if (spec.kind !== 'BANK_STATEMENT' && spec.kind !== 'CREDIT_CARD_STATEMENT' || extension !== '.pdf') {
       if (passwordWasSent || rememberWasSent) throw new BadRequestException('Password fields do not apply to this import file.');
     } else {
       if (dto.pdfPassword !== undefined && dto.pdfPassword.length > 128) throw new BadRequestException('The PDF password is too long.');
@@ -141,6 +159,12 @@ export class UnifiedImportsService {
     if (spec.kind === 'BANK_STATEMENT') {
       const review = await this.imports.create(userId, account!.id, file,
         { pdfPassword: dto.pdfPassword, rememberPassword: dto.rememberPassword }, spec.source as BankImportSource);
+      return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
+        review: this.safeBankReview(review), actions: this.bankActions(review.id) };
+    }
+    if (spec.kind === 'CREDIT_CARD_STATEMENT') {
+      const review = await this.imports.createForCreditCard(userId, account!.id, file,
+        { pdfPassword: dto.pdfPassword });
       return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
         review: this.safeBankReview(review), actions: this.bankActions(review.id) };
     }
@@ -189,16 +213,21 @@ export class UnifiedImportsService {
     return account;
   }
 
-  private accountIsEligible(account: { type: string; institution: string | null }, spec: SourceSpec) {
+  private accountIsEligible(account: { type: string; institution: string | null; name?: string }, spec: SourceSpec) {
     if (spec.kind === 'BANK_STATEMENT') {
       return ['BANK', 'SAVINGS'].includes(account.type)
         && bankInstitutionMatchesSource(account.institution, spec.source as BankImportSource);
     }
+    if (spec.kind === 'CREDIT_CARD_STATEMENT') {
+      return account.type === 'CREDIT_CARD';
+    }
     if (spec.kind === 'BROKER_HOLDINGS') {
+      const matchInstitution = (account.institution ?? '');
+      const matchName = (account.name ?? '');
       if (spec.source === 'GROWW') {
-        return ['INVESTMENT', 'STOCKS'].includes(account.type) && /\bgroww\b/i.test(account.institution ?? '');
+        return ['INVESTMENT', 'STOCKS'].includes(account.type) && (/\bgroww\b/i.test(matchInstitution) || /\bgroww\b/i.test(matchName));
       }
-      return ['INVESTMENT', 'STOCKS'].includes(account.type) && /\b(?:zerodha|kite)\b/i.test(account.institution ?? '');
+      return ['INVESTMENT', 'STOCKS'].includes(account.type) && (/\b(?:zerodha|kite)\b/i.test(matchInstitution) || /\b(?:zerodha|kite)\b/i.test(matchName));
     }
     return false;
   }
