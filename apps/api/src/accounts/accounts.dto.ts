@@ -11,3 +11,7 @@ export class CreateAccountDto {
   @IsOptional() @IsInt() @Min(1) @Max(31) statementDay?: number;
   @IsOptional() @IsInt() @Min(1) @Max(31) dueDay?: number;
 }
+
+export class DeleteAccountDto {
+  @IsString() @Length(2, 80) confirmationName!: string;
+}
