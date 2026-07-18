@@ -66,7 +66,9 @@ html[data-theme='dark'] .loading span{border-color:#304139;border-top-color:var(
 html[data-theme='dark'] .backdrop{background:rgba(1,8,5,.7)}
 html[data-theme='dark'] .error{background:#3b2020;color:#ffaaa4}
 html[data-theme='dark'] .auth-switch a{color:#8ad9b2}
-html[data-theme='dark'] .import-card aside,html[data-theme='dark'] .portfolio-import aside,html[data-theme='dark'] .unified-import-card>aside{background:#182820}
+html[data-theme='dark'] .import-card aside,html[data-theme='dark'] .portfolio-import aside,html[data-theme='dark'] .unified-import-card>aside{background:#182820 !important}
+html[data-theme='dark'] .unified-import-card>aside h2,html[data-theme='dark'] .import-card aside h3,html[data-theme='dark'] .portfolio-import aside strong{color:var(--green) !important}
+html[data-theme='dark'] .unified-import-card>aside p,html[data-theme='dark'] .unified-import-card>aside li,html[data-theme='dark'] .import-card aside p,html[data-theme='dark'] .portfolio-import aside p{color:#a5b6ad !important}
 html[data-theme='dark'] .import-card li span{background:#22342b;color:#8ad9b2}
 html[data-theme='dark'] .dropzone,html[data-theme='dark'] .salary-dropzone,html[data-theme='dark'] .portfolio-dropzone{background:#111b17;border-color:#52655b}
 html[data-theme='dark'] .dropzone:hover,html[data-theme='dark'] .dropzone.has-file,html[data-theme='dark'] .salary-dropzone:hover,html[data-theme='dark'] .salary-dropzone.has-file,html[data-theme='dark'] .portfolio-dropzone:hover,html[data-theme='dark'] .portfolio-dropzone.has-file{background:#192920;border-color:#6db691}
