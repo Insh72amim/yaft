@@ -74,6 +74,12 @@ export class SalaryService {
     return this.serialize(statement);
   }
 
+  async pendingAll(userId: string) {
+    const statements = await this.prisma.salaryStatement.findMany({ where: { userId, status: 'REVIEW' },
+      include: { lineItems: true }, orderBy: { createdAt: 'desc' } });
+    return statements.map((statement) => this.serialize(statement));
+  }
+
   async commit(userId: string, statementId: string) {
     const statement = await this.prisma.salaryStatement.findFirst({ where: { id: statementId, userId, status: 'REVIEW' } });
     if (!statement) throw new NotFoundException('Reviewable salary statement not found.');

@@ -16,6 +16,19 @@ function institutionMatches(parser: BankPdfParser, institution: string) {
   });
 }
 
+export function bankSourceForInstitution(institution?: string,
+  parsers: readonly BankPdfParser[] = bankPdfParsers) {
+  const normalizedInstitution = normalizeInstitution(institution);
+  return normalizedInstitution
+    ? parsers.find((parser) => institutionMatches(parser, normalizedInstitution))?.id
+    : undefined;
+}
+
+export function bankInstitutionMatchesSource(institution: string | null | undefined, source: BankPdfParser['id'],
+  parsers: readonly BankPdfParser[] = bankPdfParsers) {
+  return bankSourceForInstitution(institution ?? undefined, parsers) === source;
+}
+
 export function selectBankPdfParser(document: PdfStatementDocument, institution?: string,
   parsers: readonly BankPdfParser[] = bankPdfParsers) {
   const normalizedInstitution = normalizeInstitution(institution);

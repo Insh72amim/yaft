@@ -91,4 +91,11 @@ describe('ImportsService statement password flow', () => {
     await service.create('user-1', 'account-1', file);
     expect(tx.importBatch.create.mock.calls[0][0].data.staged.create[0]).toMatchObject({ fingerprint, isDuplicate: true, include: false });
   });
+
+  it('fails closed when an explicit PDF source does not match the verified parser', async () => {
+    const { service, prisma } = setup();
+    parseStatement.mockResolvedValue({ rows: [row], parserId: 'AXIS' });
+    await expect(service.create('user-1', 'account-1', file, {}, 'SBI')).rejects.toThrow('does not match the selected SBI');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
 });

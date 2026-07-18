@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 
 const links = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { href: '/import', label: 'Import statement', icon: Upload },
+  { href: '/import', label: 'Import records', icon: Upload },
   { href: '/salary', label: 'Salary statements', icon: BadgeIndianRupee },
   { href: '/dashboard/investments', label: 'Investments', icon: BriefcaseBusiness },
 ];

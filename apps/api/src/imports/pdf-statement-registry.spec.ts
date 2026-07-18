@@ -1,5 +1,5 @@
 import type { PdfStatementDocument } from './bank-pdf-parser';
-import { selectBankPdfParser } from './pdf-statement-registry';
+import { bankInstitutionMatchesSource, bankSourceForInstitution, selectBankPdfParser } from './pdf-statement-registry';
 
 function axisDocument(): PdfStatementDocument {
   return {
@@ -26,5 +26,12 @@ describe('bank PDF parser registry', () => {
     const ambiguous = axisDocument();
     ambiguous.tablePages[0].tables.push([['Transaction Date', 'Cheque Number', 'Withdrawal', 'Deposit', 'Balance', 'Narration']]);
     expect(() => selectBankPdfParser(ambiguous)).toThrow('more than one supported bank layout');
+  });
+
+  it('maps explicit sources only to matching bank institutions', () => {
+    expect(bankSourceForInstitution('State Bank of India')).toBe('SBI');
+    expect(bankInstitutionMatchesSource('Punjab National Bank', 'PNB')).toBe(true);
+    expect(bankInstitutionMatchesSource('Axis Bank', 'SBI')).toBe(false);
+    expect(bankSourceForInstitution('Unrelated bank')).toBeUndefined();
   });
 });

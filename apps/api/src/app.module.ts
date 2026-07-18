@@ -9,6 +9,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { ImportsModule } from './imports/imports.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { SalaryModule } from './salary/salary.module';
+import { UnifiedImportsModule } from './unified-imports/unified-imports.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { SalaryModule } from './salary/salary.module';
     InvestmentsModule,
     DashboardModule,
     SalaryModule,
+    UnifiedImportsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

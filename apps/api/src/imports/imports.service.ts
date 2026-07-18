@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { StatementCredentialsService } from '../common/statement-credentials.service';
-import type { ParsedRow } from './bank-pdf-parser';
+import type { BankPdfParser, ParsedRow } from './bank-pdf-parser';
 import { UpdateStagedDto, UploadStatementDto } from './imports.dto';
 import { parseStatementWithMetadata } from './statement-parser';
 
@@ -17,7 +17,8 @@ const categoryRules: Array<[RegExp, string]> = [
 export class ImportsService {
   constructor(private readonly prisma: PrismaService, private readonly credentials: StatementCredentialsService) {}
 
-  async create(userId: string, accountId: string, file: Express.Multer.File, dto: UploadStatementDto = {}) {
+  async create(userId: string, accountId: string, file: Express.Multer.File, dto: UploadStatementDto = {},
+    expectedParserId?: BankPdfParser['id']) {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId } });
     if (!account) throw new ForbiddenException('Account not found.');
     const hash = createHash('sha256').update(file.buffer).digest('hex');
@@ -27,6 +28,9 @@ export class ImportsService {
     const explicitPassword = isPdf && dto.pdfPassword?.length ? dto.pdfPassword : undefined;
     const savedPassword = isPdf && !explicitPassword ? await this.credentials.getPassword(userId, accountId) : undefined;
     const parsed = await parseStatementWithMetadata(file, { institution: account.institution ?? undefined, pdfPassword: explicitPassword ?? savedPassword });
+    if (isPdf && expectedParserId && parsed.parserId !== expectedParserId) {
+      throw new BadRequestException(`The uploaded PDF does not match the selected ${expectedParserId} statement source.`);
+    }
     const categories = await this.prisma.category.findMany({ where: { userId } });
     const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
     const staged = parsed.rows.map((row) => this.enrich(accountId, row, categories, existingFingerprints));
@@ -49,6 +53,12 @@ export class ImportsService {
   async pending(userId: string) {
     const batch = await this.prisma.importBatch.findFirst({ where: { userId, status: 'REVIEW' }, orderBy: { createdAt: 'desc' } });
     return batch ? this.get(userId, batch.id) : null;
+  }
+
+  async pendingAll(userId: string) {
+    const batches = await this.prisma.importBatch.findMany({ where: { userId, status: 'REVIEW' },
+      select: { id: true }, orderBy: { createdAt: 'desc' } });
+    return Promise.all(batches.map((batch) => this.get(userId, batch.id)));
   }
 
   async get(userId: string, batchId: string) {

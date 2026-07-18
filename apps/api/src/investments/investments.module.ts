@@ -7,5 +7,6 @@ import { CommonModule } from '../common/common.module';
   imports: [CommonModule],
   controllers: [InvestmentsController],
   providers: [InvestmentsService],
+  exports: [InvestmentsService],
 })
 export class InvestmentsModule {}
