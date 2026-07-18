@@ -107,6 +107,7 @@ model Account {
   transactions   Transaction[]
   imports        ImportBatch[]
   holdings       PortfolioHolding[]
+  statementCredential StatementCredential?
 
   @@index([userId])
 }
@@ -148,6 +149,7 @@ model StagedTransaction {
   batch          ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
   rowNumber      Int
   transactionDate DateTime
+  postedDate      DateTime?
   descriptionRaw String
   merchant       String?
   amount         BigInt
@@ -172,6 +174,7 @@ model Transaction {
   categoryId      String?
   category        Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   transactionDate DateTime
+  postedDate      DateTime?
   descriptionRaw  String
   merchant        String?
   amount          BigInt
@@ -185,6 +188,18 @@ model Transaction {
   @@index([fingerprint])
   @@index([transferGroupId])
   @@unique([accountId, fingerprint])
+}
+
+model StatementCredential {
+  id         String   @id @default(cuid())
+  accountId  String   @unique
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  ciphertext Bytes
+  iv         Bytes
+  authTag    Bytes
+  keyVersion Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 enum AssetType {
@@ -216,4 +231,3 @@ model PortfolioHolding {
   @@unique([accountId, assetId])
   @@index([accountId])
 }
-

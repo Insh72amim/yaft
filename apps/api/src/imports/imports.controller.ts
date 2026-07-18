@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Pa
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/auth.guard';
-import { UpdateStagedDto } from './imports.dto';
+import { UpdateStagedDto, UploadStatementDto } from './imports.dto';
 import { ImportsService } from './imports.service';
 
 @Controller('imports')
@@ -12,9 +12,10 @@ export class ImportsController {
 
   @Post(':accountId')
   @UseInterceptors(FileInterceptor('statement', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
-  upload(@CurrentUser() user: { id: string }, @Param('accountId') accountId: string, @UploadedFile() file: Express.Multer.File) {
+  upload(@CurrentUser() user: { id: string }, @Param('accountId') accountId: string, @UploadedFile() file: Express.Multer.File,
+    @Body() dto: UploadStatementDto) {
     if (!file) throw new BadRequestException('A statement file is required.');
-    return this.imports.create(user.id, accountId, file);
+    return this.imports.create(user.id, accountId, file, dto);
   }
 
   @Get()

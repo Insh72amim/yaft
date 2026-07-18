@@ -1,21 +1,23 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { PrismaService } from '../common/prisma.service';
+import { StatementCredentialsService } from '../common/statement-credentials.service';
 import { CreateAccountDto } from './accounts.dto';
 
 @Controller('accounts')
 @UseGuards(JwtAuthGuard)
 export class AccountsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly credentials: StatementCredentialsService) {}
 
   @Get()
   async list(@CurrentUser() user: { id: string }) {
     const accounts = await this.prisma.account.findMany({ where: { userId: user.id, archived: false },
-      orderBy: { createdAt: 'asc' }, include: { transactions: { select: { amount: true } } } });
-    return accounts.map(({ transactions, ...account }) => ({ ...account,
+      orderBy: { createdAt: 'asc' }, include: { transactions: { select: { amount: true } }, statementCredential: { select: { accountId: true } } } });
+    return accounts.map(({ transactions, statementCredential, ...account }) => ({ ...account,
       openingBalance: Number(account.openingBalance), creditLimit: account.creditLimit === null ? null : Number(account.creditLimit),
-      balance: Number(account.openingBalance) + transactions.reduce((sum, item) => sum + Number(item.amount), 0) }));
+      balance: Number(account.openingBalance) + transactions.reduce((sum, item) => sum + Number(item.amount), 0),
+      hasStatementPassword: Boolean(statementCredential) }));
   }
 
   @Post()
@@ -25,6 +27,11 @@ export class AccountsController {
       openingBalance: BigInt(dto.openingBalance ?? 0), creditLimit: dto.creditLimit === undefined ? undefined : BigInt(dto.creditLimit),
       statementDay: dto.statementDay, dueDay: dto.dueDay } });
     return { ...account, openingBalance: Number(account.openingBalance),
-      creditLimit: account.creditLimit === null ? null : Number(account.creditLimit) };
+      creditLimit: account.creditLimit === null ? null : Number(account.creditLimit), hasStatementPassword: false };
+  }
+
+  @Delete(':accountId/statement-password') @HttpCode(204)
+  async forgetStatementPassword(@CurrentUser() user: { id: string }, @Param('accountId') accountId: string) {
+    await this.credentials.forget(user.id, accountId);
   }
 }

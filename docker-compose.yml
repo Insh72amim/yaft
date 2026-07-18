@@ -18,6 +18,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-yaft}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-yaft_finance}?schema=public
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      YAFT_CREDENTIAL_ENCRYPTION_KEY: ${YAFT_CREDENTIAL_ENCRYPTION_KEY:?Set YAFT_CREDENTIAL_ENCRYPTION_KEY in .env}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       API_PORT: 4000
       NODE_ENV: production

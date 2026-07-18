@@ -1,8 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
-import { ParsedRow, parseStatement } from './statement-parser';
-import { UpdateStagedDto } from './imports.dto';
+import { StatementCredentialsService } from '../common/statement-credentials.service';
+import type { ParsedRow } from './bank-pdf-parser';
+import { UpdateStagedDto, UploadStatementDto } from './imports.dto';
+import { parseStatementWithMetadata } from './statement-parser';
 
 const categoryRules: Array<[RegExp, string]> = [
   [/salary|payroll/i, 'Salary'], [/swiggy|zomato|restaurant|cafe/i, 'Food & dining'],
@@ -13,20 +15,34 @@ const categoryRules: Array<[RegExp, string]> = [
 
 @Injectable()
 export class ImportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly credentials: StatementCredentialsService) {}
 
-  async create(userId: string, accountId: string, file: Express.Multer.File) {
+  async create(userId: string, accountId: string, file: Express.Multer.File, dto: UploadStatementDto = {}) {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId } });
     if (!account) throw new ForbiddenException('Account not found.');
-    const rows = await parseStatement(file);
     const hash = createHash('sha256').update(file.buffer).digest('hex');
     const existing = await this.prisma.importBatch.findFirst({ where: { userId, accountId, fileHash: hash, status: { not: 'CANCELLED' } } });
     if (existing) throw new BadRequestException('This exact statement was already uploaded.');
+    const isPdf = file.originalname.toLowerCase().endsWith('.pdf');
+    const explicitPassword = isPdf && dto.pdfPassword?.length ? dto.pdfPassword : undefined;
+    const savedPassword = isPdf && !explicitPassword ? await this.credentials.getPassword(userId, accountId) : undefined;
+    const parsed = await parseStatementWithMetadata(file, { institution: account.institution ?? undefined, pdfPassword: explicitPassword ?? savedPassword });
     const categories = await this.prisma.category.findMany({ where: { userId } });
     const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
-    const staged = rows.map((row) => this.enrich(accountId, row, categories, existingFingerprints));
-    const batch = await this.prisma.importBatch.create({ data: { userId, accountId, filename: file.originalname.slice(0, 200),
-      fileHash: hash, rowCount: staged.length, staged: { create: staged } } });
+    const staged = parsed.rows.map((row) => this.enrich(accountId, row, categories, existingFingerprints));
+    const encrypted = dto.rememberPassword && explicitPassword && parsed.parserId === 'SBI'
+      ? this.credentials.encrypt(accountId, explicitPassword) : undefined;
+    const batch = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.importBatch.create({ data: { userId, accountId, filename: file.originalname.slice(0, 200),
+        fileHash: hash, rowCount: staged.length, staged: { create: staged } } });
+      if (encrypted) {
+        const stored = { ciphertext: Uint8Array.from(encrypted.ciphertext), iv: Uint8Array.from(encrypted.iv),
+          authTag: Uint8Array.from(encrypted.authTag), keyVersion: encrypted.keyVersion };
+        await tx.statementCredential.upsert({ where: { accountId },
+          create: { accountId, ...stored }, update: stored });
+      }
+      return created;
+    });
     return this.get(userId, batch.id);
   }
 
@@ -66,7 +82,7 @@ export class ImportsService {
         const transferGroupId = opposite ? randomUUID() : null;
         if (opposite && transferGroupId) await tx.transaction.update({ where: { id: opposite.id }, data: { transferGroupId } });
         await tx.transaction.create({ data: { accountId: batch.accountId, importBatchId: batch.id, categoryId: row.categoryId,
-          transactionDate: row.transactionDate, descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: row.amount,
+          transactionDate: row.transactionDate, postedDate: row.postedDate, descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: row.amount,
           reference: row.reference, fingerprint: row.fingerprint, transferGroupId, userVerified: true } });
         imported += 1;
       }
@@ -85,11 +101,14 @@ export class ImportsService {
     const merchant = row.description.replace(/\b(UPI|POS|NEFT|IMPS|REF|TXN)\b/gi, ' ').replace(/[\d@/_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
     const match = categoryRules.find(([pattern]) => pattern.test(row.description));
     const categoryName = match?.[1] ?? 'Uncategorised';
-    const stableIdentity = row.reference?.toLowerCase().trim() || row.description.toLowerCase().replace(/\s+/g, ' ').trim();
-    const fingerprint = createHash('sha256').update(`${accountId}|${row.date.toISOString().slice(0, 10)}|${stableIdentity}|${row.amountMinor}`).digest('hex');
+    const stableIdentity = row.dedupeKey || row.reference?.toLowerCase().trim() || row.description.toLowerCase().replace(/\s+/g, ' ').trim();
+    const fingerprintSeed = row.postedDate || row.dedupeKey
+      ? `${accountId}|${row.date.toISOString().slice(0, 10)}|${row.postedDate?.toISOString().slice(0, 10) ?? ''}|${stableIdentity}|${row.amountMinor}`
+      : `${accountId}|${row.date.toISOString().slice(0, 10)}|${stableIdentity}|${row.amountMinor}`;
+    const fingerprint = createHash('sha256').update(fingerprintSeed).digest('hex');
     const isDuplicate = existing.has(fingerprint);
     existing.add(fingerprint);
-    return { rowNumber: row.rowNumber, transactionDate: row.date, descriptionRaw: row.description.slice(0, 500), merchant,
+    return { rowNumber: row.rowNumber, transactionDate: row.date, postedDate: row.postedDate, descriptionRaw: row.description.slice(0, 500), merchant,
       amount: BigInt(row.amountMinor), reference: row.reference?.slice(0, 100), fingerprint, isDuplicate,
       include: !isDuplicate, confidence: match ? 90 : 20, categoryId: categories.find((category) => category.name === categoryName)?.id };
   }

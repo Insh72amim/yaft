@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { parse } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
-import { parsePnbPdf } from './pnb-pdf-parser';
-import type { ParsedRow } from './bank-pdf-parser';
+import type { ParsedRow, ParseStatementOptions } from './bank-pdf-parser';
+import { parseBankPdf } from './pdf-statement-registry';
 
 export type { ParsedRow } from './bank-pdf-parser';
 type RawRow = Record<string, unknown>;
@@ -60,11 +60,13 @@ function normalize(rows: RawRow[]): ParsedRow[] {
   return parsed;
 }
 
-export async function parseStatement(file: Express.Multer.File): Promise<ParsedRow[]> {
-  if (file.originalname.toLowerCase().endsWith('.pdf')) return parsePnbPdf(file.buffer);
+export type ParsedStatement = { rows: ParsedRow[]; parserId?: 'PNB' | 'AXIS' | 'SBI' };
+
+export async function parseStatementWithMetadata(file: Express.Multer.File, _options: ParseStatementOptions = {}): Promise<ParsedStatement> {
+  if (file.originalname.toLowerCase().endsWith('.pdf')) return parseBankPdf(file.buffer, _options);
   if (file.originalname.toLowerCase().endsWith('.csv')) {
     const rows = parse(file.buffer, { columns: true, skip_empty_lines: true, bom: true, trim: true, relax_column_count: true }) as RawRow[];
-    return normalize(rows);
+    return { rows: normalize(rows) };
   }
   if (/\.xlsx?$/i.test(file.originalname)) {
     const workbook = new ExcelJS.Workbook();
@@ -80,7 +82,11 @@ export async function parseStatement(file: Express.Multer.File): Promise<ParsedR
       headers.forEach((header, column) => { if (header) record[header] = row.getCell(column).value; });
       rows.push(record);
     });
-    return normalize(rows);
+    return { rows: normalize(rows) };
   }
   throw new BadRequestException('Only CSV, XLSX, and supported bank-statement PDFs are accepted.');
+}
+
+export async function parseStatement(file: Express.Multer.File, options: ParseStatementOptions = {}): Promise<ParsedRow[]> {
+  return (await parseStatementWithMetadata(file, options)).rows;
 }
