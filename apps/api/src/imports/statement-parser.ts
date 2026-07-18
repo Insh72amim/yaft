@@ -2,8 +2,9 @@ import { BadRequestException } from '@nestjs/common';
 import { parse } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
 import { parsePnbPdf } from './pnb-pdf-parser';
+import type { ParsedRow } from './bank-pdf-parser';
 
-export type ParsedRow = { date: Date; description: string; amountMinor: number; reference: string | undefined; rowNumber: number };
+export type { ParsedRow } from './bank-pdf-parser';
 type RawRow = Record<string, unknown>;
 
 const aliases = {
@@ -44,7 +45,7 @@ function dateValue(value: unknown): Date | null {
 }
 
 function normalize(rows: RawRow[]): ParsedRow[] {
-  const parsed = rows.map((row, index) => {
+  const parsed = rows.map<ParsedRow | null>((row, index) => {
     const date = dateValue(find(row, aliases.date));
     const description = String(find(row, aliases.description) ?? '').trim();
     const direct = money(find(row, aliases.amount));

@@ -1,8 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import 'pdf-parse/worker';
 import { PDFParse, PageTableResult } from 'pdf-parse';
+import type { BankPdfParser, ParsedRow, PdfStatementDocument } from './bank-pdf-parser';
 
-export type PnbParsedRow = { date: Date; description: string; amountMinor: number; reference: string | undefined; rowNumber: number };
+export type PnbParsedRow = ParsedRow;
 type ReconciledRow = PnbParsedRow & { balanceMinor: number };
 
 const amount = (value: string) => {
@@ -60,6 +61,19 @@ export function parsePnbTables(pages: PageTableResult[]): PnbParsedRow[] {
   }
   return rows.map(({ balanceMinor: _balance, ...row }) => row);
 }
+
+export const pnbPdfParser: BankPdfParser = {
+  id: 'PNB',
+  institutionAliases: ['PNB', 'PUNJAB NATIONAL BANK'],
+  matches(document: PdfStatementDocument) {
+    return document.tablePages.some((page) => page.tables.some((table) => table.some((row) =>
+      /Transaction Date.*Withdrawal.*Deposit.*Balance.*Narration/i.test(row.join(' ').replace(/\s+/g, ' ')),
+    )));
+  },
+  parse(document: PdfStatementDocument) {
+    return parsePnbTables(document.tablePages);
+  },
+};
 
 export async function parsePnbPdf(buffer: Buffer): Promise<PnbParsedRow[]> {
   if (buffer.length < 5 || buffer.subarray(0, 5).toString() !== '%PDF-') throw new BadRequestException('The selected file is not a valid PDF.');
