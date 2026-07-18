@@ -36,7 +36,7 @@ const accountSections = [
 ];
 
 const savingsInstitutions = ['Axis Bank', 'Punjab National Bank', 'State Bank of India'];
-const stockBrokers = ['Zerodha'];
+const stockBrokers = ['Zerodha', 'Groww'];
 
 const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savings account', FIXED_DEPOSIT: 'Fixed deposit',
   CREDIT_CARD: 'Credit card', LOAN: 'Loan account', STOCKS: 'Stock account', INVESTMENT: 'Mutual fund account', EPFO: 'EPFO account', CASH: 'Cash' };

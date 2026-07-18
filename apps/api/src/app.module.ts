@@ -6,6 +6,7 @@ import { AccountsModule } from './accounts/accounts.module';
 import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common/common.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { HoldingsModule } from './holdings/holdings.module';
 import { ImportsModule } from './imports/imports.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { SalaryModule } from './salary/salary.module';
@@ -21,6 +22,7 @@ import { SalaryModule } from './salary/salary.module';
     InvestmentsModule,
     DashboardModule,
     SalaryModule,
+    HoldingsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
