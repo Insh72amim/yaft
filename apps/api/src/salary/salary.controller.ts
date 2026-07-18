@@ -1,0 +1,30 @@
+import { BadRequestException, Controller, Delete, Get, HttpCode, Param, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { SalaryService } from './salary.service';
+
+@Controller('salary-statements')
+@UseGuards(JwtAuthGuard)
+export class SalaryController {
+  constructor(private readonly salary: SalaryService) {}
+
+  @Get()
+  overview(@CurrentUser() user: { id: string }) { return this.salary.overview(user.id); }
+
+  @Get(':statementId')
+  get(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string) { return this.salary.get(user.id, statementId); }
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('payslip', { limits: { fileSize: 8 * 1024 * 1024, files: 1 } }))
+  upload(@CurrentUser() user: { id: string }, @UploadedFile() file: Express.Multer.File) {
+    if (!file || !/\.pdf$/i.test(file.originalname)) throw new BadRequestException('Choose a PDF payslip.');
+    return this.salary.upload(user.id, file);
+  }
+
+  @Post(':statementId/commit')
+  commit(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string) { return this.salary.commit(user.id, statementId); }
+
+  @Delete(':statementId') @HttpCode(204)
+  discard(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string) { return this.salary.discard(user.id, statementId); }
+}

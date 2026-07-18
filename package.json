@@ -1,0 +1,15 @@
+{
+  "name": "yaft",
+  "private": true,
+  "packageManager": "npm@10.9.2",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace @yaft/web & npm run start:dev --workspace @yaft/api",
+    "build": "npm run build --workspace @yaft/api && npm run build --workspace @yaft/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:generate": "npm run prisma:generate --workspace @yaft/api",
+    "db:migrate": "npm run prisma:migrate --workspace @yaft/api"
+  },
+  "engines": { "node": ">=20.11" }
+}

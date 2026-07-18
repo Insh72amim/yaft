@@ -1,0 +1,14 @@
+node_modules
+**/.next
+**/dist
+.git
+.env
+work
+outputs
+*.log
+uploads
+samples
+tmp
+*.pdf
+*.xlsx
+*.xls

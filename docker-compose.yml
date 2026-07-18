@@ -1,0 +1,51 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api}
+    restart: unless-stopped
+    ports: ["3000:3000"]
+    depends_on: [api]
+    networks: [private]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-yaft}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-yaft_finance}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      API_PORT: 4000
+      NODE_ENV: production
+    ports: ["4000:4000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [private]
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-yaft_finance}
+      POSTGRES_USER: ${POSTGRES_USER:-yaft}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-yaft} -d ${POSTGRES_DB:-yaft_finance}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [private]
+
+volumes:
+  postgres_data:
+
+networks:
+  private:
+    internal: false

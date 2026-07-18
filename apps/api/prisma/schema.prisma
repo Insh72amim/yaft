@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  BANK
+  SAVINGS
+  FIXED_DEPOSIT
+  CREDIT_CARD
+  CASH
+  INVESTMENT
+  STOCKS
+  LOAN
+  EPFO
+}
+
+enum ImportStatus {
+  REVIEW
+  COMMITTED
+  CANCELLED
+}
+
+enum SalaryStatus {
+  REVIEW
+  COMMITTED
+}
+
+enum SalaryItemType {
+  EARNING
+  DEDUCTION
+  EMPLOYER_CONTRIBUTION
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime      @default(now())
+  accounts     Account[]
+  categories   Category[]
+  imports      ImportBatch[]
+  salaryStatements SalaryStatement[]
+}
+
+model SalaryStatement {
+  id                    String           @id @default(cuid())
+  userId                String
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payPeriod             DateTime
+  employer              String
+  employeeName          String?
+  employeeNumberLast4   String?
+  department            String?
+  designation           String?
+  bankName              String?
+  bankAccountLast4      String?
+  uanLast4              String?
+  currency              String           @default("INR")
+  grossEarnings         BigInt
+  grossDeductions       BigInt
+  directPayment         BigInt            @default(0)
+  netPay                BigInt
+  filename              String
+  fileHash              String
+  status                SalaryStatus      @default(REVIEW)
+  createdAt             DateTime          @default(now())
+  committedAt           DateTime?
+  lineItems             SalaryLineItem[]
+
+  @@unique([userId, fileHash])
+  @@unique([userId, employer, payPeriod])
+  @@index([userId, status, payPeriod])
+}
+
+model SalaryLineItem {
+  id          String          @id @default(cuid())
+  statementId String
+  statement   SalaryStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  type        SalaryItemType
+  description String
+  currentAmount BigInt
+  ytdAmount   BigInt?
+
+  @@index([statementId, type])
+}
+
+model Account {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  type           AccountType
+  institution    String?
+  currency       String        @default("INR")
+  openingBalance BigInt        @default(0)
+  creditLimit    BigInt?
+  statementDay   Int?
+  dueDay         Int?
+  archived       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  transactions   Transaction[]
+  imports        ImportBatch[]
+  holdings       PortfolioHolding[]
+
+  @@index([userId])
+}
+
+model Category {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  color        String        @default("#64748b")
+  transactions Transaction[]
+  staged       StagedTransaction[]
+
+  @@unique([userId, name])
+}
+
+model ImportBatch {
+  id           String              @id @default(cuid())
+  userId       String
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String
+  account      Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  filename     String
+  fileHash     String
+  status       ImportStatus        @default(REVIEW)
+  rowCount     Int                 @default(0)
+  createdAt    DateTime            @default(now())
+  committedAt  DateTime?
+  staged       StagedTransaction[]
+  transactions Transaction[]
+
+  @@index([userId, status])
+  @@unique([accountId, fileHash])
+}
+
+model StagedTransaction {
+  id             String      @id @default(cuid())
+  batchId        String
+  batch          ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  rowNumber      Int
+  transactionDate DateTime
+  descriptionRaw String
+  merchant       String?
+  amount         BigInt
+  reference      String?
+  categoryId     String?
+  category       Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  fingerprint    String
+  isDuplicate    Boolean     @default(false)
+  include        Boolean     @default(true)
+  confidence     Int         @default(0)
+
+  @@unique([batchId, rowNumber])
+  @@index([fingerprint])
+}
+
+model Transaction {
+  id              String       @id @default(cuid())
+  accountId       String
+  account         Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  importBatchId   String?
+  importBatch     ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  categoryId      String?
+  category        Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transactionDate DateTime
+  descriptionRaw  String
+  merchant        String?
+  amount          BigInt
+  reference       String?
+  fingerprint     String
+  transferGroupId String?
+  userVerified    Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+
+  @@index([accountId, transactionDate])
+  @@index([fingerprint])
+  @@index([transferGroupId])
+  @@unique([accountId, fingerprint])
+}
+
+enum AssetType {
+  STOCK
+  MUTUAL_FUND
+  ETF
+  OTHER
+}
+
+model Asset {
+  id          String             @id @default(cuid())
+  symbol      String             @unique
+  name        String
+  type        AssetType
+  holdings    PortfolioHolding[]
+}
+
+model PortfolioHolding {
+  id             String   @id @default(cuid())
+  accountId      String
+  account        Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  assetId        String
+  asset          Asset    @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  quantity       Decimal
+  averagePrice   BigInt
+  currentValue   BigInt?
+  asOfDate       DateTime @default(now())
+
+  @@unique([accountId, assetId])
+  @@index([accountId])
+}
+
