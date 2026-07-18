@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -17,6 +18,16 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+
+  const config = new DocumentBuilder()
+    .setTitle('YAFT API')
+    .setDescription('Yet Another Financial Tracker API documentation')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
   await app.listen(Number(process.env.API_PORT ?? 4000), '0.0.0.0');
 }
 bootstrap();
