@@ -10,7 +10,7 @@ import { UnifiedImportUploadDto } from './unified-imports.dto';
 export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS'] as const;
 export type UnifiedImportKind = (typeof UNIFIED_IMPORT_KINDS)[number];
 export type BankImportSource = 'SBI' | 'PNB' | 'AXIS';
-export type UnifiedImportSource = BankImportSource | 'GOLDMAN_SACHS' | 'ZERODHA_KITE';
+export type UnifiedImportSource = BankImportSource | 'GOLDMAN_SACHS' | 'ZERODHA_KITE' | 'GROWW';
 
 type SourceSpec = {
   kind: UnifiedImportKind;
@@ -39,6 +39,9 @@ const SOURCE_SPECS: readonly SourceSpec[] = [
     accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'BROKER_HOLDINGS', source: 'ZERODHA_KITE', label: 'Zerodha / Kite',
     description: 'Zerodha Console holdings XLSX report.', extensions: ['.xlsx'], maxBytes: 5 * MIB,
+    accountRequired: true, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
+  { kind: 'BROKER_HOLDINGS', source: 'GROWW', label: 'Groww',
+    description: 'Groww mutual funds XLSX report.', extensions: ['.xlsx'], maxBytes: 5 * MIB,
     accountRequired: true, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
 ];
 
@@ -147,7 +150,9 @@ export class UnifiedImportsService {
         review: this.safeSalaryReview(review as SalaryReview), actions: this.salaryActions(review.id) };
     }
 
-    const result = await this.investments.importZerodhaHoldings(userId, account!.id, file);
+    const result = spec.source === 'GROWW'
+      ? await this.investments.importGrowwHoldings(userId, account!.id, file)
+      : await this.investments.importZerodhaHoldings(userId, account!.id, file);
     return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
       message: 'The fully reconciled report replaced this account’s previous holdings snapshot atomically.',
       result };
@@ -190,6 +195,9 @@ export class UnifiedImportsService {
         && bankInstitutionMatchesSource(account.institution, spec.source as BankImportSource);
     }
     if (spec.kind === 'BROKER_HOLDINGS') {
+      if (spec.source === 'GROWW') {
+        return ['INVESTMENT', 'STOCKS'].includes(account.type) && /\bgroww\b/i.test(account.institution ?? '');
+      }
       return ['INVESTMENT', 'STOCKS'].includes(account.type) && /\b(?:zerodha|kite)\b/i.test(account.institution ?? '');
     }
     return false;

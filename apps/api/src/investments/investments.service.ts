@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { parseZerodhaHoldings } from './zerodha-holdings-parser';
+import { parseGrowwHoldingsXlsx as parseGrowwHoldings } from './groww-holdings-parser';
 
 type PortfolioAccount = Prisma.AccountGetPayload<{ include: { holdings: { include: { asset: true } } } }>;
 const SNAPSHOT_TRANSACTION_ATTEMPTS = 3;
@@ -61,6 +62,53 @@ export class InvestmentsService {
               pledgedQuantity: holding.pledgedQuantity.toString(), averagePrice: BigInt(holding.averagePriceMinor),
               previousClosingPrice: BigInt(holding.previousClosingPriceMinor), currentValue: BigInt(holding.currentValueMinor),
               unrealizedPnl: BigInt(holding.unrealizedPnlMinor), asOfDate };
+            await tx.portfolioHolding.upsert({ where: { accountId_assetId: { accountId, assetId: asset.id } },
+              create: { accountId, assetId: asset.id, ...values }, update: values });
+          }
+          await tx.portfolioHolding.deleteMany({ where: { accountId, assetId: { notIn: importedAssetIds } } });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        break;
+      } catch (error) {
+        if (!isSerializableConflict(error) || attempt === SNAPSHOT_TRANSACTION_ATTEMPTS) throw error;
+      }
+    }
+
+    const portfolio = await this.getPortfolio(userId);
+    return { imported: parsed.length, account: portfolio.find((item) => item.accountId === accountId) };
+  }
+
+  async importGrowwHoldings(userId: string, accountId: string, file: Express.Multer.File) {
+    const account = await this.prisma.account.findFirst({ where: { id: accountId, userId, archived: false } });
+    if (!account) throw new ForbiddenException('Investment account not found.');
+    if (!['INVESTMENT', 'STOCKS'].includes(account.type)) {
+      throw new BadRequestException('Groww holdings can only be imported into a stock or investment account.');
+    }
+    const institution = account.institution?.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    if (institution && !institution.includes('groww')) {
+      throw new BadRequestException('The selected account belongs to a different institution.');
+    }
+
+    const parsed = await parseGrowwHoldings(file.buffer);
+    const asOfDate = new Date();
+    for (let attempt = 1; attempt <= SNAPSHOT_TRANSACTION_ATTEMPTS; attempt += 1) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          const importedAssetIds: string[] = [];
+          for (const holding of parsed) {
+            const bySymbol = await tx.asset.findUnique({ where: { symbol: holding.assetName } });
+            
+            const asset = bySymbol
+              ? await tx.asset.update({ where: { id: bySymbol.id }, data: { symbol: holding.assetName, name: holding.assetName,
+                type: holding.assetType } })
+              : await tx.asset.create({ data: { symbol: holding.assetName, name: holding.assetName,
+                type: holding.assetType } });
+            
+            importedAssetIds.push(asset.id);
+            const values = { quantity: holding.quantity.toString(), availableQuantity: holding.quantity.toString(),
+              discrepantQuantity: '0', longTermQuantity: null,
+              pledgedQuantity: '0', averagePrice: BigInt(holding.averagePriceMinor),
+              previousClosingPrice: null, currentValue: holding.currentValueMinor ? BigInt(holding.currentValueMinor) : null,
+              unrealizedPnl: holding.unrealizedPnlMinor ? BigInt(holding.unrealizedPnlMinor) : null, asOfDate };
             await tx.portfolioHolding.upsert({ where: { accountId_assetId: { accountId, assetId: asset.id } },
               create: { accountId, assetId: asset.id, ...values }, update: values });
           }
