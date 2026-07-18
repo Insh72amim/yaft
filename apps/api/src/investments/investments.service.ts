@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { parseZerodhaHoldings } from './zerodha-holdings-parser';
-import { parseGrowwHoldings } from './groww-holdings-parser';
+import { parseGrowwHoldingsXlsx as parseGrowwHoldings } from './groww-holdings-parser';
 
 type PortfolioAccount = Prisma.AccountGetPayload<{ include: { holdings: { include: { asset: true } } } }>;
 const SNAPSHOT_TRANSACTION_ATTEMPTS = 3;
@@ -88,33 +88,27 @@ export class InvestmentsService {
       throw new BadRequestException('The selected account belongs to a different institution.');
     }
 
-    const parsed = await parseGrowwHoldings(file);
+    const parsed = await parseGrowwHoldings(file.buffer);
     const asOfDate = new Date();
     for (let attempt = 1; attempt <= SNAPSHOT_TRANSACTION_ATTEMPTS; attempt += 1) {
       try {
         await this.prisma.$transaction(async (tx) => {
           const importedAssetIds: string[] = [];
           for (const holding of parsed) {
-            const bySymbol = await tx.asset.findUnique({ where: { symbol: holding.symbol } });
-            const byIsin = await tx.asset.findUnique({ where: { isin: holding.isin } });
-            if (bySymbol && byIsin && bySymbol.id !== byIsin.id) {
-              throw new BadRequestException(`The Groww symbol ${holding.symbol} conflicts with an existing asset.`);
-            }
-            if (bySymbol?.isin && bySymbol.isin !== holding.isin) {
-              throw new BadRequestException(`The Groww symbol ${holding.symbol} has a different ISIN from the existing asset.`);
-            }
-            const existing = bySymbol ?? byIsin;
-            const asset = existing
-              ? await tx.asset.update({ where: { id: existing.id }, data: { symbol: holding.symbol, name: holding.symbol,
-                type: holding.assetType, isin: holding.isin, sector: holding.sector } })
-              : await tx.asset.create({ data: { symbol: holding.symbol, name: holding.symbol,
-                type: holding.assetType, isin: holding.isin, sector: holding.sector } });
+            const bySymbol = await tx.asset.findUnique({ where: { symbol: holding.assetName } });
+            
+            const asset = bySymbol
+              ? await tx.asset.update({ where: { id: bySymbol.id }, data: { symbol: holding.assetName, name: holding.assetName,
+                type: holding.assetType } })
+              : await tx.asset.create({ data: { symbol: holding.assetName, name: holding.assetName,
+                type: holding.assetType } });
+            
             importedAssetIds.push(asset.id);
-            const values = { quantity: holding.quantity.toString(), availableQuantity: holding.availableQuantity.toString(),
-              discrepantQuantity: holding.discrepantQuantity.toString(), longTermQuantity: holding.longTermQuantity?.toString(),
-              pledgedQuantity: holding.pledgedQuantity.toString(), averagePrice: BigInt(holding.averagePriceMinor),
-              previousClosingPrice: BigInt(holding.previousClosingPriceMinor), currentValue: BigInt(holding.currentValueMinor),
-              unrealizedPnl: BigInt(holding.unrealizedPnlMinor), asOfDate };
+            const values = { quantity: holding.quantity.toString(), availableQuantity: holding.quantity.toString(),
+              discrepantQuantity: '0', longTermQuantity: null,
+              pledgedQuantity: '0', averagePrice: BigInt(holding.averagePriceMinor),
+              previousClosingPrice: null, currentValue: holding.currentValueMinor ? BigInt(holding.currentValueMinor) : null,
+              unrealizedPnl: holding.unrealizedPnlMinor ? BigInt(holding.unrealizedPnlMinor) : null, asOfDate };
             await tx.portfolioHolding.upsert({ where: { accountId_assetId: { accountId, assetId: asset.id } },
               create: { accountId, assetId: asset.id, ...values }, update: values });
           }
