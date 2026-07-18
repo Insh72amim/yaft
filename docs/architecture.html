@@ -1,0 +1,1959 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>YAFT Architecture</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;max-width:736px;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="YAFT Architecture" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;YAFT Architecture&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(--background) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: light-dark(rgb(255 255 255), rgb(24 24 24));
+  --foreground: light-dark(rgb(26 28 31), rgb(255 255 255));
+  --card: color-mix(in oklab, var(--foreground) 5%, transparent);
+  --card-foreground: var(--foreground);
+  --popover: light-dark(rgb(255 255 255), rgb(45 45 45));
+  --popover-foreground: var(--foreground);
+  --primary: light-dark(rgb(51 156 255), rgb(131 195 255));
+  --primary-foreground: light-dark(rgb(255 255 255), rgb(13 13 13));
+  --secondary: light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%));
+  --secondary-foreground: var(--foreground);
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: light-dark(
+    rgb(26 28 31 / 49.4%),
+    rgb(255 255 255 / 49.8%)
+  );
+  --accent: light-dark(rgb(229 242 255), rgb(13 39 63));
+  --accent-foreground: var(--primary);
+  --destructive: light-dark(rgb(226 85 7), rgb(255 133 73));
+  --border: light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%));
+  --input: light-dark(
+    rgb(26 28 31 / 11.8%),
+    color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+  );
+  --ring: light-dark(rgb(51 156 255), rgb(131 195 255 / 76%));
+  --font-size-base: 14px;
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --radius: 12.5px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+  --color-background-primary: var(--background);
+  --color-text-primary: var(--foreground);
+  --color-border-secondary: var(--border);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  margin: 0;
+  padding: 5px;
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--viz-font-weight-medium);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: superellipse(1.5);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: superellipse(1.5);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: superellipse(1.5);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: superellipse(1.5);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+    [aria-pressed=&quot;true&quot;],
+    [aria-selected=&quot;true&quot;],
+    .is-selected
+  ) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;yaft-architecture&quot;&gt;
+  &lt;style&gt;
+    #yaft-architecture {
+      display: grid;
+      gap: 18px;
+      color: var(--foreground);
+    }
+
+    #yaft-architecture * {
+      box-sizing: border-box;
+    }
+
+    #yaft-architecture .snapshot {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    #yaft-architecture .snapshot .card {
+      min-height: 92px;
+    }
+
+    #yaft-architecture .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #yaft-architecture .view {
+      display: grid;
+      gap: 22px;
+    }
+
+    #yaft-architecture .view[hidden] {
+      display: none;
+    }
+
+    #yaft-architecture .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    #yaft-architecture .section-heading h2,
+    #yaft-architecture .section-heading h3,
+    #yaft-architecture .section-heading p {
+      margin: 0;
+    }
+
+    #yaft-architecture .section-heading p {
+      text-align: right;
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .system-flow,
+    #yaft-architecture .deploy-flow {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1.25fr) 42px minmax(0, 1.35fr) 42px minmax(0, 1fr);
+      align-items: stretch;
+      gap: 6px;
+    }
+
+    #yaft-architecture .arch-node {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--viz-series-1) 9%, transparent);
+    }
+
+    #yaft-architecture .arch-node.web {
+      background: color-mix(in srgb, var(--viz-series-2) 9%, transparent);
+    }
+
+    #yaft-architecture .arch-node.api {
+      background: color-mix(in srgb, var(--viz-series-3) 9%, transparent);
+    }
+
+    #yaft-architecture .arch-node.data {
+      background: color-mix(in srgb, var(--viz-series-4) 9%, transparent);
+    }
+
+    #yaft-architecture .node-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 500;
+    }
+
+    #yaft-architecture .node-copy {
+      display: grid;
+      gap: 4px;
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .node-copy strong {
+      color: var(--foreground);
+      font-weight: 500;
+    }
+
+    #yaft-architecture .connector {
+      display: grid;
+      place-items: center;
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .connector span {
+      display: block;
+      width: 100%;
+      height: 1px;
+      background: var(--border);
+      position: relative;
+    }
+
+    #yaft-architecture .connector span::after {
+      content: &quot;&quot;;
+      position: absolute;
+      right: -1px;
+      top: -4px;
+      width: 8px;
+      height: 8px;
+      border-top: 1px solid var(--muted-foreground);
+      border-right: 1px solid var(--muted-foreground);
+      transform: rotate(45deg);
+    }
+
+    #yaft-architecture .module-grid,
+    #yaft-architecture .trust-grid,
+    #yaft-architecture .repo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    #yaft-architecture .module,
+    #yaft-architecture .trust-item,
+    #yaft-architecture .repo-item {
+      min-width: 0;
+      padding: 10px 0;
+      border-top: 2px solid var(--border);
+    }
+
+    #yaft-architecture .module strong,
+    #yaft-architecture .trust-item strong,
+    #yaft-architecture .repo-item strong {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    #yaft-architecture .module span,
+    #yaft-architecture .trust-item span,
+    #yaft-architecture .repo-item span {
+      display: block;
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .module code,
+    #yaft-architecture .repo-item code {
+      overflow-wrap: anywhere;
+    }
+
+    #yaft-architecture .flow-track {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 4px;
+      position: relative;
+    }
+
+    #yaft-architecture .flow-track::before {
+      content: &quot;&quot;;
+      position: absolute;
+      left: 6%;
+      right: 6%;
+      top: 15px;
+      height: 1px;
+      background: var(--border);
+      z-index: 0;
+    }
+
+    #yaft-architecture .flow-step {
+      display: grid;
+      justify-items: center;
+      gap: 7px;
+      min-width: 0;
+      border: 0;
+      background: transparent;
+      color: var(--muted-foreground);
+      cursor: pointer;
+      font: inherit;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    #yaft-architecture .flow-step span:first-child {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--input);
+      border-radius: var(--radius-full);
+      color: var(--secondary-foreground);
+      background: var(--secondary);
+      font-weight: 500;
+    }
+
+    #yaft-architecture .flow-step[aria-pressed=&quot;true&quot;] {
+      color: var(--foreground);
+    }
+
+    #yaft-architecture .flow-step[aria-pressed=&quot;true&quot;] span:first-child {
+      border-color: transparent;
+      color: var(--primary-foreground);
+      background: var(--primary);
+    }
+
+    #yaft-architecture .flow-detail {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: start;
+      gap: 12px;
+    }
+
+    #yaft-architecture .flow-detail .detail-index {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-full);
+      color: var(--primary-foreground);
+      background: var(--primary);
+      font-weight: 500;
+    }
+
+    #yaft-architecture .flow-detail h3,
+    #yaft-architecture .flow-detail p {
+      margin: 0;
+    }
+
+    #yaft-architecture .flow-detail p {
+      margin-top: 4px;
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .detail-tags {
+      margin-top: 9px;
+    }
+
+    #yaft-architecture .salary-lane {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 7px;
+      align-items: stretch;
+    }
+
+    #yaft-architecture .salary-lane div {
+      min-width: 0;
+      padding: 9px;
+      border-top: 2px solid var(--viz-series-2);
+      background: color-mix(in srgb, var(--viz-series-2) 7%, transparent);
+    }
+
+    #yaft-architecture .salary-lane strong,
+    #yaft-architecture .salary-lane span {
+      display: block;
+    }
+
+    #yaft-architecture .salary-lane strong {
+      font-weight: 500;
+    }
+
+    #yaft-architecture .salary-lane span {
+      margin-top: 4px;
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .model-map {
+      display: grid;
+      gap: 12px;
+    }
+
+    #yaft-architecture .owner-node {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border-radius: var(--radius-lg);
+      color: var(--primary-foreground);
+      background: var(--primary);
+    }
+
+    #yaft-architecture .owner-node strong {
+      font-weight: 500;
+    }
+
+    #yaft-architecture .owner-node span:last-child {
+      text-align: right;
+    }
+
+    #yaft-architecture .model-domains {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    #yaft-architecture .domain {
+      min-width: 0;
+      padding-top: 9px;
+      border-top: 3px solid var(--viz-series-1);
+    }
+
+    #yaft-architecture .domain:nth-child(2) {
+      border-color: var(--viz-series-2);
+    }
+
+    #yaft-architecture .domain:nth-child(3) {
+      border-color: var(--viz-series-3);
+    }
+
+    #yaft-architecture .domain:nth-child(4) {
+      border-color: var(--viz-series-4);
+    }
+
+    #yaft-architecture .domain h3 {
+      margin: 0 0 7px;
+    }
+
+    #yaft-architecture .entity-list {
+      display: grid;
+      gap: 5px;
+    }
+
+    #yaft-architecture .entity {
+      min-width: 0;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      background: color-mix(in srgb, var(--muted) 65%, transparent);
+    }
+
+    #yaft-architecture .entity strong,
+    #yaft-architecture .entity span {
+      display: block;
+    }
+
+    #yaft-architecture .entity strong {
+      font-weight: 500;
+    }
+
+    #yaft-architecture .entity span {
+      margin-top: 3px;
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .invariant-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 16px;
+    }
+
+    #yaft-architecture .invariant {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: start;
+      gap: 7px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #yaft-architecture .invariant strong,
+    #yaft-architecture .invariant span {
+      display: block;
+    }
+
+    #yaft-architecture .invariant strong {
+      font-weight: 500;
+    }
+
+    #yaft-architecture .invariant span {
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .trust-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #yaft-architecture .trust-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 9px;
+    }
+
+    #yaft-architecture .trust-item &gt; i {
+      color: var(--foreground);
+    }
+
+    #yaft-architecture .trust-item ul {
+      margin: 6px 0 0;
+      padding-left: 18px;
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .trust-item li + li {
+      margin-top: 3px;
+    }
+
+    #yaft-architecture .boundary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 11px 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    #yaft-architecture .boundary strong,
+    #yaft-architecture .boundary span {
+      display: block;
+    }
+
+    #yaft-architecture .boundary strong {
+      font-weight: 500;
+    }
+
+    #yaft-architecture .boundary span {
+      margin-top: 3px;
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .deferred {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding-top: 9px;
+      border-top: 1px dashed var(--border);
+      color: var(--muted-foreground);
+    }
+
+    #yaft-architecture .table code {
+      white-space: nowrap;
+    }
+
+    @media (max-width: 640px) {
+      #yaft-architecture .snapshot,
+      #yaft-architecture .module-grid,
+      #yaft-architecture .repo-grid,
+      #yaft-architecture .trust-grid,
+      #yaft-architecture .invariant-list {
+        grid-template-columns: 1fr;
+      }
+
+      #yaft-architecture .system-flow,
+      #yaft-architecture .deploy-flow {
+        grid-template-columns: 1fr;
+      }
+
+      #yaft-architecture .connector {
+        min-height: 24px;
+      }
+
+      #yaft-architecture .connector span {
+        width: 1px;
+        height: 24px;
+      }
+
+      #yaft-architecture .connector span::after {
+        right: -4px;
+        top: auto;
+        bottom: -1px;
+        transform: rotate(135deg);
+      }
+
+      #yaft-architecture .model-domains {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      #yaft-architecture .salary-lane {
+        grid-template-columns: 1fr;
+      }
+
+      #yaft-architecture .flow-track {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      #yaft-architecture .flow-track::before {
+        display: none;
+      }
+
+      #yaft-architecture .section-heading {
+        align-items: start;
+        flex-direction: column;
+      }
+
+      #yaft-architecture .section-heading p {
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 410px) {
+      #yaft-architecture .model-domains,
+      #yaft-architecture .flow-track {
+        grid-template-columns: 1fr;
+      }
+
+      #yaft-architecture .flow-step {
+        grid-template-columns: auto minmax(0, 1fr);
+        justify-items: start;
+        align-items: center;
+        text-align: left;
+      }
+
+      #yaft-architecture .owner-node {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+
+      #yaft-architecture .owner-node span:last-child {
+        grid-column: 1 / -1;
+        text-align: left;
+      }
+
+      #yaft-architecture .boundary {
+        grid-template-columns: 1fr;
+      }
+    }
+  &lt;/style&gt;
+
+  &lt;section class=&quot;viz-grid snapshot&quot; aria-label=&quot;Architecture snapshot&quot;&gt;
+    &lt;article class=&quot;card viz-stat&quot;&gt;
+      &lt;span class=&quot;text-muted&quot;&gt;System shape&lt;/span&gt;
+      &lt;span class=&quot;viz-stat-value&quot;&gt;2 apps + DB&lt;/span&gt;
+      &lt;span class=&quot;text-small&quot;&gt;Next.js · NestJS · PostgreSQL&lt;/span&gt;
+    &lt;/article&gt;
+    &lt;article class=&quot;card viz-stat&quot;&gt;
+      &lt;span class=&quot;text-muted&quot;&gt;Ledger unit&lt;/span&gt;
+      &lt;span class=&quot;viz-stat-value&quot;&gt;Signed paise&lt;/span&gt;
+      &lt;span class=&quot;text-small&quot;&gt;BigInt storage; no floating-point money&lt;/span&gt;
+    &lt;/article&gt;
+    &lt;article class=&quot;card viz-stat&quot;&gt;
+      &lt;span class=&quot;text-muted&quot;&gt;Runtime model&lt;/span&gt;
+      &lt;span class=&quot;viz-stat-value&quot;&gt;Synchronous&lt;/span&gt;
+      &lt;span class=&quot;text-small&quot;&gt;In-memory parsing; queue intentionally deferred&lt;/span&gt;
+    &lt;/article&gt;
+  &lt;/section&gt;
+
+  &lt;nav class=&quot;tabs&quot; aria-label=&quot;Architecture views&quot; role=&quot;tablist&quot;&gt;
+    &lt;button class=&quot;btn btn-primary&quot; type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;true&quot; aria-controls=&quot;yaft-view-system&quot; data-view=&quot;system&quot;&gt;&lt;i data-lucide=&quot;network&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;System&lt;/button&gt;
+    &lt;button class=&quot;btn&quot; type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;false&quot; aria-controls=&quot;yaft-view-import&quot; data-view=&quot;import&quot;&gt;&lt;i data-lucide=&quot;workflow&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Import paths&lt;/button&gt;
+    &lt;button class=&quot;btn&quot; type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;false&quot; aria-controls=&quot;yaft-view-data&quot; data-view=&quot;data&quot;&gt;&lt;i data-lucide=&quot;database&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Data model&lt;/button&gt;
+    &lt;button class=&quot;btn&quot; type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;false&quot; aria-controls=&quot;yaft-view-trust&quot; data-view=&quot;trust&quot;&gt;&lt;i data-lucide=&quot;shield-check&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Trust &amp;amp; deployment&lt;/button&gt;
+  &lt;/nav&gt;
+
+  &lt;section id=&quot;yaft-view-system&quot; class=&quot;view&quot; role=&quot;tabpanel&quot; data-panel=&quot;system&quot;&gt;
+    &lt;section aria-labelledby=&quot;system-context-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;system-context-heading&quot;&gt;System context&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;Self-hosted · single owner · browser-facing web tier&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;system-flow&quot; role=&quot;img&quot; aria-label=&quot;The browser talks to Next.js, which proxies API calls to NestJS. NestJS uses Prisma to read and write PostgreSQL.&quot;&gt;
+        &lt;div class=&quot;arch-node&quot;&gt;
+          &lt;div class=&quot;node-title&quot;&gt;&lt;i data-lucide=&quot;monitor-smartphone&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Owner browser&lt;/div&gt;
+          &lt;div class=&quot;node-copy text-small&quot;&gt;&lt;strong&gt;Responsive application&lt;/strong&gt;&lt;span&gt;Strict session cookie travels on same-origin requests&lt;/span&gt;&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;connector&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;arch-node web&quot;&gt;
+          &lt;div class=&quot;node-title&quot;&gt;&lt;i data-lucide=&quot;panels-top-left&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Next.js web&lt;/div&gt;
+          &lt;div class=&quot;node-copy text-small&quot;&gt;&lt;strong&gt;Port 3000&lt;/strong&gt;&lt;span&gt;React 19 UI · App Router · &lt;code&gt;/api&lt;/code&gt; rewrite&lt;/span&gt;&lt;code&gt;apps/web&lt;/code&gt;&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;connector&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;arch-node api&quot;&gt;
+          &lt;div class=&quot;node-title&quot;&gt;&lt;i data-lucide=&quot;boxes&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;NestJS API&lt;/div&gt;
+          &lt;div class=&quot;node-copy text-small&quot;&gt;&lt;strong&gt;Port 4000 · prefix /api&lt;/strong&gt;&lt;span&gt;Guarded owner-scoped modules · validation · throttling&lt;/span&gt;&lt;code&gt;apps/api/src&lt;/code&gt;&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;connector&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;arch-node data&quot;&gt;
+          &lt;div class=&quot;node-title&quot;&gt;&lt;i data-lucide=&quot;database&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;PostgreSQL 17&lt;/div&gt;
+          &lt;div class=&quot;node-copy text-small&quot;&gt;&lt;strong&gt;Prisma 6&lt;/strong&gt;&lt;span&gt;Durable ledger, review state, payroll and holdings&lt;/span&gt;&lt;code&gt;apps/api/prisma&lt;/code&gt;&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+
+    &lt;section aria-labelledby=&quot;api-components-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;api-components-heading&quot;&gt;API components&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;One Nest application; shared Prisma and credential services&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;module-grid&quot;&gt;
+        &lt;div class=&quot;module&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;key-round&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Auth&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Single-owner registration, Argon2id login, JWT cookie session&lt;/span&gt;&lt;code class=&quot;text-small&quot;&gt;/api/auth/*&lt;/code&gt;&lt;/div&gt;
+        &lt;div class=&quot;module&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;landmark&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Accounts&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Account metadata, opening balances and saved-password deletion&lt;/span&gt;&lt;code class=&quot;text-small&quot;&gt;/api/accounts&lt;/code&gt;&lt;/div&gt;
+        &lt;div class=&quot;module&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;file-input&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Imports&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;CSV/XLSX/PDF parsing, review staging, dedupe and commit&lt;/span&gt;&lt;code class=&quot;text-small&quot;&gt;/api/imports&lt;/code&gt;&lt;/div&gt;
+        &lt;div class=&quot;module&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;layout-dashboard&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Dashboard&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Monthly totals, account balances, categories and activity&lt;/span&gt;&lt;code class=&quot;text-small&quot;&gt;/api/dashboard&lt;/code&gt;&lt;/div&gt;
+        &lt;div class=&quot;module&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;badge-indian-rupee&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Salary&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Payslip review, cumulative payroll and protected identifiers&lt;/span&gt;&lt;code class=&quot;text-small&quot;&gt;/api/salary-statements&lt;/code&gt;&lt;/div&gt;
+        &lt;div class=&quot;module&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;chart-no-axes-combined&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Investments&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Owner-scoped accounts, assets and portfolio holdings&lt;/span&gt;&lt;code class=&quot;text-small&quot;&gt;/api/investments/portfolio&lt;/code&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+
+    &lt;section aria-labelledby=&quot;surface-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;surface-heading&quot;&gt;Application surfaces&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;Same-origin browser API calls via the web proxy&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;table-responsive&quot;&gt;
+        &lt;table class=&quot;table table-sm&quot;&gt;
+          &lt;thead&gt;&lt;tr&gt;&lt;th&gt;Web route&lt;/th&gt;&lt;th&gt;Primary role&lt;/th&gt;&lt;th&gt;API dependency&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+          &lt;tbody&gt;
+            &lt;tr&gt;&lt;td&gt;&lt;code&gt;/login&lt;/code&gt; · &lt;code&gt;/register&lt;/code&gt;&lt;/td&gt;&lt;td&gt;Claim instance and establish session&lt;/td&gt;&lt;td&gt;&lt;code&gt;auth&lt;/code&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;&lt;code&gt;/dashboard&lt;/code&gt;&lt;/td&gt;&lt;td&gt;Monthly picture and account management&lt;/td&gt;&lt;td&gt;&lt;code&gt;dashboard&lt;/code&gt; · &lt;code&gt;accounts&lt;/code&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;&lt;code&gt;/import&lt;/code&gt;&lt;/td&gt;&lt;td&gt;Upload, review and approve statement rows&lt;/td&gt;&lt;td&gt;&lt;code&gt;imports&lt;/code&gt; · &lt;code&gt;accounts&lt;/code&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;&lt;code&gt;/salary&lt;/code&gt;&lt;/td&gt;&lt;td&gt;Review payslips and inspect payroll history&lt;/td&gt;&lt;td&gt;&lt;code&gt;salary-statements&lt;/code&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;&lt;code&gt;/dashboard/investments&lt;/code&gt;&lt;/td&gt;&lt;td&gt;Portfolio holdings view&lt;/td&gt;&lt;td&gt;&lt;code&gt;investments&lt;/code&gt;&lt;/td&gt;&lt;/tr&gt;
+          &lt;/tbody&gt;
+        &lt;/table&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+  &lt;/section&gt;
+
+  &lt;section id=&quot;yaft-view-import&quot; class=&quot;view&quot; role=&quot;tabpanel&quot; data-panel=&quot;import&quot; hidden&gt;
+    &lt;section aria-labelledby=&quot;bank-flow-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;bank-flow-heading&quot;&gt;Bank statement path&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;No row reaches the ledger before review and approval&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;flow-track&quot; aria-label=&quot;Seven-stage bank statement import flow&quot;&gt;
+        &lt;button class=&quot;flow-step&quot; type=&quot;button&quot; aria-pressed=&quot;true&quot; data-step=&quot;0&quot;&gt;&lt;span&gt;1&lt;/span&gt;&lt;span class=&quot;text-small&quot;&gt;Receive&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;flow-step&quot; type=&quot;button&quot; aria-pressed=&quot;false&quot; data-step=&quot;1&quot;&gt;&lt;span&gt;2&lt;/span&gt;&lt;span class=&quot;text-small&quot;&gt;Deduplicate&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;flow-step&quot; type=&quot;button&quot; aria-pressed=&quot;false&quot; data-step=&quot;2&quot;&gt;&lt;span&gt;3&lt;/span&gt;&lt;span class=&quot;text-small&quot;&gt;Parse&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;flow-step&quot; type=&quot;button&quot; aria-pressed=&quot;false&quot; data-step=&quot;3&quot;&gt;&lt;span&gt;4&lt;/span&gt;&lt;span class=&quot;text-small&quot;&gt;Reconcile&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;flow-step&quot; type=&quot;button&quot; aria-pressed=&quot;false&quot; data-step=&quot;4&quot;&gt;&lt;span&gt;5&lt;/span&gt;&lt;span class=&quot;text-small&quot;&gt;Stage&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;flow-step&quot; type=&quot;button&quot; aria-pressed=&quot;false&quot; data-step=&quot;5&quot;&gt;&lt;span&gt;6&lt;/span&gt;&lt;span class=&quot;text-small&quot;&gt;Review&lt;/span&gt;&lt;/button&gt;
+        &lt;button class=&quot;flow-step&quot; type=&quot;button&quot; aria-pressed=&quot;false&quot; data-step=&quot;6&quot;&gt;&lt;span&gt;7&lt;/span&gt;&lt;span class=&quot;text-small&quot;&gt;Commit&lt;/span&gt;&lt;/button&gt;
+      &lt;/div&gt;
+      &lt;article class=&quot;card flow-detail&quot; aria-live=&quot;polite&quot;&gt;
+        &lt;span class=&quot;detail-index&quot; id=&quot;flow-detail-index&quot;&gt;1&lt;/span&gt;
+        &lt;div&gt;
+          &lt;h3 id=&quot;flow-detail-title&quot;&gt;Receive in memory&lt;/h3&gt;
+          &lt;p id=&quot;flow-detail-copy&quot;&gt;The API accepts one CSV, XLSX or PDF statement up to 5 MB. The original upload is not written to storage.&lt;/p&gt;
+          &lt;div class=&quot;viz-row detail-tags&quot; id=&quot;flow-detail-tags&quot;&gt;&lt;span class=&quot;viz-badge&quot;&gt;Multer memory&lt;/span&gt;&lt;span class=&quot;viz-badge&quot;&gt;Owner account check&lt;/span&gt;&lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/article&gt;
+    &lt;/section&gt;
+
+    &lt;section aria-labelledby=&quot;parser-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;parser-heading&quot;&gt;Parser boundary&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;Structured files are normalised; bank PDFs are verified fail-closed&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;module-grid&quot;&gt;
+        &lt;div class=&quot;module&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;sheet&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;CSV / XLSX&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Header aliases map dates, descriptions, signed amounts or debit/credit columns to a common row contract.&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;module&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;files&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;PDF registry&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Account institution narrows selection; otherwise exactly one parser must recognise the document.&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;module&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;badge-check&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Bank adapters&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Axis, PNB and SBI layouts validate running balances and printed totals before returning rows.&lt;/span&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+
+    &lt;section aria-labelledby=&quot;salary-flow-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;salary-flow-heading&quot;&gt;Salary statement path&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;Separate review aggregate; no raw PDF text retained&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;salary-lane&quot; role=&quot;img&quot; aria-label=&quot;Salary PDF is parsed in memory, checked for duplicates, staged as a salary statement with line items, reviewed, and then committed.&quot;&gt;
+        &lt;div&gt;&lt;strong&gt;1 · Upload&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;One PDF · 8 MB limit&lt;/span&gt;&lt;/div&gt;
+        &lt;div&gt;&lt;strong&gt;2 · Parse&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Payroll totals and line items&lt;/span&gt;&lt;/div&gt;
+        &lt;div&gt;&lt;strong&gt;3 · Protect&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Only selected last-four identifiers&lt;/span&gt;&lt;/div&gt;
+        &lt;div&gt;&lt;strong&gt;4 · Review&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Status remains REVIEW&lt;/span&gt;&lt;/div&gt;
+        &lt;div&gt;&lt;strong&gt;5 · Commit&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Payroll history updates&lt;/span&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+  &lt;/section&gt;
+
+  &lt;section id=&quot;yaft-view-data&quot; class=&quot;view&quot; role=&quot;tabpanel&quot; data-panel=&quot;data&quot; hidden&gt;
+    &lt;section aria-labelledby=&quot;aggregate-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;aggregate-heading&quot;&gt;Owner-scoped aggregates&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;PostgreSQL schema · cascade rules preserve ownership boundaries&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;model-map&quot;&gt;
+        &lt;div class=&quot;owner-node&quot;&gt;&lt;i data-lucide=&quot;user-round&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;strong&gt;User&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Unique email · single registered owner&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;model-domains&quot;&gt;
+          &lt;section class=&quot;domain&quot; aria-label=&quot;Ledger domain&quot;&gt;
+            &lt;h3&gt;Ledger&lt;/h3&gt;
+            &lt;div class=&quot;entity-list&quot;&gt;
+              &lt;div class=&quot;entity&quot;&gt;&lt;strong&gt;Account&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;type · opening balance · credit metadata&lt;/span&gt;&lt;/div&gt;
+              &lt;div class=&quot;entity&quot;&gt;&lt;strong&gt;Transaction&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;signed amount · fingerprint · transfer group&lt;/span&gt;&lt;/div&gt;
+              &lt;div class=&quot;entity&quot;&gt;&lt;strong&gt;Category&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;owner-unique name · optional relation&lt;/span&gt;&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/section&gt;
+          &lt;section class=&quot;domain&quot; aria-label=&quot;Import domain&quot;&gt;
+            &lt;h3&gt;Imports&lt;/h3&gt;
+            &lt;div class=&quot;entity-list&quot;&gt;
+              &lt;div class=&quot;entity&quot;&gt;&lt;strong&gt;ImportBatch&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;file hash · account · status&lt;/span&gt;&lt;/div&gt;
+              &lt;div class=&quot;entity&quot;&gt;&lt;strong&gt;StagedTransaction&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;include flag · confidence · duplicate state&lt;/span&gt;&lt;/div&gt;
+              &lt;div class=&quot;entity&quot;&gt;&lt;strong&gt;StatementCredential&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;encrypted bytes · one per account&lt;/span&gt;&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/section&gt;
+          &lt;section class=&quot;domain&quot; aria-label=&quot;Payroll domain&quot;&gt;
+            &lt;h3&gt;Payroll&lt;/h3&gt;
+            &lt;div class=&quot;entity-list&quot;&gt;
+              &lt;div class=&quot;entity&quot;&gt;&lt;strong&gt;SalaryStatement&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;period · totals · review status&lt;/span&gt;&lt;/div&gt;
+              &lt;div class=&quot;entity&quot;&gt;&lt;strong&gt;SalaryLineItem&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;earning · deduction · employer contribution&lt;/span&gt;&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/section&gt;
+          &lt;section class=&quot;domain&quot; aria-label=&quot;Portfolio domain&quot;&gt;
+            &lt;h3&gt;Portfolio&lt;/h3&gt;
+            &lt;div class=&quot;entity-list&quot;&gt;
+              &lt;div class=&quot;entity&quot;&gt;&lt;strong&gt;Asset&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;symbol · name · asset type&lt;/span&gt;&lt;/div&gt;
+              &lt;div class=&quot;entity&quot;&gt;&lt;strong&gt;PortfolioHolding&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;quantity · cost · value · as-of date&lt;/span&gt;&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/section&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+
+    &lt;section aria-labelledby=&quot;relations-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;relations-heading&quot;&gt;Core relationships&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;Cardinality shown from parent to child&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;table-responsive&quot;&gt;
+        &lt;table class=&quot;table table-sm&quot;&gt;
+          &lt;thead&gt;&lt;tr&gt;&lt;th&gt;Parent&lt;/th&gt;&lt;th&gt;Relationship&lt;/th&gt;&lt;th&gt;Child&lt;/th&gt;&lt;th&gt;Deletion&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+          &lt;tbody&gt;
+            &lt;tr&gt;&lt;td&gt;User&lt;/td&gt;&lt;td&gt;1 → many&lt;/td&gt;&lt;td&gt;Account · Category · ImportBatch · SalaryStatement&lt;/td&gt;&lt;td&gt;Cascade&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;Account&lt;/td&gt;&lt;td&gt;1 → many&lt;/td&gt;&lt;td&gt;Transaction · ImportBatch · PortfolioHolding&lt;/td&gt;&lt;td&gt;Cascade&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;Account&lt;/td&gt;&lt;td&gt;1 → 0..1&lt;/td&gt;&lt;td&gt;StatementCredential&lt;/td&gt;&lt;td&gt;Cascade&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;ImportBatch&lt;/td&gt;&lt;td&gt;1 → many&lt;/td&gt;&lt;td&gt;StagedTransaction&lt;/td&gt;&lt;td&gt;Cascade&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;ImportBatch&lt;/td&gt;&lt;td&gt;1 → many&lt;/td&gt;&lt;td&gt;Transaction&lt;/td&gt;&lt;td&gt;Set null&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;SalaryStatement&lt;/td&gt;&lt;td&gt;1 → many&lt;/td&gt;&lt;td&gt;SalaryLineItem&lt;/td&gt;&lt;td&gt;Cascade&lt;/td&gt;&lt;/tr&gt;
+            &lt;tr&gt;&lt;td&gt;Asset&lt;/td&gt;&lt;td&gt;1 → many&lt;/td&gt;&lt;td&gt;PortfolioHolding&lt;/td&gt;&lt;td&gt;Restrict&lt;/td&gt;&lt;/tr&gt;
+          &lt;/tbody&gt;
+        &lt;/table&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+
+    &lt;section aria-labelledby=&quot;invariants-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;invariants-heading&quot;&gt;Database invariants&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;Constraints carry correctness beyond application code&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;invariant-list&quot;&gt;
+        &lt;div class=&quot;invariant&quot;&gt;&lt;i data-lucide=&quot;circle-equal&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;div&gt;&lt;strong&gt;Exact file uniqueness&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;&lt;code&gt;Account + fileHash&lt;/code&gt; for imports; &lt;code&gt;User + fileHash&lt;/code&gt; for salary&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;invariant&quot;&gt;&lt;i data-lucide=&quot;fingerprint&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;div&gt;&lt;strong&gt;Ledger uniqueness&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;&lt;code&gt;Account + fingerprint&lt;/code&gt; blocks a duplicate committed transaction&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;invariant&quot;&gt;&lt;i data-lucide=&quot;calendar-check&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;div&gt;&lt;strong&gt;Payroll period uniqueness&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;&lt;code&gt;User + employer + payPeriod&lt;/code&gt; prevents accidental replacement&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;invariant&quot;&gt;&lt;i data-lucide=&quot;layers-3&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;div&gt;&lt;strong&gt;One holding per asset&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;&lt;code&gt;Account + asset&lt;/code&gt; identifies the portfolio position&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;invariant&quot;&gt;&lt;i data-lucide=&quot;key-square&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;div&gt;&lt;strong&gt;One vault record per account&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Statement credential has a unique account relationship&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;invariant&quot;&gt;&lt;i data-lucide=&quot;binary&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;div&gt;&lt;strong&gt;Minor-unit arithmetic&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;Financial amounts are integer &lt;code&gt;BigInt&lt;/code&gt;; portfolio quantity alone is decimal&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+  &lt;/section&gt;
+
+  &lt;section id=&quot;yaft-view-trust&quot; class=&quot;view&quot; role=&quot;tabpanel&quot; data-panel=&quot;trust&quot; hidden&gt;
+    &lt;section aria-labelledby=&quot;trust-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;trust-heading&quot;&gt;Trust boundaries&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;Private records remain within the owner-controlled deployment&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;trust-grid&quot;&gt;
+        &lt;div class=&quot;trust-item&quot;&gt;&lt;i data-lucide=&quot;cookie&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;div&gt;&lt;strong&gt;Session boundary&lt;/strong&gt;&lt;ul class=&quot;text-small&quot;&gt;&lt;li&gt;Argon2id password hashes&lt;/li&gt;&lt;li&gt;HTTP-only · SameSite Strict · seven-day cookie&lt;/li&gt;&lt;li&gt;JWT guard on owner data endpoints&lt;/li&gt;&lt;li&gt;Registration and login throttles&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;trust-item&quot;&gt;&lt;i data-lucide=&quot;file-lock-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;div&gt;&lt;strong&gt;Document boundary&lt;/strong&gt;&lt;ul class=&quot;text-small&quot;&gt;&lt;li&gt;Uploads parsed from request memory&lt;/li&gt;&lt;li&gt;No original statement or raw PDF text retained&lt;/li&gt;&lt;li&gt;5 MB bank and 8 MB salary limits&lt;/li&gt;&lt;li&gt;Unknown or unreconciled layouts fail closed&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;trust-item&quot;&gt;&lt;i data-lucide=&quot;vault&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;div&gt;&lt;strong&gt;Credential boundary&lt;/strong&gt;&lt;ul class=&quot;text-small&quot;&gt;&lt;li&gt;Document-opening passwords only&lt;/li&gt;&lt;li&gt;AES-256-GCM with dedicated encryption key&lt;/li&gt;&lt;li&gt;Account ID bound as authenticated data&lt;/li&gt;&lt;li&gt;Plaintext and encrypted internals never returned&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;trust-item&quot;&gt;&lt;i data-lucide=&quot;list-checks&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;div&gt;&lt;strong&gt;Ledger boundary&lt;/strong&gt;&lt;ul class=&quot;text-small&quot;&gt;&lt;li&gt;Staged review before commit&lt;/li&gt;&lt;li&gt;File hash and row fingerprint dedupe&lt;/li&gt;&lt;li&gt;Atomic commit transaction&lt;/li&gt;&lt;li&gt;Transfer pairs excluded from income and spend&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+
+    &lt;section aria-labelledby=&quot;deployment-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;deployment-heading&quot;&gt;Container deployment&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;Docker Compose · local volume · owner-supplied secrets&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;deploy-flow&quot; role=&quot;img&quot; aria-label=&quot;Browser accesses the web container on port 3000. The web container calls the API container on port 4000. The API connects to PostgreSQL, which stores data in a Docker volume.&quot;&gt;
+        &lt;div class=&quot;arch-node&quot;&gt;&lt;div class=&quot;node-title&quot;&gt;&lt;i data-lucide=&quot;laptop&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Browser&lt;/div&gt;&lt;div class=&quot;node-copy text-small&quot;&gt;&lt;strong&gt;Host port 3000&lt;/strong&gt;&lt;span&gt;Public entry within private access policy&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;connector&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;arch-node web&quot;&gt;&lt;div class=&quot;node-title&quot;&gt;&lt;i data-lucide=&quot;container&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;web container&lt;/div&gt;&lt;div class=&quot;node-copy text-small&quot;&gt;&lt;strong&gt;Next.js production server&lt;/strong&gt;&lt;span&gt;Proxies internal API origin&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;connector&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;arch-node api&quot;&gt;&lt;div class=&quot;node-title&quot;&gt;&lt;i data-lucide=&quot;container&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;api container&lt;/div&gt;&lt;div class=&quot;node-copy text-small&quot;&gt;&lt;strong&gt;NestJS + migrations&lt;/strong&gt;&lt;span&gt;Receives JWT, database and encryption configuration&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;connector&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;arch-node data&quot;&gt;&lt;div class=&quot;node-title&quot;&gt;&lt;i data-lucide=&quot;hard-drive&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;postgres_data&lt;/div&gt;&lt;div class=&quot;node-copy text-small&quot;&gt;&lt;strong&gt;PostgreSQL volume&lt;/strong&gt;&lt;span&gt;Database is not published by Compose&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;boundary&quot;&gt;
+        &lt;div&gt;&lt;strong&gt;Required runtime configuration&lt;/strong&gt;&lt;span class=&quot;text-small&quot;&gt;&lt;code&gt;DATABASE_URL&lt;/code&gt; · &lt;code&gt;JWT_SECRET&lt;/code&gt; · &lt;code&gt;YAFT_CREDENTIAL_ENCRYPTION_KEY&lt;/code&gt; · &lt;code&gt;WEB_ORIGIN&lt;/code&gt;&lt;/span&gt;&lt;/div&gt;
+        &lt;span class=&quot;viz-badge&quot;&gt;Never committed&lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/section&gt;
+
+    &lt;section aria-labelledby=&quot;repo-heading&quot;&gt;
+      &lt;div class=&quot;section-heading&quot;&gt;
+        &lt;h2 id=&quot;repo-heading&quot;&gt;Build and ownership map&lt;/h2&gt;
+        &lt;p class=&quot;text-small&quot;&gt;npm workspace monorepo · Node.js 22 container images&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;repo-grid&quot;&gt;
+        &lt;div class=&quot;repo-item&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;panels-top-left&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Web application&lt;/strong&gt;&lt;code class=&quot;text-small&quot;&gt;apps/web&lt;/code&gt;&lt;span class=&quot;text-small&quot;&gt;Next.js build → production server&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;repo-item&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;boxes&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;API application&lt;/strong&gt;&lt;code class=&quot;text-small&quot;&gt;apps/api&lt;/code&gt;&lt;span class=&quot;text-small&quot;&gt;Nest build → Prisma migrate deploy → Node&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;repo-item&quot;&gt;&lt;strong&gt;&lt;i data-lucide=&quot;ship-wheel&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;Orchestration&lt;/strong&gt;&lt;code class=&quot;text-small&quot;&gt;docker-compose.yml&lt;/code&gt;&lt;span class=&quot;text-small&quot;&gt;web · api · postgres · named volume&lt;/span&gt;&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;deferred&quot;&gt;&lt;i data-lucide=&quot;pause-circle&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span class=&quot;text-small&quot;&gt;&lt;strong&gt;Deliberately absent:&lt;/strong&gt; Redis/BullMQ. Add a queue when extraction, email ingestion or price sync becomes slow or asynchronous.&lt;/span&gt;&lt;/div&gt;
+    &lt;/section&gt;
+  &lt;/section&gt;
+
+  &lt;footer class=&quot;viz-row text-small text-muted&quot; aria-label=&quot;Document provenance&quot;&gt;
+    &lt;span&gt;Architecture snapshot: 18 July 2026&lt;/span&gt;
+    &lt;span&gt;·&lt;/span&gt;
+    &lt;span&gt;Derived from the YAFT repository&lt;/span&gt;
+    &lt;span&gt;·&lt;/span&gt;
+    &lt;span&gt;No private statement data included&lt;/span&gt;
+  &lt;/footer&gt;
+
+  &lt;script&gt;
+    (() =&gt; {
+      const root = document.getElementById(&#x27;yaft-architecture&#x27;);
+      if (!root) return;
+
+      const tabs = Array.from(root.querySelectorAll(&#x27;[data-view]&#x27;));
+      const panels = Array.from(root.querySelectorAll(&#x27;[data-panel]&#x27;));
+
+      tabs.forEach((tab) =&gt; {
+        tab.addEventListener(&#x27;click&#x27;, () =&gt; {
+          const selected = tab.getAttribute(&#x27;data-view&#x27;);
+          tabs.forEach((item) =&gt; {
+            const active = item === tab;
+            item.setAttribute(&#x27;aria-selected&#x27;, String(active));
+            item.classList.toggle(&#x27;btn-primary&#x27;, active);
+          });
+          panels.forEach((panel) =&gt; {
+            panel.hidden = panel.getAttribute(&#x27;data-panel&#x27;) !== selected;
+          });
+        });
+      });
+
+      const flowDetails = [
+        {
+          title: &#x27;Receive in memory&#x27;,
+          copy: &#x27;The API accepts one CSV, XLSX or PDF statement up to 5 MB. The original upload is not written to storage.&#x27;,
+          tags: [&#x27;Multer memory&#x27;, &#x27;Owner account check&#x27;]
+        },
+        {
+          title: &#x27;Reject an exact repeat&#x27;,
+          copy: &#x27;A SHA-256 hash of the uploaded bytes is checked against active imports for the destination account before parsing begins.&#x27;,
+          tags: [&#x27;SHA-256&#x27;, &#x27;Account + file hash&#x27;]
+        },
+        {
+          title: &#x27;Select and parse safely&#x27;,
+          copy: &#x27;CSV and XLSX rows use a common normaliser. PDFs must match the selected bank or exactly one registered Axis, PNB or SBI adapter.&#x27;,
+          tags: [&#x27;Shared row contract&#x27;, &#x27;Fail-closed registry&#x27;]
+        },
+        {
+          title: &#x27;Reconcile the statement&#x27;,
+          copy: &#x27;Bank adapters validate every running balance and the printed debit, credit and closing totals. Any ambiguity rejects the whole document.&#x27;,
+          tags: [&#x27;Signed minor units&#x27;, &#x27;No partial rows&#x27;]
+        },
+        {
+          title: &#x27;Create the review batch&#x27;,
+          copy: &#x27;Merchant cleanup, deterministic category suggestions and fingerprint checks enrich rows before they become StagedTransaction records.&#x27;,
+          tags: [&#x27;ImportBatch: REVIEW&#x27;, &#x27;Duplicate flags&#x27;]
+        },
+        {
+          title: &#x27;Let the owner decide&#x27;,
+          copy: &#x27;The review UI exposes dates, descriptions, suggestions, confidence and duplicates. Rows can be excluded or recategorised.&#x27;,
+          tags: [&#x27;Human approval&#x27;, &#x27;Editable categories&#x27;]
+        },
+        {
+          title: &#x27;Commit atomically&#x27;,
+          copy: &#x27;Included non-duplicates become ledger transactions in one database transaction. Opposite movements across accounts within three days are linked as transfers.&#x27;,
+          tags: [&#x27;Unique fingerprint&#x27;, &#x27;Transfer matching&#x27;]
+        }
+      ];
+
+      const stepButtons = Array.from(root.querySelectorAll(&#x27;[data-step]&#x27;));
+      const detailIndex = root.querySelector(&#x27;#flow-detail-index&#x27;);
+      const detailTitle = root.querySelector(&#x27;#flow-detail-title&#x27;);
+      const detailCopy = root.querySelector(&#x27;#flow-detail-copy&#x27;);
+      const detailTags = root.querySelector(&#x27;#flow-detail-tags&#x27;);
+
+      stepButtons.forEach((button) =&gt; {
+        button.addEventListener(&#x27;click&#x27;, () =&gt; {
+          const index = Number(button.getAttribute(&#x27;data-step&#x27;));
+          const detail = flowDetails[index];
+          if (!detail || !detailIndex || !detailTitle || !detailCopy || !detailTags) return;
+          stepButtons.forEach((item) =&gt; item.setAttribute(&#x27;aria-pressed&#x27;, String(item === button)));
+          detailIndex.textContent = String(index + 1);
+          detailTitle.textContent = detail.title;
+          detailCopy.textContent = detail.copy;
+          detailTags.replaceChildren(...detail.tags.map((tag) =&gt; {
+            const span = document.createElement(&#x27;span&#x27;);
+            span.className = &#x27;viz-badge&#x27;;
+            span.textContent = tag;
+            return span;
+          }));
+        });
+      });
+    })();
+  &lt;/script&gt;
+&lt;/div&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handleLeave = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>
