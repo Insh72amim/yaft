@@ -12,6 +12,7 @@ The first working slice supports:
 - Merchant cleanup and deterministic category suggestions
 - Exact-file and transaction-level duplicate detection
 - Cross-account transfer matching within a three-day window
+- Fail-closed Zerodha holdings XLSX import with row and portfolio-total reconciliation
 - Monthly income, spending, savings, category, balance, net-worth, and recent-activity views
 - Credit limits, due days, and utilisation indicators
 - PDF salary-statement parsing with staged review and cumulative payroll history
@@ -34,6 +35,8 @@ Browser
 Money is stored as integer minor units (paise), never floating point. Uploaded files are held in memory for parsing and are not saved. Redis/BullMQ is intentionally deferred until slow background jobs—PDF extraction, email ingestion, or market-price sync—exist; a queue adds no value to this synchronous 5 MB MVP import.
 
 Salary PDFs are also parsed in memory and are not retained. The payroll ledger stores monthly earnings, deductions, employer contributions, current and year-to-date figures, and only the final four digits of selected identifiers. Full PAN, UAN, bank account, PF numbers, and raw PDF text are not persisted.
+
+Zerodha holdings workbooks are parsed in memory and are not retained. The supported report contains `Equity` and `Mutual Funds` sheets from Zerodha Console. Every holding's quantity, average price, previous closing price, and unrealized P&L must reconcile, and each sheet's printed invested value, present value, and unrealized P&L totals must tie before the snapshot atomically replaces the selected account's earlier holdings.
 
 ## Quick start with Docker
 
@@ -128,7 +131,7 @@ The original statement is not retained. A repeated byte-identical file is reject
 3. Import column-mapping UI for unusual bank exports
 4. Recurring bills, statement cycles, payments, and card outstanding reconciliation
 5. Encrypted backups and restore verification
-6. Holdings, price snapshots, asset allocation, and XIRR
+6. Additional broker parsers, price snapshots, asset allocation, and XIRR
 7. BullMQ workers for email ingestion and other long-running import jobs
 
 ## Validation

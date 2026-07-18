@@ -214,6 +214,8 @@ model Asset {
   symbol      String             @unique
   name        String
   type        AssetType
+  isin        String?            @unique
+  sector      String?
   holdings    PortfolioHolding[]
 }
 
@@ -224,8 +226,14 @@ model PortfolioHolding {
   assetId        String
   asset          Asset    @relation(fields: [assetId], references: [id], onDelete: Restrict)
   quantity       Decimal
+  availableQuantity Decimal @default(0)
+  discrepantQuantity Decimal @default(0)
+  longTermQuantity Decimal?
+  pledgedQuantity Decimal @default(0)
   averagePrice   BigInt
+  previousClosingPrice BigInt?
   currentValue   BigInt?
+  unrealizedPnl  BigInt?
   asOfDate       DateTime @default(now())
 
   @@unique([accountId, assetId])
