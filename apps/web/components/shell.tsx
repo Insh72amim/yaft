@@ -10,7 +10,7 @@ const links = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/import', label: 'Import records', icon: Upload },
   { href: '/salary', label: 'Salary statements', icon: BadgeIndianRupee },
-  { href: '/dashboard/investments', label: 'Investments', icon: BriefcaseBusiness },
+  { href: '/dashboard/portfolio', label: 'Portfolio & Accounts', icon: BriefcaseBusiness },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {

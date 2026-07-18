@@ -95,3 +95,28 @@ html[data-theme='dark'] .portfolio-account>footer{background:#111b17}
 html[data-theme='dark'] .holdings-table .warning{color:#e5ae67}
 
 @media(max-width:760px){.auth-theme-toggle{top:20px;right:18px}.auth-theme-toggle .theme-label{display:none}html[data-theme='dark'] .sidebar.open{box-shadow:20px 0 50px rgba(0,0,0,.4)}}
+
+.portfolio-layout{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+@media(max-width:960px){.portfolio-layout{grid-template-columns:1fr}}
+.portfolio-sidebar{padding:16px}
+.portfolio-sidebar-group{margin-bottom:24px}
+.portfolio-sidebar-group:last-child{margin-bottom:0}
+.portfolio-sidebar-group header{padding:0 12px 8px;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim)}
+.portfolio-sidebar-list{display:flex;flex-direction:column;gap:4px}
+.portfolio-sidebar-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;transition:background 0.15s,color 0.15s}
+.portfolio-sidebar-item:hover{background:var(--bg-elevated)}
+.portfolio-sidebar-item.active{background:var(--bg-elevated);box-shadow:inset 3px 0 0 var(--text)}
+.portfolio-sidebar-item-info{display:flex;flex-direction:column;gap:2px}
+.portfolio-sidebar-item-info strong{font-size:0.875rem;font-weight:600;color:var(--text);line-height:1.2}
+.portfolio-sidebar-item-info small{font-size:0.75rem;color:var(--text-dim);font-variant-numeric:tabular-nums}
+.portfolio-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px;text-align:center;color:var(--text-dim);background:var(--bg-panel);border:1px dashed var(--line);border-radius:16px}
+.portfolio-empty svg{margin-bottom:16px;color:var(--line);stroke-width:1.5}
+.portfolio-empty strong{display:block;margin-bottom:4px;font-size:1rem;color:var(--text)}
+.account-detail-content.embedded{background:var(--bg-panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.account-detail-content.embedded > .account-ledger-panel{border:none;border-radius:0;box-shadow:none;border-top:1px solid var(--line)}
+.account-detail-content.embedded > .account-ledger-summary{padding:24px}
+.embedded-header{display:flex;align-items:flex-start;justify-content:space-between;padding:24px 24px 0}
+.embedded-header h2{font-size:1.25rem;font-weight:700;letter-spacing:-0.01em;margin-bottom:4px}
+.embedded-header p{font-size:0.875rem;color:var(--text-dim)}
+html[data-theme='dark'] .portfolio-sidebar-item:hover,html[data-theme='dark'] .portfolio-sidebar-item.active{background:#111b17}
+html[data-theme='dark'] .portfolio-sidebar-item.active{box-shadow:inset 3px 0 0 #69bd94}
