@@ -122,3 +122,111 @@ html[data-theme='dark'] .holdings-table .warning{color:#e5ae67}
 .embedded-header p{font-size:0.875rem;color:var(--text-dim)}
 html[data-theme='dark'] .portfolio-sidebar-item:hover,html[data-theme='dark'] .portfolio-sidebar-item.active{background:#111b17}
 html[data-theme='dark'] .portfolio-sidebar-item.active{box-shadow:inset 3px 0 0 #69bd94}
+
+/* ── Vault nav bottom link ───────────────────────────────────── */
+.nav-bottom{margin-top:0;display:grid;gap:7px}
+.nav-bottom a.vault-nav{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:11px;color:#68756e;font-size:14px;font-weight:600;border:1px solid transparent}
+.nav-bottom a.vault-nav:hover{background:#e8efe9;color:var(--green)}
+.nav-bottom a.vault-nav.active{background:#e0ede5;color:var(--green);border-color:#c5dccb}
+html[data-theme='dark'] .nav-bottom a.vault-nav{color:#9caca4}
+html[data-theme='dark'] .nav-bottom a.vault-nav:hover,html[data-theme='dark'] .nav-bottom a.vault-nav.active{background:#1b3026;color:#8ad9b2}
+
+/* ── Vault page layout ───────────────────────────────────────── */
+.vault-layout{display:grid;grid-template-columns:240px 1fr;gap:20px;align-items:start}
+.vault-sidebar{padding:16px;position:sticky;top:24px}
+.vault-sidebar-header{display:flex;align-items:center;gap:8px;padding:0 8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--line);margin-bottom:12px}
+.vault-sidebar-group{margin-bottom:20px}
+.vault-sidebar-group:last-child{margin-bottom:0}
+.vault-sidebar-group header{padding:0 10px 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.vault-sidebar-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;background:transparent;border-radius:10px;cursor:pointer;text-align:left;transition:background .15s}
+.vault-sidebar-item:hover{background:var(--paper)}
+.vault-sidebar-item.active{background:#e0ede5}
+.vault-sidebar-item-info{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.vault-sidebar-item-info strong{font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vault-sidebar-item-info small{font-size:10px;color:var(--muted)}
+.vault-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.vault-status-dot.filled{background:#2db572;box-shadow:0 0 0 2px rgba(45,181,114,.18)}
+.vault-status-dot.empty{background:#dde3e0;border:1px solid #bcc8c2}
+
+/* ── Vault main area ─────────────────────────────────────────── */
+.vault-main{min-width:0}
+.vault-splash{min-height:380px;display:grid;place-content:center;text-align:center;gap:12px;color:var(--muted)}
+.vault-splash-icon{width:72px;height:72px;background:linear-gradient(135deg,#e4f0ea,#ddf0e7);border-radius:22px;display:grid;place-items:center;color:var(--green);margin:0 auto 4px}
+.vault-splash h2{font-size:22px;letter-spacing:-.5px;color:var(--ink);margin:0}
+.vault-splash p{font-size:13px;margin:0}
+
+/* ── Vault card ──────────────────────────────────────────────── */
+.vault-card{padding:0;overflow:hidden}
+.vault-card-header{display:flex;align-items:center;justify-content:space-between;padding:22px 24px;border-bottom:1px solid var(--line)}
+.vault-card-title{display:flex;align-items:center;gap:14px}
+.vault-card-title h2{font-size:19px;letter-spacing:-.4px;margin:2px 0 0}
+.vault-institution{font-size:12px;color:var(--muted)}
+.vault-card-actions{display:flex;gap:8px;align-items:center}
+.danger{color:var(--red)!important}
+.ghost.danger:hover{background:#faecea;color:var(--red)}
+
+/* ── Vault empty state ───────────────────────────────────────── */
+.vault-empty{min-height:260px;display:grid;place-content:center;justify-items:center;text-align:center;gap:8px;color:var(--muted);padding:30px}
+.vault-empty svg{color:#a5b7af;margin-bottom:4px}
+.vault-empty strong{font-size:14px;color:var(--ink)}
+.vault-empty p{font-size:12px;max-width:280px;line-height:1.55}
+
+/* ── Vault form ──────────────────────────────────────────────── */
+.vault-form{padding:24px;display:grid;gap:20px}
+.vault-form-section{display:grid;gap:16px}
+.vault-form-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.vault-form-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.vault-form-actions{display:flex;justify-content:flex-end}
+.vault-no-sensitive{font-size:13px;color:var(--muted);background:var(--paper);border-radius:12px;padding:16px;margin:0}
+.optional{font-weight:400;color:var(--muted);font-size:10px;margin-left:4px}
+label small{font-size:10px;color:var(--muted);font-weight:400;margin-top:2px}
+
+/* ── Vault reveal bar ────────────────────────────────────────── */
+.vault-reveal-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--paper);border-bottom:1px solid var(--line)}
+.vault-reveal-bar.revealed-state{background:#f0f9f4}
+.vault-shield{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.vault-shield.active{color:#1d754f}
+.vault-shield svg{flex-shrink:0}
+
+/* ── Vault fields ────────────────────────────────────────────── */
+.vault-fields-grid{display:grid;gap:0;padding:0 24px}
+.vault-field{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--line)}
+.vault-field:last-child{border-bottom:0}
+.vault-field-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;width:140px;flex-shrink:0}
+.vault-field-value{display:flex;align-items:center;gap:8px;min-width:0}
+.vault-field-value code{font-family:'SF Mono','Fira Code',monospace;font-size:14px;letter-spacing:.04em;transition:filter .25s,opacity .25s}
+.vault-field-value code.masked{filter:blur(5px);opacity:.5;user-select:none}
+.vault-field-value code.revealed{filter:none;opacity:1}
+.vault-reveal-btn{width:30px;height:30px;border:0;background:transparent;color:var(--muted);border-radius:8px;display:grid;place-items:center;cursor:pointer;transition:.15s}
+.vault-reveal-btn:hover{background:var(--paper);color:var(--ink)}
+.vault-copy-btn{width:26px;height:26px;border:1px solid var(--line);background:white;color:var(--muted);border-radius:7px;display:grid;place-items:center;cursor:pointer;transition:.15s}
+.vault-copy-btn:hover{background:#e8efe9;color:var(--green)}
+.vault-network-badge{font-size:13px;font-weight:700;letter-spacing:.02em}
+.vault-updated{font-size:10px;color:var(--muted);padding:12px 24px 18px;margin:0}
+
+/* ── Vault delete confirm ────────────────────────────────────── */
+.vault-delete-confirm{display:flex;align-items:center;gap:10px;padding:14px 24px;background:#fdf2f2;border-top:1px solid #f5d8d7;font-size:12px;color:var(--red)}
+.vault-delete-confirm span{flex:1}
+.danger.compact{background:#faecea;border:0;color:var(--red)}
+.danger.compact:hover{background:#f7d6d5}
+
+/* ── Vault dark mode ─────────────────────────────────────────── */
+html[data-theme='dark'] .vault-sidebar{background:#101a16}
+html[data-theme='dark'] .vault-sidebar-item:hover{background:#1b3026}
+html[data-theme='dark'] .vault-sidebar-item.active{background:#172c22}
+html[data-theme='dark'] .vault-card{background:#111b17}
+html[data-theme='dark'] .vault-reveal-bar{background:#0d1712}
+html[data-theme='dark'] .vault-reveal-bar.revealed-state{background:#0f2018}
+html[data-theme='dark'] .vault-copy-btn{background:#1b2d24;border-color:#2a3f34}
+html[data-theme='dark'] .vault-copy-btn:hover{background:#1f3829;color:#8ad9b2}
+html[data-theme='dark'] .vault-splash-icon{background:#1a2e24}
+html[data-theme='dark'] .vault-delete-confirm{background:#2a1717;border-color:#4a2222}
+html[data-theme='dark'] .vault-no-sensitive{background:#0d1712}
+html[data-theme='dark'] .vault-field-value code.masked{opacity:.3}
+
+/* ── Account icon dark ───────────────────────────────────────── */
+html[data-theme='dark'] .account-icon{background:#1b3026;color:#8ad9b2}
+html[data-theme='dark'] .account-icon.credit_card{background:#3b2010;color:#e87536}
+
+@media(max-width:900px){.vault-layout{grid-template-columns:1fr}.vault-sidebar{position:static}.vault-form-row{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.vault-form-row{grid-template-columns:1fr}.vault-card-header{flex-direction:column;align-items:flex-start;gap:12px}.vault-field{flex-direction:column;align-items:flex-start;gap:6px}.vault-field-label{width:auto}}

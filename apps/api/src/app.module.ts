@@ -10,6 +10,7 @@ import { ImportsModule } from './imports/imports.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { SalaryModule } from './salary/salary.module';
 import { UnifiedImportsModule } from './unified-imports/unified-imports.module';
+import { VaultModule } from './vault/vault.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { UnifiedImportsModule } from './unified-imports/unified-imports.module';
     DashboardModule,
     SalaryModule,
     UnifiedImportsModule,
+    VaultModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
