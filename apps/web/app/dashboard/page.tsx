@@ -96,7 +96,7 @@ function AccountChoice({ choice, selected, onSelect }: { choice: typeof accountC
 function AccountRow({ account }: { account: Account }) {
   const used = account.creditLimit ? Math.min(100, Math.round(Math.abs(Math.min(account.balance, 0)) / account.creditLimit * 100)) : 0;
   const Icon = account.type === 'CREDIT_CARD' ? CreditCard : account.type === 'INVESTMENT' ? ChartPie : account.type === 'STOCKS' ? TrendingUp : account.type === 'EPFO' ? Building2 : account.type === 'LOAN' ? BadgeIndianRupee : account.type === 'SAVINGS' ? PiggyBank : Landmark;
-  const href = account.type === 'STOCKS' || account.type === 'INVESTMENT' ? '/dashboard/investments' : `/accounts/${account.id}`;
+  const href = `/accounts?account=${account.id}`;
   return <Link className="account-row account-row-link" href={href} aria-label={`View ${account.name}`}><span className={`account-icon ${account.type.toLowerCase()}`}><Icon/></span><div><strong>{account.name}</strong><small>{typeLabel[account.type] ?? account.type}{account.dueDay ? ` · due day ${account.dueDay}` : ''}</small>{account.creditLimit ? <span className="util"><i style={{ width: `${used}%` }}/></span> : null}</div><span className="account-row-end"><b>{money(account.balance)}</b><ChevronRight/></span></Link>;
 }
 

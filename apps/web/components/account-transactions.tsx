@@ -41,7 +41,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   }
 
   const { account, transactions, pagination } = data;
-  const goToPage = (page: number) => router.push(`${embedded ? '/dashboard/portfolio' : `/accounts/${accountId}`}?page=${page}&account=${accountId}`);
+  const goToPage = (page: number) => router.push(`/accounts?page=${page}&account=${accountId}`);
   const closeDelete = () => { if (!deleting) { setDeleteStep(0); setConfirmationName(''); setDeleteError(''); } };
   const deleteAccount = async () => {
     setDeleting(true); setDeleteError('');
@@ -58,7 +58,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const content = (
     <div className={`account-detail-content ${embedded ? 'embedded' : ''}`}>
       {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><button className="danger" onClick={() => setDeleteStep(1)}><Trash2/>Delete account</button></header>}
-      {embedded && <header className="embedded-header"><div><h2>{account.name}</h2><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><button className="danger compact" onClick={() => setDeleteStep(1)}><Trash2/>Delete account</button></header>}
+      {embedded && <header className="embedded-header"><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2></div><div style={{ display: 'flex', gap: '8px' }}><Link className="secondary compact" href={`/import?accountId=${account.id}`}>Import statement</Link><button className="danger compact" onClick={() => setDeleteStep(1)}><Trash2/></button></div></header>}
       <section className="summary-grid account-ledger-summary">
         <article><span className="summary-icon income"><Landmark/></span><div><small>Current balance</small><strong>{money(account.balance)}</strong><em>{account.currency}</em></div></article>
         <article><span className="summary-icon saved"><CalendarDays/></span><div><small>Opening balance</small><strong>{money(account.openingBalance)}</strong><em>Account starting point</em></div></article>

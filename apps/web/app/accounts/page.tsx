@@ -57,7 +57,7 @@ function PortfolioContent() {
       setAccounts(accountsRes);
       
       if (!searchParams.get('account') && accountsRes.length > 0) {
-        router.replace(`/dashboard/portfolio?account=${accountsRes[0].id}`);
+        router.replace(`/accounts?account=${accountsRes[0].id}`);
       }
     }
     catch (reason) {
@@ -96,7 +96,7 @@ function PortfolioContent() {
                 <button 
                   key={account.id} 
                   className={`portfolio-sidebar-item ${selectedAccountId === account.id ? 'active' : ''}`}
-                  onClick={() => router.push(`/dashboard/portfolio?account=${account.id}`)}
+                  onClick={() => router.push(`/accounts?account=${account.id}`)}
                 >
                   <span className={`account-icon ${account.type.toLowerCase()}`}>{getIcon(account.type)}</span>
                   <div className="portfolio-sidebar-item-info">
@@ -122,10 +122,13 @@ function PortfolioContent() {
             <header>
               <div><span className="eyebrow">{selectedAccount.institution || 'Investment account'}</span><h2>{selectedAccount?.name}</h2></div>
               {portfolioData && (
-                <div>
-                  <span><small>Holdings</small><strong>{portfolioData.holdings.length}</strong></span>
-                  <span><small>Value</small><strong>{money(portfolioData.currentValue)}</strong></span>
-                  <span className={portfolioData.unrealizedPnl < 0 ? 'loss' : 'gain'}><small>Unrealized</small><strong>{money(portfolioData.unrealizedPnl)}</strong></span>
+                <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '24px' }}>
+                    <span><small>Holdings</small><strong>{portfolioData.holdings.length}</strong></span>
+                    <span><small>Value</small><strong>{money(portfolioData.currentValue)}</strong></span>
+                    <span className={portfolioData.unrealizedPnl < 0 ? 'loss' : 'gain'}><small>Unrealized</small><strong>{money(portfolioData.unrealizedPnl)}</strong></span>
+                  </div>
+                  <Link className="secondary compact" href={`/import?kind=BROKER_HOLDINGS&accountId=${encodeURIComponent(selectedAccountId)}`}><Upload size={14}/>Import snapshot</Link>
                 </div>
               )}
             </header>

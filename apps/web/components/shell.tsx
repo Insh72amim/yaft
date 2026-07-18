@@ -8,9 +8,8 @@ import { ThemeToggle } from '@/components/theme-toggle';
 
 const links = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { href: '/import', label: 'Import records', icon: Upload },
+  { href: '/accounts', label: 'Accounts', icon: BriefcaseBusiness },
   { href: '/salary', label: 'Salary statements', icon: BadgeIndianRupee },
-  { href: '/dashboard/portfolio', label: 'Portfolio & Accounts', icon: BriefcaseBusiness },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -22,7 +21,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <div className="brand" title="Yet Another Financial Tool"><span className="brand-mark"><Landmark size={21}/></span><span>YAFT</span></div>
       <button className="close-menu" onClick={() => setOpen(false)}><X /></button>
-      <nav>{links.map(({ href, label, icon: Icon }) => <Link key={href} className={path === href || (href === '/dashboard' && path.startsWith('/accounts/')) ? 'active' : ''} href={href} onClick={() => setOpen(false)}><Icon size={18}/>{label}</Link>)}</nav>
+      <nav>{links.map(({ href, label, icon: Icon }) => <Link key={href} className={path === href || (href === '/accounts' && path.startsWith('/accounts')) ? 'active' : ''} href={href} onClick={() => setOpen(false)}><Icon size={18}/>{label}</Link>)}</nav>
       <div className="side-spacer" />
       <ThemeToggle />
       <div className="privacy-note"><ShieldCheck size={18}/><div><strong>Private by design</strong><span>Your data stays on your server.</span></div></div>
