@@ -108,8 +108,12 @@ Dependencies: <task/commit dependencies or none>
 - The integrator must commit the verified combined result on its integration branch before handoff. A dirty integrator worktree is not a valid delivery.
 - Resolve conflicts by consulting the owning agent's contract and intent. Do not silently discard either side, weaken validation, or broaden scope to make a conflict disappear.
 - Before proposing `main` integration, inspect the complete diff from the pinned base, confirm migration order and lockfile consistency where applicable, and verify that no private artefacts or credentials are present.
-- Only the coordinator removes a worktree after its commit is integrated or explicitly abandoned and the worktree is clean. Never force-remove a worktree with uncommitted changes.
-- Prune branches and worktrees only after confirming no active task or follow-up depends on them. Worktree cleanup is not permission to delete private inputs or unrelated temporary data.
+- A worktree is done only after all retained changes are committed, `git status --short` is empty, the branch and handoff commit hash are recorded, and no agent, command, server, or test process is using the directory.
+- The coordinator must remove every done worktree immediately after handoff, even when its branch is still waiting for integration. Worktree removal must not be deferred as routine housekeeping.
+- Remove a done worktree with `git worktree remove <absolute-worktree-path>` from a different checkout. Never use `--force`. If removal reports changes or active use, the task is not done; stop and resolve the condition instead of deleting the directory manually.
+- Removing a worktree does not remove its branch or commits. Retain the branch until its handoff commit is integrated or explicitly abandoned; branch deletion is a separate coordinator action.
+- An integrator worktree follows the same rule and must be removed after its committed integration handoff. A later integration or review request gets a newly created worktree from the retained branch or commit.
+- Prune stale worktree metadata only after confirming that no active task or process depends on it. Worktree cleanup is not permission to delete private inputs, another agent's directory, branches, or unrelated temporary data.
 
 ## Git and operational safety
 
