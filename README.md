@@ -22,7 +22,7 @@ The first working slice supports:
 ```text
 Browser
   └─ Next.js web app (:3000)
-       └─ NestJS API (:4000)
+       └─ same-origin /api proxy → NestJS API (:4000)
             ├─ authentication + owner-scoped services
             ├─ in-memory CSV/XLSX parser
             ├─ fail-closed bank PDF parser registry
@@ -94,7 +94,7 @@ PDF routing first uses the destination account's normalised institution, then ve
 Implemented now:
 
 - Argon2id password hashes
-- HTTP-only, `SameSite=Strict`, 15-minute signed session cookies
+- HTTP-only, `SameSite=Strict`, seven-day signed session cookies
 - Single-owner registration lock
 - Strict DTO allow-listing and request validation
 - Login/registration throttling and a global request limit

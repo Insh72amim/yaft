@@ -3,7 +3,7 @@ import { ArrowDownRight, ArrowUpRight, BadgeIndianRupee, Building2, CalendarDays
 import { useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
-import { api, money } from '@/lib/api';
+import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 
 type Account = { id: string; name: string; type: string; balance: number; creditLimit: number | null; dueDay: number | null };
 type Dashboard = { month: string; income: number; expenses: number; savings: number; savingsRate: number; netWorth: number; accounts: Account[];
@@ -31,7 +31,7 @@ const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savi
 
 export default function DashboardPage() {
   const router = useRouter(); const [data, setData] = useState<Dashboard>(); const [error, setError] = useState(''); const [adding, setAdding] = useState(false); const [newType, setNewType] = useState('SAVINGS');
-  const load = useCallback(() => api<Dashboard>('/dashboard').then(setData).catch((reason) => { if (/unauthorized/i.test(reason.message)) router.replace('/login'); else setError(reason.message); }), [router]);
+  const load = useCallback(() => api<Dashboard>('/dashboard').then(setData).catch((reason: unknown) => { if (isUnauthorized(reason)) router.replace('/login'); else setError(errorMessage(reason, 'Could not load your overview.')); }), [router]);
   useEffect(() => { load(); }, [load]);
   async function addAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); const type = String(form.get('type'));

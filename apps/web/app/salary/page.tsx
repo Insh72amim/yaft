@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
-import { api, money } from '@/lib/api';
+import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 
 type SalaryItem = { id: string; type: 'EARNING' | 'DEDUCTION' | 'EMPLOYER_CONTRIBUTION'; description: string; currentAmount: number; ytdAmount: number | null };
 type SalaryStatement = { id: string; payPeriod: string; employer: string; employeeName?: string; employeeNumberLast4?: string; department?: string; designation?: string;
@@ -16,7 +16,7 @@ type SalaryOverview = { summary: { statementCount: number; totalGross: number; t
 export default function SalaryPage() {
   const router = useRouter(); const [data, setData] = useState<SalaryOverview>(); const [review, setReview] = useState<SalaryStatement>(); const [file, setFile] = useState<File>();
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
-  const load = useCallback(() => api<SalaryOverview>('/salary-statements').then((value) => { setData(value); setReview(value.pending ?? undefined); }).catch((reason) => { if (/unauthorized/i.test(reason.message)) router.replace('/login'); else setError(reason.message); }), [router]);
+  const load = useCallback(() => api<SalaryOverview>('/salary-statements').then((value) => { setData(value); setReview(value.pending ?? undefined); }).catch((reason: unknown) => { if (isUnauthorized(reason)) router.replace('/login'); else setError(errorMessage(reason, 'Could not load your salary history.')); }), [router]);
   useEffect(() => { load(); }, [load]);
   async function upload(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!file) return; setBusy(true); setError(''); const payload = new FormData(); payload.set('payslip', file);
     try { setReview(await api<SalaryStatement>('/salary-statements/upload', { method: 'POST', body: payload })); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not read this payslip.'); } finally { setBusy(false); } }

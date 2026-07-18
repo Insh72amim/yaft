@@ -14,7 +14,7 @@ import { JwtStrategy } from './jwt.strategy';
     inject: [ConfigService],
     useFactory: (config: ConfigService) => ({
       secret: config.getOrThrow<string>('JWT_SECRET'),
-      signOptions: { expiresIn: '15m', issuer: 'yaft', audience: 'yaft-web' },
+      signOptions: { expiresIn: '7d', issuer: 'yaft', audience: 'yaft-web' },
     }),
   })],
   controllers: [AuthController], providers: [AuthService, JwtStrategy, JwtAuthGuard], exports: [JwtAuthGuard],

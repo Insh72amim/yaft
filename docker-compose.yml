@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.web
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api}
+        YAFT_API_INTERNAL_URL: http://api:4000
     restart: unless-stopped
     ports: ["3000:3000"]
     depends_on: [api]

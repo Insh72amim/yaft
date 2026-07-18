@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
-import { api, money } from '@/lib/api';
+import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 
 type Account = { id: string; name: string; type: string; institution?: string; hasStatementPassword: boolean };
 type Batch = { id: string; filename: string; account: Account; status: string; categories: { id: string; name: string }[]; staged: Row[] };
@@ -12,7 +12,7 @@ type Row = { id: string; rowNumber: number; transactionDate: string; postedDate?
 
 export default function ImportPage() {
   const router = useRouter(); const [accounts, setAccounts] = useState<Account[]>([]); const [batch, setBatch] = useState<Batch>(); const [file, setFile] = useState<File>(); const [accountId, setAccountId] = useState(''); const [pdfPassword, setPdfPassword] = useState(''); const [rememberPassword, setRememberPassword] = useState(true); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
-  useEffect(() => { Promise.all([api<Account[]>('/accounts'), api<Batch | null>('/imports')]).then(([accountList, pending]) => { setAccounts(accountList); if (pending) setBatch(pending); }).catch(() => router.replace('/login')); }, [router]);
+  useEffect(() => { Promise.all([api<Account[]>('/accounts'), api<Batch | null>('/imports')]).then(([accountList, pending]) => { setAccounts(accountList); if (pending) setBatch(pending); }).catch((reason: unknown) => { if (isUnauthorized(reason)) router.replace('/login'); else setError(errorMessage(reason, 'Could not load the statement importer.')); }); }, [router]);
   const selectedAccount = accounts.find((account) => account.id === accountId); const isPdf = Boolean(file?.name.toLowerCase().endsWith('.pdf'));
   async function upload(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!file || !accountId) return; setBusy(true); setError(''); const payload = new FormData(); payload.set('statement', file); if (isPdf && pdfPassword) payload.set('pdfPassword', pdfPassword); if (isPdf) payload.set('rememberPassword', String(rememberPassword));
     try { setBatch(await api<Batch>(`/imports/${accountId}`, { method: 'POST', body: payload })); setPdfPassword(''); } catch (value) { setError(value instanceof Error ? value.message : 'Upload failed.'); } finally { setBusy(false); } }

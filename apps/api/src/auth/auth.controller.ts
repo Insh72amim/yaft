@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post, Res, UseGuards } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -8,7 +9,7 @@ import { JwtAuthGuard } from './auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(private readonly auth: AuthService, private readonly config: ConfigService) {}
 
   @Post('register') @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) response: Response) {
@@ -27,7 +28,8 @@ export class AuthController {
   me(@CurrentUser() user: { id: string }) { return this.auth.profile(user.id); }
 
   private setCookie(response: Response, token: string) {
+    const webOrigin = this.config.get<string>('WEB_ORIGIN') ?? 'http://localhost:3000';
     response.cookie('finance_session', token, { httpOnly: true, sameSite: 'strict',
-      secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000, path: '/' });
+      secure: webOrigin.startsWith('https://'), maxAge: 7 * 24 * 60 * 60 * 1000, path: '/' });
   }
 }

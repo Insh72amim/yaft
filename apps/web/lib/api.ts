@@ -1,4 +1,18 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+// Keep browser requests on the same origin as the web app. Next.js proxies these
+// requests to NestJS, so sessions work whether YAFT is opened via localhost,
+// a LAN address, or a private HTTPS hostname.
+export const API_URL = '/api';
+
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export const isUnauthorized = (reason: unknown): reason is ApiError => reason instanceof ApiError && reason.status === 401;
+
+export const errorMessage = (reason: unknown, fallback = 'Something went wrong.') => reason instanceof Error ? reason.message : fallback;
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { ...init, credentials: 'include', headers: {
@@ -7,7 +21,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     const message = Array.isArray(body.message) ? body.message.join(', ') : body.message;
-    throw new Error(message || 'Something went wrong.');
+    throw new ApiError(message || 'Something went wrong.', response.status);
   }
   return response.status === 204 ? undefined as T : response.json();
 }
