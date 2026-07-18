@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Prisma, SalaryItemType } from '@prisma/client';
 import { createHash } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
-import { parsePayslipPdf } from './payslip-parser';
+import { isPayslipSchema, parsePayslipPdf, PAYSLIP_SCHEMAS } from './payslip-parser';
 
 type SalaryWithItems = Prisma.SalaryStatementGetPayload<{ include: { lineItems: true } }>;
 
@@ -10,11 +10,12 @@ type SalaryWithItems = Prisma.SalaryStatementGetPayload<{ include: { lineItems: 
 export class SalaryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async upload(userId: string, file: Express.Multer.File) {
+  async upload(userId: string, file: Express.Multer.File, payslipSchema?: string) {
+    if (!isPayslipSchema(payslipSchema)) throw new BadRequestException('Choose a supported payslip employer.');
     const hash = createHash('sha256').update(file.buffer).digest('hex');
     const duplicate = await this.prisma.salaryStatement.findFirst({ where: { userId, fileHash: hash } });
     if (duplicate) throw new ConflictException('This exact payslip was already uploaded.');
-    const parsed = await parsePayslipPdf(file.buffer);
+    const parsed = await parsePayslipPdf(file.buffer, payslipSchema);
     const sameMonth = await this.prisma.salaryStatement.findFirst({ where: { userId, employer: parsed.employer, payPeriod: parsed.payPeriod } });
     if (sameMonth) throw new ConflictException('A payslip for this employer and month already exists. Discard the pending review first if you want to replace it.');
     const statement = await this.prisma.salaryStatement.create({ data: {
@@ -41,6 +42,7 @@ export class SalaryService {
     const taxes = allItems.filter((item) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description)).reduce((sum, item) => sum + Number(item.currentAmount), 0);
     const latest = committed[0];
     return {
+      payslipSchemas: PAYSLIP_SCHEMAS,
       summary: { statementCount: committed.length, totalGross, totalDeductions, totalNet, employeePf, employerPf, taxes,
         latestNetPay: latest ? Number(latest.netPay) : 0 },
       pending: statements.find((statement) => statement.status === 'REVIEW') ? this.serialize(statements.find((statement) => statement.status === 'REVIEW')!) : null,

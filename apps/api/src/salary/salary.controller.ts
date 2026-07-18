@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Delete, Get, HttpCode, Param, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -17,9 +17,9 @@ export class SalaryController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('payslip', { limits: { fileSize: 8 * 1024 * 1024, files: 1 } }))
-  upload(@CurrentUser() user: { id: string }, @UploadedFile() file: Express.Multer.File) {
+  upload(@CurrentUser() user: { id: string }, @UploadedFile() file: Express.Multer.File, @Body('payslipSchema') payslipSchema?: string) {
     if (!file || !/\.pdf$/i.test(file.originalname)) throw new BadRequestException('Choose a PDF payslip.');
-    return this.salary.upload(user.id, file);
+    return this.salary.upload(user.id, file, payslipSchema);
   }
 
   @Post(':statementId/commit')

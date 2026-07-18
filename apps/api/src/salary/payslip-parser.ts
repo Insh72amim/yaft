@@ -1,6 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
 import { SalaryItemType } from '@prisma/client';
-import 'pdf-parse/worker';
 import { PDFParse } from 'pdf-parse';
 
 export type ParsedSalaryItem = {
@@ -28,6 +27,16 @@ export type ParsedPayslip = {
   lineItems: ParsedSalaryItem[];
 };
 
+export const PAYSLIP_SCHEMAS = [
+  { id: 'GOLDMAN_SACHS', employer: 'Goldman Sachs' },
+] as const;
+
+export type PayslipSchema = (typeof PAYSLIP_SCHEMAS)[number]['id'];
+
+export function isPayslipSchema(value: string | undefined): value is PayslipSchema {
+  return PAYSLIP_SCHEMAS.some((schema) => schema.id === value);
+}
+
 const money = (value: string) => Math.round(Number(value.replace(/,/g, '')) * 100);
 const amounts = (line: string) => [...line.matchAll(/-?\d[\d,]*\.\d{2}/g)].map((match) => ({ raw: match[0], index: match.index ?? 0 }));
 
@@ -50,7 +59,7 @@ function parseSection(lines: string[], heading: string, endHeading?: string): Pa
   });
 }
 
-export async function parsePayslipPdf(buffer: Buffer): Promise<ParsedPayslip> {
+export async function parsePayslipPdf(buffer: Buffer, schema: PayslipSchema): Promise<ParsedPayslip> {
   if (buffer.length < 5 || buffer.subarray(0, 5).toString() !== '%PDF-') throw new BadRequestException('The selected file is not a valid PDF.');
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   let text = '';
@@ -65,10 +74,17 @@ export async function parsePayslipPdf(buffer: Buffer): Promise<ParsedPayslip> {
   }
   finally { await parser.destroy().catch(() => undefined); }
 
-  return parsePayslipText(text);
+  return parsePayslipText(text, schema);
 }
 
-export function parsePayslipText(text: string): ParsedPayslip {
+export function parsePayslipText(text: string, schema: PayslipSchema): ParsedPayslip {
+  switch (schema) {
+    case 'GOLDMAN_SACHS': return parseGoldmanSachsPayslipText(text);
+    default: throw new BadRequestException('Choose a supported payslip employer.');
+  }
+}
+
+function parseGoldmanSachsPayslipText(text: string): ParsedPayslip {
   const lines = text.split(/\r?\n/).map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean)
     .filter((line) => !/^-- \d+ of \d+ --$/.test(line));
   const periodMatch = text.match(/Payslip\s+for\s+the\s+month\s+of\s+([A-Za-z]+)\s+(\d{4})/i);
@@ -76,7 +92,11 @@ export function parsePayslipText(text: string): ParsedPayslip {
   const monthIndex = new Date(`${periodMatch[1]} 1, 2000`).getMonth();
   if (Number.isNaN(monthIndex)) throw new BadRequestException('The salary month is invalid.');
   const payPeriod = new Date(Date.UTC(Number(periodMatch[2]), monthIndex, 1));
-  const employer = (lines[0] ?? 'Unknown employer').replace(/^\d+-/, '').trim().slice(0, 160);
+  const employerLine = lines.find((line) => /\bgoldman\s+sachs\b/i.test(line));
+  if (!employerLine) {
+    throw new BadRequestException('This payslip does not match the selected Goldman Sachs employer.');
+  }
+  const employer = employerLine.replace(/^\d+-/, '').trim().slice(0, 160);
 
   const employeeHeader = lines.findIndex((line) => /Employee Name.*Person Number.*Date of Joining/i.test(line));
   const employeeLine = employeeHeader >= 0 ? nextUseful(lines, employeeHeader, (line) => /\d{6,}.*\d{2}[-/]\d{2}[-/]\d{4}/.test(line)) : undefined;
