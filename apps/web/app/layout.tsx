@@ -6,6 +6,21 @@ import './globals.css';
 
 export const metadata = { title: 'YAFT', description: 'Yet Another Financial Tool — your private financial home' };
 
+const themeScript = `
+  (() => {
+    try {
+      const saved = localStorage.getItem('yaft-theme');
+      const theme = saved === 'light' || saved === 'dark'
+        ? saved
+        : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.style.colorScheme = theme;
+    } catch {
+      document.documentElement.dataset.theme = 'light';
+    }
+  })();
+`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head><body>{children}</body></html>;
 }

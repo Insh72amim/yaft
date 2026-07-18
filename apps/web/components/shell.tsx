@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { api } from '@/lib/api';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const links = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -23,6 +24,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <button className="close-menu" onClick={() => setOpen(false)}><X /></button>
       <nav>{links.map(({ href, label, icon: Icon }) => <Link key={href} className={path === href || (href === '/dashboard' && path.startsWith('/accounts/')) ? 'active' : ''} href={href} onClick={() => setOpen(false)}><Icon size={18}/>{label}</Link>)}</nav>
       <div className="side-spacer" />
+      <ThemeToggle />
       <div className="privacy-note"><ShieldCheck size={18}/><div><strong>Private by design</strong><span>Your data stays on your server.</span></div></div>
       <button className="logout" onClick={logout}><LogOut size={17}/>Sign out</button>
     </aside>
