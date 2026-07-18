@@ -51,6 +51,24 @@ export class ImportsService {
     return this.get(userId, batch.id);
   }
 
+  async createForCreditCard(userId: string, accountId: string, file: Express.Multer.File, dto: { pdfPassword?: string } = {}) {
+    const account = await this.prisma.account.findFirst({ where: { id: accountId, userId, archived: false,
+      type: 'CREDIT_CARD' } });
+    if (!account) throw new ForbiddenException('Eligible credit card account not found.');
+    const hash = createHash('sha256').update(file.buffer).digest('hex');
+    const existing = await this.prisma.importBatch.findFirst({ where: { userId, accountId, fileHash: hash, status: { not: 'CANCELLED' } } });
+    if (existing) throw new BadRequestException('This exact statement was already uploaded.');
+    const isPdf = file.originalname.toLowerCase().endsWith('.pdf');
+    const explicitPassword = isPdf && dto.pdfPassword?.length ? dto.pdfPassword : undefined;
+    const parsed = await parseStatementWithMetadata(file, { institution: account.institution ?? undefined, pdfPassword: explicitPassword });
+    const categories = await this.prisma.category.findMany({ where: { userId } });
+    const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
+    const staged = parsed.rows.map((row) => this.enrich(accountId, row, categories, existingFingerprints));
+    const batch = await this.prisma.importBatch.create({ data: { userId, accountId, filename: file.originalname.slice(0, 200),
+      fileHash: hash, rowCount: staged.length, staged: { create: staged } } });
+    return this.get(userId, batch.id);
+  }
+
   async pending(userId: string) {
     const batch = await this.prisma.importBatch.findFirst({ where: { userId, status: 'REVIEW' }, orderBy: { createdAt: 'desc' } });
     return batch ? this.get(userId, batch.id) : null;
