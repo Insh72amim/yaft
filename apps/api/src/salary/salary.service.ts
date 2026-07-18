@@ -41,10 +41,28 @@ export class SalaryService {
     const employerPf = allItems.filter((item) => item.type === SalaryItemType.EMPLOYER_CONTRIBUTION && /\bpf\b|provident fund/i.test(item.description)).reduce((sum, item) => sum + Number(item.currentAmount), 0);
     const taxes = allItems.filter((item) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description)).reduce((sum, item) => sum + Number(item.currentAmount), 0);
     const latest = committed[0];
+    const monthly = new Map<string, { grossEarnings: number; netPay: number; tax: number }>();
+    [...committed].sort((left, right) => left.payPeriod.getTime() - right.payPeriod.getTime()).forEach((statement) => {
+      const month = statement.payPeriod.toISOString().slice(0, 7);
+      const current = monthly.get(month) ?? { grossEarnings: 0, netPay: 0, tax: 0 };
+      current.grossEarnings += Number(statement.grossEarnings);
+      current.netPay += Number(statement.netPay);
+      current.tax += statement.lineItems.filter((item) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description))
+        .reduce((sum, item) => sum + Number(item.currentAmount), 0);
+      monthly.set(month, current);
+    });
+    let cumulativeGross = 0;
+    let cumulativeTax = 0;
+    const timeline = [...monthly.entries()].map(([month, values]) => {
+      cumulativeGross += values.grossEarnings;
+      cumulativeTax += values.tax;
+      return { month, ...values, cumulativeGross, cumulativeTax };
+    });
     return {
       payslipSchemas: PAYSLIP_SCHEMAS,
       summary: { statementCount: committed.length, totalGross, totalDeductions, totalNet, employeePf, employerPf, taxes,
         latestNetPay: latest ? Number(latest.netPay) : 0 },
+      timeline,
       pending: statements.find((statement) => statement.status === 'REVIEW') ? this.serialize(statements.find((statement) => statement.status === 'REVIEW')!) : null,
       statements: committed.map((statement) => this.serialize(statement)),
     };
