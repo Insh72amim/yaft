@@ -7,7 +7,7 @@ import { StatementCredentialsService } from '../common/statement-credentials.ser
 import { CreateAccountDto, DeleteAccountDto } from './accounts.dto';
 
 export const SUPPORTED_SAVINGS_INSTITUTIONS = ['Axis Bank', 'Punjab National Bank', 'State Bank of India'] as const;
-export const SUPPORTED_STOCK_BROKERS = ['Zerodha'] as const;
+export const SUPPORTED_STOCK_BROKERS = ['Zerodha', 'Groww'] as const;
 
 @Controller('accounts')
 @UseGuards(JwtAuthGuard)
@@ -38,7 +38,7 @@ export class AccountsController {
       throw new BadRequestException('Choose Axis Bank, Punjab National Bank, or State Bank of India for a savings account.');
     }
     if (dto.type === AccountType.STOCKS && !SUPPORTED_STOCK_BROKERS.some((broker) => broker === institution)) {
-      throw new BadRequestException('Choose Zerodha for a stock account.');
+      throw new BadRequestException('Choose Zerodha or Groww for a stock account.');
     }
     const account = await this.prisma.account.create({ data: { userId: user.id, name: dto.name.trim(), type: dto.type,
       institution, currency: dto.currency?.toUpperCase() ?? 'INR',
