@@ -4,6 +4,11 @@ import { PrismaService } from '../common/prisma.service';
 import { parseZerodhaHoldings } from './zerodha-holdings-parser';
 
 type PortfolioAccount = Prisma.AccountGetPayload<{ include: { holdings: { include: { asset: true } } } }>;
+const SNAPSHOT_TRANSACTION_ATTEMPTS = 3;
+
+function isSerializableConflict(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2034';
+}
 
 @Injectable()
 export class InvestmentsService {
@@ -31,34 +36,41 @@ export class InvestmentsService {
 
     const parsed = await parseZerodhaHoldings(file);
     const asOfDate = new Date();
-    await this.prisma.$transaction(async (tx) => {
-      const importedAssetIds: string[] = [];
-      for (const holding of parsed) {
-        const bySymbol = await tx.asset.findUnique({ where: { symbol: holding.symbol } });
-        const byIsin = await tx.asset.findUnique({ where: { isin: holding.isin } });
-        if (bySymbol && byIsin && bySymbol.id !== byIsin.id) {
-          throw new BadRequestException(`The Zerodha symbol ${holding.symbol} conflicts with an existing asset.`);
-        }
-        if (bySymbol?.isin && bySymbol.isin !== holding.isin) {
-          throw new BadRequestException(`The Zerodha symbol ${holding.symbol} has a different ISIN from the existing asset.`);
-        }
-        const existing = bySymbol ?? byIsin;
-        const asset = existing
-          ? await tx.asset.update({ where: { id: existing.id }, data: { symbol: holding.symbol, name: holding.symbol,
-            type: holding.assetType, isin: holding.isin, sector: holding.sector } })
-          : await tx.asset.create({ data: { symbol: holding.symbol, name: holding.symbol,
-            type: holding.assetType, isin: holding.isin, sector: holding.sector } });
-        importedAssetIds.push(asset.id);
-        const values = { quantity: holding.quantity.toString(), availableQuantity: holding.availableQuantity.toString(),
-          discrepantQuantity: holding.discrepantQuantity.toString(), longTermQuantity: holding.longTermQuantity?.toString(),
-          pledgedQuantity: holding.pledgedQuantity.toString(), averagePrice: BigInt(holding.averagePriceMinor),
-          previousClosingPrice: BigInt(holding.previousClosingPriceMinor), currentValue: BigInt(holding.currentValueMinor),
-          unrealizedPnl: BigInt(holding.unrealizedPnlMinor), asOfDate };
-        await tx.portfolioHolding.upsert({ where: { accountId_assetId: { accountId, assetId: asset.id } },
-          create: { accountId, assetId: asset.id, ...values }, update: values });
+    for (let attempt = 1; attempt <= SNAPSHOT_TRANSACTION_ATTEMPTS; attempt += 1) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          const importedAssetIds: string[] = [];
+          for (const holding of parsed) {
+            const bySymbol = await tx.asset.findUnique({ where: { symbol: holding.symbol } });
+            const byIsin = await tx.asset.findUnique({ where: { isin: holding.isin } });
+            if (bySymbol && byIsin && bySymbol.id !== byIsin.id) {
+              throw new BadRequestException(`The Zerodha symbol ${holding.symbol} conflicts with an existing asset.`);
+            }
+            if (bySymbol?.isin && bySymbol.isin !== holding.isin) {
+              throw new BadRequestException(`The Zerodha symbol ${holding.symbol} has a different ISIN from the existing asset.`);
+            }
+            const existing = bySymbol ?? byIsin;
+            const asset = existing
+              ? await tx.asset.update({ where: { id: existing.id }, data: { symbol: holding.symbol, name: holding.symbol,
+                type: holding.assetType, isin: holding.isin, sector: holding.sector } })
+              : await tx.asset.create({ data: { symbol: holding.symbol, name: holding.symbol,
+                type: holding.assetType, isin: holding.isin, sector: holding.sector } });
+            importedAssetIds.push(asset.id);
+            const values = { quantity: holding.quantity.toString(), availableQuantity: holding.availableQuantity.toString(),
+              discrepantQuantity: holding.discrepantQuantity.toString(), longTermQuantity: holding.longTermQuantity?.toString(),
+              pledgedQuantity: holding.pledgedQuantity.toString(), averagePrice: BigInt(holding.averagePriceMinor),
+              previousClosingPrice: BigInt(holding.previousClosingPriceMinor), currentValue: BigInt(holding.currentValueMinor),
+              unrealizedPnl: BigInt(holding.unrealizedPnlMinor), asOfDate };
+            await tx.portfolioHolding.upsert({ where: { accountId_assetId: { accountId, assetId: asset.id } },
+              create: { accountId, assetId: asset.id, ...values }, update: values });
+          }
+          await tx.portfolioHolding.deleteMany({ where: { accountId, assetId: { notIn: importedAssetIds } } });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        break;
+      } catch (error) {
+        if (!isSerializableConflict(error) || attempt === SNAPSHOT_TRANSACTION_ATTEMPTS) throw error;
       }
-      await tx.portfolioHolding.deleteMany({ where: { accountId, assetId: { notIn: importedAssetIds } } });
-    });
+    }
 
     const portfolio = await this.getPortfolio(userId);
     return { imported: parsed.length, account: portfolio.find((item) => item.accountId === accountId) };

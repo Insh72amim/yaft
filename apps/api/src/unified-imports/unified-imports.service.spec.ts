@@ -72,6 +72,8 @@ describe('UnifiedImportsService catalog and dispatch', () => {
       expect.objectContaining({ id: 'kite', hasStatementPassword: false }),
     ]));
     expect(result.options.find((item) => item.kind === 'BANK_STATEMENT')?.sources.find((item) => item.source === 'SBI')?.eligibleAccountIds).toEqual(['sbi']);
+    expect(result.options.find((item) => item.kind === 'BANK_STATEMENT')?.sources.every((item) =>
+      item.extensions.length === 1 && item.extensions[0] === '.pdf')).toBe(true);
     expect(result.options.find((item) => item.kind === 'BROKER_HOLDINGS')?.sources[0].eligibleAccountIds).toEqual(['kite']);
     expect(JSON.stringify(result)).not.toContain('userId');
   });
@@ -102,8 +104,10 @@ describe('UnifiedImportsService fail-closed validation', () => {
     [{ kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS', accountId: 'bank-account' }, salaryFile, 'does not use a destination account'],
     [{ kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS', pdfPassword: 'not-applicable' }, salaryFile, 'Password fields do not apply'],
     [{ kind: 'BROKER_HOLDINGS', source: 'ZERODHA_KITE', accountId: 'bank-account', rememberPassword: false }, holdingsFile, 'Password fields do not apply'],
-    [{ kind: 'BANK_STATEMENT', source: 'SBI', accountId: 'bank-account', pdfPassword: 'not-for-csv' },
-      { ...bankFile, originalname: 'synthetic.csv' }, 'Password fields do not apply'],
+    [{ kind: 'BANK_STATEMENT', source: 'SBI', accountId: 'bank-account' },
+      { ...bankFile, originalname: 'synthetic.csv' }, 'accepts only PDF'],
+    [{ kind: 'BANK_STATEMENT', source: 'AXIS', accountId: 'bank-account' },
+      { ...bankFile, originalname: 'synthetic.xlsx' }, 'accepts only PDF'],
     [{ kind: 'BANK_STATEMENT', source: 'PNB', accountId: 'bank-account', rememberPassword: true }, bankFile, 'only for SBI PDFs'],
     [{ kind: 'BANK_STATEMENT', source: 'SBI', accountId: 'bank-account' }, { ...bankFile, originalname: 'legacy.xls' }, 'accepts only'],
   ])('rejects invalid pairs, fields, and extensions', async (dto, file, message) => {

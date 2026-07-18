@@ -30,7 +30,7 @@ describe('InvestmentsService Zerodha import', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('atomically upserts a verified snapshot and removes holdings absent from it', async () => {
-    const { service, tx } = setup();
+    const { service, prisma, tx } = setup();
     await expect(service.importZerodhaHoldings('user-1', 'account-1', file)).resolves.toEqual({
       imported: 1, account: { accountId: 'account-1' },
     });
@@ -40,6 +40,7 @@ describe('InvestmentsService Zerodha import', () => {
       where: { accountId_assetId: { accountId: 'account-1', assetId: 'asset-1' } },
     }));
     expect(tx.portfolioHolding.deleteMany).toHaveBeenCalledWith({ where: { accountId: 'account-1', assetId: { notIn: ['asset-1'] } } });
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'Serializable' });
   });
 
   it('makes no database changes when parsing fails', async () => {
@@ -60,6 +61,24 @@ describe('InvestmentsService Zerodha import', () => {
     tx.asset.findUnique.mockResolvedValueOnce({ id: 'asset-1', symbol: 'SYNTHCO', isin: 'INE999Z01000' });
     await expect(service.importZerodhaHoldings('user-1', 'account-1', file)).rejects.toThrow('different ISIN');
     expect(tx.portfolioHolding.upsert).not.toHaveBeenCalled();
+  });
+
+  it('retries the complete serializable snapshot replacement after a transaction conflict', async () => {
+    const { service, prisma, tx } = setup();
+    prisma.$transaction.mockRejectedValueOnce({ code: 'P2034' })
+      .mockImplementationOnce((callback: (client: typeof tx) => unknown) => callback(tx));
+    await expect(service.importZerodhaHoldings('user-1', 'account-1', file)).resolves.toMatchObject({ imported: 1 });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(prisma.$transaction.mock.calls.every((call: unknown[]) =>
+      (call[1] as { isolationLevel?: string })?.isolationLevel === 'Serializable')).toBe(true);
+    expect(parseHoldings).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops after the bounded number of serializable transaction conflicts', async () => {
+    const { service, prisma } = setup();
+    prisma.$transaction.mockRejectedValue({ code: 'P2034' });
+    await expect(service.importZerodhaHoldings('user-1', 'account-1', file)).rejects.toMatchObject({ code: 'P2034' });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(3);
   });
 });
 

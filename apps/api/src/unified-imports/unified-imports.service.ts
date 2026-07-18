@@ -26,13 +26,13 @@ type SourceSpec = {
 const MIB = 1024 * 1024;
 const SOURCE_SPECS: readonly SourceSpec[] = [
   { kind: 'BANK_STATEMENT', source: 'SBI', label: 'State Bank of India',
-    description: 'SBI PDF, CSV, or XLSX bank statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
+    description: 'Machine-generated SBI statement PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
     accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'BANK_STATEMENT', source: 'PNB', label: 'Punjab National Bank',
-    description: 'PNB PDF, CSV, or XLSX bank statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
+    description: 'Machine-generated PNB statement PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
     accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'BANK_STATEMENT', source: 'AXIS', label: 'Axis Bank',
-    description: 'Axis PDF, CSV, or XLSX bank statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
+    description: 'Machine-generated Axis statement PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
     accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS', label: 'Goldman Sachs',
     description: 'Goldman Sachs payslip PDF.', extensions: ['.pdf'], maxBytes: 8 * MIB,

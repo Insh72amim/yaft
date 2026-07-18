@@ -19,8 +19,9 @@ export class ImportsService {
 
   async create(userId: string, accountId: string, file: Express.Multer.File, dto: UploadStatementDto = {},
     expectedParserId?: BankPdfParser['id']) {
-    const account = await this.prisma.account.findFirst({ where: { id: accountId, userId } });
-    if (!account) throw new ForbiddenException('Account not found.');
+    const account = await this.prisma.account.findFirst({ where: { id: accountId, userId, archived: false,
+      type: { in: ['BANK', 'SAVINGS'] } } });
+    if (!account) throw new ForbiddenException('Eligible bank account not found.');
     const hash = createHash('sha256').update(file.buffer).digest('hex');
     const existing = await this.prisma.importBatch.findFirst({ where: { userId, accountId, fileHash: hash, status: { not: 'CANCELLED' } } });
     if (existing) throw new BadRequestException('This exact statement was already uploaded.');
@@ -66,7 +67,18 @@ export class ImportsService {
       include: { account: { select: { id: true, name: true } }, staged: { orderBy: { rowNumber: 'asc' }, include: { category: true } } } });
     if (!batch) throw new NotFoundException('Import not found.');
     const categories = await this.prisma.category.findMany({ where: { userId }, orderBy: { name: 'asc' } });
-    return { ...batch, staged: batch.staged.map((row) => ({ ...row, amount: Number(row.amount) })), categories };
+    return {
+      id: batch.id, filename: batch.filename, status: batch.status, rowCount: batch.rowCount,
+      createdAt: batch.createdAt, committedAt: batch.committedAt,
+      account: { id: batch.account.id, name: batch.account.name },
+      staged: batch.staged.map((row) => ({
+        id: row.id, rowNumber: row.rowNumber, transactionDate: row.transactionDate, postedDate: row.postedDate,
+        descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: Number(row.amount), reference: row.reference,
+        categoryId: row.categoryId, isDuplicate: row.isDuplicate, include: row.include, confidence: row.confidence,
+        category: row.category ? { id: row.category.id, name: row.category.name, color: row.category.color } : null,
+      })),
+      categories: categories.map((category) => ({ id: category.id, name: category.name, color: category.color })),
+    };
   }
 
   async update(userId: string, batchId: string, rowId: string, dto: UpdateStagedDto) {

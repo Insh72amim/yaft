@@ -27,6 +27,9 @@ type BankPending = { kind: 'BANK_STATEMENT'; source: string; mode: 'REVIEW_REQUI
 type SalaryPending = { kind: 'SALARY_PAYSLIP'; source: 'GOLDMAN_SACHS'; mode: 'REVIEW_REQUIRED'; createdAt: string; review: SalaryReview;
   actions: { commit: string; discard: string } };
 type PendingImport = BankPending | SalaryPending;
+type ReviewUploadResult = Omit<BankPending, 'createdAt'> | Omit<SalaryPending, 'createdAt'>;
+type HoldingsUploadResult = { kind: 'BROKER_HOLDINGS'; source: 'ZERODHA_KITE'; mode: 'IMMEDIATE_ATOMIC_REPLACEMENT';
+  message: string; result: { imported: number } };
 
 const KIND_ICONS = { BANK_STATEMENT: Landmark, SALARY_PAYSLIP: BadgeIndianRupee, BROKER_HOLDINGS: BriefcaseBusiness } as const;
 
@@ -47,6 +50,7 @@ export default function ImportPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [syncWarning, setSyncWarning] = useState('');
 
   const refreshPending = useCallback(async (preferredId?: string) => {
     const reviews = await api<PendingImport[]>('/imports/unified/pending');
@@ -92,7 +96,8 @@ export default function ImportPage() {
   const selectedPending = pending.find((item) => item.review.id === selectedReviewId);
 
   function clearFileAndCredentials() {
-    setFile(undefined); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice('');
+    setFile(undefined); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false);
+    setError(''); setNotice(''); setSyncWarning('');
   }
 
   function chooseKind(nextKind: ImportKind) {
@@ -112,22 +117,28 @@ export default function ImportPage() {
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file || !sourceOption || (sourceOption.accountRequired && !accountId)) return;
-    setBusy(true); setError(''); setNotice('');
+    setBusy(true); setError(''); setNotice(''); setSyncWarning('');
     const payload = new FormData();
     payload.set('kind', kind); payload.set('source', sourceOption.source); payload.set('file', file);
     if (sourceOption.accountRequired) payload.set('accountId', accountId);
     if (kind === 'BANK_STATEMENT' && isPdf && pdfPassword) payload.set('pdfPassword', pdfPassword);
     if (kind === 'BANK_STATEMENT' && isPdf && sourceOption.rememberPasswordSupported && rememberPassword) payload.set('rememberPassword', 'true');
     try {
-      const result = await api<{ kind: ImportKind; mode: string; message?: string; review?: BankReview | SalaryReview;
-        result?: { imported: number } }>('/imports/unified/upload', { method: 'POST', body: payload });
-      if (result.kind === 'BROKER_HOLDINGS') {
-        setNotice(result.message ?? `${result.result?.imported ?? 0} holdings were imported atomically.`);
-      } else if (result.review) {
-        await refreshPending(result.review.id);
-        setNotice('The file reconciled successfully and is ready for your approval below.');
-      }
+      const result = await api<ReviewUploadResult | HoldingsUploadResult>('/imports/unified/upload', { method: 'POST', body: payload });
       setFile(undefined); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false);
+      if (result.kind === 'BROKER_HOLDINGS') {
+        setNotice(result.message || `${result.result.imported} holdings were imported atomically.`);
+      } else {
+        const localReview = { ...result, createdAt: result.review.createdAt } as PendingImport;
+        setPending((items) => [localReview, ...items.filter((item) => item.review.id !== result.review.id)]);
+        setSelectedReviewId(result.review.id);
+        setNotice('The file reconciled successfully and is ready for your approval below.');
+        try { await refreshPending(result.review.id); }
+        catch (reason) {
+          if (isUnauthorized(reason)) router.replace('/login');
+          setSyncWarning('The review was created successfully, but the queue could not be refreshed. The new review shown below is ready to use.');
+        }
+      }
     } catch (reason) {
       if (isUnauthorized(reason)) router.replace('/login');
       else setError(errorMessage(reason, 'The import could not be completed.'));
@@ -158,11 +169,18 @@ export default function ImportPage() {
   }
 
   async function finishReview(item: PendingImport, action: 'commit' | 'discard') {
-    setBusy(true); setError(''); setNotice('');
+    setBusy(true); setError(''); setNotice(''); setSyncWarning('');
     try {
       await api(item.actions[action], { method: action === 'commit' ? 'POST' : 'DELETE' });
-      await refreshPending();
+      const remaining = pending.filter((candidate) => candidate.review.id !== item.review.id);
+      setPending(remaining);
+      setSelectedReviewId((current) => current === item.review.id ? remaining[0]?.review.id ?? '' : current);
       setNotice(action === 'commit' ? (item.kind === 'BANK_STATEMENT' ? 'Transactions added to the ledger.' : 'Salary month saved.') : 'Pending review discarded.');
+      try { await refreshPending(); }
+      catch (reason) {
+        if (isUnauthorized(reason)) router.replace('/login');
+        setSyncWarning('The review action succeeded, but the remaining queue could not be refreshed. The completed review has been removed locally.');
+      }
     } catch (reason) {
       if (isUnauthorized(reason)) router.replace('/login'); else setError(errorMessage(reason, `Could not ${action} this review.`));
     } finally { setBusy(false); }
@@ -180,10 +198,10 @@ export default function ImportPage() {
         className={kind === option.kind ? 'selected' : ''} aria-pressed={kind === option.kind} onClick={() => chooseKind(option.kind)}><Icon/><span><strong>{option.label}</strong><small>{option.description}</small></span></button>; })}</div></fieldset>
       <div className="unified-fields"><label>2. Source<select value={sourceOption.source} onChange={(event) => chooseSource(event.target.value)}>
         {kindOption?.sources.map((option) => <option key={option.source} value={option.source}>{option.label}</option>)}</select><small>{sourceOption.description}</small></label>
-        {sourceOption.accountRequired && <label>3. Destination account<select required value={accountId} onChange={(event) => { setAccountId(event.target.value); setPdfPassword(''); setRememberPassword(false); setError(''); }}>
+        {sourceOption.accountRequired && <label>3. Destination account<select required value={accountId} onChange={(event) => { setAccountId(event.target.value); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}>
           <option value="" disabled>Choose an eligible account</option>{eligibleAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.institution ? ` · ${account.institution}` : ''}</option>)}</select>
           <small>Only accounts matching this type and source are offered.</small></label>}</div>
-      <label className={`dropzone unified-dropzone ${file ? 'has-file' : ''}`}><input key={fileKey} type="file" accept={accept} required onChange={(event) => { setFile(event.target.files?.[0]); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); }}/>
+      <label className={`dropzone unified-dropzone ${file ? 'has-file' : ''}`}><input key={fileKey} type="file" accept={accept} required onChange={(event) => { setFile(event.target.files?.[0]); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}/>
         {file ? <><FileSpreadsheet size={38}/><strong>{file.name}</strong><span>{(file.size / 1024).toFixed(0)} KB · ready for {sourceOption.label} validation</span></>
           : <><UploadCloud size={42}/><strong>Choose the {fileLabel}</strong><span>{sourceOption.extensions.map((item) => item.slice(1).toUpperCase()).join(', ')} · up to {sourceOption.maxBytes / 1024 / 1024} MB</span></>}</label>
       {kind === 'BANK_STATEMENT' && isPdf && selectedAccount && <section className="password-panel"><div className="password-status"><KeyRound/><span><strong>PDF document password</strong>
@@ -195,6 +213,7 @@ export default function ImportPage() {
           onChange={(event) => setRememberPassword(event.target.checked)}/><span><Check/></span><div><strong>Remember securely for this SBI account</strong><small>Saved only after this SBI PDF unlocks and verifies successfully.</small></div></label>}</section>}
       {!eligibleAccounts.length && sourceOption.accountRequired && <p className="notice"><AlertTriangle/>No eligible {sourceOption.label} account exists. <Link href="/dashboard">Add the matching account</Link> first.</p>}
       {error && <p className="error" role="alert">{error}</p>}{notice && <p className="success-note" role="status"><ShieldCheck/>{notice}</p>}
+      {syncWarning && <p className="notice refresh-warning" role="status"><AlertTriangle/>{syncWarning}</p>}
       <button className="primary wide" disabled={busy || !file || (sourceOption.accountRequired && !accountId)}>{busy ? <><RefreshCw className="spin"/>Validating…</> : kind === 'BROKER_HOLDINGS' ? 'Validate and replace snapshot' : 'Validate and create review'}</button>
     </form><aside><ShieldCheck/><h2>Source-specific safety</h2><p>{kind === 'BROKER_HOLDINGS'
       ? 'Zerodha holdings replace the selected account’s prior snapshot immediately, but only inside one atomic operation after every supported sheet and printed total reconciles.'
