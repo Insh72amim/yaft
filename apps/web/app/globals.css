@@ -367,11 +367,16 @@ html[data-theme='dark'] .wallet-copy-btn:hover{background:#2a3e32}
   background: var(--green);
   border-radius: 3px;
 }
+.loan-schedule-table header,
 .loan-schedule-table article {
   display: grid;
   grid-template-columns: 40px 1.5fr 1.2fr 1fr 1fr 1.2fr 130px !important;
   align-items: center;
   gap: 12px;
+}
+.loan-schedule-table header span:nth-child(3),
+.loan-schedule-table header span:nth-child(6) {
+  text-align: right;
 }
 .loan-row.paid {
   background: rgba(16, 185, 129, 0.04);
