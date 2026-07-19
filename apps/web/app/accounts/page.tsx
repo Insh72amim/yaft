@@ -38,7 +38,13 @@ const accountSections: AccountSection[] = [
       { label: 'Other investments', types: ['INVESTMENT'] },
     ]
   },
-  { label: 'Debt Accounts', types: ['CREDIT_CARD', 'LOAN'] },
+  {
+    label: 'Debt Accounts',
+    subsections: [
+      { label: 'Credit cards', types: ['CREDIT_CARD'] },
+      { label: 'Loans', types: ['LOAN'] },
+    ]
+  },
 ];
 
 function getIcon(type: string) {
