@@ -81,15 +81,15 @@ This file maintains the running inventory of completed, verified features inside
   - [ ] SBI Bank credit card parser.
 
 ### 9.3 Accounts Page
-- [ ] **Credit Card Details Manager**:
-  - [ ] When a credit card account is selected, show option to update its details (e.g. billing date, limits, bank name).
+- [x] **Credit Card Details Manager**:
+  - [x] When a credit card account is selected, show option to update its details (e.g. billing date, limits, bank name).
 - [x] **Credit Card Image Scanner**:
   - [x] Secure OCR card scanner integration inside Vault (client-side OCR scanning implemented).
-- [ ] **Manual EPFO Ledger entries**:
-  - [ ] Add manual transaction input form specifically for EPFO accounts (to log deposits/withdrawals and annual interest credits).
+- [x] **Manual EPFO Ledger entries**:
+  - [x] Add manual transaction input form specifically for EPFO accounts (to log deposits/withdrawals and annual interest credits).
 
 ### 9.4 Salary Page
-- [ ] **Bonus and Miscellaneous Payments**:
-  - [ ] Option to add and update bonuses, variable payouts, or other non-standard payments on the timeline.
+- [x] **Bonus and Miscellaneous Payments**:
+  - [x] Option to add and update bonuses, variable payouts, or other non-standard payments on the timeline.
 - [ ] **Acme Corp Layout Parser**:
   - [ ] Design and implement parser compatibility for Acme Corp-style payroll formats.
