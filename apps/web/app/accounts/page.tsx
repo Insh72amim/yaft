@@ -210,7 +210,7 @@ function PortfolioContent() {
       <header className="page-header">
         <div>
           <span className="eyebrow">Portfolio & Accounts</span>
-          <h1>Your accounts</h1>
+          <h1>My accounts</h1>
           <p>View your balances, holdings, and ledgers in one place.</p>
         </div>
         <div className="page-actions">
