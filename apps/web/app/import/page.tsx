@@ -269,7 +269,7 @@ function BankReviewPanel({ item, busy, update, finish }: { item: BankPending; bu
   return <><section className="review-summary"><div><FileSpreadsheet/><span><strong>{item.review.filename}</strong><small>{item.review.account.name} · {item.source}</small></span></div>
     <div><span><strong>{item.review.staged.length}</strong><small>rows found</small></span><span><strong>{duplicates}</strong><small>duplicates</small></span>
       <span><strong>{money(included.reduce((sum, row) => sum + row.amount, 0))}</strong><small>net movement</small></span>
-      {item.review.statementBalance !== null && <span><strong>{money(item.review.statementBalance)}</strong><small>predicted closing balance</small></span>}
+      {item.review.statementBalance != null && <span><strong>{money(item.review.statementBalance)}</strong><small>predicted closing balance</small></span>}
     </div></section>
     <section className="review-table panel"><div className="review-head"><span>Include</span><span>Date &amp; description</span><span>Category</span><span>Amount</span></div>
       {item.review.staged.map((row) => <div className={`review-row ${!row.include ? 'excluded' : ''}`} key={row.id}><label className="check"><input type="checkbox" checked={row.include}
