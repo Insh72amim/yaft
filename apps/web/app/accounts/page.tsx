@@ -1,18 +1,19 @@
 'use client';
-import { BriefcaseBusiness, Plus, Upload, Landmark, CreditCard, BadgeIndianRupee, Building2, PiggyBank, ChartPie, TrendingUp } from 'lucide-react';
+import { BriefcaseBusiness, Plus, Upload, Landmark, CreditCard, BadgeIndianRupee, Building2, PiggyBank, ChartPie, TrendingUp, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState, Suspense } from 'react';
 import { Shell } from '@/components/shell';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 import { AccountTransactions } from '@/components/account-transactions';
+import { AddAccountModal } from '@/components/add-account-modal';
 
 type Holding = { id: string; asset: string; symbol: string; isin: string | null; sector: string | null; assetType: string;
   quantity: string; availableQuantity: string; discrepantQuantity: string; longTermQuantity: string | null; pledgedQuantity: string;
   averagePrice: number; previousClosingPrice: number | null; currentValue: number | null; unrealizedPnl: number | null; asOfDate: string };
 type PortfolioAccount = { accountId: string; name: string; institution: string | null; investedValue: number; currentValue: number;
   unrealizedPnl: number; holdings: Holding[] };
-type Account = { id: string; name: string; type: string; institution: string | null; balance: number; creditLimit: number | null; dueDay: number | null };
+type Account = { id: string; name: string; type: string; institution: string | null; balance: number; creditLimit: number | null; dueDay: number | null; monthlyCredited: number; monthlyDebited: number };
 
 const quantity = (value: string) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 6 }).format(Number(value));
 const price = (minor: number | null) => minor === null ? '—' : new Intl.NumberFormat('en-IN', {
@@ -37,6 +38,67 @@ function getIcon(type: string) {
   return <Landmark size={16} />;
 }
 
+function getDomainForInstitution(name: string | null) {
+  if (!name) return 'bank.com';
+  const n = name.toLowerCase();
+  if (n.includes('zerodha')) return 'zerodha.com';
+  if (n.includes('groww')) return 'groww.in';
+  if (n.includes('hdfc')) return 'hdfcbank.com';
+  if (n.includes('icici')) return 'icicibank.com';
+  if (n.includes('sbi') || n.includes('state bank')) return 'onlinesbi.sbi';
+  if (n.includes('axis')) return 'axisbank.com';
+  if (n.includes('pnb') || n.includes('punjab')) return 'pnbindia.in';
+  if (n.includes('kotak')) return 'kotak.com';
+  if (n.includes('idfc')) return 'idfcfirstbank.com';
+  if (n.includes('amazon')) return 'amazon.in';
+  if (n.includes('epfo')) return 'epfindia.gov.in';
+  return 'bank.com';
+}
+
+function AccountCard({ account, onClick }: { account: Account, onClick: () => void }) {
+  const [imgError, setImgError] = useState(false);
+  const domain = getDomainForInstitution(account.institution);
+  const logoUrl = `https://logo.clearbit.com/${domain}`;
+
+  return (
+    <button className="account-card" onClick={onClick}>
+      <div className="account-card-header">
+        <div className="account-card-logo">
+          {!imgError ? (
+            <img 
+              src={logoUrl} 
+              alt={account.institution || account.name} 
+              onError={() => setImgError(true)} 
+            />
+          ) : (
+            <span className={`account-icon ${account.type.toLowerCase()}`}>{getIcon(account.type)}</span>
+          )}
+        </div>
+        <div className="account-card-title">
+          <strong>{account.name}</strong>
+          <small>{account.institution || 'Unknown institution'}</small>
+        </div>
+      </div>
+      <div className="account-card-body">
+        <div className="account-card-balance">
+          <small>Current Balance</small>
+          <strong>{money(account.balance)}</strong>
+        </div>
+        <div className="account-card-flows">
+          <div className="flow-in">
+            <small>Month In</small>
+            <span>{money(account.monthlyCredited || 0)}</span>
+          </div>
+          <div className="flow-out">
+            <small>Month Out</small>
+            <span>{money(account.monthlyDebited || 0)}</span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 function PortfolioContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -44,6 +106,7 @@ function PortfolioContent() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [addingAccount, setAddingAccount] = useState(false);
   
   const selectedAccountId = searchParams.get('account');
 
@@ -55,16 +118,12 @@ function PortfolioContent() {
       ]);
       setPortfolio(portfolioRes);
       setAccounts(accountsRes);
-      
-      if (!searchParams.get('account') && accountsRes.length > 0) {
-        router.replace(`/accounts?account=${accountsRes[0].id}`);
-      }
     }
     catch (reason) {
       if (isUnauthorized(reason)) router.replace('/login');
       else setError(errorMessage(reason, 'Could not load your accounts.'));
     } finally { setLoading(false); }
-  }, [router, searchParams]);
+  }, [router]);
   
   useEffect(() => { void load(); }, [load]);
   
@@ -74,53 +133,21 @@ function PortfolioContent() {
   const isInvestment = selectedAccount && ['STOCKS', 'INVESTMENT'].includes(selectedAccount.type);
   const portfolioData = isInvestment ? portfolio.find(p => p.accountId === selectedAccountId) : null;
 
-  return <Shell>
-    <header className="page-header">
-      <div><span className="eyebrow">Portfolio & Accounts</span><h1>Your finances</h1><p>View your balances, holdings, and ledgers in one place.</p></div>
-      <div className="page-actions">
-        <Link className="secondary" href="/dashboard"><Plus/>Add account</Link>
-        <Link className="primary" href="/import"><Upload/>Import statement</Link>
-      </div>
-    </header>
-    {error && <p className="error" role="alert">{error}</p>}
-    
-    <div className="portfolio-layout">
-      <aside className="portfolio-sidebar panel">
-        {accountSections.map((section) => {
-          const sectionAccounts = accounts.filter((account) => section.types.includes(account.type));
-          if (!sectionAccounts.length) return null;
-          return <div className="portfolio-sidebar-group" key={section.label}>
-            <header><strong>{section.label}</strong></header>
-            <div className="portfolio-sidebar-list">
-              {sectionAccounts.map((account) => (
-                <button 
-                  key={account.id} 
-                  className={`portfolio-sidebar-item ${selectedAccountId === account.id ? 'active' : ''}`}
-                  onClick={() => router.push(`/accounts?account=${account.id}`)}
-                >
-                  <span className={`account-icon ${account.type.toLowerCase()}`}>{getIcon(account.type)}</span>
-                  <div className="portfolio-sidebar-item-info">
-                    <strong>{account.name}</strong>
-                    <small>{money(account.balance)}</small>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>;
-        })}
-      </aside>
-      
-      <main className="portfolio-content">
-        {!selectedAccountId ? (
-          <div className="portfolio-empty">
-            <Landmark size={48} strokeWidth={1} />
-            <strong>Select an account</strong>
-            <p>Choose an account from the sidebar to view its details.</p>
+  if (selectedAccountId && selectedAccount) {
+    // Full Page Detail View
+    return (
+      <Shell>
+        <header className="page-header">
+          <div>
+            <Link href="/accounts" className="back-link"><ChevronLeft size={16} /> Back to all accounts</Link>
+            <span className="eyebrow">{selectedAccount.institution || 'Account Details'}</span>
+            <h1>{selectedAccount.name}</h1>
           </div>
-        ) : isInvestment ? (
+        </header>
+        {isInvestment ? (
           <div className="panel portfolio-account">
             <header>
-              <div><span className="eyebrow">{selectedAccount.institution || 'Investment account'}</span><h2>{selectedAccount?.name}</h2></div>
+              <div><span className="eyebrow">Portfolio</span><h2>Holdings</h2></div>
               {portfolioData && (
                 <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
                   <div style={{ display: 'flex', gap: '24px' }}>
@@ -158,16 +185,71 @@ function PortfolioContent() {
             {portfolioData?.holdings[0] && <footer>Snapshot imported {new Date(portfolioData.holdings[0].asOfDate).toLocaleString('en-IN')}</footer>}
           </div>
         ) : (
-          <AccountTransactions accountId={selectedAccountId} embedded={true} />
+          <AccountTransactions accountId={selectedAccountId} embedded={false} />
         )}
-      </main>
-    </div>
-  </Shell>;
+      </Shell>
+    );
+  }
+
+  // Accounts Overview View
+  return (
+    <Shell>
+      <header className="page-header">
+        <div>
+          <span className="eyebrow">Portfolio & Accounts</span>
+          <h1>Your accounts</h1>
+          <p>View your balances, holdings, and ledgers in one place.</p>
+        </div>
+        <div className="page-actions">
+          <button className="secondary" onClick={() => setAddingAccount(true)}><Plus size={17} />Add account</button>
+          <Link className="primary" href="/import"><Upload size={17} />Import statement</Link>
+        </div>
+      </header>
+      {error && <p className="error" role="alert">{error}</p>}
+      
+      <div className="accounts-overview">
+        {accountSections.map((section) => {
+          const sectionAccounts = accounts.filter((account) => section.types.includes(account.type));
+          if (!sectionAccounts.length) return null;
+          return (
+            <div className="accounts-section" key={section.label}>
+              <header className="accounts-section-header">
+                <h2>{section.label}</h2>
+              </header>
+              <div className="account-cards-grid">
+                {sectionAccounts.map((account) => (
+                  <AccountCard 
+                    key={account.id} 
+                    account={account} 
+                    onClick={() => router.push(`/accounts?account=${account.id}`)} 
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {accounts.length === 0 && (
+          <div className="portfolio-empty">
+            <Landmark size={48} strokeWidth={1} />
+            <strong>No accounts found</strong>
+            <p>Add an account to get started.</p>
+          </div>
+        )}
+      </div>
+
+      {addingAccount && (
+        <AddAccountModal 
+          onClose={() => setAddingAccount(false)} 
+          onSuccess={() => { void load(); }} 
+        />
+      )}
+    </Shell>
+  );
 }
 
 export default function PortfolioPage() {
   return (
-    <Suspense fallback={<Shell><div className="loading"><span/><p>Loading your portfolio…</p></div></Shell>}>
+    <Suspense fallback={<Shell><div className="loading"><span/><p>Loading your accounts…</p></div></Shell>}>
       <PortfolioContent />
     </Suspense>
   );

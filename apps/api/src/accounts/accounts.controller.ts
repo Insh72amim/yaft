@@ -16,17 +16,27 @@ export class AccountsController {
 
   @Get()
   async list(@CurrentUser() user: { id: string }) {
+    const now = new Date();
+    const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const endOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    
     const accounts = await this.prisma.account.findMany({ where: { userId: user.id, archived: false },
-      orderBy: { createdAt: 'asc' }, include: { transactions: { select: { amount: true } },
+      orderBy: { createdAt: 'asc' }, include: { transactions: { select: { amount: true, transactionDate: true } },
         holdings: { select: { currentValue: true } }, statementCredential: { select: { accountId: true } } } });
     return accounts.map(({ transactions, holdings = [], statementCredential, ...account }) => {
       const ledgerBalance = Number(account.openingBalance) + transactions.reduce((sum, item) => sum + Number(item.amount), 0);
       const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
       const hasCompleteValuation = holdings.length > 0 && holdings.every((holding) => holding.currentValue !== null);
+      
+      const currentMonthTxns = transactions.filter((t) => t.transactionDate >= startOfMonth && t.transactionDate < endOfMonth);
+      const monthlyCredited = currentMonthTxns.filter((t) => t.amount > 0).reduce((sum, t) => sum + Number(t.amount), 0);
+      const monthlyDebited = Math.abs(currentMonthTxns.filter((t) => t.amount < 0).reduce((sum, t) => sum + Number(t.amount), 0));
+
       return { ...account, openingBalance: Number(account.openingBalance),
         creditLimit: account.creditLimit === null ? null : Number(account.creditLimit),
         balance: isPortfolio && hasCompleteValuation
           ? holdings.reduce((sum, holding) => sum + Number(holding.currentValue), 0) : ledgerBalance,
+        monthlyCredited, monthlyDebited,
         hasStatementPassword: Boolean(statementCredential) };
     });
   }
