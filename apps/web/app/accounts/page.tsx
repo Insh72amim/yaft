@@ -165,7 +165,9 @@ function AccountCard({
         </div>
         <div className="account-card-title">
           <strong>{account.institution || "Unknown institution"}</strong>
-          <small style={{ fontWeight: 500, color: 'var(--muted)' }}>{account.name}</small>
+          <small style={{ fontWeight: 500, color: "var(--muted)" }}>
+            {account.name}
+          </small>
         </div>
       </div>
       <div className="account-card-body">
@@ -206,16 +208,7 @@ function AccountCard({
             </div>
           </div>
         ) : (
-          <div className="account-card-flows">
-            <div className="flow-in">
-              <small>Month In</small>
-              <span>{money(account.monthlyCredited || 0)}</span>
-            </div>
-            <div className="flow-out">
-              <small>Month Out</small>
-              <span>{money(account.monthlyDebited || 0)}</span>
-            </div>
-          </div>
+          <div></div>
         )}
       </div>
     </button>
@@ -283,10 +276,21 @@ function PortfolioContent() {
             <Link href="/accounts" className="back-link">
               <ChevronLeft size={16} /> Back to all accounts
             </Link>
-            <span className="eyebrow" style={{ textTransform: 'none', letterSpacing: 'normal', fontSize: '13px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>
+            <span
+              className="eyebrow"
+              style={{
+                textTransform: "none",
+                letterSpacing: "normal",
+                fontSize: "13px",
+                color: "var(--muted)",
+                display: "block",
+                marginBottom: "2px",
+              }}>
               {selectedAccount.name}
             </span>
-            <h1 style={{ marginTop: '4px' }}>{selectedAccount.institution || "Account Details"}</h1>
+            <h1 style={{ marginTop: "4px" }}>
+              {selectedAccount.institution || "Account Details"}
+            </h1>
           </div>
         </header>
         {isInvestment ? (
