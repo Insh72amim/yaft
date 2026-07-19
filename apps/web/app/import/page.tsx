@@ -62,7 +62,7 @@ export default function ImportPage() {
   const [kind, setKind] = useState<ImportKind>('BANK_STATEMENT');
   const [source, setSource] = useState('SBI');
   const [accountId, setAccountId] = useState('');
-  const [file, setFile] = useState<File>();
+  const [files, setFiles] = useState<File[]>([]);
   const [fileKey, setFileKey] = useState(0);
   const [pdfPassword, setPdfPassword] = useState('');
   const [rememberPassword, setRememberPassword] = useState(false);
@@ -130,11 +130,11 @@ export default function ImportPage() {
   const sourceOption = kindOption?.sources.find((item) => item.source === source) ?? kindOption?.sources[0];
   const eligibleAccounts = catalog?.accounts.filter((account) => sourceOption?.eligibleAccountIds.includes(account.id)) ?? [];
   const selectedAccount = eligibleAccounts.find((account) => account.id === accountId);
-  const isPdf = Boolean(file?.name.toLowerCase().endsWith('.pdf'));
+  const isPdf = files.some((f) => f.name.toLowerCase().endsWith('.pdf'));
   const selectedPending = pending.find((item) => item.review.id === selectedReviewId);
 
   function clearFileAndCredentials() {
-    setFile(undefined); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false);
+    setFiles([]); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false);
     setError(''); setNotice(''); setSyncWarning('');
   }
 
@@ -154,28 +154,54 @@ export default function ImportPage() {
 
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!file || !sourceOption || (sourceOption.accountRequired && !accountId)) return;
+    if (!files.length || !sourceOption || (sourceOption.accountRequired && !accountId)) return;
     setBusy(true); setError(''); setNotice(''); setSyncWarning('');
-    const payload = new FormData();
-    payload.set('kind', kind); payload.set('source', sourceOption.source); payload.set('file', file);
-    if (sourceOption.accountRequired) payload.set('accountId', accountId);
-    if (sourceOption.pdfPasswordSupported && isPdf && pdfPassword) payload.set('pdfPassword', pdfPassword);
-    if (sourceOption.rememberPasswordSupported && isPdf && rememberPassword) payload.set('rememberPassword', 'true');
+    const filesToUpload = [...files];
+    const isBulk = filesToUpload.length > 1;
     try {
-      const result = await api<ReviewUploadResult | HoldingsUploadResult>('/imports/unified/upload', { method: 'POST', body: payload });
-      setFile(undefined); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false);
-      if (result.mode === 'IMMEDIATE_ATOMIC_REPLACEMENT') {
-        setNotice(result.message || 'Holdings were imported.');
-      } else {
-        const reviewResult = result as ReviewUploadResult;
-        const localReview = { ...reviewResult, createdAt: reviewResult.review.createdAt } as PendingImport;
-        setPending((items) => [localReview, ...items.filter((item) => item.review.id !== reviewResult.review.id)]);
-        setSelectedReviewId(reviewResult.review.id);
-        setNotice('The file reconciled successfully and is ready for your approval below.');
-        try { await refreshPending(reviewResult.review.id); }
+      let lastReviewResult: ReviewUploadResult | null = null;
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const fileItem = filesToUpload[i];
+        if (isBulk) {
+          setNotice(`Validating and uploading payslip ${i + 1} of ${filesToUpload.length} (${fileItem.name})…`);
+        }
+        const payload = new FormData();
+        payload.set('kind', kind); payload.set('source', sourceOption.source); payload.set('file', fileItem);
+        if (sourceOption.accountRequired) payload.set('accountId', accountId);
+        if (sourceOption.pdfPasswordSupported && fileItem.name.toLowerCase().endsWith('.pdf') && pdfPassword) {
+          payload.set('pdfPassword', pdfPassword);
+        }
+        if (sourceOption.rememberPasswordSupported && fileItem.name.toLowerCase().endsWith('.pdf') && rememberPassword) {
+          payload.set('rememberPassword', 'true');
+        }
+        const result = await api<ReviewUploadResult | HoldingsUploadResult>('/imports/unified/upload', { method: 'POST', body: payload });
+        if (result.mode === 'REVIEW_REQUIRED') {
+          lastReviewResult = result as ReviewUploadResult;
+        }
+      }
+      setFiles([]); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false);
+      if (isBulk) {
+        setNotice(`All ${filesToUpload.length} payslips reconciled successfully and are ready for your approval below.`);
+        try { await refreshPending(); }
         catch (reason) {
           if (isUnauthorized(reason)) router.replace('/login');
-          setSyncWarning('The review was created successfully, but the queue could not be refreshed. The new review shown below is ready to use.');
+          setSyncWarning('The reviews were created successfully, but the queue could not be refreshed. Try refreshing the page.');
+        }
+      } else {
+        const result = lastReviewResult;
+        if (!result) {
+          setNotice('Holdings were imported.');
+        } else {
+          const reviewResult = result as ReviewUploadResult;
+          const localReview = { ...reviewResult, createdAt: reviewResult.review.createdAt } as PendingImport;
+          setPending((items) => [localReview, ...items.filter((item) => item.review.id !== reviewResult.review.id)]);
+          setSelectedReviewId(reviewResult.review.id);
+          setNotice('The file reconciled successfully and is ready for your approval below.');
+          try { await refreshPending(reviewResult.review.id); }
+          catch (reason) {
+            if (isUnauthorized(reason)) router.replace('/login');
+            setSyncWarning('The review was created successfully, but the queue could not be refreshed. The new review shown below is ready to use.');
+          }
         }
       }
     } catch (reason) {
@@ -246,9 +272,16 @@ export default function ImportPage() {
         {sourceOption.accountRequired && <label>3. Destination account<select required value={accountId} onChange={(event) => { setAccountId(event.target.value); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}>
           <option value="" disabled>Choose an eligible account</option>{eligibleAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.institution ? ` · ${account.institution}` : ''}</option>)}</select>
           <small>Only accounts matching this type and source are offered.</small></label>}</div>
-      <label className={`dropzone unified-dropzone ${file ? 'has-file' : ''}`}><input key={fileKey} type="file" accept={accept} required onChange={(event) => { setFile(event.target.files?.[0]); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}/>
-        {file ? <><FileSpreadsheet size={38}/><strong>{file.name}</strong><span>{(file.size / 1024).toFixed(0)} KB · ready for {sourceOption.label} validation</span></>
-          : <><UploadCloud size={42}/><strong>Choose the {fileLabel}</strong><span>{sourceOption.extensions.map((item) => item.slice(1).toUpperCase()).join(', ')} · up to {sourceOption.maxBytes / 1024 / 1024} MB</span></>}</label>
+      <label className={`dropzone unified-dropzone ${files.length ? 'has-file' : ''}`}><input key={fileKey} type="file" accept={accept} multiple={kind === 'SALARY_PAYSLIP'} required onChange={(event) => { setFiles(Array.from(event.target.files || [])); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}/>
+        {files.length ? (
+          files.length === 1 ? (
+            <><FileSpreadsheet size={38}/><strong>{files[0].name}</strong><span>{(files[0].size / 1024).toFixed(0)} KB · ready for {sourceOption.label} validation</span></>
+          ) : (
+            <><FileSpreadsheet size={38}/><strong>{files.length} payslips selected</strong><span>{files.map((f) => f.name).join(', ')}</span></>
+          )
+        ) : (
+          <><UploadCloud size={42}/><strong>Choose the {fileLabel}{kind === 'SALARY_PAYSLIP' ? 's' : ''}</strong><span>{sourceOption.extensions.map((item) => item.slice(1).toUpperCase()).join(', ')} · up to {sourceOption.maxBytes / 1024 / 1024} MB</span></>
+        )}</label>
       {sourceOption.pdfPasswordSupported && isPdf && <section className="password-panel"><div className="password-status"><KeyRound/><span><strong>PDF document password</strong>
         <small>{selectedAccount?.hasStatementPassword ? 'A saved password can unlock this account’s SBI PDF.' : 'Optional; use only when this PDF is protected.'}</small></span>
         {selectedAccount?.hasStatementPassword && <button type="button" className="ghost compact" disabled={busy} onClick={() => void forgetPassword()}><Trash2/>Forget</button>}</div>
@@ -259,7 +292,7 @@ export default function ImportPage() {
       {!eligibleAccounts.length && sourceOption.accountRequired && <p className="notice"><AlertTriangle/>No eligible {sourceOption.label} account exists. <Link href="/dashboard">Add the matching account</Link> first.</p>}
       {error && <p className="error" role="alert">{error}</p>}{notice && <p className="success-note" role="status"><ShieldCheck/>{notice}</p>}
       {syncWarning && <p className="notice refresh-warning" role="status"><AlertTriangle/>{syncWarning}</p>}
-      <button className="primary wide" disabled={busy || !file || (sourceOption.accountRequired && !accountId)}>{busy ? <><RefreshCw className="spin"/>Validating…</> : kind === 'BROKER_HOLDINGS' ? 'Validate and replace snapshot' : 'Validate and create review'}</button>
+      <button className="primary wide" disabled={busy || !files.length || (sourceOption.accountRequired && !accountId)}>{busy ? <><RefreshCw className="spin"/>Validating…</> : kind === 'BROKER_HOLDINGS' ? 'Validate and replace snapshot' : files.length > 1 ? 'Validate and create reviews' : 'Validate and create review'}</button>
       </form>
       <aside>
         <ShieldCheck/><h2>Source-specific safety</h2><p>{kind === 'BROKER_HOLDINGS'
