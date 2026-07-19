@@ -1,5 +1,5 @@
 'use client';
-import { BadgeIndianRupee, BriefcaseBusiness, Landmark, LayoutDashboard, LogOut, Menu, ShieldCheck, Upload, X } from 'lucide-react';
+import { BadgeIndianRupee, BriefcaseBusiness, Landmark, LayoutDashboard, Lock, LogOut, Menu, ShieldCheck, Upload, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -10,6 +10,11 @@ const links = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/accounts', label: 'Accounts', icon: BriefcaseBusiness },
   { href: '/salary', label: 'Salary statements', icon: BadgeIndianRupee },
+  { href: '/import', label: 'Import', icon: Upload },
+];
+
+const bottomLinks = [
+  { href: '/vault', label: 'Vault', icon: Lock },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -23,6 +28,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <button className="close-menu" onClick={() => setOpen(false)}><X /></button>
       <nav>{links.map(({ href, label, icon: Icon }) => <Link key={href} className={path === href || (href === '/accounts' && path.startsWith('/accounts')) ? 'active' : ''} href={href} onClick={() => setOpen(false)}><Icon size={18}/>{label}</Link>)}</nav>
       <div className="side-spacer" />
+      <nav className="nav-bottom">{bottomLinks.map(({ href, label, icon: Icon }) => <Link key={href} className={path.startsWith(href) ? 'active vault-nav' : 'vault-nav'} href={href} onClick={() => setOpen(false)}><Icon size={18}/>{label}</Link>)}</nav>
       <ThemeToggle />
       <div className="privacy-note"><ShieldCheck size={18}/><div><strong>Private by design</strong><span>Your data stays on your server.</span></div></div>
       <button className="logout" onClick={logout}><LogOut size={17}/>Sign out</button>

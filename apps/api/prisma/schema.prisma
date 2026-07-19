@@ -108,6 +108,7 @@ model Account {
   imports        ImportBatch[]
   holdings       PortfolioHolding[]
   statementCredential StatementCredential?
+  vaultEntry          AccountVaultEntry?
 
   @@index([userId])
 }
@@ -238,4 +239,35 @@ model PortfolioHolding {
 
   @@unique([accountId, assetId])
   @@index([accountId])
+}
+
+model AccountVaultEntry {
+  id           String   @id @default(cuid())
+  accountId    String   @unique
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Encrypted fields (AES-256-GCM)
+  accountNumberCipher  Bytes?
+  accountNumberIv      Bytes?
+  accountNumberTag     Bytes?
+
+  cardNumberCipher     Bytes?
+  cardNumberIv         Bytes?
+  cardNumberTag        Bytes?
+
+  cvvCipher            Bytes?
+  cvvIv                Bytes?
+  cvvTag               Bytes?
+
+  // Plaintext (safe)
+  last4                String?   // last 4 digits for display
+  ifsc                 String?
+  upiId                String?
+  cardExpiryMm         Int?
+  cardExpiryYy         Int?
+  cardNetwork          String?   // Visa, Mastercard, RuPay, Amex
+
+  keyVersion           Int       @default(1)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
