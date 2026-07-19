@@ -1,12 +1,11 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Suspense } from 'react';
-import Link from 'next/link';
 import {
   Lock, Eye, EyeOff, CreditCard, Landmark, PiggyBank, TrendingUp,
   ChartPieIcon as ChartPie, Building2, BadgeIndianRupee, Pencil,
-  Trash2, Save, X, ShieldCheck, AlertCircle, Copy, Check,
+  Trash2, Save, X, ShieldCheck, AlertCircle, Check, Copy, Settings2, Shield
 } from 'lucide-react';
 import { api, errorMessage, isUnauthorized } from '@/lib/api';
 import { Shell } from '@/components/shell';
@@ -46,93 +45,45 @@ function isBankAccount(type: string) { return BANK_TYPES.includes(type); }
 function isCardAccount(type: string) { return CARD_TYPES.includes(type); }
 
 function getIcon(type: string) {
-  if (type === 'CREDIT_CARD') return <CreditCard size={16} />;
-  if (type === 'INVESTMENT') return <ChartPie size={16} />;
-  if (type === 'STOCKS') return <TrendingUp size={16} />;
-  if (type === 'EPFO') return <Building2 size={16} />;
-  if (type === 'LOAN') return <BadgeIndianRupee size={16} />;
-  if (type === 'SAVINGS') return <PiggyBank size={16} />;
-  return <Landmark size={16} />;
+  if (type === 'CREDIT_CARD') return <CreditCard size={18} />;
+  if (type === 'INVESTMENT') return <ChartPie size={18} />;
+  if (type === 'STOCKS') return <TrendingUp size={18} />;
+  if (type === 'EPFO') return <Building2 size={18} />;
+  if (type === 'LOAN') return <BadgeIndianRupee size={18} />;
+  if (type === 'SAVINGS') return <PiggyBank size={18} />;
+  return <Landmark size={18} />;
 }
 
 function maskAccountNumber(last4: string | null) {
-  return last4 ? `•••••••• ${last4}` : '••••••••••••';
+  return last4 ? `•••• •••• ${last4}` : '••••••••••••';
 }
 
 function maskCardNumber(last4: string | null) {
-  return last4 ? `•••• •••• •••• ${last4}` : '•••• •••• •••• ••••';
+  return last4 ? `••••  ••••  ••••  ${last4}` : '••••  ••••  ••••  ••••';
 }
 
 function formatCardNumber(raw: string) {
   return raw.replace(/(.{4})/g, '$1 ').trim();
 }
 
-function networkColor(network: string | null) {
-  if (network === 'Visa') return '#1a1f71';
-  if (network === 'Mastercard') return '#eb001b';
-  if (network === 'Amex') return '#2e77bc';
-  if (network === 'RuPay') return '#1c6f3e';
-  return 'var(--muted)';
-}
-
-const accountSections = [
-  { label: 'Bank accounts', types: ['SAVINGS', 'FIXED_DEPOSIT', 'BANK'] },
-  { label: 'Credit cards', types: ['CREDIT_CARD'] },
-  { label: 'Loan accounts', types: ['LOAN'] },
-  { label: 'Investments', types: ['STOCKS', 'INVESTMENT'] },
-  { label: 'EPFO accounts', types: ['EPFO'] },
-];
-
 // ─── CopyButton ──────────────────────────────────────────────────────────────
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
-  const copy = async () => {
+  const copy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     await navigator.clipboard.writeText(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
   };
   return (
-    <button className="vault-copy-btn" onClick={copy} title="Copy to clipboard">
-      {copied ? <Check size={13} /> : <Copy size={13} />}
+    <button className="wallet-copy-btn" onClick={copy} title="Copy to clipboard">
+      {copied ? <Check size={12} /> : <Copy size={12} />}
     </button>
   );
 }
 
-// ─── VaultField ──────────────────────────────────────────────────────────────
-function VaultField({
-  label, masked, revealed, sensitive = false,
-}: {
-  label: string;
-  masked: string;
-  revealed?: string;
-  sensitive?: boolean;
-}) {
-  const [showing, setShowing] = useState(false);
-  const display = showing && revealed ? revealed : masked;
-  const canReveal = Boolean(revealed);
-
-  return (
-    <div className="vault-field">
-      <span className="vault-field-label">{label}</span>
-      <div className="vault-field-value">
-        <code className={showing ? 'revealed' : 'masked'}>{display}</code>
-        {canReveal && (
-          <button
-            className="vault-reveal-btn"
-            onClick={() => setShowing(v => !v)}
-            title={showing ? 'Hide' : 'Reveal'}
-          >
-            {showing ? <EyeOff size={14} /> : <Eye size={14} />}
-          </button>
-        )}
-        {showing && revealed && <CopyButton value={revealed} />}
-      </div>
-    </div>
-  );
-}
-
-// ─── VaultCard ───────────────────────────────────────────────────────────────
-function VaultCard({ account, onSaved, onDeleted }: {
+// ─── WalletCard Component ────────────────────────────────────────────────────
+function WalletCard({ account, onSaved, onDeleted }: {
   account: VaultAccount;
   onSaved: () => void;
   onDeleted: () => void;
@@ -141,7 +92,9 @@ function VaultCard({ account, onSaved, onDeleted }: {
   const isCard = isCardAccount(account.type);
   const hasVault = Boolean(account.vault);
 
-  const [editing, setEditing] = useState(!hasVault);
+  // States: 'front' | 'edit' | 'reveal'
+  const [mode, setMode] = useState<'front' | 'edit' | 'reveal'>('front');
+
   const [revealed, setRevealed] = useState<RevealedData | null>(null);
   const [revealing, setRevealing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -151,19 +104,19 @@ function VaultCard({ account, onSaved, onDeleted }: {
 
   const formRef = useRef<HTMLFormElement>(null);
 
-  const reveal = useCallback(async () => {
+  const reveal = async () => {
     setRevealing(true);
+    setError('');
     try {
       const data = await api<RevealedData>(`/vault/${account.id}/reveal`);
       setRevealed(data);
+      setMode('reveal');
     } catch (e) {
-      setError(errorMessage(e, 'Could not reveal details.'));
+      setError(errorMessage(e, 'Could not decrypt details.'));
     } finally {
       setRevealing(false);
     }
-  }, [account.id]);
-
-  const hideRevealed = () => setRevealed(null);
+  };
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,8 +142,7 @@ function VaultCard({ account, onSaved, onDeleted }: {
     setSaving(true); setError('');
     try {
       await api(`/vault/${account.id}`, { method: 'PUT', body: JSON.stringify(body) });
-      setEditing(false);
-      setRevealed(null);
+      setMode('front');
       onSaved();
     } catch (e) {
       setError(errorMessage(e, 'Could not save vault entry.'));
@@ -204,6 +156,7 @@ function VaultCard({ account, onSaved, onDeleted }: {
     try {
       await api(`/vault/${account.id}`, { method: 'DELETE' });
       setConfirmDelete(false);
+      setMode('front');
       onDeleted();
     } catch (e) {
       setError(errorMessage(e, 'Could not delete vault entry.'));
@@ -212,269 +165,259 @@ function VaultCard({ account, onSaved, onDeleted }: {
     }
   };
 
-  return (
-    <div className="vault-card panel">
-      {/* Card header */}
-      <header className="vault-card-header">
-        <div className="vault-card-title">
-          <span className={`account-icon ${account.type.toLowerCase()}`}>{getIcon(account.type)}</span>
-          <div>
-            <h2>{account.name}</h2>
-            {account.institution && <span className="vault-institution">{account.institution}</span>}
-          </div>
+  const cssClass = `wallet-card-face wallet-card-front ${isCard ? 'type-card' : 'type-bank'} network-${account.vault?.cardNetwork?.toLowerCase() || 'default'}`;
+
+  // Renders the realistic "Front" of the card
+  const renderFront = () => (
+    <div className={cssClass}>
+      <div className="wallet-card-header">
+        <div className="wallet-card-title">
+          {getIcon(account.type)}
+          <span>{account.name}</span>
         </div>
-        <div className="vault-card-actions">
-          {hasVault && !editing && (
-            <>
-              <button className="ghost compact" onClick={() => { setEditing(true); setRevealed(null); }}>
-                <Pencil size={14} /> Edit
-              </button>
-              <button className="ghost compact danger" onClick={() => setConfirmDelete(true)}>
-                <Trash2 size={14} />
-              </button>
-            </>
-          )}
-          {editing && hasVault && (
-            <button className="ghost compact" onClick={() => { setEditing(false); setError(''); }}>
-              <X size={14} /> Cancel
+        {isCard && <div className="wallet-card-network">{account.vault?.cardNetwork || 'Credit Card'}</div>}
+        {!isCard && <div className="wallet-card-institution">{account.institution || account.type.replace('_', ' ')}</div>}
+      </div>
+
+      <div className="wallet-card-middle">
+        {isCard && <div className="wallet-card-chip"></div>}
+        {isCard && hasVault && (
+          <div className="wallet-card-number">
+            {maskCardNumber(account.vault?.last4 || null)}
+          </div>
+        )}
+        {isBank && hasVault && (
+          <div className="wallet-card-number">
+            {maskAccountNumber(account.vault?.last4 || null)}
+          </div>
+        )}
+        {!hasVault && (
+          <div className="wallet-card-empty-prompt">
+            <Lock size={16} /> No details stored
+          </div>
+        )}
+      </div>
+
+      <div className="wallet-card-footer">
+        {isCard && hasVault && account.vault?.cardExpiryMm && account.vault?.cardExpiryYy && (
+          <div className="wallet-card-meta">
+            <small>VALID THRU</small>
+            <span>{String(account.vault.cardExpiryMm).padStart(2, '0')}/{String(account.vault.cardExpiryYy)}</span>
+          </div>
+        )}
+        {isBank && hasVault && account.vault?.ifsc && (
+          <div className="wallet-card-meta">
+            <small>IFSC</small>
+            <span>{account.vault.ifsc}</span>
+          </div>
+        )}
+
+        <div className="wallet-card-actions">
+          {hasVault && (
+            <button className="wallet-btn-icon" onClick={() => reveal()} title="Reveal details" disabled={revealing}>
+              {revealing ? <span className="wallet-spinner"/> : <Eye size={15} />}
             </button>
           )}
-        </div>
-      </header>
-
-      {error && <p className="error" role="alert">{error}</p>}
-
-      {/* Empty state */}
-      {!hasVault && !editing && (
-        <div className="vault-empty">
-          <Lock size={32} strokeWidth={1.5} />
-          <strong>No details stored</strong>
-          <p>Add your {isCard ? 'card' : 'account'} details to keep them secure and accessible.</p>
-          <button className="primary compact" onClick={() => setEditing(true)}>
-            <Lock size={14} /> Add details
+          <button className="wallet-btn-icon" onClick={() => setMode('edit')} title="Edit details">
+            <Pencil size={14} />
           </button>
         </div>
-      )}
+      </div>
+    </div>
+  );
 
-      {/* Edit / add form */}
-      {editing && (
-        <form className="vault-form" ref={formRef} onSubmit={save}>
-          <div className="vault-form-section">
-            <span className="vault-form-section-title">
-              {isCard ? 'Card details' : 'Account details'}
-            </span>
+  // Renders the Edit form "Back" of the card
+  const renderEdit = () => (
+    <div className="wallet-card-face wallet-card-back">
+      <div className="wallet-card-back-header">
+        <strong>{hasVault ? 'Edit Details' : 'Add Details'}</strong>
+        <button className="wallet-btn-icon" onClick={() => setMode('front')}><X size={16} /></button>
+      </div>
 
-            {isBank && (
-              <>
-                <label>
-                  Account number
-                  <input name="accountNumber" type="text" inputMode="numeric"
-                    placeholder="e.g. 12345678901"
-                    defaultValue=""
-                    autoComplete="off" />
-                  <small>9–18 digits, no spaces</small>
-                </label>
-                <label>
-                  IFSC code
-                  <input name="ifsc" type="text" placeholder="e.g. SBIN0001234"
-                    style={{ textTransform: 'uppercase' }} autoComplete="off" />
-                </label>
-                <label>
-                  UPI ID <span className="optional">optional</span>
-                  <input name="upiId" type="text" placeholder="e.g. name@upi" autoComplete="off" />
-                </label>
-              </>
-            )}
+      {error && <div className="wallet-error">{error}</div>}
 
-            {isCard && (
-              <>
-                <label>
-                  Card number
-                  <input name="cardNumber" type="text" inputMode="numeric"
-                    placeholder="•••• •••• •••• ••••"
-                    maxLength={23}
-                    autoComplete="off"
-                    onChange={e => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 19);
-                      e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
-                    }}
-                  />
-                  <small>Network (Visa / Mastercard / RuPay / Amex) is auto-detected</small>
-                </label>
-                <div className="vault-form-row">
-                  <label>
-                    Expiry month
-                    <input name="cardExpiryMm" type="number" min={1} max={12} placeholder="MM" />
-                  </label>
-                  <label>
-                    Expiry year
-                    <input name="cardExpiryYy" type="number" min={25} max={99} placeholder="YY" />
-                  </label>
-                  <label>
-                    CVV
-                    <input name="cvv" type="password" inputMode="numeric"
-                      maxLength={4} placeholder="•••" autoComplete="off" />
-                  </label>
+      <form className="wallet-form" ref={formRef} onSubmit={save}>
+        {isBank && (
+          <>
+            <label>
+              Account Number
+              <input name="accountNumber" type="text" inputMode="numeric" placeholder="e.g. 12345678901" autoComplete="off" />
+            </label>
+            <div className="wallet-form-row">
+              <label>
+                IFSC Code
+                <input name="ifsc" type="text" placeholder="e.g. SBIN0001234" style={{ textTransform: 'uppercase' }} autoComplete="off" />
+              </label>
+              <label>
+                UPI ID (Optional)
+                <input name="upiId" type="text" placeholder="name@upi" autoComplete="off" />
+              </label>
+            </div>
+          </>
+        )}
+
+        {isCard && (
+          <>
+            <label>
+              Card Number
+              <input name="cardNumber" type="text" inputMode="numeric" placeholder="•••• •••• •••• ••••" maxLength={23} autoComplete="off"
+                onChange={e => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 19);
+                  e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
+                }}
+              />
+            </label>
+            <div className="wallet-form-row">
+              <label>
+                Expiry MM
+                <input name="cardExpiryMm" type="number" min={1} max={12} placeholder="MM" />
+              </label>
+              <label>
+                Expiry YY
+                <input name="cardExpiryYy" type="number" min={25} max={99} placeholder="YY" />
+              </label>
+              <label>
+                CVV
+                <input name="cvv" type="password" inputMode="numeric" maxLength={4} placeholder="•••" autoComplete="off" />
+              </label>
+            </div>
+          </>
+        )}
+
+        {!isBank && !isCard && (
+          <p className="wallet-no-sensitive">This account type doesn't have sensitive credentials to store here.</p>
+        )}
+
+        <div className="wallet-form-actions">
+          {hasVault && !confirmDelete && (
+            <button type="button" className="wallet-btn danger" onClick={() => setConfirmDelete(true)}>
+              <Trash2 size={13}/> Delete
+            </button>
+          )}
+          {confirmDelete && (
+            <button type="button" className="wallet-btn danger-solid" onClick={deleteEntry} disabled={deleting}>
+              {deleting ? '...' : 'Confirm'}
+            </button>
+          )}
+          <div className="spacer" />
+          <button type="submit" className="wallet-btn primary" disabled={saving}>
+            <Save size={13}/> {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
+  // Renders the Revealed "Back" of the card
+  const renderReveal = () => (
+    <div className="wallet-card-face wallet-card-reveal">
+      <div className="wallet-card-back-header">
+        <div className="wallet-shield">
+          <ShieldCheck size={16} /> <strong>Decrypted Details</strong>
+        </div>
+        <button className="wallet-btn-icon" onClick={() => setMode('front')}><EyeOff size={16} /></button>
+      </div>
+
+      <div className="wallet-reveal-fields">
+        {isBank && (
+          <>
+            <div className="wallet-reveal-field">
+              <span>Account Number</span>
+              <div>
+                <code>{revealed?.accountNumber || maskAccountNumber(account.vault?.last4 || null)}</code>
+                {revealed?.accountNumber && <CopyButton value={revealed.accountNumber} />}
+              </div>
+            </div>
+            {account.vault?.ifsc && (
+              <div className="wallet-reveal-field">
+                <span>IFSC</span>
+                <div>
+                  <code>{account.vault.ifsc}</code>
+                  <CopyButton value={account.vault.ifsc} />
                 </div>
-              </>
-            )}
-
-            {!isBank && !isCard && (
-              <p className="vault-no-sensitive">
-                This account type doesn't have sensitive credentials to store. You can use the notes section in the future.
-              </p>
-            )}
-          </div>
-
-          {(isBank || isCard) && (
-            <div className="vault-form-actions">
-              <button type="submit" className="primary" disabled={saving}>
-                <Save size={14} /> {saving ? 'Saving…' : 'Save securely'}
-              </button>
-            </div>
-          )}
-        </form>
-      )}
-
-      {/* Filled / display state */}
-      {hasVault && !editing && account.vault && (
-        <div className="vault-details">
-          {/* Reveal bar */}
-          {!revealed ? (
-            <div className="vault-reveal-bar">
-              <div className="vault-shield">
-                <ShieldCheck size={18} />
-                <span>Details encrypted at rest</span>
               </div>
-              <button className="secondary compact" onClick={reveal} disabled={revealing}>
-                <Eye size={14} /> {revealing ? 'Decrypting…' : 'Reveal details'}
-              </button>
-            </div>
-          ) : (
-            <div className="vault-reveal-bar revealed-state">
-              <div className="vault-shield active">
-                <Eye size={18} />
-                <span>Details visible — hide when done</span>
+            )}
+            {account.vault?.upiId && (
+              <div className="wallet-reveal-field">
+                <span>UPI ID</span>
+                <div>
+                  <code>{account.vault.upiId}</code>
+                  <CopyButton value={account.vault.upiId} />
+                </div>
               </div>
-              <button className="ghost compact" onClick={hideRevealed}>
-                <EyeOff size={14} /> Hide all
-              </button>
+            )}
+          </>
+        )}
+
+        {isCard && (
+          <>
+            <div className="wallet-reveal-field">
+              <span>Card Number</span>
+              <div>
+                <code>{revealed?.cardNumber ? formatCardNumber(revealed.cardNumber) : maskCardNumber(account.vault?.last4 || null)}</code>
+                {revealed?.cardNumber && <CopyButton value={revealed.cardNumber} />}
+              </div>
             </div>
-          )}
+            <div className="wallet-form-row">
+              <div className="wallet-reveal-field">
+                <span>Expiry</span>
+                <div><code>{String(account.vault?.cardExpiryMm).padStart(2, '0')}/{account.vault?.cardExpiryYy}</code></div>
+              </div>
+              <div className="wallet-reveal-field">
+                <span>CVV</span>
+                <div>
+                  <code>{revealed?.cvv || '•••'}</code>
+                  {revealed?.cvv && <CopyButton value={revealed.cvv} />}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
 
-          {/* Fields */}
-          <div className="vault-fields-grid">
-            {isBank && (
-              <>
-                <VaultField
-                  label="Account number"
-                  masked={maskAccountNumber(account.vault.last4)}
-                  revealed={revealed?.accountNumber}
-                />
-                <VaultField
-                  label="IFSC"
-                  masked={account.vault.ifsc || '—'}
-                  revealed={account.vault.ifsc ?? undefined}
-                />
-                {account.vault.upiId && (
-                  <VaultField
-                    label="UPI ID"
-                    masked={account.vault.upiId}
-                    revealed={account.vault.upiId}
-                  />
-                )}
-              </>
-            )}
+      <div className="wallet-reveal-footer">
+        <button className="wallet-btn ghost" onClick={() => setMode('front')}>Hide Details</button>
+      </div>
+    </div>
+  );
 
-            {isCard && (
-              <>
-                <VaultField
-                  label="Card number"
-                  masked={maskCardNumber(account.vault.last4)}
-                  revealed={revealed?.cardNumber ? formatCardNumber(revealed.cardNumber) : undefined}
-                />
-                {account.vault.cardNetwork && (
-                  <div className="vault-field">
-                    <span className="vault-field-label">Network</span>
-                    <div className="vault-field-value">
-                      <span className="vault-network-badge"
-                        style={{ color: networkColor(account.vault.cardNetwork) }}>
-                        {account.vault.cardNetwork}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                {(account.vault.cardExpiryMm && account.vault.cardExpiryYy) && (
-                  <div className="vault-field">
-                    <span className="vault-field-label">Expiry</span>
-                    <div className="vault-field-value">
-                      <code className="revealed">
-                        {String(account.vault.cardExpiryMm).padStart(2, '0')} / {String(account.vault.cardExpiryYy)}
-                      </code>
-                    </div>
-                  </div>
-                )}
-                <VaultField
-                  label="CVV"
-                  masked="•••"
-                  revealed={revealed?.cvv}
-                  sensitive
-                />
-              </>
-            )}
-          </div>
-
-          <p className="vault-updated">
-            Last updated {new Date(account.vault.updatedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-          </p>
-        </div>
-      )}
-
-      {/* Delete confirmation */}
-      {confirmDelete && (
-        <div className="vault-delete-confirm">
-          <AlertCircle size={16} />
-          <span>Delete all stored details for <strong>{account.name}</strong>?</span>
-          <button className="danger compact" onClick={deleteEntry} disabled={deleting}>
-            {deleting ? 'Deleting…' : 'Delete'}
-          </button>
-          <button className="ghost compact" onClick={() => setConfirmDelete(false)}>Cancel</button>
-        </div>
-      )}
+  return (
+    <div className={`wallet-card-container ${mode !== 'front' ? 'flipped' : ''}`}>
+      <div className="wallet-card-inner">
+        {mode === 'front' && renderFront()}
+        {mode === 'edit' && renderEdit()}
+        {mode === 'reveal' && renderReveal()}
+      </div>
     </div>
   );
 }
 
-// ─── Main page ───────────────────────────────────────────────────────────────
+// ─── Main Page ───────────────────────────────────────────────────────────────
 function VaultContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [accounts, setAccounts] = useState<VaultAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const selectedId = searchParams.get('account');
 
   const load = useCallback(async () => {
     try {
       const data = await api<VaultAccount[]>('/vault');
       setAccounts(data);
-      if (!searchParams.get('account') && data.length > 0) {
-        router.replace(`/vault?account=${data[0].id}`);
-      }
     } catch (e) {
       if (isUnauthorized(e)) router.replace('/login');
       else setError(errorMessage(e, 'Could not load vault.'));
     } finally {
       setLoading(false);
     }
-  }, [router, searchParams]);
+  }, [router]);
 
   useEffect(() => { void load(); }, [load]);
 
   if (loading) return <Shell><div className="loading"><span /><p>Unlocking your vault…</p></div></Shell>;
 
-  const selected = accounts.find(a => a.id === selectedId);
+  const bankAccounts = accounts.filter(a => isBankAccount(a.type) || a.type === 'EPFO' || a.type === 'LOAN');
+  const creditCards = accounts.filter(a => isCardAccount(a.type));
+  const investments = accounts.filter(a => a.type === 'STOCKS' || a.type === 'INVESTMENT');
 
   return (
     <Shell>
@@ -482,69 +425,49 @@ function VaultContent() {
         <div>
           <span className="eyebrow">Security</span>
           <h1>Account Vault</h1>
-          <p>Your sensitive account details, encrypted and stored locally.</p>
+          <p>Your sensitive account details, encrypted and stored locally on your device.</p>
+        </div>
+        <div className="vault-global-badge">
+          <Shield size={16} /> <span>AES-256-GCM Encrypted</span>
         </div>
       </header>
 
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && <p className="error" role="alert" style={{ marginBottom: '24px' }}>{error}</p>}
 
-      <div className="vault-layout">
-        {/* Sidebar */}
-        <aside className="vault-sidebar panel">
-          <div className="vault-sidebar-header">
-            <Lock size={14} />
-            <span>Your accounts</span>
-          </div>
-          {accountSections.map(section => {
-            const sectionAccounts = accounts.filter(a => section.types.includes(a.type));
-            if (!sectionAccounts.length) return null;
-            return (
-              <div className="vault-sidebar-group" key={section.label}>
-                <header>{section.label}</header>
-                {sectionAccounts.map(account => {
-                  const hasVault = Boolean(account.vault);
-                  return (
-                    <button
-                      key={account.id}
-                      className={`vault-sidebar-item ${selectedId === account.id ? 'active' : ''}`}
-                      onClick={() => router.push(`/vault?account=${account.id}`)}
-                    >
-                      <span className={`account-icon ${account.type.toLowerCase()}`}>
-                        {getIcon(account.type)}
-                      </span>
-                      <div className="vault-sidebar-item-info">
-                        <strong>{account.name}</strong>
-                        <small>{account.institution || account.type}</small>
-                      </div>
-                      <span className={`vault-status-dot ${hasVault ? 'filled' : 'empty'}`}
-                        title={hasVault ? 'Details stored' : 'No details yet'} />
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </aside>
-
-        {/* Main content */}
-        <main className="vault-main">
-          {!selected ? (
-            <div className="vault-splash">
-              <div className="vault-splash-icon">
-                <Lock size={40} strokeWidth={1.2} />
-              </div>
-              <h2>Select an account</h2>
-              <p>Choose an account from the sidebar to view or add its encrypted details.</p>
+      <div className="vault-sections">
+        {creditCards.length > 0 && (
+          <section className="vault-section">
+            <h2 className="vault-section-title">Credit Cards</h2>
+            <div className="vault-grid">
+              {creditCards.map(acc => <WalletCard key={acc.id} account={acc} onSaved={load} onDeleted={load} />)}
             </div>
-          ) : (
-            <VaultCard
-              key={selected.id}
-              account={selected}
-              onSaved={load}
-              onDeleted={load}
-            />
-          )}
-        </main>
+          </section>
+        )}
+
+        {bankAccounts.length > 0 && (
+          <section className="vault-section">
+            <h2 className="vault-section-title">Bank & Loan Accounts</h2>
+            <div className="vault-grid">
+              {bankAccounts.map(acc => <WalletCard key={acc.id} account={acc} onSaved={load} onDeleted={load} />)}
+            </div>
+          </section>
+        )}
+
+        {investments.length > 0 && (
+          <section className="vault-section">
+            <h2 className="vault-section-title">Investments</h2>
+            <div className="vault-grid">
+              {investments.map(acc => <WalletCard key={acc.id} account={acc} onSaved={load} onDeleted={load} />)}
+            </div>
+          </section>
+        )}
+
+        {accounts.length === 0 && !loading && (
+          <div className="empty">
+            <span>📭</span>
+            <p>You haven't added any accounts yet. Go to Accounts to add one first.</p>
+          </div>
+        )}
       </div>
     </Shell>
   );
