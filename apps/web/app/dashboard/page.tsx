@@ -174,63 +174,109 @@ function Empty({ text }: { text: string }) { return <div className="empty"><span
 function MonthlyFlow({ income, expenses, savings }: { income: number; expenses: number; savings: number }) {
   if (income <= 0) return <Empty text="No income found for this month to generate flow." />;
 
-  // Calculate percentages
-  const expensePct = Math.min(100, Math.round((expenses / income) * 100));
+  const expensePct = Math.min(100, Math.max(0, (expenses / income) * 100));
   const savingsPct = Math.max(0, 100 - expensePct);
 
+  // Sankey Layout Math
+  const H = 280; // Total height of the flow
+  const gap = 30; // Gap between split nodes
+  const startY = 60;
+  const nodeW = 16;
+  
+  const H_exp = H * (expensePct / 100);
+  const H_sav = H * (savingsPct / 100);
+
+  // Link Generator
+  const sankeyLink = (x1: number, y1Top: number, y1Bot: number, x2: number, y2Top: number, y2Bot: number) => {
+    const cp = (x2 - x1) * 0.45;
+    return `
+      M ${x1} ${y1Top}
+      C ${x1 + cp} ${y1Top}, ${x2 - cp} ${y2Top}, ${x2} ${y2Top}
+      L ${x2} ${y2Bot}
+      C ${x2 - cp} ${y2Bot}, ${x1 + cp} ${y1Bot}, ${x1} ${y1Bot}
+      Z
+    `;
+  };
+
   return (
-    <div className="flow-diagram-container">
-      <svg viewBox="0 0 800 300" preserveAspectRatio="xMidYMid meet" className="flow-svg">
+    <div className="beautiful-flow-wrapper" style={{ padding: '0', border: 'none', background: 'transparent' }}>
+      <svg viewBox="0 0 1000 400" className="beautiful-flow-svg" style={{ overflow: 'visible' }}>
         <defs>
-          <linearGradient id="grad-income" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#10b981" />
-            <stop offset="100%" stopColor="#3b82f6" />
-          </linearGradient>
-          <linearGradient id="grad-expense" x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient id="sankey-l1" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#94a3b8" />
+          </linearGradient>
+          <linearGradient id="sankey-l2" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#94a3b8" />
             <stop offset="100%" stopColor="#ef4444" />
           </linearGradient>
-          <linearGradient id="grad-savings" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#3b82f6" />
+          <linearGradient id="sankey-l3" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#94a3b8" />
             <stop offset="100%" stopColor="#10b981" />
           </linearGradient>
-          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="6" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
         </defs>
 
-        {/* Links */}
-        <path d="M 220 150 C 350 150, 350 150, 400 150" fill="none" stroke="url(#grad-income)" strokeWidth="40" strokeLinecap="round" opacity="0.15" />
-        <path d="M 400 150 C 500 150, 500 80, 600 80" fill="none" stroke="url(#grad-expense)" strokeWidth={Math.max(4, expensePct * 0.4)} strokeLinecap="round" opacity="0.3" />
-        <path d="M 400 150 C 500 150, 500 220, 600 220" fill="none" stroke="url(#grad-savings)" strokeWidth={Math.max(4, savingsPct * 0.4)} strokeLinecap="round" opacity="0.3" />
+        {/* Links (Filled Paths) */}
+        {/* Income -> Bank */}
+        <path 
+          d={sankeyLink(165, startY, startY + H, 450, startY, startY + H)} 
+          fill="url(#sankey-l1)" opacity="0.25" 
+          className="sankey-path hover-opacity"
+        />
+        
+        {/* Bank -> Expense */}
+        {H_exp > 0 && (
+          <path 
+            d={sankeyLink(466, startY, startY + H_exp, 750, startY, startY + H_exp)} 
+            fill="url(#sankey-l2)" opacity="0.25" 
+            className="sankey-path hover-opacity"
+          />
+        )}
 
-        {/* Nodes */}
-        <g transform="translate(40, 110)">
-          <rect width="180" height="80" rx="16" fill="var(--card)" stroke="var(--line)" strokeWidth="1.5" />
-          <text x="90" y="32" textAnchor="middle" fill="var(--muted)" fontSize="12" fontWeight="600" letterSpacing="0.5">INCOME</text>
-          <text x="90" y="58" textAnchor="middle" fill="var(--ink)" fontSize="20" fontWeight="700" fontFamily="Manrope">{money(income, true)}</text>
-        </g>
+        {/* Bank -> Savings */}
+        {H_sav > 0 && (
+          <path 
+            d={sankeyLink(466, startY + H_exp, startY + H, 750, startY + H_exp + gap, startY + H_exp + gap + H_sav)} 
+            fill="url(#sankey-l3)" opacity="0.25" 
+            className="sankey-path hover-opacity"
+          />
+        )}
 
-        <g transform="translate(360, 115)">
-          <circle cx="40" cy="35" r="35" fill="var(--card)" stroke="var(--line)" strokeWidth="1.5" />
-          <text x="40" y="40" textAnchor="middle" fill="var(--ink)" fontSize="12" fontWeight="700">Bank</text>
-        </g>
+        {/* Nodes (Vertical Rectangles) */}
+        <rect x={150} y={startY} width={nodeW} height={H} fill="#3b82f6" rx="4" />
+        <rect x={450} y={startY} width={nodeW} height={H} fill="#94a3b8" rx="4" />
+        {H_exp > 0 && <rect x={750} y={startY} width={nodeW} height={H_exp} fill="#ef4444" rx="4" />}
+        {H_sav > 0 && <rect x={750} y={startY + H_exp + gap} width={nodeW} height={H_sav} fill="#10b981" rx="4" />}
 
-        <g transform="translate(580, 40)">
-          <rect width="180" height="80" rx="16" fill="var(--card)" stroke="var(--line)" strokeWidth="1.5" />
-          <text x="90" y="32" textAnchor="middle" fill="var(--muted)" fontSize="12" fontWeight="600" letterSpacing="0.5">SPENT</text>
-          <text x="90" y="58" textAnchor="middle" fill="var(--ink)" fontSize="20" fontWeight="700" fontFamily="Manrope">{money(expenses, true)}</text>
-          <text x="180" y="72" textAnchor="end" fill="#ef4444" fontSize="11" fontWeight="600">{expensePct}%</text>
-        </g>
+        {/* Labels & Values */}
+        {/* Income */}
+        <text x={135} y={startY + H/2 - 12} fill="var(--ink)" fontSize="17" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="end">Total Income</text>
+        <text x={135} y={startY + H/2 + 12} fill="var(--muted)" fontSize="15" fontWeight="500" textAnchor="end">{money(income, true)}</text>
 
-        <g transform="translate(580, 180)">
-          <rect width="180" height="80" rx="16" fill="var(--card)" stroke="var(--line)" strokeWidth="1.5" />
-          <text x="90" y="32" textAnchor="middle" fill="var(--muted)" fontSize="12" fontWeight="600" letterSpacing="0.5">SAVED</text>
-          <text x="90" y="58" textAnchor="middle" fill="var(--ink)" fontSize="20" fontWeight="700" fontFamily="Manrope">{money(savings, true)}</text>
-          <text x="180" y="72" textAnchor="end" fill="#10b981" fontSize="11" fontWeight="600">{savingsPct}%</text>
-        </g>
+        {/* Bank */}
+        <text x={458} y={startY - 16} fill="var(--ink)" fontSize="17" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="middle">Bank Account</text>
+        <text x={458} y={startY + H + 24} fill="var(--muted)" fontSize="15" fontWeight="500" textAnchor="middle">{money(income, true)}</text>
+
+        {/* Expense */}
+        {H_exp > 0 && (
+          <>
+            <text x={780} y={startY + H_exp/2 - 12} fill="var(--ink)" fontSize="17" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">Spent ({Math.round(expensePct)}%)</text>
+            <text x={780} y={startY + H_exp/2 + 12} fill="var(--muted)" fontSize="15" fontWeight="500" textAnchor="start">{money(expenses, true)}</text>
+          </>
+        )}
+
+        {/* Savings */}
+        {H_sav > 0 && (
+          <>
+            <text x={780} y={startY + H_exp + gap + H_sav/2 - 12} fill="var(--ink)" fontSize="17" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">Saved ({Math.round(savingsPct)}%)</text>
+            <text x={780} y={startY + H_exp + gap + H_sav/2 + 12} fill="var(--muted)" fontSize="15" fontWeight="500" textAnchor="start">{money(savings, true)}</text>
+          </>
+        )}
       </svg>
+      <style dangerouslySetInnerHTML={{__html: `
+        .hover-opacity { transition: opacity 0.2s ease-in-out; }
+        .hover-opacity:hover { opacity: 0.6; }
+      `}} />
     </div>
   );
 }

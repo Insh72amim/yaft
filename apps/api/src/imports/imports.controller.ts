@@ -18,6 +18,13 @@ export class ImportsController {
     return this.imports.create(user.id, accountId, file, dto);
   }
 
+  @Post('epfo/:accountId')
+  @UseInterceptors(FileInterceptor('statement', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  uploadEpfo(@CurrentUser() user: { id: string }, @Param('accountId') accountId: string, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('An EPFO passbook PDF is required.');
+    return this.imports.importEpfoPassbook(user.id, accountId, file);
+  }
+
   @Get()
   pending(@CurrentUser() user: { id: string }) { return this.imports.pending(user.id); }
 

@@ -5,6 +5,8 @@ import { StatementCredentialsService } from '../common/statement-credentials.ser
 import type { BankPdfParser, ParsedRow } from './bank-pdf-parser';
 import { UpdateStagedDto, UploadStatementDto } from './imports.dto';
 import { parseStatementWithMetadata } from './statement-parser';
+import { isEpfoPassbook, parseEpfoPassbook } from './epfo-pdf-parser';
+import { loadPdfStatementDocument } from './pdf-statement-registry';
 
 const categoryRules: Array<[RegExp, string]> = [
   [/salary|payroll/i, 'Salary'], [/swiggy|zomato|restaurant|cafe/i, 'Food & dining'],
@@ -176,6 +178,27 @@ export class ImportsService {
     const batch = await this.prisma.importBatch.findFirst({ where: { id: batchId, userId, status: 'REVIEW' } });
     if (!batch) throw new BadRequestException('Only a pending import can be discarded.');
     await this.prisma.importBatch.delete({ where: { id: batch.id } });
+  }
+
+  async importEpfoPassbook(userId: string, accountId: string, file: Express.Multer.File) {
+    const account = await this.prisma.account.findFirst({ where: { id: accountId, userId, archived: false, type: 'EPFO' } });
+    if (!account) throw new ForbiddenException('Eligible EPFO account not found.');
+    if (!file.originalname.toLowerCase().endsWith('.pdf')) throw new BadRequestException('Only PDF passbooks are supported for EPFO.');
+    const document = await loadPdfStatementDocument(file.buffer);
+    if (!isEpfoPassbook(document)) throw new BadRequestException('This PDF does not appear to be an EPFO passbook.');
+    const result = parseEpfoPassbook(document);
+    await this.prisma.account.update({ where: { id: accountId }, data: { openingBalance: BigInt(result.totalBalance) } });
+    return {
+      accountId,
+      employeeBalance: result.employeeBalance,
+      employerBalance: result.employerBalance,
+      totalBalance: result.totalBalance,
+      financialYear: result.financialYear,
+      closingDate: result.closingDate,
+      memberName: result.memberName,
+      uan: result.uan,
+      establishment: result.establishment,
+    };
   }
 
   private enrich(accountId: string, row: ParsedRow, categories: { id: string; name: string }[], existing: Set<string>) {

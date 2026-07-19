@@ -6,11 +6,15 @@
   "devDependencies": { "react": "19.1.0", "react-dom": "19.1.0" },
   "scripts": {
     "dev": "npm run dev --workspace @yaft/web & npm run start:dev --workspace @yaft/api",
+    "dev:local": "docker compose up -d postgres && npm run dev",
+    "pm2:start": "docker compose up -d postgres && npx pm2 start ecosystem.config.js",
+    "pm2:stop": "npx pm2 stop ecosystem.config.js && npx pm2 delete ecosystem.config.js",
     "build": "npm run build --workspace @yaft/api && npm run build --workspace @yaft/web",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "db:generate": "npm run prisma:generate --workspace @yaft/api",
-    "db:migrate": "npm run prisma:migrate --workspace @yaft/api"
+    "db:migrate": "npm run prisma:migrate --workspace @yaft/api",
+    "docker:reload": "docker compose up -d --build web api"
   },
   "engines": { "node": ">=20.11" }
 }

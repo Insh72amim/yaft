@@ -7,11 +7,11 @@ import { InvestmentsService } from '../investments/investments.service';
 import { SalaryService } from '../salary/salary.service';
 import { UnifiedImportUploadDto } from './unified-imports.dto';
 
-export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'CREDIT_CARD_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS'] as const;
+export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'CREDIT_CARD_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS', 'EPFO_PASSBOOK'] as const;
 export type UnifiedImportKind = (typeof UNIFIED_IMPORT_KINDS)[number];
 export type BankImportSource = 'SBI' | 'PNB' | 'AXIS';
 export type CreditCardImportSource = 'HDFC_CC' | 'ICICI_CC' | 'SBI_CC' | 'AXIS_CC';
-export type UnifiedImportSource = BankImportSource | CreditCardImportSource | 'GOLDMAN_SACHS' | 'ZERODHA_KITE' | 'GROWW';
+export type UnifiedImportSource = BankImportSource | CreditCardImportSource | 'GOLDMAN_SACHS' | 'ZERODHA_KITE' | 'GROWW' | 'EPFO_INDIA';
 
 type SourceSpec = {
   kind: UnifiedImportKind;
@@ -55,7 +55,10 @@ const SOURCE_SPECS: readonly SourceSpec[] = [
     accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'CREDIT_CARD_STATEMENT', source: 'AXIS_CC', label: 'Axis Bank Credit Card',
     description: 'Axis credit card PDF, CSV or XLSX statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: true, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
+  { kind: 'EPFO_PASSBOOK', source: 'EPFO_INDIA', label: 'EPFO India',
+    description: 'EPFO member passbook PDF from passbook.epfindia.gov.in.', extensions: ['.pdf'], maxBytes: 5 * MIB,
+    accountRequired: true, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
 ];
 
 const KIND_LABELS: Record<UnifiedImportKind, { label: string; description: string }> = {
@@ -63,6 +66,7 @@ const KIND_LABELS: Record<UnifiedImportKind, { label: string; description: strin
   CREDIT_CARD_STATEMENT: { label: 'Credit card statement', description: 'Stage credit card transactions for review before adding them to the ledger.' },
   SALARY_PAYSLIP: { label: 'Salary payslip', description: 'Review reconciled payroll facts before saving the salary month.' },
   BROKER_HOLDINGS: { label: 'Broker holdings', description: 'Replace a broker account snapshot atomically after full reconciliation.' },
+  EPFO_PASSBOOK: { label: 'EPFO passbook', description: 'Update your provident fund balance from the official EPFO member passbook.' },
 };
 
 type BankReview = Awaited<ReturnType<ImportsService['get']>>;
@@ -182,6 +186,21 @@ export class UnifiedImportsService {
       result };
   }
 
+  async uploadEpfo(userId: string, file: Express.Multer.File, dto: UnifiedImportUploadDto) {
+    const spec = SOURCE_SPECS.find((candidate) => candidate.kind === 'EPFO_PASSBOOK' && candidate.source === dto.source);
+    if (!spec) throw new BadRequestException('Choose a supported EPFO import source.');
+    this.validateFile(file, spec);
+    if (!dto.accountId) throw new BadRequestException('Choose an eligible destination account.');
+    const account = await this.ownedAccount(userId, dto.accountId);
+    if (!this.accountIsEligible(account, spec)) {
+      throw new BadRequestException('The selected account is not an EPFO account.');
+    }
+    const result = await this.imports.importEpfoPassbook(userId, account.id, file);
+    return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
+      message: `EPFO balance updated to \u20b9${(result.totalBalance / 100).toLocaleString('en-IN')} (employee \u20b9${(result.employeeBalance / 100).toLocaleString('en-IN')} + employer \u20b9${(result.employerBalance / 100).toLocaleString('en-IN')}).`,
+      result };
+  }
+
   async updateBankReview(userId: string, batchId: string, rowId: string, dto: UpdateStagedDto) {
     const review = await this.imports.update(userId, batchId, rowId, dto);
     return { kind: 'BANK_STATEMENT' as const, mode: 'REVIEW_REQUIRED' as const, review: this.safeBankReview(review),
@@ -228,6 +247,9 @@ export class UnifiedImportsService {
         return ['INVESTMENT', 'STOCKS'].includes(account.type) && (/\bgroww\b/i.test(matchInstitution) || /\bgroww\b/i.test(matchName));
       }
       return ['INVESTMENT', 'STOCKS'].includes(account.type) && (/\b(?:zerodha|kite)\b/i.test(matchInstitution) || /\b(?:zerodha|kite)\b/i.test(matchName));
+    }
+    if (spec.kind === 'EPFO_PASSBOOK') {
+      return account.type === 'EPFO';
     }
     return false;
   }
