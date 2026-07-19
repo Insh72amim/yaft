@@ -229,10 +229,26 @@ export default function ImportPage() {
       {error && <p className="error" role="alert">{error}</p>}{notice && <p className="success-note" role="status"><ShieldCheck/>{notice}</p>}
       {syncWarning && <p className="notice refresh-warning" role="status"><AlertTriangle/>{syncWarning}</p>}
       <button className="primary wide" disabled={busy || !file || (sourceOption.accountRequired && !accountId)}>{busy ? <><RefreshCw className="spin"/>Validating…</> : kind === 'BROKER_HOLDINGS' ? 'Validate and replace snapshot' : 'Validate and create review'}</button>
-    </form><aside><ShieldCheck/><h2>Source-specific safety</h2><p>{kind === 'BROKER_HOLDINGS'
-      ? 'Zerodha holdings replace the selected account’s prior snapshot immediately, but only inside one atomic operation after every supported sheet and printed total reconciles.'
-      : 'This file creates a pending review. Nothing enters your ledger or salary history until you approve the reconciled rows below.'}</p>
-      <ul><li>Original files are not retained</li><li>Unknown or changed layouts fail closed</li><li>Passwords never apply to payslips or holdings</li></ul></aside></section>
+      </form>
+      <aside>
+        <ShieldCheck/><h2>Source-specific safety</h2><p>{kind === 'BROKER_HOLDINGS'
+          ? 'Zerodha holdings replace the selected account’s prior snapshot immediately, but only inside one atomic operation after every supported sheet and printed total reconciles.'
+          : 'This file creates a pending review. Nothing enters your ledger or salary history until you approve the reconciled rows below.'}</p>
+        <ul><li>Original files are not retained</li><li>Unknown or changed layouts fail closed</li><li>Passwords never apply to payslips or holdings</li></ul>
+        
+        <div style={{ marginTop: '32px' }}>
+          <h2 style={{ fontSize: '14px', marginBottom: '12px' }}>Quick Access Portals</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <a href="https://netbanking.hdfcbank.com/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>HDFC Bank</a>
+            <a href="https://infinity.icicibank.com/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>ICICI Bank</a>
+            <a href="https://retail.onlinesbi.sbi/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>SBI Online</a>
+            <a href="https://omni.axisbank.co.in/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Axis Bank</a>
+            <a href="https://groww.in/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Groww</a>
+            <a href="https://console.zerodha.com/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Zerodha</a>
+          </div>
+        </div>
+      </aside>
+    </section>
 
     <section className="pending-workspace"><div className="panel-title"><div><span className="eyebrow">Review queue</span><h2>{pending.length} pending import{pending.length === 1 ? '' : 's'}</h2></div></div>
       {pending.length ? <><nav className="pending-tabs" aria-label="Pending imports">{pending.map((item) => <button type="button" key={item.review.id}
