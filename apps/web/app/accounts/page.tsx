@@ -186,7 +186,7 @@ function PortfolioContent() {
             {portfolioData?.holdings[0] && <footer>Snapshot imported {new Date(portfolioData.holdings[0].asOfDate).toLocaleString('en-IN')}</footer>}
           </div>
         ) : (
-          <AccountTransactions accountId={selectedAccountId} embedded={false} />
+          <AccountTransactions accountId={selectedAccountId} embedded={true} />
         )}
       </Shell>
     );
