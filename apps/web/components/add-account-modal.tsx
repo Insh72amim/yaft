@@ -81,7 +81,7 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
         </div>
         <div className="account-fields">
           <label>Account name<input name="name" required placeholder={accountPlaceholder(newType)} /></label>
-          {newType === 'SAVINGS' ? (
+          {newType === 'SAVINGS' || newType === 'FIXED_DEPOSIT' ? (
             <label>Institution<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported bank</option>{savingsInstitutions.map((bank) => <option value={bank} key={bank}>{bank}</option>)}</select></label>
           ) : newType === 'STOCKS' ? (
             <label>Broker<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported broker</option>{stockBrokers.map((broker) => <option value={broker} key={broker}>{broker}</option>)}</select></label>
