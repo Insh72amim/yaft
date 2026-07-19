@@ -246,3 +246,8 @@ html[data-theme='dark'] .wallet-copy-btn:hover{background:#2a3e32}
 
 @media(max-width:760px){.vault-grid{grid-template-columns:1fr}}
 
+
+/* ── Monthly Flow Diagram ──────────────────────────────────────── */
+.monthly-flow-panel { display: flex; flex-direction: column; gap: 24px; }
+.flow-diagram-container { width: 100%; overflow: hidden; background: var(--bg); border-radius: 16px; padding: 24px 0; border: 1px solid var(--line); }
+.flow-svg { width: 100%; height: auto; max-height: 240px; display: block; }

@@ -44,6 +44,7 @@ function getDomainForInstitution(name: string | null) {
   const n = name.toLowerCase();
   if (n.includes('zerodha')) return 'zerodha.com';
   if (n.includes('groww')) return 'groww.in';
+  if (n.includes('upstox')) return 'upstox.com';
   if (n.includes('hdfc')) return 'hdfcbank.com';
   if (n.includes('icici')) return 'icicibank.com';
   if (n.includes('sbi') || n.includes('state bank')) return 'onlinesbi.sbi';
@@ -51,15 +52,17 @@ function getDomainForInstitution(name: string | null) {
   if (n.includes('pnb') || n.includes('punjab')) return 'pnbindia.in';
   if (n.includes('kotak')) return 'kotak.com';
   if (n.includes('idfc')) return 'idfcfirstbank.com';
-  if (n.includes('amazon')) return 'amazon.in';
-  if (n.includes('epfo')) return 'epfindia.gov.in';
+  if (n.includes('indusind')) return 'indusind.com';
+  if (n.includes('amazon') || n.includes('aplus')) return 'amazon.in';
+  if (n.includes('cred')) return 'cred.club';
+  if (n.includes('epfo') || n.includes('pf')) return 'epfindia.gov.in';
   return 'bank.com';
 }
 
 function AccountCard({ account, onClick }: { account: Account, onClick: () => void }) {
   const [imgError, setImgError] = useState(false);
   const domain = getDomainForInstitution(account.institution);
-  const logoUrl = `https://logo.clearbit.com/${domain}`;
+  const logoUrl = `https://logo.clearbit.com/${domain}?size=128`;
 
   return (
     <button className="account-card" onClick={onClick}>

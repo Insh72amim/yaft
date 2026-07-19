@@ -111,16 +111,40 @@ export class ImportsService {
     const batch = await this.prisma.importBatch.findFirst({ where: { id: batchId, userId, status: 'REVIEW' }, include: { staged: true } });
     if (!batch) throw new NotFoundException('Reviewable import not found.');
     const included = batch.staged.filter((row) => row.include && !row.isDuplicate);
+    
+    // Pre-fetch vault records to do explicit matching on last4 digits
+    const vaults = await this.prisma.accountVaultEntry.findMany({
+      where: { account: { userId } },
+      select: { accountId: true, last4: true },
+    });
+    const activeVaults = vaults.filter(v => v.last4);
+
     let imported = 0;
     await this.prisma.$transaction(async (tx) => {
       for (const row of included) {
         const alreadyCommitted = await tx.transaction.findUnique({ where: { accountId_fingerprint: { accountId: batch.accountId, fingerprint: row.fingerprint } } });
         if (alreadyCommitted) continue;
-        const opposite = await tx.transaction.findFirst({ where: { account: { userId }, accountId: { not: batch.accountId }, amount: -row.amount,
+
+        // Check if the transaction description explicitly names an account/card by last4
+        let targetAccountId: string | undefined;
+        for (const v of activeVaults) {
+          if (v.last4 && row.descriptionRaw.includes(v.last4) && v.accountId !== batch.accountId) {
+            targetAccountId = v.accountId;
+            break;
+          }
+        }
+
+        const opposite = await tx.transaction.findFirst({ where: { 
+          account: { userId }, 
+          accountId: targetAccountId ? targetAccountId : { not: batch.accountId }, 
+          amount: -row.amount,
           transactionDate: { gte: new Date(row.transactionDate.getTime() - 3 * 86_400_000), lte: new Date(row.transactionDate.getTime() + 3 * 86_400_000) },
-          transferGroupId: null } });
+          transferGroupId: null 
+        } });
+        
         const transferGroupId = opposite ? randomUUID() : null;
         if (opposite && transferGroupId) await tx.transaction.update({ where: { id: opposite.id }, data: { transferGroupId } });
+        
         await tx.transaction.create({ data: { accountId: batch.accountId, importBatchId: batch.id, categoryId: row.categoryId,
           transactionDate: row.transactionDate, postedDate: row.postedDate, descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: row.amount,
           reference: row.reference, fingerprint: row.fingerprint, transferGroupId, userVerified: true } });

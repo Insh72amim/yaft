@@ -143,6 +143,11 @@ export default function DashboardPage() {
         </article>
       </section>
 
+      <section className="panel monthly-flow-panel">
+        <div className="panel-title"><div><span className="eyebrow">Cash Flow</span><h2>Monthly Flow</h2></div></div>
+        <MonthlyFlow income={data.income} expenses={data.expenses} savings={data.savings} />
+      </section>
+
       <section className="panel transactions">
         <div className="panel-title"><div><span className="eyebrow">Activity</span><h2>Recent transactions</h2></div></div>
         {data.recent.length ? (
@@ -165,3 +170,67 @@ export default function DashboardPage() {
 }
 
 function Empty({ text }: { text: string }) { return <div className="empty"><span>◎</span><p>{text}</p></div>; }
+
+function MonthlyFlow({ income, expenses, savings }: { income: number; expenses: number; savings: number }) {
+  if (income <= 0) return <Empty text="No income found for this month to generate flow." />;
+
+  // Calculate percentages
+  const expensePct = Math.min(100, Math.round((expenses / income) * 100));
+  const savingsPct = Math.max(0, 100 - expensePct);
+
+  return (
+    <div className="flow-diagram-container">
+      <svg viewBox="0 0 800 300" preserveAspectRatio="xMidYMid meet" className="flow-svg">
+        <defs>
+          <linearGradient id="grad-income" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#10b981" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+          <linearGradient id="grad-expense" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#ef4444" />
+          </linearGradient>
+          <linearGradient id="grad-savings" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#10b981" />
+          </linearGradient>
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
+
+        {/* Links */}
+        <path d="M 220 150 C 350 150, 350 150, 400 150" fill="none" stroke="url(#grad-income)" strokeWidth="40" strokeLinecap="round" opacity="0.15" />
+        <path d="M 400 150 C 500 150, 500 80, 600 80" fill="none" stroke="url(#grad-expense)" strokeWidth={Math.max(4, expensePct * 0.4)} strokeLinecap="round" opacity="0.3" />
+        <path d="M 400 150 C 500 150, 500 220, 600 220" fill="none" stroke="url(#grad-savings)" strokeWidth={Math.max(4, savingsPct * 0.4)} strokeLinecap="round" opacity="0.3" />
+
+        {/* Nodes */}
+        <g transform="translate(40, 110)">
+          <rect width="180" height="80" rx="16" fill="var(--card)" stroke="var(--line)" strokeWidth="1.5" />
+          <text x="90" y="32" textAnchor="middle" fill="var(--muted)" fontSize="12" fontWeight="600" letterSpacing="0.5">INCOME</text>
+          <text x="90" y="58" textAnchor="middle" fill="var(--ink)" fontSize="20" fontWeight="700" fontFamily="Manrope">{money(income, true)}</text>
+        </g>
+
+        <g transform="translate(360, 115)">
+          <circle cx="40" cy="35" r="35" fill="var(--card)" stroke="var(--line)" strokeWidth="1.5" />
+          <text x="40" y="40" textAnchor="middle" fill="var(--ink)" fontSize="12" fontWeight="700">Bank</text>
+        </g>
+
+        <g transform="translate(580, 40)">
+          <rect width="180" height="80" rx="16" fill="var(--card)" stroke="var(--line)" strokeWidth="1.5" />
+          <text x="90" y="32" textAnchor="middle" fill="var(--muted)" fontSize="12" fontWeight="600" letterSpacing="0.5">SPENT</text>
+          <text x="90" y="58" textAnchor="middle" fill="var(--ink)" fontSize="20" fontWeight="700" fontFamily="Manrope">{money(expenses, true)}</text>
+          <text x="180" y="72" textAnchor="end" fill="#ef4444" fontSize="11" fontWeight="600">{expensePct}%</text>
+        </g>
+
+        <g transform="translate(580, 180)">
+          <rect width="180" height="80" rx="16" fill="var(--card)" stroke="var(--line)" strokeWidth="1.5" />
+          <text x="90" y="32" textAnchor="middle" fill="var(--muted)" fontSize="12" fontWeight="600" letterSpacing="0.5">SAVED</text>
+          <text x="90" y="58" textAnchor="middle" fill="var(--ink)" fontSize="20" fontWeight="700" fontFamily="Manrope">{money(savings, true)}</text>
+          <text x="180" y="72" textAnchor="end" fill="#10b981" fontSize="11" fontWeight="600">{savingsPct}%</text>
+        </g>
+      </svg>
+    </div>
+  );
+}
