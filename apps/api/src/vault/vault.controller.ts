@@ -28,7 +28,7 @@ export class VaultController {
   async list(@CurrentUser() user: { id: string }) {
     const accounts = await this.prisma.account.findMany({
       where: { userId: user.id, archived: false },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
       include: {
         vaultEntry: {
           select: {

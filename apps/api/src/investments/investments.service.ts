@@ -18,7 +18,7 @@ export class InvestmentsService {
   async getPortfolio(userId: string) {
     const accounts = await this.prisma.account.findMany({
       where: { userId, type: { in: ['INVESTMENT', 'STOCKS'] } },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
       include: { holdings: { include: { asset: true }, orderBy: { asset: { symbol: 'asc' } } } },
     });
     return accounts.map((account) => this.serializeAccount(account));

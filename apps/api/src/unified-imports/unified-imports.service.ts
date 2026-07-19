@@ -79,7 +79,7 @@ export class UnifiedImportsService {
   async options(userId: string) {
     const accounts = await this.prisma.account.findMany({ where: { userId, archived: false },
       select: { id: true, name: true, type: true, institution: true, currency: true,
-        statementCredential: { select: { accountId: true } } }, orderBy: { createdAt: 'asc' } });
+        statementCredential: { select: { accountId: true } } }, orderBy: { createdAt: 'desc' } });
     const safeAccounts = accounts.map(({ statementCredential, ...account }) => ({ ...account,
       hasStatementPassword: Boolean(statementCredential) }));
     return {

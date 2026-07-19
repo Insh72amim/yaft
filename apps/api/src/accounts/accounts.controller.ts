@@ -23,7 +23,7 @@ export class AccountsController {
     
     const accounts = await this.prisma.account.findMany({
       where: { userId: user.id, archived: false },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
       include: {
         transactions: { select: { amount: true, transactionDate: true } },
         holdings: { select: { currentValue: true } },
