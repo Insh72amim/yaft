@@ -23,10 +23,8 @@ const price = (minor: number | null) => minor === null ? '—' : new Intl.Number
 
 const accountSections = [
   { label: 'Savings accounts', types: ['SAVINGS', 'BANK'] },
-  { label: 'Fixed & recurring deposits', types: ['FIXED_DEPOSIT'] },
-  { label: 'Credit cards', types: ['CREDIT_CARD'] },
-  { label: 'Loan accounts', types: ['LOAN'] },
-  { label: 'Investments', types: ['STOCKS', 'INVESTMENT', 'EPFO'] },
+  { label: 'Investments', types: ['STOCKS', 'INVESTMENT', 'FIXED_DEPOSIT', 'EPFO'] },
+  { label: 'Debt Accounts', types: ['CREDIT_CARD', 'LOAN'] },
 ];
 
 function getIcon(type: string) {
