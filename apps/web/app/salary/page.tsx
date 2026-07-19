@@ -62,7 +62,7 @@ export default function SalaryPage() {
         <Link className="secondary compact" href="/import?kind=SALARY_PAYSLIP&source=GOLDMAN_SACHS"><Upload/>Unified importer</Link></div>
         {data.statements.length ? <div className="salary-history-list">{data.statements.map((statement) => <article key={statement.id}><time>{new Date(statement.payPeriod).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' })}</time>
           <div><strong>{statement.employer}</strong><small>Gross {money(statement.grossEarnings)} · deductions {money(statement.grossDeductions)}</small></div>
-          <div className="statement-actions"><b>{money(statement.netPay)}</b><div><button className="secondary compact" onClick={() => void handleDownload(statement)}>Download</button><button className="danger compact" onClick={() => { setDeleteError(''); setDeletingId(statement.id); }}>Delete</button></div></div></article>)}</div>
+          <div className="statement-actions"><b>{money(statement.netPay)}</b><div className="button-group"><button className="secondary compact" onClick={() => void handleDownload(statement)}>Download</button><button className="danger compact icon-only" onClick={() => { setDeleteError(''); setDeletingId(statement.id); }} aria-label="Delete statement"><Trash2/></button></div></div></article>)}</div>
           : <div className="salary-empty"><BadgeIndianRupee/><strong>No verified salary months yet</strong><p>Use Import records to validate and review your first payslip.</p>
             <Link className="primary" href="/import?kind=SALARY_PAYSLIP&source=GOLDMAN_SACHS">Import first payslip</Link></div>}
       </section>
