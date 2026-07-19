@@ -109,7 +109,7 @@ export class ImportsService {
   }
 
   async commit(userId: string, batchId: string) {
-    const batch = await this.prisma.importBatch.findFirst({ where: { id: batchId, userId, status: 'REVIEW' }, include: { staged: true } });
+    const batch = await this.prisma.importBatch.findFirst({ where: { id: batchId, userId, status: 'REVIEW' }, include: { staged: true, account: true } });
     if (!batch) throw new NotFoundException('Reviewable import not found.');
     const included = batch.staged.filter((row) => row.include && !row.isDuplicate);
     
@@ -152,7 +152,7 @@ export class ImportsService {
         imported += 1;
       }
 
-      if (batch.statementBalance !== null) {
+      if (batch.statementBalance !== null && batch.account.type !== 'EPFO') {
         const maxDate = batch.staged.length > 0
           ? new Date(Math.max(...batch.staged.map(s => s.transactionDate.getTime())))
           : new Date();
