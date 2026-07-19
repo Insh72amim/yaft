@@ -71,6 +71,7 @@ export default function ImportPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [syncWarning, setSyncWarning] = useState('');
+  const [salaryType, setSalaryType] = useState('SALARY');
 
   const refreshPending = useCallback(async (preferredId?: string) => {
     const reviews = await api<PendingImport[]>('/imports/unified/pending');
@@ -135,6 +136,7 @@ export default function ImportPage() {
 
   function clearFileAndCredentials() {
     setFiles([]); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false);
+    setSalaryType('SALARY');
     setError(''); setNotice(''); setSyncWarning('');
   }
 
@@ -173,6 +175,9 @@ export default function ImportPage() {
         }
         if (sourceOption.rememberPasswordSupported && fileItem.name.toLowerCase().endsWith('.pdf') && rememberPassword) {
           payload.set('rememberPassword', 'true');
+        }
+        if (kind === 'SALARY_PAYSLIP') {
+          payload.set('salaryType', salaryType);
         }
         const result = await api<ReviewUploadResult | HoldingsUploadResult>('/imports/unified/upload', { method: 'POST', body: payload });
         if (result.mode === 'REVIEW_REQUIRED') {
@@ -282,6 +287,17 @@ export default function ImportPage() {
         ) : (
           <><UploadCloud size={42}/><strong>Choose the {fileLabel}{kind === 'SALARY_PAYSLIP' ? 's' : ''}</strong><span>{sourceOption.extensions.map((item) => item.slice(1).toUpperCase()).join(', ')} · up to {sourceOption.maxBytes / 1024 / 1024} MB</span></>
         )}</label>
+      {kind === 'SALARY_PAYSLIP' && (
+        <section className="password-panel" style={{ marginTop: '14px', marginBottom: '14px' }}>
+          <div className="password-status"><BadgeIndianRupee/><span><strong>Salary Payout Type</strong>
+            <small>Identify standard salary sheets vs bonuses or variable pay.</small></span></div>
+          <label>Payout Type<select value={salaryType} onChange={(event) => setSalaryType(event.target.value)}>
+            <option value="SALARY">Regular Salary</option>
+            <option value="BONUS">Bonus Payout</option>
+            <option value="VARIABLE_PAY">Variable Pay</option>
+          </select></label>
+        </section>
+      )}
       {sourceOption.pdfPasswordSupported && isPdf && <section className="password-panel"><div className="password-status"><KeyRound/><span><strong>PDF document password</strong>
         <small>{selectedAccount?.hasStatementPassword ? 'A saved password can unlock this account’s SBI PDF.' : 'Optional; use only when this PDF is protected.'}</small></span>
         {selectedAccount?.hasStatementPassword && <button type="button" className="ghost compact" disabled={busy} onClick={() => void forgetPassword()}><Trash2/>Forget</button>}</div>

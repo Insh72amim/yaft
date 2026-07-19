@@ -11,17 +11,24 @@ type SalaryWithItems = Prisma.SalaryStatementGetPayload<{ include: { lineItems: 
 export class SalaryService {
   constructor(private readonly prisma: PrismaService, private readonly s3: S3Service) {}
 
-  async upload(userId: string, file: Express.Multer.File, payslipSchema?: string, pdfPassword?: string) {
+  async upload(userId: string, file: Express.Multer.File, payslipSchema?: string, pdfPassword?: string, salaryType: string = 'SALARY') {
     if (!isPayslipSchema(payslipSchema)) throw new BadRequestException('Choose a supported payslip employer.');
     const hash = createHash('sha256').update(file.buffer).digest('hex');
     const parsed = await parsePayslipPdf(file.buffer, payslipSchema, pdfPassword);
+
+    let targetEmployer = parsed.employer;
+    if (salaryType === 'BONUS') {
+      targetEmployer = `${parsed.employer} (Bonus)`;
+    } else if (salaryType === 'VARIABLE_PAY') {
+      targetEmployer = `${parsed.employer} (Variable Pay)`;
+    }
 
     const existing = await this.prisma.salaryStatement.findFirst({
       where: {
         userId,
         OR: [
           { fileHash: hash },
-          { employer: parsed.employer, payPeriod: parsed.payPeriod },
+          { employer: targetEmployer, payPeriod: parsed.payPeriod },
         ],
       },
     });
@@ -32,7 +39,7 @@ export class SalaryService {
     let statement: SalaryWithItems | null = null;
     try {
       statement = await this.prisma.salaryStatement.create({ data: {
-        userId, payPeriod: parsed.payPeriod, employer: parsed.employer, employeeName: parsed.employeeName,
+        userId, payPeriod: parsed.payPeriod, employer: targetEmployer, employeeName: parsed.employeeName,
         employeeNumberLast4: parsed.employeeNumberLast4, department: parsed.department, designation: parsed.designation,
         bankName: parsed.bankName, bankAccountLast4: parsed.bankAccountLast4, uanLast4: parsed.uanLast4,
         currency: parsed.currency, grossEarnings: BigInt(parsed.grossEarnings), grossDeductions: BigInt(parsed.grossDeductions),
@@ -41,6 +48,7 @@ export class SalaryService {
           currentAmount: BigInt(item.currentAmount), ytdAmount: item.ytdAmount === undefined ? undefined : BigInt(item.ytdAmount) })) },
       }, include: { lineItems: true } });
       await this.s3.uploadFile(`salaries/${userId}/${statement.id}.pdf`, file.buffer, file.mimetype || 'application/pdf');
+
     } catch (error) {
       if (statement) {
         await this.prisma.salaryStatement.delete({ where: { id: statement.id } }).catch(() => {});

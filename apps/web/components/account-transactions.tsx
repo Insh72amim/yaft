@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -8,7 +8,8 @@ import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 import { VaultModal } from '@/components/vault-modal';
 
 type AccountLedger = {
-  account: { id: string; name: string; type: string; institution: string | null; currency: string; openingBalance: number; balance: number };
+  account: { id: string; name: string; type: string; institution: string | null; currency: string; openingBalance: number; balance: number;
+    creditLimit?: number | null; statementDay?: number | null; dueDay?: number | null };
   transactions: { id: string; transactionDate: string; postedDate: string | null; description: string; details: string | null;
     amount: number; category: string; isTransfer: boolean }[];
   pagination: { page: number; pageSize: number; total: number; pages: number };
@@ -29,6 +30,24 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [showVault, setShowVault] = useState(false);
+
+  // Credit Card details edit states
+  const [showEditCc, setShowEditCc] = useState(false);
+  const [ccLimit, setCcLimit] = useState('');
+  const [ccStatementDay, setCcStatementDay] = useState('');
+  const [ccDueDay, setCcDueDay] = useState('');
+  const [savingCc, setSavingCc] = useState(false);
+  const [saveCcError, setSaveCcError] = useState('');
+
+  // EPFO manual transaction states
+  const [showAddEpfo, setShowAddEpfo] = useState(false);
+  const [epfoDesc, setEpfoDesc] = useState('');
+  const [epfoAmount, setEpfoAmount] = useState('');
+  const [epfoDate, setEpfoDate] = useState('');
+  const [epfoIsCredit, setEpfoIsCredit] = useState(true);
+  const [savingEpfo, setSavingEpfo] = useState(false);
+  const [saveEpfoError, setSaveEpfoError] = useState('');
+
   const load = useCallback(() => {
     setError('');
     api<AccountLedger>(`/accounts/${accountId}/transactions?page=${requestedPage}`).then(setData).catch((reason: unknown) => {
@@ -66,12 +85,83 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
     } finally { setDeleting(false); }
   };
 
+  const openEditCc = () => {
+    setCcLimit(account.creditLimit ? String(account.creditLimit) : '');
+    setCcStatementDay(account.statementDay ? String(account.statementDay) : '');
+    setCcDueDay(account.dueDay ? String(account.dueDay) : '');
+    setSaveCcError('');
+    setShowEditCc(true);
+  };
+
+  const handleSaveCc = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingCc(true);
+    setSaveCcError('');
+    try {
+      const body = {
+        creditLimit: ccLimit ? Number(ccLimit) : null,
+        statementDay: ccStatementDay ? Number(ccStatementDay) : null,
+        dueDay: ccDueDay ? Number(ccDueDay) : null,
+      };
+      await api(`/accounts/${accountId}`, { method: 'PATCH', body: JSON.stringify(body) });
+      setShowEditCc(false);
+      load();
+    } catch (reason) {
+      if (isUnauthorized(reason)) router.replace('/login');
+      else setSaveCcError(errorMessage(reason, 'Could not save card details.'));
+    } finally {
+      setSavingCc(false);
+    }
+  };
+
+  const openAddEpfo = () => {
+    setEpfoDesc('EPFO Contribution');
+    setEpfoAmount('');
+    setEpfoDate(new Date().toISOString().slice(0, 10));
+    setEpfoIsCredit(true);
+    setSaveEpfoError('');
+    setShowAddEpfo(true);
+  };
+
+  const handleAddEpfo = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingEpfo(true);
+    setSaveEpfoError('');
+    try {
+      const amt = Number(epfoAmount);
+      const body = {
+        description: epfoDesc,
+        amount: epfoIsCredit ? amt : -amt,
+        transactionDate: new Date(epfoDate).toISOString(),
+      };
+      await api(`/accounts/${accountId}/transactions`, { method: 'POST', body: JSON.stringify(body) });
+      setShowAddEpfo(false);
+      load();
+    } catch (reason) {
+      if (isUnauthorized(reason)) router.replace('/login');
+      else setSaveEpfoError(errorMessage(reason, 'Could not log transaction.'));
+    } finally {
+      setSavingEpfo(false);
+    }
+  };
+
   const content = (
     <div className={`account-detail-content ${embedded ? 'embedded' : ''}`}>
-      {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><div style={{ display: 'flex', gap: '8px' }}><button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button><button className="danger" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/>Delete or clear</button></div></header>}
-      {embedded && <header className="embedded-header"><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2></div><div style={{ display: 'flex', gap: '8px' }}><button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button><Link className="secondary compact" href={`/import?accountId=${account.id}`}>Import statement</Link><button className="danger compact" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/></button></div></header>}
+      {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><div style={{ display: 'flex', gap: '8px' }}>
+        {account.type === 'EPFO' && <button className="secondary" onClick={openAddEpfo}><Plus size={15}/>Add transaction</button>}
+        {account.type === 'CREDIT_CARD' && <button className="secondary" onClick={openEditCc}><Settings size={15}/>Edit card</button>}
+        <button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button>
+        <button className="danger" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/>Delete or clear</button>
+      </div></header>}
+      {embedded && <header className="embedded-header"><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2></div><div style={{ display: 'flex', gap: '8px' }}>
+        {account.type === 'EPFO' && <button className="secondary compact" onClick={openAddEpfo}><Plus size={14}/>Add</button>}
+        {account.type === 'CREDIT_CARD' && <button className="secondary compact" onClick={openEditCc}><Settings size={14}/>Edit</button>}
+        <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
+        {account.type !== 'EPFO' && <Link className="secondary compact" href={`/import?accountId={account.id}`}>Import statement</Link>}
+        <button className="danger compact" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/></button>
+      </div></header>}
       <section className="summary-grid account-ledger-summary">
-        <article><span className="summary-icon income"><Landmark/></span><div><small>Current balance</small><strong>{money(account.balance)}</strong><em>{account.currency}</em></div></article>
+        <article><span className="summary-icon income"><Landmark/></span><div><small>Current balance</small><strong>{money(account.balance)}</strong>={account.currency}</div></article>
         <article><span className="summary-icon saved"><CalendarDays/></span><div><small>Opening balance</small><strong>{money(account.openingBalance)}</strong><em>Account starting point</em></div></article>
         <article><span className="summary-icon expense"><ReceiptText/></span><div><small>Transactions</small><strong>{pagination.total.toLocaleString('en-IN')}</strong><em>Reviewed ledger entries</em></div></article>
       </section>
@@ -97,11 +187,69 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
               </b>
             </article>
           ))}
-        </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>Import and approve a statement for this account to build its ledger.</p><Link className="secondary" href={`/import?accountId=${account.id}`}>Import statement</Link></div>}
+        </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>{account.type === 'EPFO' ? 'Add a manual transaction to populate the ledger.' : 'Import and approve a statement for this account to build its ledger.'}</p>{account.type !== 'EPFO' && <Link className="secondary" href={`/import?accountId=${account.id}`}>Import statement</Link>}</div>}
         {pagination.pages > 1 && <footer className="ledger-pagination"><button className="secondary" disabled={pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}><ArrowLeft/>Previous</button><span>Page {pagination.page} of {pagination.pages}</span><button className="secondary" disabled={pagination.page >= pagination.pages} onClick={() => goToPage(pagination.page + 1)}>Next<ArrowRight/></button></footer>}
       </section>
       {deleteStep > 0 && <div className="modal-wrap"><button className="backdrop" onClick={closeDelete} aria-label="Close deletion confirmation"/><section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title"><div className="delete-warning"><ShieldAlert/><span><strong>{deleteStep === 1 ? 'Select Action' : 'Final confirmation'}</strong><small>This action cannot be undone.</small></span></div>{deleteStep === 1 ? <><div><span className="eyebrow">First confirmation</span><h2 id="delete-account-title">Delete or Clear {account.name}?</h2><p>Choose whether to wipe all transactions/import history, or permanently delete the account itself.</p></div><div className="modal-actions" style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '12px' }}><button className="danger wide" onClick={() => { setDeleteAction('CLEAR_TRANSACTIONS'); setDeleteStep(2); setDeleteError(''); }}>Clear all transactions ({pagination.total.toLocaleString('en-IN')})</button><button className="danger wide" onClick={() => { setDeleteAction('DELETE_ACCOUNT'); setDeleteStep(2); setDeleteError(''); }}>Delete entire account</button><button className="ghost wide" onClick={closeDelete}>Cancel</button></div></> : <><div><span className="eyebrow">Second confirmation</span><h2 id="delete-account-title">Type the account name</h2><p>Enter <strong>{account.name}</strong> exactly to confirm {deleteAction === 'CLEAR_TRANSACTIONS' ? 'clearing all transactions' : 'permanent account deletion'}.</p></div><label>Account name<input autoFocus autoComplete="off" value={confirmationName} onChange={(event) => { setConfirmationName(event.target.value); setDeleteError(''); }} /></label>{deleteError && <p className="error">{deleteError}</p>}<div className="modal-actions"><button className="ghost" disabled={deleting} onClick={() => { setDeleteStep(1); setConfirmationName(''); setDeleteError(''); }}>Back</button><button className="danger" disabled={deleting || confirmationName !== account.name} onClick={handleDeleteConfirm}>{deleting ? 'Processing…' : deleteAction === 'CLEAR_TRANSACTIONS' ? 'Clear transactions' : 'Permanently delete'}</button></div></>}</section></div>}
       {showVault && <VaultModal accountId={account.id} onClose={() => setShowVault(false)} />}
+
+      {showEditCc && (
+        <div className="modal-wrap">
+          <button className="backdrop" onClick={() => setShowEditCc(false)} aria-label="Close edit modal" />
+          <section className="modal" role="dialog" aria-modal="true" style={{ width: 'min(440px, 100%)' }}>
+            <header className="modal-header">
+              <h2>Edit Card Details</h2>
+            </header>
+            <form onSubmit={handleSaveCc} style={{ display: 'grid', gap: '14px', marginTop: '10px' }}>
+              <label>Credit Limit (INR)
+                <input type="number" required min={0} value={ccLimit} onChange={(e) => setCcLimit(e.target.value)} placeholder="e.g. 100000" />
+              </label>
+              <label>Statement Cycle Day (1-31)
+                <input type="number" required min={1} max={31} value={ccStatementDay} onChange={(e) => setCcStatementDay(e.target.value)} placeholder="e.g. 15" />
+              </label>
+              <label>Payment Due Day (1-31)
+                <input type="number" required min={1} max={31} value={ccDueDay} onChange={(e) => setCcDueDay(e.target.value)} placeholder="e.g. 5" />
+              </label>
+              {saveCcError && <p className="error">{saveCcError}</p>}
+              <div className="modal-actions" style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <button type="button" className="ghost" onClick={() => setShowEditCc(false)}>Cancel</button>
+                <button type="submit" className="primary" disabled={savingCc}>{savingCc ? 'Saving…' : 'Save Details'}</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {showAddEpfo && (
+        <div className="modal-wrap">
+          <button className="backdrop" onClick={() => setShowAddEpfo(false)} aria-label="Close add transaction modal" />
+          <section className="modal" role="dialog" aria-modal="true" style={{ width: 'min(440px, 100%)' }}>
+            <header className="modal-header">
+              <h2>Add EPFO Transaction</h2>
+            </header>
+            <form onSubmit={handleAddEpfo} style={{ display: 'grid', gap: '14px', marginTop: '10px' }}>
+              <label>Date
+                <input type="date" required value={epfoDate} onChange={(e) => setEpfoDate(e.target.value)} />
+              </label>
+              <label>Description
+                <input type="text" required value={epfoDesc} onChange={(e) => setEpfoDesc(e.target.value)} placeholder="e.g. Employer Contribution" />
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', alignItems: 'center' }}>
+                <button type="button" className={`secondary ${epfoIsCredit ? 'active' : ''}`} style={{ height: '36px', fontSize: '12px' }} onClick={() => setEpfoIsCredit(true)}>Credit (Deposit)</button>
+                <button type="button" className={`secondary ${!epfoIsCredit ? 'active' : ''}`} style={{ height: '36px', fontSize: '12px' }} onClick={() => setEpfoIsCredit(false)}>Debit (Withdrawal)</button>
+              </div>
+              <label>Amount (INR)
+                <input type="number" required min={1} value={epfoAmount} onChange={(e) => setEpfoAmount(e.target.value)} placeholder="e.g. 5000" />
+              </label>
+              {saveEpfoError && <p className="error">{saveEpfoError}</p>}
+              <div className="modal-actions" style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <button type="button" className="ghost" onClick={() => setShowAddEpfo(false)}>Cancel</button>
+                <button type="submit" className="primary" disabled={savingEpfo}>{savingEpfo ? 'Adding…' : 'Add Transaction'}</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
   );
 

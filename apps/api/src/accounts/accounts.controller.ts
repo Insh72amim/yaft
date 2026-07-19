@@ -4,8 +4,10 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { PrismaService } from '../common/prisma.service';
 import { StatementCredentialsService } from '../common/statement-credentials.service';
-import { CreateAccountDto, DeleteAccountDto } from './accounts.dto';
+import { CreateAccountDto, DeleteAccountDto, CreateTransactionDto, UpdateAccountDto } from './accounts.dto';
 import { generateAmortisationSchedule } from './loan-amortisation';
+import { createHash } from 'crypto';
+
 
 export const SUPPORTED_SAVINGS_INSTITUTIONS = ['Axis Bank', 'Punjab National Bank', 'State Bank of India'] as const;
 export const SUPPORTED_STOCK_BROKERS = ['Zerodha', 'Groww'] as const;
@@ -355,4 +357,75 @@ export class AccountsController {
       balance: Number(updated.balance),
     };
   }
+
+  @Post(':accountId/transactions')
+  async addEpfoTransaction(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Body() dto: CreateTransactionDto
+  ) {
+    const account = await this.prisma.account.findFirst({
+      where: { id: accountId, userId: user.id }
+    });
+    if (!account) throw new NotFoundException('Account not found.');
+    if (account.type !== AccountType.EPFO) {
+      throw new BadRequestException('Manual transactions are only allowed for EPFO accounts.');
+    }
+    
+    const amountBig = BigInt(dto.amount);
+    
+    const category = await this.prisma.category.findFirst({
+      where: { userId: user.id, name: { in: ['EPFO', 'Investment', 'Investments'] } }
+    });
+    const categoryId = category?.id ?? null;
+    
+    const fingerprintSeed = `epfo-manual-${accountId}-${dto.transactionDate}-${dto.description}-${dto.amount}-${Date.now()}`;
+    const fingerprint = createHash('sha256').update(fingerprintSeed).digest('hex');
+    
+    const transaction = await this.prisma.transaction.create({
+      data: {
+        accountId: account.id,
+        transactionDate: new Date(dto.transactionDate),
+        descriptionRaw: dto.description,
+        amount: amountBig,
+        categoryId,
+        fingerprint,
+        userVerified: true
+      }
+    });
+    
+    return {
+      ...transaction,
+      amount: Number(transaction.amount)
+    };
+  }
+
+  @Patch(':accountId')
+  async updateAccount(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Body() dto: UpdateAccountDto
+  ) {
+    const account = await this.prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
+    if (!account) throw new NotFoundException('Account not found.');
+    
+    const updateData: any = {};
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.institution !== undefined) updateData.institution = dto.institution;
+    if (dto.creditLimit !== undefined) updateData.creditLimit = dto.creditLimit !== null ? BigInt(dto.creditLimit) : null;
+    if (dto.statementDay !== undefined) updateData.statementDay = dto.statementDay;
+    if (dto.dueDay !== undefined) updateData.dueDay = dto.dueDay;
+    
+    const updated = await this.prisma.account.update({
+      where: { id: account.id },
+      data: updateData
+    });
+    
+    return {
+      ...updated,
+      openingBalance: Number(updated.openingBalance),
+      creditLimit: updated.creditLimit !== null ? Number(updated.creditLimit) : null
+    };
+  }
 }
+

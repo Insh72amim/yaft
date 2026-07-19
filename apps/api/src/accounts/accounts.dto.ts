@@ -23,3 +23,18 @@ export class CreateAccountDto {
 export class DeleteAccountDto {
   @IsString() @Length(2, 80) confirmationName!: string;
 }
+
+export class UpdateAccountDto {
+  @IsOptional() @IsString() @Length(2, 80) name?: string;
+  @IsOptional() @IsString() @Length(1, 80) institution?: string;
+  @IsOptional() @IsInt() @Min(0) creditLimit?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(31) statementDay?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(31) dueDay?: number;
+}
+
+export class CreateTransactionDto {
+  @IsString() @Length(1, 120) description!: string;
+  @IsInt() amount!: number;
+  @IsString() transactionDate!: string;
+}
+

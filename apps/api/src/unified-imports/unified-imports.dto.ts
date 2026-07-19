@@ -7,9 +7,11 @@ export class UnifiedImportUploadDto {
 
   @IsOptional() @IsString() @MaxLength(128) accountId?: string;
   @IsOptional() @IsString() @MaxLength(128) pdfPassword?: string;
+  @IsOptional() @IsString() @MaxLength(64) salaryType?: string;
 
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true' ? true : value === false || value === 'false' ? false : value)
   @IsBoolean()
   rememberPassword?: boolean;
 }
+

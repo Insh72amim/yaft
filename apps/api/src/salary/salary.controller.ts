@@ -18,10 +18,11 @@ export class SalaryController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('payslip', { limits: { fileSize: 8 * 1024 * 1024, files: 1 } }))
-  upload(@CurrentUser() user: { id: string }, @UploadedFile() file: Express.Multer.File, @Body('payslipSchema') payslipSchema?: string, @Body('pdfPassword') pdfPassword?: string) {
+  upload(@CurrentUser() user: { id: string }, @UploadedFile() file: Express.Multer.File, @Body('payslipSchema') payslipSchema?: string, @Body('pdfPassword') pdfPassword?: string, @Body('salaryType') salaryType?: string) {
     if (!file || !/\.pdf$/i.test(file.originalname)) throw new BadRequestException('Choose a PDF payslip.');
-    return this.salary.upload(user.id, file, payslipSchema, pdfPassword);
+    return this.salary.upload(user.id, file, payslipSchema, pdfPassword, salaryType);
   }
+
 
   @Post(':statementId/commit')
   commit(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string) { return this.salary.commit(user.id, statementId); }

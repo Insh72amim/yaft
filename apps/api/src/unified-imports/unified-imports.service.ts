@@ -172,10 +172,11 @@ export class UnifiedImportsService {
         review: this.safeBankReview(review), actions: this.bankActions(review.id) };
     }
     if (spec.kind === 'SALARY_PAYSLIP') {
-      const review = await this.salary.upload(userId, file, spec.source, dto.pdfPassword);
+      const review = await this.salary.upload(userId, file, spec.source, dto.pdfPassword, dto.salaryType);
       return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
         review: this.safeSalaryReview(review as SalaryReview), actions: this.salaryActions(review.id) };
     }
+
 
     const result = spec.source === 'GROWW'
       ? await this.investments.importGrowwHoldings(userId, account!.id, file)
