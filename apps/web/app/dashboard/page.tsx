@@ -42,7 +42,8 @@ export default function DashboardPage() {
   }).join(',') : '#e2e8f0 0deg 360deg';
 
   const assetCategories = [
-    { name: 'Bank Accounts', types: ['BANK', 'SAVINGS', 'FIXED_DEPOSIT'], color: '#3b82f6' },
+    { name: 'Savings Accounts', types: ['BANK', 'SAVINGS'], color: '#3b82f6' },
+    { name: 'Fixed Deposits', types: ['FIXED_DEPOSIT'], color: '#0ea5e9' },
     { name: 'Investments', types: ['STOCKS', 'INVESTMENT'], color: '#10b981' },
     { name: 'EPFO', types: ['EPFO'], color: '#f59e0b' },
   ];

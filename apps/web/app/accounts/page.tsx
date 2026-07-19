@@ -21,7 +21,8 @@ const price = (minor: number | null) => minor === null ? '—' : new Intl.Number
 }).format(minor / 100);
 
 const accountSections = [
-  { label: 'Bank accounts', types: ['SAVINGS', 'FIXED_DEPOSIT', 'BANK'] },
+  { label: 'Savings accounts', types: ['SAVINGS', 'BANK'] },
+  { label: 'Fixed & recurring deposits', types: ['FIXED_DEPOSIT'] },
   { label: 'Credit cards', types: ['CREDIT_CARD'] },
   { label: 'Loan accounts', types: ['LOAN'] },
   { label: 'Investments', types: ['STOCKS', 'INVESTMENT'] },
