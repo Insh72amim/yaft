@@ -23,9 +23,21 @@ const price = (minor: number | null) => minor === null ? '—' : new Intl.Number
   style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2,
 }).format(minor / 100);
 
-const accountSections = [
+type AccountSection = 
+  | { label: string; types: string[] }
+  | { label: string; subsections: { label: string; types: string[] }[] };
+
+const accountSections: AccountSection[] = [
   { label: 'Savings accounts', types: ['SAVINGS', 'BANK'] },
-  { label: 'Investments', types: ['STOCKS', 'INVESTMENT', 'FIXED_DEPOSIT', 'EPFO'] },
+  {
+    label: 'Investments',
+    subsections: [
+      { label: 'Stock market', types: ['STOCKS'] },
+      { label: 'EPFO', types: ['EPFO'] },
+      { label: 'Fixed & recurring deposits', types: ['FIXED_DEPOSIT'] },
+      { label: 'Other investments', types: ['INVESTMENT'] },
+    ]
+  },
   { label: 'Debt Accounts', types: ['CREDIT_CARD', 'LOAN'] },
 ];
 
@@ -241,25 +253,62 @@ function PortfolioContent() {
       
       <div className="accounts-overview">
         {accountSections.map((section) => {
-          const sectionAccounts = accounts.filter((account) => section.types.includes(account.type));
-          if (!sectionAccounts.length) return null;
-          return (
-            <div className="accounts-section" key={section.label}>
-              <header className="accounts-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '16px' }}>
-                <h2 style={{ margin: 0 }}>{section.label}</h2>
-                <span style={{ fontSize: '18px', fontWeight: 600, color: 'var(--ink)' }}>{money(sectionAccounts.reduce((sum, account) => sum + account.balance, 0))}</span>
-              </header>
-              <div className="account-cards-grid">
-                {sectionAccounts.map((account) => (
-                  <AccountCard 
-                    key={account.id} 
-                    account={account} 
-                    onClick={() => router.push(`/accounts?account=${account.id}`)} 
-                  />
-                ))}
+          if ('subsections' in section) {
+            const allTypes = section.subsections.flatMap(sub => sub.types);
+            const sectionAccounts = accounts.filter((account) => allTypes.includes(account.type));
+            if (!sectionAccounts.length) return null;
+            return (
+              <div className="accounts-section" key={section.label}>
+                <header className="accounts-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
+                  <h2 style={{ margin: 0 }}>{section.label}</h2>
+                  <span style={{ fontSize: '20px', fontWeight: 600, color: 'var(--ink)' }}>{money(sectionAccounts.reduce((sum, account) => sum + account.balance, 0))}</span>
+                </header>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', paddingLeft: '8px' }}>
+                  {section.subsections.map((sub) => {
+                    const subAccounts = accounts.filter((account) => sub.types.includes(account.type));
+                    if (!subAccounts.length) return null;
+                    return (
+                      <div key={sub.label} className="accounts-subsection">
+                        <header className="accounts-subsection-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
+                          <h3 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{sub.label}</h3>
+                          <span style={{ fontSize: '13px', fontWeight: 550, color: 'var(--muted)' }}>{money(subAccounts.reduce((sum, account) => sum + account.balance, 0))}</span>
+                        </header>
+                        <div className="account-cards-grid">
+                          {subAccounts.map((account) => (
+                            <AccountCard 
+                              key={account.id} 
+                              account={account} 
+                              onClick={() => router.push(`/accounts?account=${account.id}`)} 
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
+            );
+          } else {
+            const sectionAccounts = accounts.filter((account) => section.types.includes(account.type));
+            if (!sectionAccounts.length) return null;
+            return (
+              <div className="accounts-section" key={section.label}>
+                <header className="accounts-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '16px' }}>
+                  <h2 style={{ margin: 0 }}>{section.label}</h2>
+                  <span style={{ fontSize: '18px', fontWeight: 600, color: 'var(--ink)' }}>{money(sectionAccounts.reduce((sum, account) => sum + account.balance, 0))}</span>
+                </header>
+                <div className="account-cards-grid">
+                  {sectionAccounts.map((account) => (
+                    <AccountCard 
+                      key={account.id} 
+                      account={account} 
+                      onClick={() => router.push(`/accounts?account=${account.id}`)} 
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          }
         })}
         {accounts.length === 0 && (
           <div className="portfolio-empty">

@@ -4,7 +4,7 @@ import { api, errorMessage } from '@/lib/api';
 
 export const accountChoices = [
   { group: 'BANK', type: 'SAVINGS', label: 'Savings account', detail: 'Salary or everyday banking', icon: PiggyBank },
-  { group: 'INVESTMENTS', type: 'FIXED_DEPOSIT', label: 'Fixed deposit', detail: 'Bank FD and term deposits', icon: Landmark },
+  { group: 'INVESTMENTS', type: 'FIXED_DEPOSIT', label: 'Fixed & recurring deposit', detail: 'Bank FD, RD and term deposits', icon: Landmark },
   { group: 'INVESTMENTS', type: 'STOCKS', label: 'Stock account', detail: 'Broker and demat portfolio', icon: TrendingUp },
   { group: 'INVESTMENTS', type: 'INVESTMENT', label: 'Mutual funds', detail: 'AMC, platform or folio holdings', icon: ChartPie },
   { group: 'OTHER', type: 'CREDIT_CARD', label: 'Credit card', detail: 'Limit, outstanding and due day', icon: CreditCard },
@@ -21,7 +21,7 @@ export const accountChoiceGroups = [
 export const savingsInstitutions = ['Axis Bank', 'Punjab National Bank', 'State Bank of India'];
 export const stockBrokers = ['Zerodha', 'Groww'];
 
-export const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savings account', FIXED_DEPOSIT: 'Fixed deposit',
+export const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savings account', FIXED_DEPOSIT: 'Fixed & recurring deposit',
   CREDIT_CARD: 'Credit card', LOAN: 'Loan account', STOCKS: 'Stock account', INVESTMENT: 'Mutual fund account', EPFO: 'EPFO account', CASH: 'Cash' };
 
 export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
