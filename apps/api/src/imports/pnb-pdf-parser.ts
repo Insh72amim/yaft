@@ -51,6 +51,7 @@ export function parsePnbTables(pages: PageTableResult[]): { rows: PnbParsedRow[]
     }
   }
   if (!rows.length) throw new BadRequestException('No PNB transaction rows were detected.');
+  let isDescending = false;
   if (rows.length > 1) {
     const descendingMismatches = rows.slice(0, -1).filter((row, index) => Math.abs(rows[index + 1].balanceMinor + row.amountMinor - row.balanceMinor) > 1).length;
     const ascendingMismatches = rows.slice(1).filter((row, index) => Math.abs(rows[index].balanceMinor + row.amountMinor - row.balanceMinor) > 1).length;
@@ -58,10 +59,11 @@ export function parsePnbTables(pages: PageTableResult[]): { rows: PnbParsedRow[]
     if (Math.min(descendingMismatches, ascendingMismatches) > Math.floor(comparisons * 0.05)) {
       throw new BadRequestException('The PNB running balances did not reconcile with the extracted deposits and withdrawals.');
     }
+    isDescending = descendingMismatches < ascendingMismatches;
   }
   return {
     rows: rows.map(({ balanceMinor: _balance, ...row }) => row),
-    closingBalanceMinor: rows.length > 0 ? rows[rows.length - 1].balanceMinor : undefined
+    closingBalanceMinor: rows.length > 0 ? (isDescending ? rows[0].balanceMinor : rows[rows.length - 1].balanceMinor) : undefined
   };
 }
 
