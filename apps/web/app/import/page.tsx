@@ -34,16 +34,16 @@ type HoldingsUploadResult = { kind: 'BROKER_HOLDINGS'; source: 'ZERODHA_KITE'; m
 const KIND_ICONS = { BANK_STATEMENT: Landmark, CREDIT_CARD_STATEMENT: CreditCard, SALARY_PAYSLIP: BadgeIndianRupee, BROKER_HOLDINGS: BriefcaseBusiness } as const;
 
 const SOURCE_URLS: Record<string, string> = {
-  SBI: 'https://retail.onlinesbi.sbi/',
-  PNB: 'https://netpnb.com/',
-  AXIS: 'https://omni.axisbank.co.in/',
+  SBI: 'https://yonoretail.sbi.bank.in/registration/welcome',
+  PNB: 'https://iretail.pnb.bank.in/',
+  AXIS: 'https://omni.axis.bank.in/axisretailbanking/',
   GOLDMAN_SACHS: 'https://www.goldmansachs.com/',
-  ZERODHA_KITE: 'https://console.zerodha.com/',
-  GROWW: 'https://groww.in/',
+  ZERODHA_KITE: 'https://console.zerodha.com/portfolio/holdings',
+  GROWW: 'https://groww.in/user/profile/report',
   HDFC_CC: 'https://netbanking.hdfcbank.com/',
   ICICI_CC: 'https://infinity.icicibank.com/',
   SBI_CC: 'https://www.sbicard.com/',
-  AXIS_CC: 'https://omni.axisbank.co.in/'
+  AXIS_CC: 'https://omni.axis.bank.in/axisretailbanking/'
 };
 
 export default function ImportPage() {
@@ -241,10 +241,10 @@ export default function ImportPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <a href="https://netbanking.hdfcbank.com/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>HDFC Bank</a>
             <a href="https://infinity.icicibank.com/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>ICICI Bank</a>
-            <a href="https://retail.onlinesbi.sbi/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>SBI Online</a>
-            <a href="https://omni.axisbank.co.in/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Axis Bank</a>
-            <a href="https://groww.in/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Groww</a>
-            <a href="https://console.zerodha.com/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Zerodha</a>
+            <a href="https://yonoretail.sbi.bank.in/registration/welcome" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>SBI Online</a>
+            <a href="https://omni.axis.bank.in/axisretailbanking/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Axis Bank</a>
+            <a href="https://groww.in/user/profile/report" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Groww</a>
+            <a href="https://console.zerodha.com/portfolio/holdings" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Zerodha</a>
           </div>
         </div>
       </aside>
