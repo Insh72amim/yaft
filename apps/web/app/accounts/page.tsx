@@ -32,9 +32,9 @@ const accountSections: AccountSection[] = [
   {
     label: 'Investments',
     subsections: [
+      { label: 'Fixed & recurring deposits', types: ['FIXED_DEPOSIT'] },
       { label: 'Stock market', types: ['STOCKS'] },
       { label: 'EPFO', types: ['EPFO'] },
-      { label: 'Fixed & recurring deposits', types: ['FIXED_DEPOSIT'] },
       { label: 'Other investments', types: ['INVESTMENT'] },
     ]
   },
