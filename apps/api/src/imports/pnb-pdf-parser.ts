@@ -30,7 +30,7 @@ export function extractPnbReference(narration: string, chequeNumber?: string) {
   return patterns.map((pattern) => compact.match(pattern)?.[1]).find(Boolean)?.slice(0, 100);
 }
 
-export function parsePnbTables(pages: PageTableResult[]): PnbParsedRow[] {
+export function parsePnbTables(pages: PageTableResult[]): { rows: PnbParsedRow[]; closingBalanceMinor?: number } {
   const tables = pages.flatMap((page) => page.tables);
   const looksLikePnb = tables.some((table) => table.some((row) => row.join(' ').replace(/\s+/g, ' ').match(/Transaction Date.*Withdrawal.*Deposit.*Balance.*Narration/i)));
   if (!looksLikePnb) throw new BadRequestException('This PDF does not match the supported Punjab National Bank statement layout.');
@@ -59,7 +59,10 @@ export function parsePnbTables(pages: PageTableResult[]): PnbParsedRow[] {
       throw new BadRequestException('The PNB running balances did not reconcile with the extracted deposits and withdrawals.');
     }
   }
-  return rows.map(({ balanceMinor: _balance, ...row }) => row);
+  return {
+    rows: rows.map(({ balanceMinor: _balance, ...row }) => row),
+    closingBalanceMinor: rows.length > 0 ? rows[rows.length - 1].balanceMinor : undefined
+  };
 }
 
 export const pnbPdfParser: BankPdfParser = {
@@ -75,7 +78,7 @@ export const pnbPdfParser: BankPdfParser = {
   },
 };
 
-export async function parsePnbPdf(buffer: Buffer): Promise<PnbParsedRow[]> {
+export async function parsePnbPdf(buffer: Buffer): Promise<{ rows: PnbParsedRow[]; closingBalanceMinor?: number }> {
   if (buffer.length < 5 || buffer.subarray(0, 5).toString() !== '%PDF-') throw new BadRequestException('The selected file is not a valid PDF.');
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {

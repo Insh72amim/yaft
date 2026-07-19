@@ -33,14 +33,12 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
     event.preventDefault(); 
     const form = new FormData(event.currentTarget); 
     const type = String(form.get('type'));
-    const enteredBalance = Math.round(Number(form.get('openingBalance') || 0) * 100); 
-    const isLiability = type === 'CREDIT_CARD' || type === 'LOAN';
     
     setAdding(true); setAccountError('');
     try {
       await api('/accounts', { method: 'POST', body: JSON.stringify({
         name: form.get('name'), type, institution: form.get('institution') || undefined,
-        openingBalance: isLiability ? -enteredBalance : enteredBalance,
+        openingBalance: 0,
         creditLimit: form.get('creditLimit') ? Math.round(Number(form.get('creditLimit')) * 100) : undefined,
         dueDay: form.get('dueDay') ? Number(form.get('dueDay')) : undefined,
       }) });
@@ -61,11 +59,6 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
     if (type === 'CREDIT_CARD') return 'Bank or issuer name';
     if (type === 'LOAN') return 'Lender name';
     return 'Institution name';
-  };
-  const balanceLabel = (type: string) => {
-    if (type === 'CREDIT_CARD') return 'Current outstanding';
-    if (type === 'LOAN') return 'Principal remaining';
-    return 'Opening balance';
   };
 
   return (
@@ -95,7 +88,6 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
           ) : (
             <label>{newType === 'INVESTMENT' ? 'Platform / AMC' : newType === 'EPFO' ? 'Organisation / employer' : 'Institution'}<input name="institution" placeholder={institutionPlaceholder(newType)} /></label>
           )}
-          <label>{balanceLabel(newType)} (₹)<input name="openingBalance" type="number" min="0" step="0.01" defaultValue="0" /></label>
           {newType === 'CREDIT_CARD' && (
             <div className="form-row">
               <label>Card limit (₹)<input name="creditLimit" type="number" min="0" required /></label>

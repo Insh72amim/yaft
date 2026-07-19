@@ -9,7 +9,7 @@ const pages = [{ num: 1, tables: [[
 
 describe('PNB PDF parser', () => {
   it('preserves explicit debit/credit columns and extracts transaction references', () => {
-    const result = parsePnbTables(pages);
+    const { rows: result } = parsePnbTables(pages);
     expect(result).toHaveLength(3);
     expect(result[0]).toMatchObject({ amountMinor: -100000, reference: '100000000001' });
     expect(result[1]).toMatchObject({ amountMinor: 200000, reference: '100000000002' });

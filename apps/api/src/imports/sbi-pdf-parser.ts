@@ -229,11 +229,15 @@ function validate(rows: SbiRow[], summary: SbiSummary) {
   if (!summaryMatches) throw new BadRequestException('The SBI statement summary did not reconcile with the extracted transactions.');
 }
 
-export function parseSbiDocument(document: PdfStatementDocument): ParsedRow[] {
+export function parseSbiDocument(document: PdfStatementDocument): { rows: ParsedRow[]; closingBalanceMinor?: number } {
   if (!looksLikeSbi(document)) throw new BadRequestException('This PDF does not match the supported State Bank of India statement layout.');
   const rows = parseRows(document);
-  validate(rows, parseSummary(document));
-  return rows.map(({ balanceMinor: _balanceMinor, ...row }) => row);
+  const summary = parseSummary(document);
+  validate(rows, summary);
+  return {
+    rows: rows.map(({ balanceMinor: _balanceMinor, ...row }) => row),
+    closingBalanceMinor: summary.closingBalanceMinor
+  };
 }
 
 export const sbiPdfParser: BankPdfParser = {

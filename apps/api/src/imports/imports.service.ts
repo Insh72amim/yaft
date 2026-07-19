@@ -39,7 +39,7 @@ export class ImportsService {
       ? this.credentials.encrypt(accountId, explicitPassword) : undefined;
     const batch = await this.prisma.$transaction(async (tx) => {
       const created = await tx.importBatch.create({ data: { userId, accountId, filename: file.originalname.slice(0, 200),
-        fileHash: hash, rowCount: staged.length, staged: { create: staged } } });
+        fileHash: hash, rowCount: staged.length, statementBalance: parsed.closingBalanceMinor, staged: { create: staged } } });
       if (encrypted) {
         const stored = { ciphertext: Uint8Array.from(encrypted.ciphertext), iv: Uint8Array.from(encrypted.iv),
           authTag: Uint8Array.from(encrypted.authTag), keyVersion: encrypted.keyVersion };
@@ -65,7 +65,7 @@ export class ImportsService {
     const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
     const staged = parsed.rows.map((row) => this.enrich(accountId, row, categories, existingFingerprints));
     const batch = await this.prisma.importBatch.create({ data: { userId, accountId, filename: file.originalname.slice(0, 200),
-      fileHash: hash, rowCount: staged.length, staged: { create: staged } } });
+      fileHash: hash, rowCount: staged.length, statementBalance: parsed.closingBalanceMinor, staged: { create: staged } } });
     return this.get(userId, batch.id);
   }
 
@@ -150,6 +150,22 @@ export class ImportsService {
           reference: row.reference, fingerprint: row.fingerprint, transferGroupId, userVerified: true } });
         imported += 1;
       }
+
+      if (batch.statementBalance !== null) {
+        const maxDate = new Date(Math.max(...batch.staged.map(s => s.transactionDate.getTime())));
+        const sumResult = await tx.transaction.aggregate({
+          where: { accountId: batch.accountId, transactionDate: { lte: maxDate } },
+          _sum: { amount: true },
+        });
+        const sumBeforeStatementEnd = sumResult._sum.amount || 0n;
+        const newOpeningBalance = batch.statementBalance - sumBeforeStatementEnd;
+        
+        await tx.account.update({
+          where: { id: batch.accountId },
+          data: { openingBalance: newOpeningBalance }
+        });
+      }
+
       await tx.importBatch.update({ where: { id: batch.id }, data: { status: 'COMMITTED', committedAt: new Date() } });
     });
     return { imported, skipped: batch.staged.length - imported };

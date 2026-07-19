@@ -52,7 +52,7 @@ function malformed(): never {
   throw new BadRequestException('The Axis Bank statement contains a row that could not be interpreted safely.');
 }
 
-export function parseAxisDocument(document: PdfStatementDocument): ParsedRow[] {
+export function parseAxisDocument(document: PdfStatementDocument): { rows: ParsedRow[]; closingBalanceMinor?: number } {
   const hasHeader = document.tablePages.some((page) => page.tables.some((table) => table.some(isAxisHeader)));
   if (!axisTextMatches(document) || !hasHeader) {
     throw new BadRequestException('This PDF does not match the supported Axis Bank statement layout.');
@@ -153,7 +153,10 @@ export function parseAxisDocument(document: PdfStatementDocument): ParsedRow[] {
     throw new BadRequestException('The Axis Bank closing balance did not reconcile with the extracted rows.');
   }
 
-  return rows.map(({ balanceMinor: _balance, ...row }) => row);
+  return {
+    rows: rows.map(({ balanceMinor: _balance, ...row }) => row),
+    closingBalanceMinor: printedClosingBalance
+  };
 }
 
 export const axisPdfParser: BankPdfParser = {

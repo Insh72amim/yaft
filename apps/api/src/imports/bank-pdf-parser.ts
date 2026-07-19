@@ -25,7 +25,7 @@ export type BankPdfParser = {
   id: 'PNB' | 'AXIS' | 'SBI';
   institutionAliases: readonly string[];
   matches(document: PdfStatementDocument): boolean;
-  parse(document: PdfStatementDocument): ParsedRow[];
+  parse(document: PdfStatementDocument): { rows: ParsedRow[]; closingBalanceMinor?: number };
 };
 
 export function normalizeInstitution(value?: string) {

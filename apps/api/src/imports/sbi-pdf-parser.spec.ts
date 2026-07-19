@@ -58,7 +58,7 @@ describe('SBI PDF parser', () => {
   });
 
   it('parses wrapped and same-line rows, preserves both dates, and signs amounts', () => {
-    const rows = parseSbiDocument(documentWith());
+    const { rows } = parseSbiDocument(documentWith());
     expect(rows).toHaveLength(4);
     expect(rows.map((row) => row.amountMinor)).toEqual([-10000, -10000, 25000, 5000]);
     expect(rows[0]).toMatchObject({
@@ -73,7 +73,7 @@ describe('SBI PDF parser', () => {
   });
 
   it('uses the resulting balance to preserve legitimate identical transactions', () => {
-    const [first, second] = parseSbiDocument(documentWith());
+    const { rows: [first, second] } = parseSbiDocument(documentWith());
     expect(first.date).toEqual(second.date);
     expect(first.description).toBe(second.description);
     expect(first.reference).toBe(second.reference);
@@ -83,7 +83,7 @@ describe('SBI PDF parser', () => {
 
   it('accepts a populated cheque-reference column as the stable reference', () => {
     const withCheque = firstStatementPage.replace('- 100.00 - 1,100.00', 'CHEQUE42 100.00 - 1,100.00');
-    expect(parseSbiDocument(documentWith(withCheque))[0].reference).toBe('CHEQUE42');
+    expect(parseSbiDocument(documentWith(withCheque)).rows[0].reference).toBe('CHEQUE42');
   });
 
   it('rejects a running-balance mismatch', () => {

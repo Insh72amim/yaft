@@ -135,6 +135,7 @@ model ImportBatch {
   fileHash     String
   status       ImportStatus        @default(REVIEW)
   rowCount     Int                 @default(0)
+  statementBalance BigInt?
   createdAt    DateTime            @default(now())
   committedAt  DateTime?
   staged       StagedTransaction[]

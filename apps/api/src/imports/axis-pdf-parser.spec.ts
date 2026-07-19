@@ -39,7 +39,7 @@ describe('Axis Bank PDF parser', () => {
     const document = fixture();
     expect(axisPdfParser.matches(document)).toBe(true);
 
-    const rows = parseAxisDocument(document);
+    const { rows } = parseAxisDocument(document);
     expect(rows).toHaveLength(6);
     expect(rows.map((row) => row.amountMinor)).toEqual([-10000, 10000, 20000, -2500, -500, -7000]);
     expect(rows[0]).toMatchObject({ rowNumber: 1, reference: '111111111111' });

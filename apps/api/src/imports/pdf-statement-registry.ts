@@ -76,5 +76,6 @@ export async function loadPdfStatementDocument(buffer: Buffer, pdfPassword?: str
 export async function parseBankPdf(buffer: Buffer, options: ParseStatementOptions = {}) {
   const document = await loadPdfStatementDocument(buffer, options.pdfPassword);
   const parser = selectBankPdfParser(document, options.institution);
-  return { rows: parser.parse(document), parserId: parser.id };
+  const { rows, closingBalanceMinor } = parser.parse(document);
+  return { rows, closingBalanceMinor, parserId: parser.id };
 }
