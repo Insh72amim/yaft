@@ -7,6 +7,7 @@ import {
   Trash2, Save, X, ShieldCheck, Check, Copy
 } from 'lucide-react';
 import { api, errorMessage, isUnauthorized } from '@/lib/api';
+import { CardScanner, type CardScanResult } from '@/components/card-scanner';
 
 interface VaultAccount {
   id: string;
@@ -282,6 +283,26 @@ export function VaultModal({
 
         {isCard && (
           <>
+            <CardScanner onResult={(r: CardScanResult) => {
+              const form = formRef.current;
+              if (!form) return;
+              if (r.cardNumber) {
+                const inp = form.elements.namedItem('cardNumber') as HTMLInputElement;
+                if (inp) inp.value = r.cardNumber.replace(/(.{4})/g, '$1 ').trim();
+              }
+              if (r.expiryMm) {
+                const inp = form.elements.namedItem('cardExpiryMm') as HTMLInputElement;
+                if (inp) inp.value = String(r.expiryMm);
+              }
+              if (r.expiryYy) {
+                const inp = form.elements.namedItem('cardExpiryYy') as HTMLInputElement;
+                if (inp) inp.value = String(r.expiryYy);
+              }
+              if (r.cvv) {
+                const inp = form.elements.namedItem('cvv') as HTMLInputElement;
+                if (inp) inp.value = r.cvv;
+              }
+            }} />
             <label>
               Card Number
               <input name="cardNumber" type="text" inputMode="numeric" placeholder="•••• •••• •••• ••••" maxLength={23} autoComplete="off"
