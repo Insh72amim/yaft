@@ -13,9 +13,7 @@ const links = [
   { href: '/import', label: 'Import', icon: Upload },
 ];
 
-const bottomLinks = [
-  { href: '/vault', label: 'Vault', icon: Lock },
-];
+const bottomLinks: { href: string; label: string; icon: any }[] = [];
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname(); const router = useRouter(); const [open, setOpen] = useState(false);

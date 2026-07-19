@@ -1,10 +1,11 @@
 'use client';
-import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
+import { VaultModal } from '@/components/vault-modal';
 
 type AccountLedger = {
   account: { id: string; name: string; type: string; institution: string | null; currency: string; openingBalance: number; balance: number };
@@ -26,6 +27,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [confirmationName, setConfirmationName] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [showVault, setShowVault] = useState(false);
   const load = useCallback(() => {
     setError('');
     api<AccountLedger>(`/accounts/${accountId}/transactions?page=${requestedPage}`).then(setData).catch((reason: unknown) => {
@@ -57,8 +59,8 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
 
   const content = (
     <div className={`account-detail-content ${embedded ? 'embedded' : ''}`}>
-      {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><button className="danger" onClick={() => setDeleteStep(1)}><Trash2/>Delete account</button></header>}
-      {embedded && <header className="embedded-header"><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2></div><div style={{ display: 'flex', gap: '8px' }}><Link className="secondary compact" href={`/import?accountId=${account.id}`}>Import statement</Link><button className="danger compact" onClick={() => setDeleteStep(1)}><Trash2/></button></div></header>}
+      {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><div style={{ display: 'flex', gap: '8px' }}><button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button><button className="danger" onClick={() => setDeleteStep(1)}><Trash2/>Delete account</button></div></header>}
+      {embedded && <header className="embedded-header"><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2></div><div style={{ display: 'flex', gap: '8px' }}><button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button><Link className="secondary compact" href={`/import?accountId=${account.id}`}>Import statement</Link><button className="danger compact" onClick={() => setDeleteStep(1)}><Trash2/></button></div></header>}
       <section className="summary-grid account-ledger-summary">
         <article><span className="summary-icon income"><Landmark/></span><div><small>Current balance</small><strong>{money(account.balance)}</strong><em>{account.currency}</em></div></article>
         <article><span className="summary-icon saved"><CalendarDays/></span><div><small>Opening balance</small><strong>{money(account.openingBalance)}</strong><em>Account starting point</em></div></article>
@@ -73,6 +75,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         {pagination.pages > 1 && <footer className="ledger-pagination"><button className="secondary" disabled={pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}><ArrowLeft/>Previous</button><span>Page {pagination.page} of {pagination.pages}</span><button className="secondary" disabled={pagination.page >= pagination.pages} onClick={() => goToPage(pagination.page + 1)}>Next<ArrowRight/></button></footer>}
       </section>
       {deleteStep > 0 && <div className="modal-wrap"><button className="backdrop" onClick={closeDelete} aria-label="Close deletion confirmation"/><section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title"><div className="delete-warning"><ShieldAlert/><span><strong>{deleteStep === 1 ? 'Permanent deletion' : 'Final confirmation'}</strong><small>This action cannot be undone.</small></span></div>{deleteStep === 1 ? <><div><span className="eyebrow">First confirmation</span><h2 id="delete-account-title">Delete {account.name}?</h2><p>This permanently removes the account, all {pagination.total.toLocaleString('en-IN')} associated transactions, import history, saved statement credentials, and any holdings.</p></div><div className="modal-actions"><button className="ghost" onClick={closeDelete}>Cancel</button><button className="danger" onClick={() => { setDeleteStep(2); setDeleteError(''); }}>Continue</button></div></> : <><div><span className="eyebrow">Second confirmation</span><h2 id="delete-account-title">Type the account name</h2><p>Enter <strong>{account.name}</strong> exactly to enable permanent deletion.</p></div><label>Account name<input autoFocus autoComplete="off" value={confirmationName} onChange={(event) => { setConfirmationName(event.target.value); setDeleteError(''); }} /></label>{deleteError && <p className="error">{deleteError}</p>}<div className="modal-actions"><button className="ghost" disabled={deleting} onClick={() => { setDeleteStep(1); setConfirmationName(''); setDeleteError(''); }}>Back</button><button className="danger" disabled={deleting || confirmationName !== account.name} onClick={deleteAccount}>{deleting ? 'Deleting…' : 'Permanently delete'}</button></div></>}</section></div>}
+      {showVault && <VaultModal accountId={account.id} onClose={() => setShowVault(false)} />}
     </div>
   );
 

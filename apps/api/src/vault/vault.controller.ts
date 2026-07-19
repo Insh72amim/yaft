@@ -67,6 +67,49 @@ export class VaultController {
     }));
   }
 
+  @Get(':accountId')
+  async get(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+  ) {
+    const account = await this.prisma.account.findFirst({
+      where: { id: accountId, userId: user.id },
+      include: {
+        vaultEntry: {
+          select: {
+            last4: true, ifsc: true, upiId: true,
+            cardExpiryMm: true, cardExpiryYy: true, cardNetwork: true,
+            accountNumberCipher: true, cardNumberCipher: true, cvvCipher: true, updatedAt: true,
+          },
+        },
+      },
+    });
+    if (!account) throw new NotFoundException('Account not found.');
+    
+    const vaultEntry = account.vaultEntry;
+    return {
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      institution: account.institution,
+      currency: account.currency,
+      vault: vaultEntry
+        ? {
+            last4: vaultEntry.last4,
+            ifsc: vaultEntry.ifsc,
+            upiId: vaultEntry.upiId,
+            cardExpiryMm: vaultEntry.cardExpiryMm,
+            cardExpiryYy: vaultEntry.cardExpiryYy,
+            cardNetwork: vaultEntry.cardNetwork,
+            hasAccountNumber: vaultEntry.accountNumberCipher !== null,
+            hasCardNumber: vaultEntry.cardNumberCipher !== null,
+            hasCvv: vaultEntry.cvvCipher !== null,
+            updatedAt: vaultEntry.updatedAt,
+          }
+        : null,
+    };
+  }
+
   @Put(':accountId')
   async upsert(
     @CurrentUser() user: { id: string },

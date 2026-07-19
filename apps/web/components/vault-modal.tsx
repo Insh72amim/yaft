@@ -1,16 +1,13 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Suspense } from 'react';
 import {
   Lock, Eye, EyeOff, CreditCard, Landmark, PiggyBank, TrendingUp,
   ChartPieIcon as ChartPie, Building2, BadgeIndianRupee, Pencil,
-  Trash2, Save, X, ShieldCheck, AlertCircle, Check, Copy, Settings2, Shield
+  Trash2, Save, X, ShieldCheck, Check, Copy
 } from 'lucide-react';
 import { api, errorMessage, isUnauthorized } from '@/lib/api';
-import { Shell } from '@/components/shell';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
 interface VaultAccount {
   id: string;
   name: string;
@@ -37,7 +34,6 @@ interface RevealedData {
   cvv?: string;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 const BANK_TYPES = ['SAVINGS', 'FIXED_DEPOSIT', 'BANK'];
 const CARD_TYPES = ['CREDIT_CARD'];
 
@@ -66,7 +62,6 @@ function formatCardNumber(raw: string) {
   return raw.replace(/(.{4})/g, '$1 ').trim();
 }
 
-// ─── CopyButton ──────────────────────────────────────────────────────────────
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async (e: React.MouseEvent) => {
@@ -76,43 +71,73 @@ function CopyButton({ value }: { value: string }) {
     setTimeout(() => setCopied(false), 3000);
   };
   return (
-    <button className="wallet-copy-btn" onClick={copy} title="Copy to clipboard">
+    <button type="button" className="wallet-copy-btn" onClick={copy} title="Copy to clipboard">
       {copied ? <Check size={12} /> : <Copy size={12} />}
     </button>
   );
 }
 
-// ─── WalletCard Component ────────────────────────────────────────────────────
-function WalletCard({ account, onSaved, onDeleted }: {
-  account: VaultAccount;
-  onSaved: () => void;
-  onDeleted: () => void;
+export function VaultModal({ 
+  accountId, 
+  onClose 
+}: { 
+  accountId: string; 
+  onClose: () => void; 
 }) {
-  const isBank = isBankAccount(account.type);
-  const isCard = isCardAccount(account.type);
-  const hasVault = Boolean(account.vault);
-
-  // States: 'front' | 'edit' | 'reveal'
+  const router = useRouter();
+  const [account, setAccount] = useState<VaultAccount | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  // WalletCard states
   const [mode, setMode] = useState<'front' | 'edit' | 'reveal'>('front');
-
   const [revealed, setRevealed] = useState<RevealedData | null>(null);
   const [revealing, setRevealing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const formRef = useRef<HTMLFormElement>(null);
 
+  const load = useCallback(async () => {
+    try {
+      const data = await api<VaultAccount>(`/vault/${accountId}`);
+      setAccount(data);
+    } catch (e) {
+      if (isUnauthorized(e)) router.replace('/login');
+      else setError(errorMessage(e, 'Could not load vault details.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId, router]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  if (loading || !account) {
+    return (
+      <div className="modal-wrap">
+        <button className="backdrop" onClick={onClose} aria-label="Close vault" />
+        <div style={{ padding: '24px', background: 'var(--card)', borderRadius: '12px', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div className="loading"><span /><p>Unlocking details…</p></div>
+        </div>
+      </div>
+    );
+  }
+
+  const isBank = isBankAccount(account.type);
+  const isCard = isCardAccount(account.type);
+  const hasVault = Boolean(account.vault);
+
   const reveal = async () => {
     setRevealing(true);
-    setError('');
+    setActionError('');
     try {
       const data = await api<RevealedData>(`/vault/${account.id}/reveal`);
       setRevealed(data);
       setMode('reveal');
     } catch (e) {
-      setError(errorMessage(e, 'Could not decrypt details.'));
+      setActionError(errorMessage(e, 'Could not decrypt details.'));
     } finally {
       setRevealing(false);
     }
@@ -131,6 +156,7 @@ function WalletCard({ account, onSaved, onDeleted }: {
     const cvv = fd.get('cvv') as string;
     const mm = fd.get('cardExpiryMm') as string;
     const yy = fd.get('cardExpiryYy') as string;
+    
     if (accountNumber) body.accountNumber = accountNumber;
     if (ifsc) body.ifsc = ifsc.toUpperCase();
     if (upiId) body.upiId = upiId;
@@ -139,13 +165,13 @@ function WalletCard({ account, onSaved, onDeleted }: {
     if (mm) body.cardExpiryMm = parseInt(mm, 10);
     if (yy) body.cardExpiryYy = parseInt(yy, 10);
 
-    setSaving(true); setError('');
+    setSaving(true); setActionError('');
     try {
       await api(`/vault/${account.id}`, { method: 'PUT', body: JSON.stringify(body) });
       setMode('front');
-      onSaved();
+      await load();
     } catch (e) {
-      setError(errorMessage(e, 'Could not save vault entry.'));
+      setActionError(errorMessage(e, 'Could not save vault entry.'));
     } finally {
       setSaving(false);
     }
@@ -157,9 +183,9 @@ function WalletCard({ account, onSaved, onDeleted }: {
       await api(`/vault/${account.id}`, { method: 'DELETE' });
       setConfirmDelete(false);
       setMode('front');
-      onDeleted();
+      await load();
     } catch (e) {
-      setError(errorMessage(e, 'Could not delete vault entry.'));
+      setActionError(errorMessage(e, 'Could not delete vault entry.'));
     } finally {
       setDeleting(false);
     }
@@ -167,7 +193,6 @@ function WalletCard({ account, onSaved, onDeleted }: {
 
   const cssClass = `wallet-card-face wallet-card-front ${isCard ? 'type-card' : 'type-bank'} network-${account.vault?.cardNetwork?.toLowerCase() || 'default'}`;
 
-  // Renders the realistic "Front" of the card
   const renderFront = () => (
     <div className={cssClass}>
       <div className="wallet-card-header">
@@ -214,11 +239,11 @@ function WalletCard({ account, onSaved, onDeleted }: {
 
         <div className="wallet-card-actions">
           {hasVault && (
-            <button className="wallet-btn-icon" onClick={() => reveal()} title="Reveal details" disabled={revealing}>
+            <button type="button" className="wallet-btn-icon" onClick={() => reveal()} title="Reveal details" disabled={revealing}>
               {revealing ? <span className="wallet-spinner"/> : <Eye size={15} />}
             </button>
           )}
-          <button className="wallet-btn-icon" onClick={() => setMode('edit')} title="Edit details">
+          <button type="button" className="wallet-btn-icon" onClick={() => setMode('edit')} title="Edit details">
             <Pencil size={14} />
           </button>
         </div>
@@ -226,15 +251,14 @@ function WalletCard({ account, onSaved, onDeleted }: {
     </div>
   );
 
-  // Renders the Edit form "Back" of the card
   const renderEdit = () => (
     <div className="wallet-card-face wallet-card-back">
       <div className="wallet-card-back-header">
         <strong>{hasVault ? 'Edit Details' : 'Add Details'}</strong>
-        <button className="wallet-btn-icon" onClick={() => setMode('front')}><X size={16} /></button>
+        <button type="button" className="wallet-btn-icon" onClick={() => setMode('front')}><X size={16} /></button>
       </div>
 
-      {error && <div className="wallet-error">{error}</div>}
+      {actionError && <div className="wallet-error">{actionError}</div>}
 
       <form className="wallet-form" ref={formRef} onSubmit={save}>
         {isBank && (
@@ -308,14 +332,13 @@ function WalletCard({ account, onSaved, onDeleted }: {
     </div>
   );
 
-  // Renders the Revealed "Back" of the card
   const renderReveal = () => (
     <div className="wallet-card-face wallet-card-reveal">
       <div className="wallet-card-back-header">
         <div className="wallet-shield">
           <ShieldCheck size={16} /> <strong>Decrypted Details</strong>
         </div>
-        <button className="wallet-btn-icon" onClick={() => setMode('front')}><EyeOff size={16} /></button>
+        <button type="button" className="wallet-btn-icon" onClick={() => setMode('front')}><EyeOff size={16} /></button>
       </div>
 
       <div className="wallet-reveal-fields">
@@ -376,107 +399,24 @@ function WalletCard({ account, onSaved, onDeleted }: {
       </div>
 
       <div className="wallet-reveal-footer">
-        <button className="wallet-btn ghost" onClick={() => setMode('front')}>Hide Details</button>
+        <button type="button" className="wallet-btn ghost" onClick={() => setMode('front')}>Hide Details</button>
       </div>
     </div>
   );
 
   return (
-    <div className={`wallet-card-container ${mode !== 'front' ? 'flipped' : ''}`}>
-      <div className="wallet-card-inner">
-        {mode === 'front' && renderFront()}
-        {mode === 'edit' && renderEdit()}
-        {mode === 'reveal' && renderReveal()}
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Page ───────────────────────────────────────────────────────────────
-function VaultContent() {
-  const router = useRouter();
-  const [accounts, setAccounts] = useState<VaultAccount[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const load = useCallback(async () => {
-    try {
-      const data = await api<VaultAccount[]>('/vault');
-      setAccounts(data);
-    } catch (e) {
-      if (isUnauthorized(e)) router.replace('/login');
-      else setError(errorMessage(e, 'Could not load vault.'));
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  if (loading) return <Shell><div className="loading"><span /><p>Unlocking your vault…</p></div></Shell>;
-
-  const bankAccounts = accounts.filter(a => isBankAccount(a.type) || a.type === 'EPFO' || a.type === 'LOAN');
-  const creditCards = accounts.filter(a => isCardAccount(a.type));
-  const investments = accounts.filter(a => a.type === 'STOCKS' || a.type === 'INVESTMENT');
-
-  return (
-    <Shell>
-      <header className="page-header">
-        <div>
-          <span className="eyebrow">Security</span>
-          <h1>Account Vault</h1>
-          <p>Your sensitive account details, encrypted and stored locally on your device.</p>
-        </div>
-        <div className="vault-global-badge">
-          <Shield size={16} /> <span>AES-256-GCM Encrypted</span>
-        </div>
-      </header>
-
-      {error && <p className="error" role="alert" style={{ marginBottom: '24px' }}>{error}</p>}
-
-      <div className="vault-sections">
-        {creditCards.length > 0 && (
-          <section className="vault-section">
-            <h2 className="vault-section-title">Credit Cards</h2>
-            <div className="vault-grid">
-              {creditCards.map(acc => <WalletCard key={acc.id} account={acc} onSaved={load} onDeleted={load} />)}
-            </div>
-          </section>
-        )}
-
-        {bankAccounts.length > 0 && (
-          <section className="vault-section">
-            <h2 className="vault-section-title">Bank & Loan Accounts</h2>
-            <div className="vault-grid">
-              {bankAccounts.map(acc => <WalletCard key={acc.id} account={acc} onSaved={load} onDeleted={load} />)}
-            </div>
-          </section>
-        )}
-
-        {investments.length > 0 && (
-          <section className="vault-section">
-            <h2 className="vault-section-title">Investments</h2>
-            <div className="vault-grid">
-              {investments.map(acc => <WalletCard key={acc.id} account={acc} onSaved={load} onDeleted={load} />)}
-            </div>
-          </section>
-        )}
-
-        {accounts.length === 0 && !loading && (
-          <div className="empty">
-            <span>📭</span>
-            <p>You haven't added any accounts yet. Go to Accounts to add one first.</p>
+    <div className="modal-wrap">
+      <button className="backdrop" onClick={onClose} aria-label="Close vault modal" />
+      <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '380px', margin: '0 auto' }}>
+        {error && <p className="error" style={{ marginBottom: '16px' }}>{error}</p>}
+        <div className={`wallet-card-container ${mode !== 'front' ? 'flipped' : ''}`}>
+          <div className="wallet-card-inner">
+            {mode === 'front' && renderFront()}
+            {mode === 'edit' && renderEdit()}
+            {mode === 'reveal' && renderReveal()}
           </div>
-        )}
+        </div>
       </div>
-    </Shell>
-  );
-}
-
-export default function VaultPage() {
-  return (
-    <Suspense fallback={<Shell><div className="loading"><span /><p>Unlocking your vault…</p></div></Shell>}>
-      <VaultContent />
-    </Suspense>
+    </div>
   );
 }

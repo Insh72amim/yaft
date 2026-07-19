@@ -1,5 +1,5 @@
 'use client';
-import { BriefcaseBusiness, Plus, Upload, Landmark, CreditCard, BadgeIndianRupee, Building2, PiggyBank, ChartPie, TrendingUp, ChevronLeft } from 'lucide-react';
+import { BriefcaseBusiness, Plus, Upload, Landmark, CreditCard, BadgeIndianRupee, Building2, PiggyBank, ChartPie, TrendingUp, ChevronLeft, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState, Suspense } from 'react';
@@ -7,6 +7,7 @@ import { Shell } from '@/components/shell';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 import { AccountTransactions } from '@/components/account-transactions';
 import { AddAccountModal } from '@/components/add-account-modal';
+import { VaultModal } from '@/components/vault-modal';
 
 type Holding = { id: string; asset: string; symbol: string; isin: string | null; sector: string | null; assetType: string;
   quantity: string; availableQuantity: string; discrepantQuantity: string; longTermQuantity: string | null; pledgedQuantity: string;
@@ -112,6 +113,8 @@ function PortfolioContent() {
   const [error, setError] = useState('');
   const [addingAccount, setAddingAccount] = useState(false);
   
+  const [showVaultForInvestment, setShowVaultForInvestment] = useState<string | null>(null);
+
   const selectedAccountId = searchParams.get('account');
 
   const load = useCallback(async () => {
@@ -159,7 +162,12 @@ function PortfolioContent() {
                     <span><small>Value</small><strong>{money(portfolioData.currentValue)}</strong></span>
                     <span className={portfolioData.unrealizedPnl < 0 ? 'loss' : 'gain'}><small>Unrealized</small><strong>{money(portfolioData.unrealizedPnl)}</strong></span>
                   </div>
-                  <Link className="secondary compact" href={`/import?kind=BROKER_HOLDINGS&accountId=${encodeURIComponent(selectedAccountId)}`}><Upload size={14}/>Import snapshot</Link>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="secondary compact" onClick={() => setShowVaultForInvestment(selectedAccountId)}>
+                      <Lock size={14}/>Credentials
+                    </button>
+                    <Link className="secondary compact" href={`/import?kind=BROKER_HOLDINGS&accountId=${encodeURIComponent(selectedAccountId)}`}><Upload size={14}/>Import snapshot</Link>
+                  </div>
                 </div>
               )}
             </header>
@@ -187,6 +195,7 @@ function PortfolioContent() {
               </div>
             )}
             {portfolioData?.holdings[0] && <footer>Snapshot imported {new Date(portfolioData.holdings[0].asOfDate).toLocaleString('en-IN')}</footer>}
+            {showVaultForInvestment && <VaultModal accountId={showVaultForInvestment} onClose={() => setShowVaultForInvestment(null)} />}
           </div>
         ) : (
           <AccountTransactions accountId={selectedAccountId} embedded={true} />
