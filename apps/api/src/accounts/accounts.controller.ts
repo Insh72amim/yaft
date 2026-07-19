@@ -249,6 +249,7 @@ export class AccountsController {
         transferGroupId: { in: transferGroupIds } }, data: { transferGroupId: null } });
       await tx.transaction.deleteMany({ where: { accountId: account.id } });
       await tx.importBatch.deleteMany({ where: { accountId: account.id } });
+      await tx.account.update({ where: { id: account.id }, data: { openingBalance: 0n } });
     });
   }
 
