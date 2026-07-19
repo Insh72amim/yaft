@@ -54,7 +54,7 @@ const SOURCE_SPECS: readonly SourceSpec[] = [
     description: 'SBI credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
     accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'CREDIT_CARD_STATEMENT', source: 'AXIS_CC', label: 'Axis Bank Credit Card',
-    description: 'Axis credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
+    description: 'Axis credit card PDF, CSV or XLSX statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
     accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
 ];
 
