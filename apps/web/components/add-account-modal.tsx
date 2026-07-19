@@ -20,7 +20,23 @@ export const accountChoiceGroups = [
 
 export const savingsInstitutions = ['Axis Bank', 'Punjab National Bank', 'State Bank of India'];
 export const stockBrokers = ['Zerodha', 'Groww'];
-export const creditCardInstitutions = ['Axis Bank', 'HDFC Bank', 'ICICI Bank', 'State Bank of India'];
+export const creditCardInstitutions = [
+  'American Express',
+  'Axis Bank',
+  'Citibank',
+  'Federal Bank',
+  'HDFC Bank',
+  'HSBC',
+  'ICICI Bank',
+  'IDFC First Bank',
+  'IndusInd Bank',
+  'Kotak Mahindra Bank',
+  'OneCard',
+  'Punjab National Bank',
+  'RBL Bank',
+  'State Bank of India',
+  'Yes Bank'
+];
 
 export const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savings account', FIXED_DEPOSIT: 'Fixed & recurring deposit',
   CREDIT_CARD: 'Credit card', LOAN: 'Loan account', STOCKS: 'Stock account', INVESTMENT: 'Mutual fund account', EPFO: 'EPFO account', CASH: 'Cash' };
