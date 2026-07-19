@@ -87,6 +87,7 @@ export class ImportsService {
     const categories = await this.prisma.category.findMany({ where: { userId }, orderBy: { name: 'asc' } });
     return {
       id: batch.id, filename: batch.filename, status: batch.status, rowCount: batch.rowCount,
+      statementBalance: batch.statementBalance !== null ? Number(batch.statementBalance) : null,
       createdAt: batch.createdAt, committedAt: batch.committedAt,
       account: { id: batch.account.id, name: batch.account.name },
       staged: batch.staged.map((row) => ({

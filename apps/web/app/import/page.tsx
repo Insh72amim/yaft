@@ -17,7 +17,7 @@ type Category = { id: string; name: string; color: string };
 type BankRow = { id: string; rowNumber: number; transactionDate: string; postedDate: string | null; descriptionRaw: string; merchant: string | null;
   amount: number; reference: string | null; categoryId: string | null; isDuplicate: boolean; include: boolean; confidence: number };
 type BankReview = { id: string; filename: string; status: string; rowCount: number; createdAt: string; account: { id: string; name: string };
-  categories: Category[]; staged: BankRow[] };
+  categories: Category[]; staged: BankRow[]; statementBalance: number | null };
 type SalaryItem = { id: string; type: 'EARNING' | 'DEDUCTION' | 'EMPLOYER_CONTRIBUTION'; description: string; currentAmount: number; ytdAmount: number | null };
 type SalaryReview = { id: string; filename: string; payPeriod: string; employer: string; employeeName?: string; employeeNumberLast4?: string;
   department?: string; designation?: string; bankName?: string; bankAccountLast4?: string; uanLast4?: string; currency: string;
@@ -268,7 +268,9 @@ function BankReviewPanel({ item, busy, update, finish }: { item: BankPending; bu
   const duplicates = item.review.staged.filter((row) => row.isDuplicate).length;
   return <><section className="review-summary"><div><FileSpreadsheet/><span><strong>{item.review.filename}</strong><small>{item.review.account.name} · {item.source}</small></span></div>
     <div><span><strong>{item.review.staged.length}</strong><small>rows found</small></span><span><strong>{duplicates}</strong><small>duplicates</small></span>
-      <span><strong>{money(included.reduce((sum, row) => sum + row.amount, 0))}</strong><small>net movement</small></span></div></section>
+      <span><strong>{money(included.reduce((sum, row) => sum + row.amount, 0))}</strong><small>net movement</small></span>
+      {item.review.statementBalance !== null && <span><strong>{money(item.review.statementBalance)}</strong><small>predicted closing balance</small></span>}
+    </div></section>
     <section className="review-table panel"><div className="review-head"><span>Include</span><span>Date &amp; description</span><span>Category</span><span>Amount</span></div>
       {item.review.staged.map((row) => <div className={`review-row ${!row.include ? 'excluded' : ''}`} key={row.id}><label className="check"><input type="checkbox" checked={row.include}
         disabled={busy || row.isDuplicate} aria-label={`Include ${row.merchant || row.descriptionRaw}`} onChange={(event) => void update(item, row, { include: event.target.checked })}/><span><Check/></span></label>
