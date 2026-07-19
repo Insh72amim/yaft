@@ -1,29 +1,32 @@
-# YAFT
+<div align="center">
+  <h1>💰 YAFT (Yet Another Financial Tool)</h1>
+  <p><em>A private, self-hosted personal-finance web app for turning Indian bank and credit-card statements into a reviewed ledger and a clear monthly picture.</em></p>
+</div>
 
-**Yet Another Financial Tool** — a private, self-hosted personal-finance web app for turning Indian bank and credit-card statements into a reviewed ledger and a clear monthly picture.
+---
 
-The first working slice supports:
+## ✨ Key Features
 
-- Single-owner registration and login
-- Bank, cash, investment, loan, and credit-card accounts
-- CSV, XLSX, and verified Axis, Punjab National Bank, and SBI PDF statement parsing in memory
-- Password-protected SBI PDFs with optional account-bound encrypted password storage
-- A staging review before anything reaches the ledger
-- Merchant cleanup and deterministic category suggestions
-- Exact-file and transaction-level duplicate detection
-- Cross-account transfer matching within a three-day window
-- Fail-closed Zerodha holdings XLSX import with row and portfolio-total reconciliation
-- Monthly income, spending, savings, category, balance, net-worth, and recent-activity views
-- Credit limits, due days, and utilisation indicators
-- PDF salary-statement parsing with staged review and cumulative payroll history
-- Responsive desktop and mobile layouts
+- **👤 Single-Owner & Private:** Registration and login are locked to a single owner. Your data never leaves your hosted instance.
+- **🏦 Comprehensive Accounts:** Seamlessly track Bank, Cash, Investment, Loan, and Credit-Card accounts.
+- **📄 Smart Statement Parsing:** Intelligent, in-memory parsing for CSV, XLSX, and verified PDF statements (Axis, PNB, SBI).
+- **🔒 Secure Vault:** Support for password-protected SBI PDFs with optional account-bound, encrypted password storage.
+- **🕵️ Intelligent Deduplication:** Exact-file and transaction-level duplicate detection ensures your ledger stays clean.
+- **🔄 Auto-Transfer Matching:** Intelligent cross-account transfer matching within a 3-day window.
+- **📈 Portfolio Tracking:** Fail-closed Zerodha holdings XLSX import with strict row and portfolio-total reconciliation.
+- **📊 Detailed Insights:** Track monthly income, spending, savings, category, balance, net-worth, and recent activities.
+- **💳 Credit Management:** Easily monitor credit limits, due days, and credit utilisation indicators.
+- **💼 Salary Tracking:** PDF salary-statement parsing with a staged review process and cumulative payroll history.
+- **📱 Responsive UI:** A seamless experience across desktop and mobile, with modern card layouts and dark mode support.
 
-## Architecture
+## 🏗 Architecture
+
+The app is split into a robust backend and a snappy frontend:
 
 ```text
 Browser
-  └─ Next.js web app (:3000)
-       └─ same-origin /api proxy → NestJS API (:4000)
+  └─ Next.js web app (Port 3000)
+       └─ same-origin /api proxy → NestJS API (Port 4000)
             ├─ authentication + owner-scoped services
             ├─ in-memory CSV/XLSX parser
             ├─ fail-closed bank PDF parser registry
@@ -32,37 +35,27 @@ Browser
             └─ Prisma → PostgreSQL
 ```
 
-Money is stored as integer minor units (paise), never floating point. Uploaded files are held in memory for parsing and are not saved. Redis/BullMQ is intentionally deferred until slow background jobs—PDF extraction, email ingestion, or market-price sync—exist; a queue adds no value to this synchronous 5 MB MVP import.
+> **Note on Data Handling:** Money is strictly stored as integer minor units (paise) to prevent floating-point errors. Uploaded files (Bank PDFs, Salary Slips, Zerodha Holdings) are processed purely in-memory and are **never** retained on disk.
 
-Salary PDFs are also parsed in memory and are not retained. The payroll ledger stores monthly earnings, deductions, employer contributions, current and year-to-date figures, and only the final four digits of selected identifiers. Full PAN, UAN, bank account, PF numbers, and raw PDF text are not persisted.
-
-Zerodha holdings workbooks are parsed in memory and are not retained. The supported report contains `Equity` and `Mutual Funds` sheets from Zerodha Console. Every holding's quantity, average price, previous closing price, and unrealized P&L must reconcile, and each sheet's printed invested value, present value, and unrealized P&L totals must tie before the snapshot atomically replaces the selected account's earlier holdings.
-
-## Quick start with Docker
+## 🚀 Quick Start (Docker)
 
 1. Copy `.env.example` to `.env`.
-2. Replace `POSTGRES_PASSWORD` and `JWT_SECRET`. Generate each with a password manager; the JWT secret should contain at least 32 random characters.
-3. Generate the dedicated statement-password encryption key and put the output in `YAFT_CREDENTIAL_ENCRYPTION_KEY`:
-
+2. Generate secure passwords for `POSTGRES_PASSWORD` and `JWT_SECRET`. Your JWT secret should contain at least 32 random characters.
+3. Generate a dedicated statement-password encryption key and save it to `YAFT_CREDENTIAL_ENCRYPTION_KEY`:
    ```sh
    openssl rand -base64 32
    ```
+   > ⚠️ **IMPORTANT:** Do not reuse the JWT secret. Losing this key makes remembered PDF passwords unrecoverable. Ensure this is backed up!
 
-   Do not reuse the JWT secret. Losing this key makes remembered PDF passwords unrecoverable, so include the `.env` value in your encrypted backup policy.
-4. Start everything:
-
+4. Start the application:
    ```sh
    docker compose up --build
    ```
+5. Navigate to `http://localhost:3000/register`. *The first registration claims the instance; subsequent registrations are rejected.*
 
-5. Open `http://localhost:3000/register`. The first registration claims the instance; later registrations are rejected.
-6. Add an account and open **Import statement**. Real financial samples belong outside the repository in `/Users/yaft/Code/YAFT-private-inputs`.
+## 💻 Local Development
 
-The API applies the included initial migration automatically when its container starts.
-
-## Local development
-
-Requirements: Node.js 20+ and Docker.
+**Requirements:** Node.js 20+ and Docker.
 
 ```sh
 cp .env.example .env
@@ -73,71 +66,45 @@ npm run db:migrate
 npm run dev
 ```
 
-The web app runs at `http://localhost:3000`; the API runs at `http://localhost:4000/api`.
+- Web App: `http://localhost:3000`
+- API Server: `http://localhost:4000/api`
 
-## Statement format
+## 🔒 Security Posture
 
-The importer detects common headers. A statement should have:
+Security is a primary focus. Current protections include:
 
-- `Date`, `Transaction Date`, `Txn Date`, `Value Date`, or `Posted Date`
-- `Description`, `Narration`, `Transaction Details`, `Particulars`, or `Remarks`
-- Either a signed `Amount` column, or separate `Debit` and `Credit` columns
-- An optional reference/transaction-ID column
+- **Argon2id** password hashing.
+- HTTP-only, `SameSite=Strict`, 7-day signed session cookies.
+- Single-owner registration lock.
+- Strict DTO allow-listing, request validation, and rate limiting.
+- Helmet security headers, exact-origin CORS, and 5 MB upload limits.
+- SHA-256 file hashes and transaction fingerprints to prevent replays.
+- **AES-256-GCM encryption** for optional account-specific PDF passwords, bound to the account ID.
+- PostgreSQL database is isolated and not exposed to the internet.
 
-Dates in `DD/MM/YYYY`, `DD-MM-YYYY`, ISO format, and native Excel date cells are supported. Debit values become negative ledger amounts; credit values become positive amounts.
+> **Before Public Deployment:** Ensure you add TOTP/passkeys, encrypted automated backups, an HTTPS reverse proxy, and session revocation. Prefer a VPN like Tailscale over exposing this MVP to the public internet.
 
-PDF routing first uses the destination account's normalised institution, then verifies the document layout. If the institution is absent or unrecognised, import proceeds only when exactly one parser recognises the document. Unknown, ambiguous, scanned, changed, cross-bank, or unreconciled layouts are rejected without creating an import batch.
+## 📥 Import Behaviour
 
-- Axis: the supported seven-column transaction-history layout is parsed across its ledger pages; running balances and printed debit, credit, and closing totals must reconcile.
-- Punjab National Bank: bordered transaction tables preserve withdrawal/deposit direction and reconcile running balances across page breaks.
-- SBI: the supported password-protected account-statement layout preserves value and post dates, wrapped descriptions, and repeated legitimate ACH entries; every running balance and the final statement summary must reconcile.
+1. **Hash Check:** The API rejects already-seen file hashes instantly.
+2. **In-Memory Parse:** The file is read once, the layout is verified, and totals are reconciled.
+3. **Staging:** Rows are safely written to `StagedTransaction` records.
+4. **Review UI:** The interface displays value dates, category suggestions, and duplicate warnings.
+5. **Approval:** Upon approval, non-duplicate rows are written inside a single DB transaction.
+6. **Matching:** Equal-and-opposite movements in other owned accounts (within 3 days) are linked as transfers.
 
-## Security posture
+## 🔮 Next Milestones
 
-Implemented now:
+- [ ] Category rules UI & learning from corrections
+- [ ] TOTP/passkeys & advanced session management
+- [ ] Import column-mapping UI for unusual bank exports
+- [ ] Recurring bills, statement cycles, and card outstanding reconciliation
+- [ ] Automated encrypted backups and restore verification
+- [ ] Additional broker parsers, asset allocation trends, and XIRR
+- [ ] BullMQ workers for email ingestion and background jobs
 
-- Argon2id password hashes
-- HTTP-only, `SameSite=Strict`, seven-day signed session cookies
-- Single-owner registration lock
-- Strict DTO allow-listing and request validation
-- Login/registration throttling and a global request limit
-- Helmet security headers, exact-origin CORS, and 5 MB upload limits
-- Ownership checks on every account, import, category, transaction, and dashboard query
-- SHA-256 file hashes and transaction fingerprints
-- AES-256-GCM encryption for optional account-specific PDF passwords, with the account ID bound as authenticated data
-- A dedicated required encryption key, separate from the JWT secret
-- PostgreSQL is not published to the host or internet by Compose
-
-Saved credentials are document-opening passwords only. Never enter an SBI internet-banking password, PIN, OTP, CVV, or card secret. Before remote deployment, add TOTP or passkeys, encrypted automated backups with a tested restore, an HTTPS reverse proxy, and session/device revocation. Prefer Tailscale access. Do not expose this MVP directly to the public internet.
-
-The current production dependency audit reports four moderate advisories inherited through Next.js/PostCSS and ExcelJS/UUID. Neither vulnerable operation is exposed by this app (it does not stringify user-supplied CSS or call name-based UUID APIs with buffers), and no high or critical advisory is present. Recheck and upgrade as soon as patched direct releases are available.
-
-## Import behaviour
-
-1. The API rejects an already-seen file hash before decrypting or parsing anything.
-2. The API reads the file once in memory, verifies the selected bank layout, and reconciles bank totals.
-3. Rows are written only to `StagedTransaction` records.
-4. The review screen shows value/post dates, suggestions, confidence, and duplicates.
-5. You can uncheck rows or change a category.
-6. Approval writes included, non-duplicate rows inside one database transaction.
-7. Equal-and-opposite movements in another owned account within three days are linked as transfers and excluded from income/spending totals.
-
-The original statement is not retained. A repeated byte-identical file is rejected, and repeated transaction fingerprints are excluded by default.
-
-## Next milestones
-
-1. Category rules UI and learning from corrections
-2. TOTP/passkeys, refresh-session rotation, and session management
-3. Import column-mapping UI for unusual bank exports
-4. Recurring bills, statement cycles, payments, and card outstanding reconciliation
-5. Encrypted backups and restore verification
-6. Additional broker parsers, price snapshots, asset allocation, and XIRR
-7. BullMQ workers for email ingestion and other long-running import jobs
-
-## Validation
-
-Run the production compiler for both applications:
-
-```sh
-npm run build
-```
+---
+<div align="center">
+  <i>Run the production compiler to validate your build:</i><br/>
+  <code>npm run build</code>
+</div>
