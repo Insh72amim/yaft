@@ -87,9 +87,16 @@ This file maintains the running inventory of completed, verified features inside
   - [x] Secure OCR card scanner integration inside Vault (client-side OCR scanning implemented).
 - [x] **Manual EPFO Ledger entries**:
   - [x] Add manual transaction input form specifically for EPFO accounts (to log deposits/withdrawals and annual interest credits).
+- [ ] **Associated Account Documents (Loans & Bank Accounts)**:
+  - [ ] Allow uploading and linking multiple documents (PDFs, images) directly to Loan and Bank accounts.
+  - [ ] Provide seamless inline viewing via modal overlay with zoom controls, eliminating the need to download.
 
 ### 9.4 Salary Page
 - [x] **Bonus and Miscellaneous Payments**:
   - [x] Option to add and update bonuses, variable payouts, or other non-standard payments on the timeline.
 - [ ] **Acme Corp Layout Parser**:
   - [ ] Design and implement parser compatibility for Acme Corp-style payroll formats.
+- [ ] **Password-Free Inline Document Viewer**:
+  - [ ] Implement backend storage of salary/payslip level decryption passwords.
+  - [ ] Auto-decrypt and display payslips inline using a zoomable modal overlay (no password prompt during viewing).
+  - [ ] Restrict password-protection prompt exclusively to original file downloads.
