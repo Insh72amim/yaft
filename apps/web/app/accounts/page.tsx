@@ -62,7 +62,7 @@ function getDomainForInstitution(name: string | null) {
 
 function AccountCard({ account, onClick }: { account: Account, onClick: () => void }) {
   const [imgError, setImgError] = useState(false);
-  const domain = getDomainForInstitution(account.institution);
+  const domain = getDomainForInstitution(account.institution || account.name);
   const logoUrl = `https://logo.clearbit.com/${domain}?size=128`;
 
   return (
@@ -226,8 +226,9 @@ function PortfolioContent() {
           if (!sectionAccounts.length) return null;
           return (
             <div className="accounts-section" key={section.label}>
-              <header className="accounts-section-header">
-                <h2>{section.label}</h2>
+              <header className="accounts-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '16px' }}>
+                <h2 style={{ margin: 0 }}>{section.label}</h2>
+                <span style={{ fontSize: '18px', fontWeight: 600, color: 'var(--ink)' }}>{money(sectionAccounts.reduce((sum, account) => sum + account.balance, 0))}</span>
               </header>
               <div className="account-cards-grid">
                 {sectionAccounts.map((account) => (

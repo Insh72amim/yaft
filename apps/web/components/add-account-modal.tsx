@@ -38,7 +38,7 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
     try {
       await api('/accounts', { method: 'POST', body: JSON.stringify({
         name: form.get('name'), type, institution: form.get('institution') || undefined,
-        openingBalance: 0,
+        openingBalance: form.get('openingBalance') ? Math.round(Number(form.get('openingBalance')) * 100) : 0,
         creditLimit: form.get('creditLimit') ? Math.round(Number(form.get('creditLimit')) * 100) : undefined,
         dueDay: form.get('dueDay') ? Number(form.get('dueDay')) : undefined,
       }) });
@@ -87,6 +87,9 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
             <label>Broker<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported broker</option>{stockBrokers.map((broker) => <option value={broker} key={broker}>{broker}</option>)}</select></label>
           ) : (
             <label>{newType === 'INVESTMENT' ? 'Platform / AMC' : newType === 'EPFO' ? 'Organisation / employer' : 'Institution'}<input name="institution" placeholder={institutionPlaceholder(newType)} /></label>
+          )}
+          {newType !== 'STOCKS' && (
+            <label>Opening balance (₹)<input name="openingBalance" type="number" step="0.01" defaultValue="0" /></label>
           )}
           {newType === 'CREDIT_CARD' && (
             <div className="form-row">
