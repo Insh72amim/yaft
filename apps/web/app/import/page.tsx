@@ -7,7 +7,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 
-type ImportKind = 'BANK_STATEMENT' | 'CREDIT_CARD_STATEMENT' | 'SALARY_PAYSLIP' | 'BROKER_HOLDINGS' | 'EPFO_PASSBOOK';
+type ImportKind = 'BANK_STATEMENT' | 'CREDIT_CARD_STATEMENT' | 'SALARY_PAYSLIP' | 'BROKER_HOLDINGS';
 type Account = { id: string; name: string; type: string; institution: string | null; currency: string; hasStatementPassword: boolean };
 type SourceOption = { source: string; label: string; description: string; extensions: string[]; maxBytes: number; accountRequired: boolean;
   commitMode: 'REVIEW_REQUIRED' | 'IMMEDIATE_ATOMIC_REPLACEMENT'; pdfPasswordSupported: boolean; rememberPasswordSupported: boolean; eligibleAccountIds: string[] };
@@ -28,10 +28,10 @@ type SalaryPending = { kind: 'SALARY_PAYSLIP'; source: 'GOLDMAN_SACHS'; mode: 'R
   actions: { commit: string; discard: string } };
 type PendingImport = BankPending | SalaryPending;
 type ReviewUploadResult = Omit<BankPending, 'createdAt'> | Omit<SalaryPending, 'createdAt'>;
-type HoldingsUploadResult = { kind: 'BROKER_HOLDINGS' | 'EPFO_PASSBOOK'; source: string; mode: 'IMMEDIATE_ATOMIC_REPLACEMENT';
-  message: string; result: Record<string, unknown> };
+type HoldingsUploadResult = { kind: 'BROKER_HOLDINGS'; source: 'ZERODHA_KITE' | 'GROWW'; mode: 'IMMEDIATE_ATOMIC_REPLACEMENT';
+  message: string; result: { imported: number } };
 
-const KIND_ICONS = { BANK_STATEMENT: Landmark, CREDIT_CARD_STATEMENT: CreditCard, SALARY_PAYSLIP: BadgeIndianRupee, BROKER_HOLDINGS: BriefcaseBusiness, EPFO_PASSBOOK: Building2 } as const;
+const KIND_ICONS = { BANK_STATEMENT: Landmark, CREDIT_CARD_STATEMENT: CreditCard, SALARY_PAYSLIP: BadgeIndianRupee, BROKER_HOLDINGS: BriefcaseBusiness } as const;
 
 const SOURCE_URLS: Record<string, string> = {
   SBI: 'https://yonoretail.sbi.bank.in/registration/welcome',
@@ -44,7 +44,7 @@ const SOURCE_URLS: Record<string, string> = {
   ICICI_CC: 'https://infinity.icicibank.com/',
   SBI_CC: 'https://www.sbicard.com/',
   AXIS_CC: 'https://omni.axis.bank.in/axisretailbanking/',
-  EPFO_INDIA: 'https://passbook.epfindia.gov.in/MemberPassBook/Login',
+  EPFO: 'https://passbook.epfindia.gov.in/MemberPassBook/Login',
 };
 
 export default function ImportPage() {
@@ -203,7 +203,7 @@ export default function ImportPage() {
 
   if (loading || !catalog || !sourceOption) return <Shell><div className="loading"><span/><p>{error || 'Preparing the unified importer…'}</p></div></Shell>;
   const accept = sourceOption.extensions.join(',');
-  const fileLabel = kind === 'BANK_STATEMENT' ? 'bank statement' : kind === 'SALARY_PAYSLIP' ? 'payslip' : kind === 'EPFO_PASSBOOK' ? 'EPFO passbook' : 'holdings report';
+  const fileLabel = kind === 'BANK_STATEMENT' ? 'bank statement' : kind === 'SALARY_PAYSLIP' ? 'payslip' : 'holdings report';
 
   return <Shell><header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link>
     <span className="eyebrow">Unified import workspace</span><h1>Import financial records</h1><p>Choose what you are importing and who issued it. YAFT applies the matching validator and never guesses an unknown layout.</p></div></header>
@@ -230,7 +230,7 @@ export default function ImportPage() {
       {!eligibleAccounts.length && sourceOption.accountRequired && <p className="notice"><AlertTriangle/>No eligible {sourceOption.label} account exists. <Link href="/dashboard">Add the matching account</Link> first.</p>}
       {error && <p className="error" role="alert">{error}</p>}{notice && <p className="success-note" role="status"><ShieldCheck/>{notice}</p>}
       {syncWarning && <p className="notice refresh-warning" role="status"><AlertTriangle/>{syncWarning}</p>}
-      <button className="primary wide" disabled={busy || !file || (sourceOption.accountRequired && !accountId)}>{busy ? <><RefreshCw className="spin"/>Validating…</> : kind === 'BROKER_HOLDINGS' ? 'Validate and replace snapshot' : kind === 'EPFO_PASSBOOK' ? 'Upload and update balance' : 'Validate and create review'}</button>
+      <button className="primary wide" disabled={busy || !file || (sourceOption.accountRequired && !accountId)}>{busy ? <><RefreshCw className="spin"/>Validating…</> : kind === 'BROKER_HOLDINGS' ? 'Validate and replace snapshot' : 'Validate and create review'}</button>
       </form>
       <aside>
         <ShieldCheck/><h2>Source-specific safety</h2><p>{kind === 'BROKER_HOLDINGS'

@@ -6,8 +6,9 @@ import type { BankPdfParser, ParseStatementOptions, PdfStatementDocument } from 
 import { normalizeInstitution } from './bank-pdf-parser';
 import { pnbPdfParser } from './pnb-pdf-parser';
 import { sbiPdfParser } from './sbi-pdf-parser';
+import { epfoPdfParser } from './epfo-pdf-parser';
 
-export const bankPdfParsers: readonly BankPdfParser[] = [pnbPdfParser, axisPdfParser, sbiPdfParser];
+export const bankPdfParsers: readonly BankPdfParser[] = [pnbPdfParser, axisPdfParser, sbiPdfParser, epfoPdfParser];
 
 function institutionMatches(parser: BankPdfParser, institution: string) {
   return parser.institutionAliases.some((alias) => {
