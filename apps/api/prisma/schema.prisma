@@ -71,6 +71,13 @@ model SalaryStatement {
   status                SalaryStatus      @default(REVIEW)
   createdAt             DateTime          @default(now())
   committedAt           DateTime?
+  
+  // Encrypted payslip document password
+  pdfPasswordCipher     Bytes?
+  pdfPasswordIv         Bytes?
+  pdfPasswordTag        Bytes?
+  pdfPasswordKeyVersion Int?              @default(1)
+
   lineItems             SalaryLineItem[]
 
   @@unique([userId, fileHash])
