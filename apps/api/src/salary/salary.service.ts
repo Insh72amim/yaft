@@ -11,12 +11,12 @@ type SalaryWithItems = Prisma.SalaryStatementGetPayload<{ include: { lineItems: 
 export class SalaryService {
   constructor(private readonly prisma: PrismaService, private readonly s3: S3Service) {}
 
-  async upload(userId: string, file: Express.Multer.File, payslipSchema?: string) {
+  async upload(userId: string, file: Express.Multer.File, payslipSchema?: string, pdfPassword?: string) {
     if (!isPayslipSchema(payslipSchema)) throw new BadRequestException('Choose a supported payslip employer.');
     const hash = createHash('sha256').update(file.buffer).digest('hex');
     const duplicate = await this.prisma.salaryStatement.findFirst({ where: { userId, fileHash: hash } });
     if (duplicate) throw new ConflictException('This exact payslip was already uploaded.');
-    const parsed = await parsePayslipPdf(file.buffer, payslipSchema);
+    const parsed = await parsePayslipPdf(file.buffer, payslipSchema, pdfPassword);
     const sameMonth = await this.prisma.salaryStatement.findFirst({ where: { userId, employer: parsed.employer, payPeriod: parsed.payPeriod } });
     if (sameMonth) throw new ConflictException('A payslip for this employer and month already exists. Discard the pending review first if you want to replace it.');
     let statement: SalaryWithItems | null = null;

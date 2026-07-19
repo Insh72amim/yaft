@@ -88,7 +88,7 @@ describe('UnifiedImportsService catalog and dispatch', () => {
     const salary = setup();
     await expect(salary.service.upload('user-1', salaryFile, { kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS' }))
       .resolves.toMatchObject({ kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS', mode: 'REVIEW_REQUIRED' });
-    expect(salary.salary.upload).toHaveBeenCalledWith('user-1', salaryFile, 'GOLDMAN_SACHS');
+    expect(salary.salary.upload).toHaveBeenCalledWith('user-1', salaryFile, 'GOLDMAN_SACHS', undefined);
 
     const holdings = setup();
     holdings.prisma.account.findFirst.mockResolvedValue({ id: 'stocks-account', name: 'Synthetic Zerodha', type: 'STOCKS', institution: 'Zerodha', currency: 'INR' });
@@ -102,7 +102,6 @@ describe('UnifiedImportsService fail-closed validation', () => {
   it.each([
     [{ kind: 'BANK_STATEMENT', source: 'ZERODHA_KITE', accountId: 'bank-account' }, bankFile, 'supported import type and source'],
     [{ kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS', accountId: 'bank-account' }, salaryFile, 'does not use a destination account'],
-    [{ kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS', pdfPassword: 'not-applicable' }, salaryFile, 'Password fields do not apply'],
     [{ kind: 'BROKER_HOLDINGS', source: 'ZERODHA_KITE', accountId: 'bank-account', rememberPassword: false }, holdingsFile, 'Password fields do not apply'],
     [{ kind: 'BANK_STATEMENT', source: 'SBI', accountId: 'bank-account' },
       { ...bankFile, originalname: 'synthetic.csv' }, 'accepts only PDF'],
