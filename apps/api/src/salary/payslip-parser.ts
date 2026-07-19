@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { SalaryItemType } from '@prisma/client';
-import { PDFParse } from 'pdf-parse';
+import { PasswordException, PDFParse } from 'pdf-parse';
 
 export type ParsedSalaryItem = {
   type: SalaryItemType;
@@ -59,9 +59,9 @@ function parseSection(lines: string[], heading: string, endHeading?: string): Pa
   });
 }
 
-export async function parsePayslipPdf(buffer: Buffer, schema: PayslipSchema): Promise<ParsedPayslip> {
+export async function parsePayslipPdf(buffer: Buffer, schema: PayslipSchema, pdfPassword?: string): Promise<ParsedPayslip> {
   if (buffer.length < 5 || buffer.subarray(0, 5).toString() !== '%PDF-') throw new BadRequestException('The selected file is not a valid PDF.');
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  const parser = new PDFParse({ data: new Uint8Array(buffer), password: pdfPassword || undefined });
   let text = '';
   try {
     const info = await parser.getInfo();
@@ -70,6 +70,11 @@ export async function parsePayslipPdf(buffer: Buffer, schema: PayslipSchema): Pr
   }
   catch (error) {
     if (error instanceof BadRequestException) throw error;
+    if (error instanceof PasswordException) {
+      throw new BadRequestException(pdfPassword
+        ? 'The PDF password is incorrect. No payslip data was imported.'
+        : 'This PDF is password-protected. Enter its document-opening password and try again.');
+    }
     throw new BadRequestException('This PDF could not be read. Password-protected or scanned payslips are not supported yet.');
   }
   finally { await parser.destroy().catch(() => undefined); }

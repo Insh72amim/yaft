@@ -89,7 +89,7 @@ export class UnifiedImportsService {
           source: spec.source, label: spec.label, description: spec.description,
           extensions: spec.extensions, maxBytes: spec.maxBytes, accountRequired: spec.accountRequired,
           commitMode: spec.commitMode,
-          pdfPasswordSupported: spec.kind === 'BANK_STATEMENT' || spec.kind === 'CREDIT_CARD_STATEMENT',
+          pdfPasswordSupported: spec.kind === 'BANK_STATEMENT' || spec.kind === 'CREDIT_CARD_STATEMENT' || spec.kind === 'SALARY_PAYSLIP',
           rememberPasswordSupported: spec.kind === 'BANK_STATEMENT' && spec.source === 'SBI',
           eligibleAccountIds: safeAccounts.filter((account) => this.accountIsEligible(account, spec)).map((account) => account.id),
         })),
@@ -136,7 +136,7 @@ export class UnifiedImportsService {
     const extension = this.extension(file.originalname);
     const passwordWasSent = dto.pdfPassword !== undefined;
     const rememberWasSent = dto.rememberPassword !== undefined;
-    if (spec.kind !== 'BANK_STATEMENT' && spec.kind !== 'CREDIT_CARD_STATEMENT' || extension !== '.pdf') {
+    if (spec.kind !== 'BANK_STATEMENT' && spec.kind !== 'CREDIT_CARD_STATEMENT' && spec.kind !== 'SALARY_PAYSLIP' || extension !== '.pdf') {
       if (passwordWasSent || rememberWasSent) throw new BadRequestException('Password fields do not apply to this import file.');
     } else {
       if (dto.pdfPassword !== undefined && dto.pdfPassword.length > 128) throw new BadRequestException('The PDF password is too long.');
@@ -172,7 +172,7 @@ export class UnifiedImportsService {
         review: this.safeBankReview(review), actions: this.bankActions(review.id) };
     }
     if (spec.kind === 'SALARY_PAYSLIP') {
-      const review = await this.salary.upload(userId, file, spec.source);
+      const review = await this.salary.upload(userId, file, spec.source, dto.pdfPassword);
       return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
         review: this.safeSalaryReview(review as SalaryReview), actions: this.salaryActions(review.id) };
     }

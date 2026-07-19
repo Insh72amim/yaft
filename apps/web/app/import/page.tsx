@@ -231,11 +231,11 @@ export default function ImportPage() {
       <label className={`dropzone unified-dropzone ${file ? 'has-file' : ''}`}><input key={fileKey} type="file" accept={accept} required onChange={(event) => { setFile(event.target.files?.[0]); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}/>
         {file ? <><FileSpreadsheet size={38}/><strong>{file.name}</strong><span>{(file.size / 1024).toFixed(0)} KB · ready for {sourceOption.label} validation</span></>
           : <><UploadCloud size={42}/><strong>Choose the {fileLabel}</strong><span>{sourceOption.extensions.map((item) => item.slice(1).toUpperCase()).join(', ')} · up to {sourceOption.maxBytes / 1024 / 1024} MB</span></>}</label>
-      {kind === 'BANK_STATEMENT' && isPdf && selectedAccount && <section className="password-panel"><div className="password-status"><KeyRound/><span><strong>PDF document password</strong>
-        <small>{selectedAccount.hasStatementPassword ? 'A saved password can unlock this account’s SBI PDF.' : 'Optional; use only when this PDF is protected.'}</small></span>
-        {selectedAccount.hasStatementPassword && <button type="button" className="ghost compact" disabled={busy} onClick={() => void forgetPassword()}><Trash2/>Forget</button>}</div>
+      {sourceOption.pdfPasswordSupported && isPdf && <section className="password-panel"><div className="password-status"><KeyRound/><span><strong>PDF document password</strong>
+        <small>{selectedAccount?.hasStatementPassword ? 'A saved password can unlock this account’s SBI PDF.' : 'Optional; use only when this PDF is protected.'}</small></span>
+        {selectedAccount?.hasStatementPassword && <button type="button" className="ghost compact" disabled={busy} onClick={() => void forgetPassword()}><Trash2/>Forget</button>}</div>
         <label>One-time document-opening password<input type="password" maxLength={128} autoComplete="off" value={pdfPassword}
-          placeholder={selectedAccount.hasStatementPassword ? 'Leave blank to use the saved password' : 'Optional'} onChange={(event) => { setPdfPassword(event.target.value); if (!event.target.value) setRememberPassword(false); }}/></label>
+          placeholder={selectedAccount?.hasStatementPassword ? 'Leave blank to use the saved password' : 'Optional'} onChange={(event) => { setPdfPassword(event.target.value); if (!event.target.value) setRememberPassword(false); }}/></label>
         {sourceOption.rememberPasswordSupported && <label className="remember-choice"><input type="checkbox" checked={rememberPassword} disabled={!pdfPassword}
           onChange={(event) => setRememberPassword(event.target.checked)}/><span><Check/></span><div><strong>Remember securely for this SBI account</strong><small>Saved only after this SBI PDF unlocks and verifies successfully.</small></div></label>}</section>}
       {!eligibleAccounts.length && sourceOption.accountRequired && <p className="notice"><AlertTriangle/>No eligible {sourceOption.label} account exists. <Link href="/dashboard">Add the matching account</Link> first.</p>}
@@ -247,7 +247,7 @@ export default function ImportPage() {
         <ShieldCheck/><h2>Source-specific safety</h2><p>{kind === 'BROKER_HOLDINGS'
           ? 'Zerodha holdings replace the selected account’s prior snapshot immediately, but only inside one atomic operation after every supported sheet and printed total reconciles.'
           : 'This file creates a pending review. Nothing enters your ledger or salary history until you approve the reconciled rows below.'}</p>
-        <ul><li>Original files are not retained</li><li>Unknown or changed layouts fail closed</li><li>Passwords never apply to payslips or holdings</li></ul>
+        <ul><li>Original files are not retained</li><li>Unknown or changed layouts fail closed</li><li>Passwords never apply to holdings</li></ul>
         
         <div style={{ marginTop: '32px' }}>
           <h2 style={{ fontSize: '14px', marginBottom: '12px' }}>Quick Access Portals</h2>
