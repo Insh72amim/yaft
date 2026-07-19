@@ -89,9 +89,27 @@ export default function ImportPage() {
       if (!initialized.current) {
         const params = new URLSearchParams(window.location.search);
         const requestedKind = params.get('kind') as ImportKind | null;
-        const selectedKind = nextCatalog.options.find((item) => item.kind === requestedKind) ?? nextCatalog.options[0];
-        const selectedSource = selectedKind?.sources.find((item) => item.source === params.get('source')) ?? selectedKind?.sources[0];
         const requestedAccount = params.get('accountId');
+        
+        let selectedKind = nextCatalog.options.find((item) => item.kind === requestedKind);
+        let selectedSource = selectedKind?.sources.find((item) => item.source === params.get('source'));
+
+        if (requestedAccount && (!selectedKind || !selectedSource)) {
+          for (const kOption of nextCatalog.options) {
+            for (const sOption of kOption.sources) {
+              if (sOption.eligibleAccountIds.includes(requestedAccount)) {
+                selectedKind = kOption;
+                selectedSource = sOption;
+                break;
+              }
+            }
+            if (selectedSource) break;
+          }
+        }
+
+        if (!selectedKind) selectedKind = nextCatalog.options[0];
+        if (!selectedSource) selectedSource = selectedKind?.sources.find((item) => item.source === params.get('source')) ?? selectedKind?.sources[0];
+
         if (selectedKind) setKind(selectedKind.kind);
         if (selectedSource) {
           setSource(selectedSource.source);
