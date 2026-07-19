@@ -30,6 +30,16 @@ export class SalaryController {
   @Delete(':statementId') @HttpCode(204)
   discard(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string) { return this.salary.discard(user.id, statementId); }
 
+  @Get(':statementId/view')
+  async view(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string, @Res() res: Response) {
+    const buffer = await this.salary.view(user.id, statementId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline',
+    });
+    res.send(buffer);
+  }
+
   @Get(':statementId/download')
   async download(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string, @Res() res: Response) {
     const { buffer, payPeriod } = await this.salary.download(user.id, statementId);

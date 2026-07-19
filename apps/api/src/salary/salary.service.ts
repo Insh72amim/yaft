@@ -1,14 +1,18 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, SalaryItemType } from '@prisma/client';
 import { createHash } from 'crypto';
+import { decryptPDF } from '@pdfsmaller/pdf-decrypt';
 import { PrismaService } from '../common/prisma.service';
 import { S3Service } from '../s3/s3.service';
 import { isPayslipSchema, parsePayslipPdf, PAYSLIP_SCHEMAS } from './payslip-parser';
+import { StatementCredentialCipher } from '../common/statement-credentials.service';
 
 type SalaryWithItems = Prisma.SalaryStatementGetPayload<{ include: { lineItems: true } }>;
 
 @Injectable()
 export class SalaryService {
+  private readonly cipher = new StatementCredentialCipher();
+
   constructor(private readonly prisma: PrismaService, private readonly s3: S3Service) {}
 
   async upload(userId: string, file: Express.Multer.File, payslipSchema?: string, pdfPassword?: string, salaryType: string = 'SALARY') {
@@ -47,6 +51,20 @@ export class SalaryService {
         lineItems: { create: parsed.lineItems.map((item) => ({ type: item.type, description: item.description,
           currentAmount: BigInt(item.currentAmount), ytdAmount: item.ytdAmount === undefined ? undefined : BigInt(item.ytdAmount) })) },
       }, include: { lineItems: true } });
+
+      if (pdfPassword) {
+        const enc = this.cipher.encrypt(statement.id, pdfPassword);
+        await this.prisma.salaryStatement.update({
+          where: { id: statement.id },
+          data: {
+            pdfPasswordCipher: enc.ciphertext as any,
+            pdfPasswordIv: enc.iv as any,
+            pdfPasswordTag: enc.authTag as any,
+            pdfPasswordKeyVersion: enc.keyVersion,
+          },
+        });
+      }
+
       await this.s3.uploadFile(`salaries/${userId}/${statement.id}.pdf`, file.buffer, file.mimetype || 'application/pdf');
 
     } catch (error) {
@@ -120,6 +138,32 @@ export class SalaryService {
     if (!statement) throw new NotFoundException('Salary statement not found.');
     const buffer = await this.s3.downloadFile(`salaries/${userId}/${statementId}.pdf`);
     return { buffer, payPeriod: statement.payPeriod };
+  }
+
+  async view(userId: string, statementId: string): Promise<Buffer> {
+    const statement = await this.prisma.salaryStatement.findFirst({ where: { id: statementId, userId } });
+    if (!statement) throw new NotFoundException('Salary statement not found.');
+    const buffer = await this.s3.downloadFile(`salaries/${userId}/${statementId}.pdf`);
+
+    if (statement.pdfPasswordCipher) {
+      try {
+        const decryptedPassword = this.cipher.decrypt(statement.id, {
+          ciphertext: Buffer.from(statement.pdfPasswordCipher),
+          iv: Buffer.from(statement.pdfPasswordIv!),
+          authTag: Buffer.from(statement.pdfPasswordTag!),
+          keyVersion: statement.pdfPasswordKeyVersion ?? 1,
+        });
+
+        // Decrypt the PDF using @pdfsmaller/pdf-decrypt
+        const decryptedBytes = await decryptPDF(new Uint8Array(buffer), decryptedPassword);
+        return Buffer.from(decryptedBytes);
+      } catch (err) {
+        console.error('PDF decryption failed, serving original:', err);
+        return buffer;
+      }
+    }
+
+    return buffer;
   }
 
   async discard(userId: string, statementId: string) {
