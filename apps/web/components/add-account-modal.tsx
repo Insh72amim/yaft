@@ -20,6 +20,7 @@ export const accountChoiceGroups = [
 
 export const savingsInstitutions = ['Axis Bank', 'Punjab National Bank', 'State Bank of India'];
 export const stockBrokers = ['Zerodha', 'Groww'];
+export const creditCardInstitutions = ['Axis Bank', 'HDFC Bank', 'ICICI Bank', 'State Bank of India'];
 
 export const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savings account', FIXED_DEPOSIT: 'Fixed & recurring deposit',
   CREDIT_CARD: 'Credit card', LOAN: 'Loan account', STOCKS: 'Stock account', INVESTMENT: 'Mutual fund account', EPFO: 'EPFO account', CASH: 'Cash' };
@@ -99,18 +100,15 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
             <label>Institution<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported bank</option>{savingsInstitutions.map((bank) => <option value={bank} key={bank}>{bank}</option>)}</select></label>
           ) : newType === 'STOCKS' ? (
             <label>Broker<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported broker</option>{stockBrokers.map((broker) => <option value={broker} key={broker}>{broker}</option>)}</select></label>
+          ) : newType === 'CREDIT_CARD' ? (
+            <label>Institution<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported bank</option>{creditCardInstitutions.map((bank) => <option value={bank} key={bank}>{bank}</option>)}</select></label>
           ) : (
             <label>{newType === 'INVESTMENT' ? 'Platform / AMC' : newType === 'EPFO' ? 'Organisation / employer' : 'Institution'}<input name="institution" placeholder={institutionPlaceholder(newType)} /></label>
           )}
           {newType === 'FIXED_DEPOSIT' && (
             <label>Opening balance (₹)<input name="openingBalance" type="number" step="0.01" defaultValue="0" /></label>
           )}
-          {newType === 'CREDIT_CARD' && (
-            <div className="form-row">
-              <label>Card limit (₹)<input name="creditLimit" type="number" min="0" required /></label>
-              <label>Payment due day<input name="dueDay" type="number" min="1" max="31" required /></label>
-            </div>
-          )}
+
           {newType === 'LOAN' && (
             <>
               <div className="form-row">

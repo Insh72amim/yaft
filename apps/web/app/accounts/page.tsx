@@ -164,8 +164,8 @@ function AccountCard({
           )}
         </div>
         <div className="account-card-title">
-          <strong>{account.name}</strong>
-          <small>{account.institution || "Unknown institution"}</small>
+          <strong>{account.institution || "Unknown institution"}</strong>
+          <small style={{ fontWeight: 500, color: 'var(--muted)' }}>{account.name}</small>
         </div>
       </div>
       <div className="account-card-body">
@@ -283,10 +283,10 @@ function PortfolioContent() {
             <Link href="/accounts" className="back-link">
               <ChevronLeft size={16} /> Back to all accounts
             </Link>
-            <span className="eyebrow">
-              {selectedAccount.institution || "Account Details"}
+            <span className="eyebrow" style={{ textTransform: 'none', letterSpacing: 'normal', fontSize: '13px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>
+              {selectedAccount.name}
             </span>
-            <h1>{selectedAccount.name}</h1>
+            <h1 style={{ marginTop: '4px' }}>{selectedAccount.institution || "Account Details"}</h1>
           </div>
         </header>
         {isInvestment ? (
