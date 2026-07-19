@@ -79,7 +79,24 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         <div className="panel-title"><div><span className="eyebrow">Full history</span><h2>Transactions</h2></div>{pagination.total > 0 && <span className="month-pill">{(pagination.page - 1) * pagination.pageSize + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total}</span>}</div>
         {transactions.length ? <div className="account-transaction-table">
           <header><span>Date</span><span>Description</span><span>Category</span><span>Amount</span></header>
-          {transactions.map((transaction) => <article key={transaction.id}><time>{new Date(transaction.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</time><div><strong>{transaction.description}</strong><small>{transaction.details || (transaction.postedDate ? `Posted ${new Date(transaction.postedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}` : 'Ledger transaction')}</small></div><span className={`category-pill ${transaction.isTransfer ? 'transfer' : ''}`}>{transaction.isTransfer ? 'Transfer' : transaction.category}</span><b className={transaction.amount > 0 ? 'positive' : ''}>{transaction.amount > 0 ? '+' : ''}{money(transaction.amount)}</b></article>)}
+          {transactions.map((transaction) => (
+            <article key={transaction.id} className="transaction-row">
+              <time className="transaction-time-cell">
+                <span className="date-text">{new Date(transaction.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
+                <span className="time-text">{new Date(transaction.transactionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })}</span>
+              </time>
+              <div className="transaction-description-cell">
+                <strong>{transaction.description}</strong>
+                <small>{transaction.details || (transaction.postedDate ? `Posted ${new Date(transaction.postedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}` : 'Ledger transaction')}</small>
+              </div>
+              <div className="transaction-category-cell">
+                <span className={`category-pill ${transaction.isTransfer ? 'transfer' : ''}`}>{transaction.isTransfer ? 'Transfer' : transaction.category}</span>
+              </div>
+              <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
+                {transaction.amount > 0 ? '+' : ''}{money(transaction.amount)}
+              </b>
+            </article>
+          ))}
         </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>Import and approve a statement for this account to build its ledger.</p><Link className="secondary" href={`/import?accountId=${account.id}`}>Import statement</Link></div>}
         {pagination.pages > 1 && <footer className="ledger-pagination"><button className="secondary" disabled={pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}><ArrowLeft/>Previous</button><span>Page {pagination.page} of {pagination.pages}</span><button className="secondary" disabled={pagination.page >= pagination.pages} onClick={() => goToPage(pagination.page + 1)}>Next<ArrowRight/></button></footer>}
       </section>

@@ -17,8 +17,215 @@
 .account-picker{display:flex;align-items:flex-end;gap:9px}.account-picker .field-label{flex:1}.account-picker .secondary{white-space:nowrap;height:38px}.account-picker .secondary svg{width:13px}
 @media(max-width:760px){.account-picker{align-items:stretch;flex-direction:column}.account-picker .secondary{align-self:flex-start}}
 .account-row-link{border-radius:10px}.account-row-link:hover{background:#f3f7f4;padding-left:8px;padding-right:8px}.account-row-end{display:flex;align-items:center;justify-content:flex-end;gap:6px}.account-row-end svg{width:14px;color:#9aa79f;transition:.18s ease}.account-row-link:hover .account-row-end svg{color:var(--green);transform:translateX(2px)}
-.account-ledger-panel{padding:0;overflow:hidden}.account-ledger-panel>.panel-title{padding:24px 25px 0}.account-transaction-table>header,.account-transaction-table>article{display:grid;grid-template-columns:105px minmax(240px,1fr) 150px 135px;gap:18px;align-items:center}.account-transaction-table>header{padding:12px 25px;background:#f3f6f4;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}.account-transaction-table>header span:last-child{text-align:right}.account-transaction-table>article{padding:15px 25px;border-top:1px solid var(--line)}.account-transaction-table time{font-size:10px;color:var(--muted)}.account-transaction-table article>div{display:grid;gap:4px;min-width:0}.account-transaction-table strong,.account-transaction-table b{font-size:12px}.account-transaction-table small{font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.account-transaction-table b{text-align:right}.category-pill{justify-self:start;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:15px;padding:5px 9px;background:#eef3f0;color:#53675d;font-size:9px}.category-pill.transfer{background:#e9eff6;color:#45627e}.ledger-pagination{display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:18px 25px;border-top:1px solid var(--line)}.ledger-pagination span{font-size:10px;color:var(--muted)}.ledger-pagination button{padding:8px 11px}.ledger-pagination button svg{width:14px}.account-ledger-empty{min-height:330px;display:grid;place-content:center;justify-items:center;text-align:center;color:#91a097;padding:30px}.account-ledger-empty>svg,.account-ledger-error>svg{width:38px;height:38px}.account-ledger-empty strong{font-size:12px;color:#68766f;margin:10px 0 4px}.account-ledger-empty p,.account-ledger-error p{font-size:10px;color:var(--muted)}.account-ledger-empty .secondary{margin-top:7px}.account-ledger-error{max-width:520px;margin:12vh auto 0;display:grid;justify-items:start;gap:10px}.account-ledger-error h2,.account-ledger-error p{margin:0}.account-ledger-error .secondary{margin-top:6px}.account-ledger-error .secondary svg{width:15px}
-@media(max-width:760px){.account-transaction-table>header{display:none}.account-transaction-table>article{grid-template-columns:68px minmax(0,1fr) auto;gap:10px;padding:14px 16px}.account-transaction-table article>.category-pill{grid-column:2}.account-transaction-table article>b{grid-column:3;grid-row:1}.account-ledger-panel>.panel-title{padding:20px 20px 0}.ledger-pagination{justify-content:space-between;padding:15px 16px}.ledger-pagination span{display:none}}
+.account-ledger-panel {
+  padding: 0;
+  overflow: hidden;
+}
+.account-ledger-panel > .panel-title {
+  padding: 24px 25px 0;
+}
+.account-transaction-table > header,
+.account-transaction-table > article {
+  display: grid;
+  grid-template-columns: 120px minmax(240px, 1fr) 150px 135px;
+  gap: 18px;
+  align-items: center;
+}
+.account-transaction-table > header {
+  padding: 14px 25px;
+  background: #f1f4f2;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+}
+.account-transaction-table > header span:last-child {
+  text-align: right;
+}
+.account-transaction-table > article {
+  padding: 16px 25px;
+  border-top: 1px solid var(--line);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--card);
+}
+.account-transaction-table > article:hover {
+  background: rgba(23, 79, 59, 0.02) !important;
+  transform: translateX(4px);
+  border-color: rgba(23, 79, 59, 0.12);
+  box-shadow: inset 3px 0 0 var(--green);
+}
+html[data-theme='dark'] .account-transaction-table > article:hover {
+  background: rgba(118, 207, 165, 0.03) !important;
+  border-color: rgba(118, 207, 165, 0.15);
+  box-shadow: inset 3px 0 0 var(--green);
+}
+.transaction-time-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.2;
+}
+.transaction-time-cell .date-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.transaction-time-cell .time-text {
+  font-size: 9px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.account-transaction-table article > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.account-transaction-table strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.account-transaction-table small {
+  font-size: 9px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.transaction-amount-cell {
+  text-align: right;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 13px !important;
+}
+.transaction-amount-cell.positive {
+  color: var(--green) !important;
+}
+.transaction-amount-cell.negative {
+  color: var(--red) !important;
+}
+html[data-theme='dark'] .transaction-amount-cell.positive {
+  color: var(--green) !important;
+}
+html[data-theme='dark'] .transaction-amount-cell.negative {
+  color: var(--red) !important;
+}
+.category-pill {
+  justify-self: start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 15px;
+  padding: 5px 10px;
+  background: #eef3f0;
+  color: #3b5046;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  transition: all 0.15s ease;
+}
+.category-pill.transfer {
+  background: #e9eff6;
+  color: #344c64;
+}
+.account-transaction-table > article:hover .category-pill {
+  transform: scale(1.03);
+}
+.ledger-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  padding: 18px 25px;
+  border-top: 1px solid var(--line);
+}
+.ledger-pagination span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.ledger-pagination button {
+  padding: 8px 11px;
+}
+.ledger-pagination button svg {
+  width: 14px;
+}
+.account-ledger-empty {
+  min-height: 330px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+  color: #91a097;
+  padding: 30px;
+}
+.account-ledger-empty > svg,
+.account-ledger-error > svg {
+  width: 38px;
+  height: 38px;
+}
+.account-ledger-empty strong {
+  font-size: 12px;
+  color: #68766f;
+  margin: 10px 0 4px;
+}
+.account-ledger-empty p,
+.account-ledger-error p {
+  font-size: 10px;
+  color: var(--muted);
+}
+.account-ledger-empty .secondary {
+  margin-top: 7px;
+}
+.account-ledger-error {
+  max-width: 520px;
+  margin: 12vh auto 0;
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+.account-ledger-error h2,
+.account-ledger-error p {
+  margin: 0;
+}
+.account-ledger-error .secondary {
+  margin-top: 6px;
+}
+.account-ledger-error .secondary svg {
+  width: 15px;
+}
+@media(max-width:760px){
+  .account-transaction-table>header {
+    display: none;
+  }
+  .account-transaction-table>article {
+    grid-template-columns: 85px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+  .account-transaction-table>article:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .account-transaction-table article > .transaction-category-cell {
+    grid-column: 2;
+  }
+  .account-transaction-table article > .transaction-amount-cell {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .account-ledger-panel > .panel-title {
+    padding: 20px 20px 0;
+  }
+  .ledger-pagination {
+    justify-content: space-between;
+    padding: 15px 16px;
+  }
+  .ledger-pagination span {
+    display: none;
+  }
+}
 .danger{border:0;border-radius:11px;padding:12px 16px;background:#fff0ee;color:#a63f39;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:7px}.danger:hover{background:#a63f39;color:white}.danger:disabled{opacity:.45;cursor:not-allowed;background:#f5e7e5;color:#a56c68}.danger svg{width:16px}.account-delete-modal{width:min(520px,100%)}.delete-warning{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:12px;background:#fff2ef;color:#a63f39}.delete-warning>svg{width:22px}.delete-warning>span{display:grid;gap:2px}.delete-warning strong{font-size:11px}.delete-warning small{font-size:9px}.account-delete-modal h2{margin:4px 0 8px}.account-delete-modal p strong{color:var(--ink)}
 @media(max-width:760px){.page-header>.danger{padding:10px;font-size:0}.page-header>.danger svg{margin:0}.account-delete-modal{padding:22px}}
 .dashboard-actions{display:flex;align-items:center;gap:10px}.month-control{display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid var(--line);border-radius:11px;background:white;color:var(--muted)}.month-control svg{width:15px}.month-control input{width:126px;padding:5px 0;border:0;border-radius:0;box-shadow:none;font-size:12px;color:var(--ink)}.month-control input:focus{border:0;box-shadow:none}
