@@ -159,8 +159,8 @@ export default function ImportPage() {
     const payload = new FormData();
     payload.set('kind', kind); payload.set('source', sourceOption.source); payload.set('file', file);
     if (sourceOption.accountRequired) payload.set('accountId', accountId);
-    if (kind === 'BANK_STATEMENT' && isPdf && pdfPassword) payload.set('pdfPassword', pdfPassword);
-    if (kind === 'BANK_STATEMENT' && isPdf && sourceOption.rememberPasswordSupported && rememberPassword) payload.set('rememberPassword', 'true');
+    if (sourceOption.pdfPasswordSupported && isPdf && pdfPassword) payload.set('pdfPassword', pdfPassword);
+    if (sourceOption.rememberPasswordSupported && isPdf && rememberPassword) payload.set('rememberPassword', 'true');
     try {
       const result = await api<ReviewUploadResult | HoldingsUploadResult>('/imports/unified/upload', { method: 'POST', body: payload });
       setFile(undefined); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false);
