@@ -543,6 +543,20 @@ html[data-theme='dark'] .nav-bottom a.vault-nav:hover,html[data-theme='dark'] .n
 .wallet-spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite}
 .wallet-error{background:#fcebea;color:var(--red);font-size:11px;padding:8px 10px;border-radius:6px;margin-bottom:12px}
 
+/* ── Card Scanner ────────────────────────────────────────────── */
+.card-scanner{margin-bottom:14px}
+.card-scanner-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px 16px;border-radius:10px;border:1.5px dashed #8bc6a5;background:linear-gradient(135deg,rgba(232,244,237,0.6),rgba(220,240,228,0.8));color:var(--green);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s ease}
+.card-scanner-btn:hover{border-color:var(--green);background:linear-gradient(135deg,rgba(220,240,228,0.9),rgba(200,230,212,1));transform:translateY(-1px);box-shadow:0 2px 8px rgba(46,125,50,0.12)}
+.card-scanner-btn:active{transform:translateY(0)}
+.card-scanner-status{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600}
+.card-scanner-status.scanning{background:linear-gradient(135deg,#e8f4ed,#dcf0e4);color:var(--green);flex-wrap:wrap}
+.card-scanner-status.success{background:#e6f5ec;color:#1b7a3d}
+.card-scanner-status.partial{background:#fff7e6;color:#b8860b}
+.card-scanner-status.error{background:#fcebea;color:var(--red)}
+.card-scanner-spin{animation:spin 1s linear infinite}
+.card-scanner-progress{width:100%;height:4px;background:#c5dccb;border-radius:4px;overflow:hidden;margin-top:4px;flex-basis:100%}
+.card-scanner-progress-bar{height:100%;background:linear-gradient(90deg,var(--green),#4caf50);border-radius:4px;transition:width 0.3s ease}
+
 /* ── Dark Mode ───────────────────────────────────────────────── */
 html[data-theme='dark'] .vault-global-badge{background:#1a2e24;color:#8ad9b2}
 html[data-theme='dark'] .wallet-card-back,html[data-theme='dark'] .wallet-card-reveal{background:#111b17;border-color:#203127}
@@ -550,6 +564,14 @@ html[data-theme='dark'] .wallet-form input,html[data-theme='dark'] .wallet-revea
 html[data-theme='dark'] .wallet-card-back .wallet-btn-icon,html[data-theme='dark'] .wallet-card-reveal .wallet-btn-icon{background:#1a2720;color:#ccdcd4}
 html[data-theme='dark'] .wallet-btn.ghost{border-color:#203127;color:#9caca4}
 html[data-theme='dark'] .wallet-copy-btn:hover{background:#2a3e32}
+html[data-theme='dark'] .card-scanner-btn{border-color:#2a5e3e;background:linear-gradient(135deg,rgba(26,46,36,0.8),rgba(34,60,44,0.9));color:#8ad9b2}
+html[data-theme='dark'] .card-scanner-btn:hover{border-color:#8ad9b2;background:linear-gradient(135deg,rgba(34,60,44,1),rgba(42,72,52,1));box-shadow:0 2px 8px rgba(138,217,178,0.15)}
+html[data-theme='dark'] .card-scanner-status.scanning{background:#1a2e24;color:#8ad9b2}
+html[data-theme='dark'] .card-scanner-status.success{background:#1a2e24;color:#8ad9b2}
+html[data-theme='dark'] .card-scanner-status.partial{background:#2a2510;color:#e0c060}
+html[data-theme='dark'] .card-scanner-status.error{background:#2a1515;color:#e88}
+html[data-theme='dark'] .card-scanner-progress{background:#203127}
+html[data-theme='dark'] .card-scanner-progress-bar{background:linear-gradient(90deg,#4caf50,#8ad9b2)}
 
 @media(max-width:760px){.vault-grid{grid-template-columns:1fr}}
 
