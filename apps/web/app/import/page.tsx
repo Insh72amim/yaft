@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Shell } from '@/components/shell';
-import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
+import { api, downloadFile, errorMessage, isUnauthorized, money } from '@/lib/api';
 
 type ImportKind = 'BANK_STATEMENT' | 'CREDIT_CARD_STATEMENT' | 'SALARY_PAYSLIP' | 'BROKER_HOLDINGS';
 type Account = { id: string; name: string; type: string; institution: string | null; currency: string; hasStatementPassword: boolean };
@@ -31,7 +31,13 @@ type ReviewUploadResult = Omit<BankPending, 'createdAt'> | Omit<SalaryPending, '
 type HoldingsUploadResult = { kind: 'BROKER_HOLDINGS'; source: 'ZERODHA_KITE' | 'GROWW'; mode: 'IMMEDIATE_ATOMIC_REPLACEMENT';
   message: string; result: { imported: number } };
 
-const KIND_ICONS = { BANK_STATEMENT: Landmark, CREDIT_CARD_STATEMENT: CreditCard, SALARY_PAYSLIP: BadgeIndianRupee, BROKER_HOLDINGS: BriefcaseBusiness } as const;
+function kindIcon(kind: string) {
+  if (kind === 'BANK_STATEMENT') return Landmark;
+  if (kind === 'CREDIT_CARD_STATEMENT') return CreditCard;
+  if (kind === 'SALARY_PAYSLIP') return BadgeIndianRupee;
+  if (kind === 'BROKER_HOLDINGS') return BriefcaseBusiness;
+  return Landmark;
+}
 
 const SOURCE_URLS: Record<string, string> = {
   SBI: 'https://yonoretail.sbi.bank.in/registration/welcome',
@@ -201,6 +207,11 @@ export default function ImportPage() {
     } finally { setBusy(false); }
   }
 
+  async function downloadReview(id: string, filename: string) {
+    try { await downloadFile(`/salary-statements/${id}/download`, filename); }
+    catch (reason) { setError(errorMessage(reason, 'Could not download the payslip.')); }
+  }
+
   if (loading || !catalog || !sourceOption) return <Shell><div className="loading"><span/><p>{error || 'Preparing the unified importer…'}</p></div></Shell>;
   const accept = sourceOption.extensions.join(',');
   const fileLabel = kind === 'BANK_STATEMENT' ? 'bank statement' : kind === 'SALARY_PAYSLIP' ? 'payslip' : 'holdings report';
@@ -209,7 +220,7 @@ export default function ImportPage() {
     <span className="eyebrow">Unified import workspace</span><h1>Import financial records</h1><p>Choose what you are importing and who issued it. YAFT applies the matching validator and never guesses an unknown layout.</p></div></header>
 
     <section className="unified-import-card panel"><form onSubmit={upload}><fieldset className="import-kind-picker"><legend>1. What are you importing?</legend>
-      <div>{catalog.options.map((option) => { const Icon = KIND_ICONS[option.kind]; return <button type="button" key={option.kind}
+      <div>{catalog.options.map((option) => { const Icon = kindIcon(option.kind); return <button type="button" key={option.kind}
         className={kind === option.kind ? 'selected' : ''} aria-pressed={kind === option.kind} onClick={() => chooseKind(option.kind)}><Icon/><span><strong>{option.label}</strong><small>{option.description}</small></span></button>; })}</div></fieldset>
       <div className="unified-fields"><label>2. Source<select value={sourceOption.source} onChange={(event) => chooseSource(event.target.value)}>
         {kindOption?.sources.map((option) => <option key={option.source} value={option.source}>{option.label}</option>)}</select>
@@ -258,7 +269,7 @@ export default function ImportPage() {
         className={item.review.id === selectedReviewId ? 'selected' : ''} aria-pressed={item.review.id === selectedReviewId} onClick={() => setSelectedReviewId(item.review.id)}>
         <span>{item.kind === 'BANK_STATEMENT' ? 'Bank statement' : 'Salary payslip'}</span><strong>{item.kind === 'BANK_STATEMENT' ? item.review.account.name : item.review.employer}</strong><small>{new Date(item.createdAt).toLocaleString('en-IN')}</small></button>)}</nav>
         {selectedPending?.kind === 'BANK_STATEMENT' ? <BankReviewPanel item={selectedPending} busy={busy} update={updateBank} finish={finishReview}/>
-          : selectedPending?.kind === 'SALARY_PAYSLIP' ? <SalaryReviewPanel item={selectedPending} busy={busy} finish={finishReview}/> : null}</>
+          : selectedPending?.kind === 'SALARY_PAYSLIP' ? <SalaryReviewPanel item={selectedPending} busy={busy} finish={finishReview} download={downloadReview}/> : null}</>
         : <div className="unified-empty panel"><ShieldCheck/><strong>No reviews waiting</strong><p>Validated bank statements and payslips will appear here before they are committed.</p></div>}
     </section>
   </Shell>;
@@ -286,7 +297,7 @@ function BankReviewPanel({ item, busy, update, finish }: { item: BankPending; bu
         <button type="button" className="primary" disabled={busy || !included.length} onClick={() => void finish(item, 'commit')}>{busy ? 'Working…' : 'Approve & import'}</button></div></div></>;
 }
 
-function SalaryReviewPanel({ item, busy, finish }: { item: SalaryPending; busy: boolean; finish: (item: PendingImport, action: 'commit' | 'discard') => void }) {
+function SalaryReviewPanel({ item, busy, finish, download }: { item: SalaryPending; busy: boolean; finish: (item: PendingImport, action: 'commit' | 'discard') => void; download: (id: string, filename: string) => void }) {
   const statement = item.review;
   const groups = [{ type: 'EARNING', title: 'Earnings and allowances' }, { type: 'DEDUCTION', title: 'Deductions' },
     { type: 'EMPLOYER_CONTRIBUTION', title: 'Employer contributions' }] as const;
@@ -297,6 +308,6 @@ function SalaryReviewPanel({ item, busy, finish }: { item: SalaryPending; busy: 
     <section className="salary-review-tables">{groups.map((group) => <article className="panel" key={group.type}><div className="panel-title"><h2>{group.title}</h2></div><div className="salary-lines"><header><span>Description</span><span>Current</span><span>Year to date</span></header>
       {statement.lineItems.filter((line) => line.type === group.type).map((line) => <div key={line.id}><span>{line.description}</span><strong>{money(line.currentAmount)}</strong><small>{line.ytdAmount === null ? '—' : money(line.ytdAmount)}</small></div>)}</div></article>)}</section>
     <div className="commit-bar salary-commit"><div><Check/><span><strong>{statement.lineItems.length} payroll rows reconciled</strong><small>Gross earnings and deductions match their line items.</small></span></div>
-      <div><button type="button" className="ghost" disabled={busy} onClick={() => void finish(item, 'discard')}>Discard</button><button type="button" className="primary" disabled={busy}
+      <div><button type="button" className="secondary compact" disabled={busy} onClick={() => void download(statement.id, `payslip-${new Date(statement.payPeriod).toISOString().slice(0, 10)}.pdf`)}>Download payslip</button><button type="button" className="ghost" disabled={busy} onClick={() => void finish(item, 'discard')}>Discard</button><button type="button" className="primary" disabled={busy}
         onClick={() => void finish(item, 'commit')}>{busy ? 'Working…' : 'Approve salary month'}</button></div></div></>;
 }

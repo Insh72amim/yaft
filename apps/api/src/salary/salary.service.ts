@@ -2,13 +2,14 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Prisma, SalaryItemType } from '@prisma/client';
 import { createHash } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
+import { S3Service } from '../s3/s3.service';
 import { isPayslipSchema, parsePayslipPdf, PAYSLIP_SCHEMAS } from './payslip-parser';
 
 type SalaryWithItems = Prisma.SalaryStatementGetPayload<{ include: { lineItems: true } }>;
 
 @Injectable()
 export class SalaryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly s3: S3Service) {}
 
   async upload(userId: string, file: Express.Multer.File, payslipSchema?: string) {
     if (!isPayslipSchema(payslipSchema)) throw new BadRequestException('Choose a supported payslip employer.');
@@ -18,15 +19,24 @@ export class SalaryService {
     const parsed = await parsePayslipPdf(file.buffer, payslipSchema);
     const sameMonth = await this.prisma.salaryStatement.findFirst({ where: { userId, employer: parsed.employer, payPeriod: parsed.payPeriod } });
     if (sameMonth) throw new ConflictException('A payslip for this employer and month already exists. Discard the pending review first if you want to replace it.');
-    const statement = await this.prisma.salaryStatement.create({ data: {
-      userId, payPeriod: parsed.payPeriod, employer: parsed.employer, employeeName: parsed.employeeName,
-      employeeNumberLast4: parsed.employeeNumberLast4, department: parsed.department, designation: parsed.designation,
-      bankName: parsed.bankName, bankAccountLast4: parsed.bankAccountLast4, uanLast4: parsed.uanLast4,
-      currency: parsed.currency, grossEarnings: BigInt(parsed.grossEarnings), grossDeductions: BigInt(parsed.grossDeductions),
-      directPayment: BigInt(parsed.directPayment), netPay: BigInt(parsed.netPay), filename: file.originalname.slice(0, 200), fileHash: hash,
-      lineItems: { create: parsed.lineItems.map((item) => ({ type: item.type, description: item.description,
-        currentAmount: BigInt(item.currentAmount), ytdAmount: item.ytdAmount === undefined ? undefined : BigInt(item.ytdAmount) })) },
-    }, include: { lineItems: true } });
+    let statement: SalaryWithItems | null = null;
+    try {
+      statement = await this.prisma.salaryStatement.create({ data: {
+        userId, payPeriod: parsed.payPeriod, employer: parsed.employer, employeeName: parsed.employeeName,
+        employeeNumberLast4: parsed.employeeNumberLast4, department: parsed.department, designation: parsed.designation,
+        bankName: parsed.bankName, bankAccountLast4: parsed.bankAccountLast4, uanLast4: parsed.uanLast4,
+        currency: parsed.currency, grossEarnings: BigInt(parsed.grossEarnings), grossDeductions: BigInt(parsed.grossDeductions),
+        directPayment: BigInt(parsed.directPayment), netPay: BigInt(parsed.netPay), filename: file.originalname.slice(0, 200), fileHash: hash,
+        lineItems: { create: parsed.lineItems.map((item) => ({ type: item.type, description: item.description,
+          currentAmount: BigInt(item.currentAmount), ytdAmount: item.ytdAmount === undefined ? undefined : BigInt(item.ytdAmount) })) },
+      }, include: { lineItems: true } });
+      await this.s3.uploadFile(`salaries/${userId}/${statement.id}.pdf`, file.buffer, file.mimetype || 'application/pdf');
+    } catch (error) {
+      if (statement) {
+        await this.prisma.salaryStatement.delete({ where: { id: statement.id } }).catch(() => {});
+      }
+      throw new BadRequestException('Failed to store payslip.');
+    }
     return this.serialize(statement);
   }
 
@@ -87,9 +97,18 @@ export class SalaryService {
     return this.overview(userId);
   }
 
+  async download(userId: string, statementId: string) {
+    const statement = await this.prisma.salaryStatement.findFirst({ where: { id: statementId, userId } });
+    if (!statement) throw new NotFoundException('Salary statement not found.');
+    const buffer = await this.s3.downloadFile(`salaries/${userId}/${statementId}.pdf`);
+    return { buffer, payPeriod: statement.payPeriod };
+  }
+
   async discard(userId: string, statementId: string) {
-    const statement = await this.prisma.salaryStatement.findFirst({ where: { id: statementId, userId, status: 'REVIEW' } });
-    if (!statement) throw new BadRequestException('Only a pending salary review can be discarded.');
+    const statement = await this.prisma.salaryStatement.findFirst({ where: { id: statementId, userId } });
+    if (!statement) throw new BadRequestException('Salary statement not found.');
+    const key = `salaries/${userId}/${statementId}.pdf`;
+    await this.s3.deleteFile(key);
     await this.prisma.salaryStatement.delete({ where: { id: statement.id } });
   }
 

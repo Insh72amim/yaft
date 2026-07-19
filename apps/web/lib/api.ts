@@ -29,3 +29,21 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const money = (minor: number, compact = false) => new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', maximumFractionDigits: 0, notation: compact ? 'compact' : 'standard',
 }).format(minor / 100);
+
+export async function downloadFile(path: string, filename: string) {
+  const response = await fetch(`${API_URL}${path}`, { credentials: 'include' });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const message = Array.isArray(body.message) ? body.message.join(', ') : body.message;
+    throw new ApiError(message || 'Download failed.', response.status);
+  }
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}

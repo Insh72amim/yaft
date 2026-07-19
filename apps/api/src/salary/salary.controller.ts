@@ -1,5 +1,6 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { SalaryService } from './salary.service';
@@ -27,4 +28,15 @@ export class SalaryController {
 
   @Delete(':statementId') @HttpCode(204)
   discard(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string) { return this.salary.discard(user.id, statementId); }
+
+  @Get(':statementId/download')
+  async download(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string, @Res() res: Response) {
+    const { buffer, payPeriod } = await this.salary.download(user.id, statementId);
+    const date = payPeriod.toISOString().slice(0, 10);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="payslip-${date}.pdf"`,
+    });
+    res.send(buffer);
+  }
 }

@@ -1,10 +1,10 @@
 'use client';
-import { ArrowDownRight, ArrowLeft, ArrowUpRight, BadgeIndianRupee, Building2, FileText, ShieldCheck, Upload, WalletCards } from 'lucide-react';
+import { ArrowDownRight, ArrowLeft, ArrowUpRight, BadgeIndianRupee, Building2, FileText, ShieldCheck, Trash2, Upload, WalletCards } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
-import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
+import { api, downloadFile, errorMessage, isUnauthorized, money } from '@/lib/api';
 
 type SalaryStatement = { id: string; payPeriod: string; employer: string; grossEarnings: number; grossDeductions: number; netPay: number };
 type SalaryTimelinePoint = { month: string; grossEarnings: number; netPay: number; tax: number; cumulativeGross: number; cumulativeTax: number };
@@ -16,6 +16,8 @@ export default function SalaryPage() {
   const [data, setData] = useState<SalaryOverview>();
   const [activeTab, setActiveTab] = useState<'statements' | 'timeline'>('statements');
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
   const load = useCallback(async () => {
     try { setData(await api<SalaryOverview>('/salary-statements')); }
     catch (reason) {
@@ -24,6 +26,24 @@ export default function SalaryPage() {
     }
   }, [router]);
   useEffect(() => { void load(); }, [load]);
+
+  async function handleDownload(statement: SalaryStatement) {
+    try { await downloadFile(`/salary-statements/${statement.id}/download`, `payslip-${new Date(statement.payPeriod).toISOString().slice(0, 10)}.pdf`); }
+    catch (reason) { setError(errorMessage(reason, 'Could not download the payslip.')); }
+  }
+
+  async function confirmDelete() {
+    if (!deletingId) return;
+    setDeleteError('');
+    try {
+      await api(`/salary-statements/${deletingId}`, { method: 'DELETE' });
+      setDeletingId(null);
+      await load();
+    } catch (reason) {
+      setDeleteError(errorMessage(reason, 'Could not delete the statement.'));
+    }
+  }
+
   if (!data) return <Shell><div className="loading"><span/><p>{error || 'Preparing your salary history…'}</p></div></Shell>;
 
   return <Shell><header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link>
@@ -41,11 +61,13 @@ export default function SalaryPage() {
       <section className="panel salary-history salary-history-wide"><div className="panel-title"><div><span className="eyebrow">Verified payroll record</span><h2>Salary history</h2></div>
         <Link className="secondary compact" href="/import?kind=SALARY_PAYSLIP&source=GOLDMAN_SACHS"><Upload/>Unified importer</Link></div>
         {data.statements.length ? <div className="salary-history-list">{data.statements.map((statement) => <article key={statement.id}><time>{new Date(statement.payPeriod).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' })}</time>
-          <div><strong>{statement.employer}</strong><small>Gross {money(statement.grossEarnings)} · deductions {money(statement.grossDeductions)}</small></div><b>{money(statement.netPay)}</b></article>)}</div>
+          <div><strong>{statement.employer}</strong><small>Gross {money(statement.grossEarnings)} · deductions {money(statement.grossDeductions)}</small></div>
+          <div className="statement-actions"><b>{money(statement.netPay)}</b><div><button className="secondary compact" onClick={() => void handleDownload(statement)}>Download</button><button className="danger compact" onClick={() => { setDeleteError(''); setDeletingId(statement.id); }}>Delete</button></div></div></article>)}</div>
           : <div className="salary-empty"><BadgeIndianRupee/><strong>No verified salary months yet</strong><p>Use Import records to validate and review your first payslip.</p>
             <Link className="primary" href="/import?kind=SALARY_PAYSLIP&source=GOLDMAN_SACHS">Import first payslip</Link></div>}
       </section>
     </> : <SalaryTimeline points={data.timeline}/>}
+    {deletingId && <div className="modal-wrap"><button className="backdrop" onClick={() => setDeletingId(null)} aria-label="Close deletion confirmation"/><section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-salary-title"><div className="delete-warning"><ShieldCheck/><span><strong>Permanent deletion</strong><small>This action cannot be undone.</small></span></div><div><span className="eyebrow">First confirmation</span><h2 id="delete-salary-title">Delete this salary statement?</h2><p>The PDF and all parsed payroll rows will be permanently removed from your local store.</p></div>{deleteError && <p className="error" role="alert">{deleteError}</p>}<div className="modal-actions"><button className="ghost" onClick={() => setDeletingId(null)}>Cancel</button><button className="danger" disabled={!deletingId} onClick={() => void confirmDelete()}>Permanently delete</button></div></section></div>}
   </Shell>;
 }
 

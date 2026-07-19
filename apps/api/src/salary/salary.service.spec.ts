@@ -35,7 +35,7 @@ describe('SalaryService timeline', () => {
       statement({ id: 'january-primary', month: '2026-01', gross: 10_000_000n, net: 8_000_000n, tax: 1_500_000n }),
       statement({ id: 'review', month: '2026-03', gross: 20_000_000n, net: 15_000_000n, tax: 3_000_000n, status: 'REVIEW' }),
     ]);
-    const service = new SalaryService({ salaryStatement: { findMany } } as unknown as PrismaService);
+    const service = new SalaryService({ salaryStatement: { findMany } } as unknown as PrismaService, { uploadFile: jest.fn(), downloadFile: jest.fn(), deleteFile: jest.fn(), onModuleInit: jest.fn() } as any);
 
     const overview = await service.overview('owner-a');
 
