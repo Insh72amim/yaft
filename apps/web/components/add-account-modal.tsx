@@ -88,7 +88,7 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
           ) : (
             <label>{newType === 'INVESTMENT' ? 'Platform / AMC' : newType === 'EPFO' ? 'Organisation / employer' : 'Institution'}<input name="institution" placeholder={institutionPlaceholder(newType)} /></label>
           )}
-          {newType !== 'STOCKS' && (
+          {newType === 'FIXED_DEPOSIT' && (
             <label>Opening balance (₹)<input name="openingBalance" type="number" step="0.01" defaultValue="0" /></label>
           )}
           {newType === 'CREDIT_CARD' && (
