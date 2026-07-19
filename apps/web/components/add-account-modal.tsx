@@ -9,13 +9,13 @@ export const accountChoices = [
   { group: 'INVESTMENTS', type: 'INVESTMENT', label: 'Mutual funds', detail: 'AMC, platform or folio holdings', icon: ChartPie },
   { group: 'OTHER', type: 'CREDIT_CARD', label: 'Credit card', detail: 'Limit, outstanding and due day', icon: CreditCard },
   { group: 'OTHER', type: 'LOAN', label: 'Loan account', detail: 'Home, vehicle or personal loan', icon: BadgeIndianRupee },
-  { group: 'OTHER', type: 'EPFO', label: 'EPFO account', detail: 'Provident-fund balance', icon: Building2 },
+  { group: 'INVESTMENTS', type: 'EPFO', label: 'EPFO account', detail: 'Provident-fund balance', icon: Building2 },
 ] as const;
 
 export const accountChoiceGroups = [
   { label: 'Bank accounts', group: 'BANK' },
   { label: 'Investments', group: 'INVESTMENTS' },
-  { label: 'Other financial accounts', group: 'OTHER' },
+  { label: 'Debt Accounts', group: 'OTHER' },
 ] as const;
 
 export const savingsInstitutions = ['Axis Bank', 'Punjab National Bank', 'State Bank of India'];

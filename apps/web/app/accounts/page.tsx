@@ -26,8 +26,7 @@ const accountSections = [
   { label: 'Fixed & recurring deposits', types: ['FIXED_DEPOSIT'] },
   { label: 'Credit cards', types: ['CREDIT_CARD'] },
   { label: 'Loan accounts', types: ['LOAN'] },
-  { label: 'Investments', types: ['STOCKS', 'INVESTMENT'] },
-  { label: 'EPFO accounts', types: ['EPFO'] },
+  { label: 'Investments', types: ['STOCKS', 'INVESTMENT', 'EPFO'] },
 ];
 
 function getIcon(type: string) {
