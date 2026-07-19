@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { api } from '@/lib/api';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { ThemeColorSelector } from '@/components/theme-color-selector';
 
 const links = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -27,6 +28,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <nav>{links.map(({ href, label, icon: Icon }) => <Link key={href} className={path === href || (href === '/accounts' && path.startsWith('/accounts')) ? 'active' : ''} href={href} onClick={() => setOpen(false)}><Icon size={18}/>{label}</Link>)}</nav>
       <div className="side-spacer" />
       <nav className="nav-bottom">{bottomLinks.map(({ href, label, icon: Icon }) => <Link key={href} className={path.startsWith(href) ? 'active vault-nav' : 'vault-nav'} href={href} onClick={() => setOpen(false)}><Icon size={18}/>{label}</Link>)}</nav>
+       <ThemeColorSelector />
       <ThemeToggle />
       <div className="privacy-note"><ShieldCheck size={18}/><div><strong>Private by design</strong><span>Your data stays on your server.</span></div></div>
       <button className="logout" onClick={logout}><LogOut size={17}/>Sign out</button>
