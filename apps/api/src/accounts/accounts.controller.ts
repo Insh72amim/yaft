@@ -236,6 +236,22 @@ export class AccountsController {
     });
   }
 
+  @Delete(':accountId/transactions') @HttpCode(204)
+  async clearTransactions(@CurrentUser() user: { id: string }, @Param('accountId') accountId: string, @Body() dto: DeleteAccountDto) {
+    const account = await this.prisma.account.findFirst({ where: { id: accountId, userId: user.id }, select: { id: true, name: true } });
+    if (!account) throw new NotFoundException('Account not found.');
+    if (dto.confirmationName !== account.name) throw new BadRequestException('Enter the account name exactly to confirm clearing transactions.');
+    await this.prisma.$transaction(async (tx) => {
+      const linkedTransfers = await tx.transaction.findMany({ where: { accountId: account.id, transferGroupId: { not: null } },
+        select: { transferGroupId: true } });
+      const transferGroupIds = [...new Set(linkedTransfers.flatMap((item) => item.transferGroupId ? [item.transferGroupId] : []))];
+      if (transferGroupIds.length) await tx.transaction.updateMany({ where: { accountId: { not: account.id }, account: { userId: user.id },
+        transferGroupId: { in: transferGroupIds } }, data: { transferGroupId: null } });
+      await tx.transaction.deleteMany({ where: { accountId: account.id } });
+      await tx.importBatch.deleteMany({ where: { accountId: account.id } });
+    });
+  }
+
   @Get(':accountId/loan')
   async getLoanDetails(@CurrentUser() user: { id: string }, @Param('accountId') accountId: string) {
     const account = await this.prisma.account.findFirst({

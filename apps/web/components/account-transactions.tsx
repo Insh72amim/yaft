@@ -24,6 +24,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [data, setData] = useState<AccountLedger>();
   const [error, setError] = useState('');
   const [deleteStep, setDeleteStep] = useState(0);
+  const [deleteAction, setDeleteAction] = useState<'CLEAR_TRANSACTIONS' | 'DELETE_ACCOUNT'>('CLEAR_TRANSACTIONS');
   const [confirmationName, setConfirmationName] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -45,22 +46,30 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const { account, transactions, pagination } = data;
   const goToPage = (page: number) => router.push(`/accounts?page=${page}&account=${accountId}`);
   const closeDelete = () => { if (!deleting) { setDeleteStep(0); setConfirmationName(''); setDeleteError(''); } };
-  const deleteAccount = async () => {
+  const handleDeleteConfirm = async () => {
     setDeleting(true); setDeleteError('');
     try {
-      await api<void>(`/accounts/${account.id}`, { method: 'DELETE', body: JSON.stringify({ confirmationName }) });
-      if (embedded) window.location.reload();
-      else { router.replace('/dashboard'); router.refresh(); }
+      const endpoint = deleteAction === 'CLEAR_TRANSACTIONS'
+        ? `/accounts/${account.id}/transactions`
+        : `/accounts/${account.id}`;
+      await api<void>(endpoint, { method: 'DELETE', body: JSON.stringify({ confirmationName }) });
+      if (deleteAction === 'CLEAR_TRANSACTIONS') {
+        closeDelete();
+        load();
+      } else {
+        if (embedded) window.location.reload();
+        else { router.replace('/dashboard'); router.refresh(); }
+      }
     } catch (reason) {
       if (isUnauthorized(reason)) router.replace('/login');
-      else setDeleteError(errorMessage(reason, 'Could not delete this account.'));
+      else setDeleteError(errorMessage(reason, `Could not ${deleteAction === 'CLEAR_TRANSACTIONS' ? 'clear transactions' : 'delete this account'}.`));
     } finally { setDeleting(false); }
   };
 
   const content = (
     <div className={`account-detail-content ${embedded ? 'embedded' : ''}`}>
-      {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><div style={{ display: 'flex', gap: '8px' }}><button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button><button className="danger" onClick={() => setDeleteStep(1)}><Trash2/>Delete account</button></div></header>}
-      {embedded && <header className="embedded-header"><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2></div><div style={{ display: 'flex', gap: '8px' }}><button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button><Link className="secondary compact" href={`/import?accountId=${account.id}`}>Import statement</Link><button className="danger compact" onClick={() => setDeleteStep(1)}><Trash2/></button></div></header>}
+      {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><div style={{ display: 'flex', gap: '8px' }}><button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button><button className="danger" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/>Delete or clear</button></div></header>}
+      {embedded && <header className="embedded-header"><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2></div><div style={{ display: 'flex', gap: '8px' }}><button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button><Link className="secondary compact" href={`/import?accountId=${account.id}`}>Import statement</Link><button className="danger compact" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/></button></div></header>}
       <section className="summary-grid account-ledger-summary">
         <article><span className="summary-icon income"><Landmark/></span><div><small>Current balance</small><strong>{money(account.balance)}</strong><em>{account.currency}</em></div></article>
         <article><span className="summary-icon saved"><CalendarDays/></span><div><small>Opening balance</small><strong>{money(account.openingBalance)}</strong><em>Account starting point</em></div></article>
@@ -74,7 +83,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>Import and approve a statement for this account to build its ledger.</p><Link className="secondary" href={`/import?accountId=${account.id}`}>Import statement</Link></div>}
         {pagination.pages > 1 && <footer className="ledger-pagination"><button className="secondary" disabled={pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}><ArrowLeft/>Previous</button><span>Page {pagination.page} of {pagination.pages}</span><button className="secondary" disabled={pagination.page >= pagination.pages} onClick={() => goToPage(pagination.page + 1)}>Next<ArrowRight/></button></footer>}
       </section>
-      {deleteStep > 0 && <div className="modal-wrap"><button className="backdrop" onClick={closeDelete} aria-label="Close deletion confirmation"/><section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title"><div className="delete-warning"><ShieldAlert/><span><strong>{deleteStep === 1 ? 'Permanent deletion' : 'Final confirmation'}</strong><small>This action cannot be undone.</small></span></div>{deleteStep === 1 ? <><div><span className="eyebrow">First confirmation</span><h2 id="delete-account-title">Delete {account.name}?</h2><p>This permanently removes the account, all {pagination.total.toLocaleString('en-IN')} associated transactions, import history, saved statement credentials, and any holdings.</p></div><div className="modal-actions"><button className="ghost" onClick={closeDelete}>Cancel</button><button className="danger" onClick={() => { setDeleteStep(2); setDeleteError(''); }}>Continue</button></div></> : <><div><span className="eyebrow">Second confirmation</span><h2 id="delete-account-title">Type the account name</h2><p>Enter <strong>{account.name}</strong> exactly to enable permanent deletion.</p></div><label>Account name<input autoFocus autoComplete="off" value={confirmationName} onChange={(event) => { setConfirmationName(event.target.value); setDeleteError(''); }} /></label>{deleteError && <p className="error">{deleteError}</p>}<div className="modal-actions"><button className="ghost" disabled={deleting} onClick={() => { setDeleteStep(1); setConfirmationName(''); setDeleteError(''); }}>Back</button><button className="danger" disabled={deleting || confirmationName !== account.name} onClick={deleteAccount}>{deleting ? 'Deleting…' : 'Permanently delete'}</button></div></>}</section></div>}
+      {deleteStep > 0 && <div className="modal-wrap"><button className="backdrop" onClick={closeDelete} aria-label="Close deletion confirmation"/><section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title"><div className="delete-warning"><ShieldAlert/><span><strong>{deleteStep === 1 ? 'Select Action' : 'Final confirmation'}</strong><small>This action cannot be undone.</small></span></div>{deleteStep === 1 ? <><div><span className="eyebrow">First confirmation</span><h2 id="delete-account-title">Delete or Clear {account.name}?</h2><p>Choose whether to wipe all transactions/import history, or permanently delete the account itself.</p></div><div className="modal-actions" style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '12px' }}><button className="danger wide" onClick={() => { setDeleteAction('CLEAR_TRANSACTIONS'); setDeleteStep(2); setDeleteError(''); }}>Clear all transactions ({pagination.total.toLocaleString('en-IN')})</button><button className="danger wide" onClick={() => { setDeleteAction('DELETE_ACCOUNT'); setDeleteStep(2); setDeleteError(''); }}>Delete entire account</button><button className="ghost wide" onClick={closeDelete}>Cancel</button></div></> : <><div><span className="eyebrow">Second confirmation</span><h2 id="delete-account-title">Type the account name</h2><p>Enter <strong>{account.name}</strong> exactly to confirm {deleteAction === 'CLEAR_TRANSACTIONS' ? 'clearing all transactions' : 'permanent account deletion'}.</p></div><label>Account name<input autoFocus autoComplete="off" value={confirmationName} onChange={(event) => { setConfirmationName(event.target.value); setDeleteError(''); }} /></label>{deleteError && <p className="error">{deleteError}</p>}<div className="modal-actions"><button className="ghost" disabled={deleting} onClick={() => { setDeleteStep(1); setConfirmationName(''); setDeleteError(''); }}>Back</button><button className="danger" disabled={deleting || confirmationName !== account.name} onClick={handleDeleteConfirm}>{deleting ? 'Processing…' : deleteAction === 'CLEAR_TRANSACTIONS' ? 'Clear transactions' : 'Permanently delete'}</button></div></>}</section></div>}
       {showVault && <VaultModal accountId={account.id} onClose={() => setShowVault(false)} />}
     </div>
   );
