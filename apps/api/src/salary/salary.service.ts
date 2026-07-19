@@ -14,11 +14,21 @@ export class SalaryService {
   async upload(userId: string, file: Express.Multer.File, payslipSchema?: string, pdfPassword?: string) {
     if (!isPayslipSchema(payslipSchema)) throw new BadRequestException('Choose a supported payslip employer.');
     const hash = createHash('sha256').update(file.buffer).digest('hex');
-    const duplicate = await this.prisma.salaryStatement.findFirst({ where: { userId, fileHash: hash } });
-    if (duplicate) throw new ConflictException('This exact payslip was already uploaded.');
     const parsed = await parsePayslipPdf(file.buffer, payslipSchema, pdfPassword);
-    const sameMonth = await this.prisma.salaryStatement.findFirst({ where: { userId, employer: parsed.employer, payPeriod: parsed.payPeriod } });
-    if (sameMonth) throw new ConflictException('A payslip for this employer and month already exists. Discard the pending review first if you want to replace it.');
+
+    const existing = await this.prisma.salaryStatement.findFirst({
+      where: {
+        userId,
+        OR: [
+          { fileHash: hash },
+          { employer: parsed.employer, payPeriod: parsed.payPeriod },
+        ],
+      },
+    });
+
+    if (existing) {
+      await this.discard(userId, existing.id);
+    }
     let statement: SalaryWithItems | null = null;
     try {
       statement = await this.prisma.salaryStatement.create({ data: {
@@ -108,7 +118,7 @@ export class SalaryService {
     const statement = await this.prisma.salaryStatement.findFirst({ where: { id: statementId, userId } });
     if (!statement) throw new BadRequestException('Salary statement not found.');
     const key = `salaries/${userId}/${statementId}.pdf`;
-    await this.s3.deleteFile(key);
+    await this.s3.deleteFile(key).catch(() => undefined);
     await this.prisma.salaryStatement.delete({ where: { id: statement.id } });
   }
 
