@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { SalaryItemType } from '@prisma/client';
+import 'pdf-parse/worker';
 import { PasswordException, PDFParse } from 'pdf-parse';
 
 export type ParsedSalaryItem = {
@@ -70,7 +71,10 @@ export async function parsePayslipPdf(buffer: Buffer, schema: PayslipSchema, pdf
   }
   catch (error) {
     if (error instanceof BadRequestException) throw error;
-    if (error instanceof PasswordException) {
+    const isPasswordError = error instanceof PasswordException ||
+      (error as any)?.name === 'PasswordException' ||
+      (error as any)?.message?.toLowerCase().includes('password');
+    if (isPasswordError) {
       throw new BadRequestException(pdfPassword
         ? 'The PDF password is incorrect. No payslip data was imported.'
         : 'This PDF is password-protected. Enter its document-opening password and try again.');
