@@ -215,10 +215,15 @@ function PortfolioContent() {
                       const pnl = holding.unrealizedPnl ?? 0; 
                       const invested = Number(holding.quantity) * holding.averagePrice; 
                       return <tr key={holding.id}>
-                        <td><strong>{holding.symbol}</strong><span>{holding.sector || holding.assetType.replace('_', ' ')}</span><small>{holding.isin || 'ISIN unavailable'}</small></td>
+                        <td><strong>{holding.symbol}</strong><span className="holding-sector-tag">{holding.sector || holding.assetType.replace('_', ' ')}</span><small>{holding.isin || 'ISIN unavailable'}</small></td>
                         <td><strong>{quantity(holding.quantity)}</strong><span>{quantity(holding.availableQuantity)} available{Number(holding.pledgedQuantity) ? ` · ${quantity(holding.pledgedQuantity)} pledged` : ''}</span>{Number(holding.discrepantQuantity) > 0 && <small className="warning">{quantity(holding.discrepantQuantity)} discrepant</small>}</td>
                         <td>{price(holding.averagePrice)}</td><td>{price(holding.previousClosingPrice)}</td><td><strong>{holding.currentValue === null ? '—' : money(holding.currentValue)}</strong></td>
-                        <td className={pnl < 0 ? 'loss' : 'gain'}><strong>{money(pnl)}</strong><span>{invested ? `${(pnl / invested * 100).toFixed(2)}%` : '—'}</span></td>
+                        <td className={pnl < 0 ? 'loss' : 'gain'}>
+                          <div className="pnl-badge">
+                            <strong>{money(pnl)}</strong>
+                            <span>{invested ? `${pnl >= 0 ? '+' : ''}${(pnl / invested * 100).toFixed(2)}%` : '—'}</span>
+                          </div>
+                        </td>
                       </tr>; 
                     })}
                   </tbody>
