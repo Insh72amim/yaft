@@ -426,9 +426,169 @@ html[data-theme='dark'] .wallet-copy-btn:hover{background:#2a3e32}
   cursor: not-allowed;
 }
 
-html[data-theme='dark'] .loan-row.paid {
-  background: rgba(16, 185, 129, 0.08);
-}
 html[data-theme='dark'] .loan-row.past_unconfirmed {
   background: rgba(245, 158, 11, 0.08);
 }
+
+/* ── Salary Timeline Enhancements ───────────────────────────── */
+.salary-chart-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.legend-item.inactive {
+  opacity: 0.45;
+  text-decoration: line-through;
+  background: transparent;
+}
+.legend-item span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.salary-chart-axis {
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+.salary-chart text.tick-label {
+  font-size: 9px;
+  fill: var(--muted);
+}
+
+/* Vertical Timeline list */
+.vertical-timeline-section {
+  margin-top: 40px;
+}
+.vertical-timeline-section > h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.vertical-timeline {
+  position: relative;
+  padding-left: 28px;
+}
+.vertical-timeline::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--line);
+}
+.timeline-item {
+  position: relative;
+  margin-bottom: 20px;
+}
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+.timeline-marker {
+  position: absolute;
+  left: -24px;
+  top: 18px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 2px solid var(--paper);
+  box-shadow: 0 0 0 2px var(--line);
+  z-index: 2;
+}
+.timeline-marker.net { background: #0284c7; }
+.timeline-marker.tax { background: #ea580c; }
+
+.timeline-content {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 18px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.timeline-content:hover {
+  border-color: var(--green);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+}
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+.timeline-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.timeline-header span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.timeline-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.timeline-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.timeline-stat small {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+.timeline-stat strong {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Manrope', sans-serif;
+}
+.timeline-stat.gross strong { color: #16a34a; }
+.timeline-stat.net strong { color: #0284c7; }
+.timeline-stat.tax strong { color: #ea580c; }
+
+/* Dark mode overrides for salary timeline page */
+html[data-theme='dark'] .salary-chart-values span {
+  background: var(--mint) !important;
+}
+html[data-theme='dark'] .salary-chart-gridline {
+  stroke: var(--line) !important;
+}
+html[data-theme='dark'] .timeline-content {
+  background: var(--card);
+}
+html[data-theme='dark'] .timeline-marker {
+  border-color: var(--card);
+}
+html[data-theme='dark'] .timeline-stat.gross strong { color: #4ade80; }
+html[data-theme='dark'] .timeline-stat.net strong { color: #38bdf8; }
+html[data-theme='dark'] .timeline-stat.tax strong { color: #fb923c; }
+

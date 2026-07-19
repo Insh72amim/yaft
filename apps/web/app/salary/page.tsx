@@ -73,35 +73,184 @@ export default function SalaryPage() {
 
 function SalaryTimeline({ points }: { points: SalaryTimelinePoint[] }) {
   if (!points.length) return <section className="panel salary-timeline-empty"><ArrowUpRight/><strong>No timeline yet</strong><p>Approve your first salary statement to plot monthly and cumulative earnings and tax.</p></section>;
-  const latest = points[points.length - 1];
+  
+  // Calculate cumulative net earnings on the fly
+  let runningNet = 0;
+  const enrichedPoints = points.map((point) => {
+    runningNet += point.netPay;
+    return {
+      ...point,
+      cumulativeNet: runningNet,
+    };
+  });
+  
+  const latest = enrichedPoints[enrichedPoints.length - 1];
+  
   return <>
-    <section className="salary-timeline-hero"><div><span className="eyebrow">Verified salary journey</span><h2>{points.length} month{points.length === 1 ? '' : 's'} on your timeline</h2><p>Gross earnings and tax are grouped by payslip month. Multiple employers in one month are combined.</p></div><div><span><small>Total gross earned</small><strong>{money(latest.cumulativeGross)}</strong></span><span><small>Total tax deducted</small><strong>{money(latest.cumulativeTax)}</strong></span></div></section>
+    <section className="salary-timeline-hero"><div><span className="eyebrow">Verified salary journey</span><h2>{points.length} month{points.length === 1 ? '' : 's'} on your timeline</h2><p>Gross, net, and tax are grouped by payslip month. Multiple employers in one month are combined.</p></div><div><span><small>Total gross earned</small><strong>{money(latest.cumulativeGross)}</strong></span><span><small>Total net pay</small><strong>{money(latest.cumulativeNet)}</strong></span><span><small>Total tax deducted</small><strong>{money(latest.cumulativeTax)}</strong></span></div></section>
+    
     <section className="salary-timeline-grid">
-      <TimelineChart title="Monthly gross earnings" description="Gross pay recorded in each verified month" points={points.map((point) => ({ month: point.month, value: point.grossEarnings }))} color="#267a55"/>
-      <TimelineChart title="Cumulative gross earnings" description="Running total of all verified gross pay" points={points.map((point) => ({ month: point.month, value: point.cumulativeGross }))} color="#174f3b"/>
-      <TimelineChart title="Monthly tax" description="Income and professional tax deducted each month" points={points.map((point) => ({ month: point.month, value: point.tax }))} color="#c2683f"/>
-      <TimelineChart title="Cumulative tax" description="Running total of all tax deducted" points={points.map((point) => ({ month: point.month, value: point.cumulativeTax }))} color="#934936"/>
+      <TimelineChart
+        title="Monthly Pay Breakdown"
+        description="Gross, Net, and Tax recorded in each verified month"
+        points={enrichedPoints}
+        datasets={[
+          { label: 'Gross Earnings', color: '#16a34a', values: enrichedPoints.map(p => p.grossEarnings) },
+          { label: 'Net Pay', color: '#0284c7', values: enrichedPoints.map(p => p.netPay) },
+          { label: 'Tax Paid', color: '#ea580c', values: enrichedPoints.map(p => p.tax) }
+        ]}
+      />
+      <TimelineChart
+        title="Cumulative Growth"
+        description="Running total of earnings and taxes over time"
+        points={enrichedPoints}
+        datasets={[
+          { label: 'Cumulative Gross', color: '#15803d', values: enrichedPoints.map(p => p.cumulativeGross) },
+          { label: 'Cumulative Net', color: '#0369a1', values: enrichedPoints.map(p => p.cumulativeNet) },
+          { label: 'Cumulative Tax', color: '#c2410c', values: enrichedPoints.map(p => p.cumulativeTax) }
+        ]}
+      />
     </section>
+
+    <ChronologicalTimeline points={enrichedPoints} />
+
     <p className="salary-timeline-note"><ShieldCheck/>Only approved payslips are included. Tax is calculated from deduction rows identified as tax on each payslip.</p>
   </>;
 }
 
-function TimelineChart({ title, description, points, color }: { title: string; description: string; points: { month: string; value: number }[]; color: string }) {
-  const width = 720; const height = 220; const left = 22; const right = 18; const top = 20; const bottom = 38;
+type DatasetSeries = {
+  label: string;
+  color: string;
+  values: number[];
+};
+
+function TimelineChart({ title, description, points, datasets }: { title: string; description: string; points: { month: string }[]; datasets: DatasetSeries[] }) {
+  const [activeLabelMap, setActiveLabelMap] = useState<Record<string, boolean>>(() => {
+    return datasets.reduce((map, ds) => ({ ...map, [ds.label]: true }), {});
+  });
+
+  const toggleDataset = (label: string) => {
+    setActiveLabelMap(prev => ({
+      ...prev,
+      [label]: !prev[label]
+    }));
+  };
+
+  const activeDatasets = datasets.filter(ds => activeLabelMap[ds.label] !== false);
+  const maximum = Math.max(...activeDatasets.flatMap(ds => ds.values), 1);
+
+  const width = 720; const height = 220; const left = 48; const right = 18; const top = 20; const bottom = 38;
   const plotWidth = width - left - right; const plotHeight = height - top - bottom;
-  const maximum = Math.max(...points.map((point) => point.value), 1);
-  const coordinates = points.map((point, index) => ({ ...point,
-    x: points.length === 1 ? left + plotWidth / 2 : left + index / (points.length - 1) * plotWidth,
-    y: top + (1 - point.value / maximum) * plotHeight }));
-  const path = coordinates.map((point, index) => `${index ? 'L' : 'M'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
-  const labelEvery = Math.max(1, Math.ceil(points.length / 7));
-  const latest = points[points.length - 1];
-  return <article className="panel salary-chart"><header><div><span className="eyebrow">Timeline</span><h3>{title}</h3><p>{description}</p></div><strong>{money(latest.value)}</strong></header><div className="salary-chart-canvas"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} from ${monthLabel(points[0].month)} to ${monthLabel(latest.month)}`} preserveAspectRatio="none">
-    <defs><linearGradient id={`fill-${title.replace(/\W/g, '')}`} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".2"/><stop offset="1" stopColor={color} stopOpacity="0"/></linearGradient></defs>
+
+  const getCoordinates = (values: number[]) => {
+    return values.map((val, index) => ({
+      value: val,
+      month: points[index].month,
+      x: points.length === 1 ? left + plotWidth / 2 : left + index / (points.length - 1) * plotWidth,
+      y: top + (1 - val / maximum) * plotHeight
+    }));
+  };
+
+  const shortMonthLabel = (month: string) => {
+    return new Date(`${month}-01T00:00:00.000Z`).toLocaleDateString('en-IN', { month: 'short', year: '2-digit', timeZone: 'UTC' });
+  };
+
+  return <article className="panel salary-chart"><header><div><span className="eyebrow">Timeline</span><h3>{title}</h3><p>{description}</p></div>
+    <div className="salary-chart-legend">
+      {datasets.map((ds) => {
+        const isActive = activeLabelMap[ds.label] !== false;
+        return (
+          <button
+            type="button"
+            key={ds.label}
+            className={`legend-item ${isActive ? '' : 'inactive'}`}
+            onClick={() => toggleDataset(ds.label)}
+          >
+            <span style={{ backgroundColor: ds.color }} />
+            {ds.label}
+          </button>
+        );
+      })}
+    </div>
+  </header><div className="salary-chart-canvas"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} chart`} preserveAspectRatio="none">
     {[0, .25, .5, .75, 1].map((step) => { const y = top + step * plotHeight; return <line key={step} x1={left} x2={width - right} y1={y} y2={y} className="salary-chart-gridline"/>; })}
-    {coordinates.length > 1 && <path d={`${path} L ${coordinates[coordinates.length - 1].x.toFixed(1)} ${(top + plotHeight).toFixed(1)} L ${coordinates[0].x.toFixed(1)} ${(top + plotHeight).toFixed(1)} Z`} fill={`url(#fill-${title.replace(/\W/g, '')})`}/>}<path d={path} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
-    {coordinates.map((point, index) => <g key={point.month}><circle cx={point.x} cy={point.y} r="5" fill="white" stroke={color} strokeWidth="3" vectorEffect="non-scaling-stroke"><title>{monthLabel(point.month)}: {money(point.value)}</title></circle>{(index % labelEvery === 0 || index === coordinates.length - 1) && <text x={point.x} y={height - 10} textAnchor="middle">{shortMonthLabel(point.month)}</text>}</g>)}
-  </svg></div><div className="salary-chart-values">{points.map((point) => <span key={point.month}><small>{monthLabel(point.month)}</small><strong>{money(point.value)}</strong></span>)}</div></article>;
+    <line x1={left} x2={width - right} y1={top + plotHeight} y2={top + plotHeight} className="salary-chart-axis" strokeLinecap="round"/>
+    {activeDatasets.map((ds) => {
+      const coords = getCoordinates(ds.values);
+      const path = coords.map((point, index) => `${index ? 'L' : 'M'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
+      const fillId = `fill-${title.replace(/\W/g, '')}-${ds.label.replace(/\W/g, '')}`;
+      return <g key={ds.label}>
+        <defs>
+          <linearGradient id={fillId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor={ds.color} stopOpacity=".15"/>
+            <stop offset="1" stopColor={ds.color} stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        {coords.length > 1 && <path d={`${path} L ${coords[coords.length - 1].x.toFixed(1)} ${(top + plotHeight).toFixed(1)} L ${coords[0].x.toFixed(1)} ${(top + plotHeight).toFixed(1)} Z`} fill={`url(#${fillId})`}/>}
+        <path d={path} fill="none" stroke={ds.color} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
+      </g>;
+    })}
+    {points.map((pt, index) => {
+      const x = points.length === 1 ? left + plotWidth / 2 : left + index / (points.length - 1) * plotWidth;
+      const labelEvery = Math.max(1, Math.ceil(points.length / 8));
+      const showLabel = index % labelEvery === 0 || index === points.length - 1;
+      return <g key={pt.month}>
+        {showLabel && <line x1={x} x2={x} y1={top + plotHeight} y2={top + plotHeight + 4} stroke="var(--line)" strokeWidth="1.5"/>}
+        {showLabel && <text x={x} y={height - 8} textAnchor="middle" className="tick-label">{shortMonthLabel(pt.month)}</text>}
+      </g>;
+    })}
+    {activeDatasets.map((ds) => {
+      const coords = getCoordinates(ds.values);
+      return coords.map((point) => <g key={`${ds.label}-${point.month}`}>
+        <circle cx={point.x} cy={point.y} r="4" fill="white" stroke={ds.color} strokeWidth="2.5" vectorEffect="non-scaling-stroke">
+          <title>{ds.label} - {monthLabel(point.month)}: {money(point.value)}</title>
+        </circle>
+      </g>);
+    })}
+  </svg></div>
+  <div className="salary-chart-values">
+    {points.map((point, idx) => {
+      const totalActiveVal = activeDatasets.reduce((sum, ds) => sum + ds.values[idx], 0);
+      return <span key={point.month}>
+        <small>{monthLabel(point.month)}</small>
+        <strong>{activeDatasets.length === 1 ? money(activeDatasets[0].values[idx]) : money(totalActiveVal)}</strong>
+      </span>;
+    })}
+  </div></article>;
+}
+
+function ChronologicalTimeline({ points }: { points: (SalaryTimelinePoint & { cumulativeNet: number })[] }) {
+  const sortedPoints = [...points].sort((a, b) => b.month.localeCompare(a.month));
+  return <section className="vertical-timeline-section">
+    <h3>Chronological Pay Breakdown Feed</h3>
+    <div className="vertical-timeline">
+      {sortedPoints.map((point) => (
+        <div key={point.month} className="timeline-item">
+          <div className="timeline-marker" />
+          <div className="timeline-content">
+            <div className="timeline-header">
+              <h4>{monthLabel(point.month)}</h4>
+              <span>Salary Slip</span>
+            </div>
+            <div className="timeline-stats-grid">
+              <div className="timeline-stat gross">
+                <small>Gross Earnings</small>
+                <strong>{money(point.grossEarnings)}</strong>
+              </div>
+              <div className="timeline-stat net">
+                <small>Net Earnings</small>
+                <strong>{money(point.netPay)}</strong>
+              </div>
+              <div className="timeline-stat tax">
+                <small>Taxes Paid</small>
+                <strong>{money(point.tax)}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>;
 }
 
 function monthLabel(month: string) {
