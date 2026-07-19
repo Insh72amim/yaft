@@ -8,13 +8,15 @@ import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 import { AccountTransactions } from '@/components/account-transactions';
 import { AddAccountModal } from '@/components/add-account-modal';
 import { VaultModal } from '@/components/vault-modal';
+import { LoanSchedule } from '@/components/loan-schedule';
 
 type Holding = { id: string; asset: string; symbol: string; isin: string | null; sector: string | null; assetType: string;
   quantity: string; availableQuantity: string; discrepantQuantity: string; longTermQuantity: string | null; pledgedQuantity: string;
   averagePrice: number; previousClosingPrice: number | null; currentValue: number | null; unrealizedPnl: number | null; asOfDate: string };
 type PortfolioAccount = { accountId: string; name: string; institution: string | null; investedValue: number; currentValue: number;
   unrealizedPnl: number; holdings: Holding[] };
-type Account = { id: string; name: string; type: string; institution: string | null; balance: number; creditLimit: number | null; dueDay: number | null; monthlyCredited: number; monthlyDebited: number };
+type Account = { id: string; name: string; type: string; institution: string | null; balance: number; creditLimit: number | null; dueDay: number | null; monthlyCredited: number; monthlyDebited: number;
+  loanOutstanding?: number; nextEmiDate?: string; nextEmiAmount?: number; paidInstallments?: number; totalInstallments?: number };
 
 const quantity = (value: string) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: 6 }).format(Number(value));
 const price = (minor: number | null) => minor === null ? '—' : new Intl.NumberFormat('en-IN', {
@@ -61,6 +63,7 @@ function AccountCard({ account, onClick }: { account: Account, onClick: () => vo
   const [imgError, setImgError] = useState(false);
   const domain = getDomainForInstitution(account.institution || account.name);
   const logoUrl = `https://logo.clearbit.com/${domain}?size=128`;
+  const isLoan = account.type === 'LOAN';
 
   return (
     <button className="account-card" onClick={onClick}>
@@ -83,19 +86,36 @@ function AccountCard({ account, onClick }: { account: Account, onClick: () => vo
       </div>
       <div className="account-card-body">
         <div className="account-card-balance">
-          <small>Current Balance</small>
-          <strong>{money(account.balance)}</strong>
+          <small>{isLoan ? 'Outstanding Principal' : 'Current Balance'}</small>
+          <strong>{money(isLoan && account.loanOutstanding !== undefined ? account.loanOutstanding : account.balance)}</strong>
         </div>
-        <div className="account-card-flows">
-          <div className="flow-in">
-            <small>Month In</small>
-            <span>{money(account.monthlyCredited || 0)}</span>
+        {isLoan && account.totalInstallments !== undefined ? (
+          <div className="loan-card-progress">
+            <div className="loan-progress-label">
+              <small>{account.paidInstallments} of {account.totalInstallments} EMIs paid</small>
+              {account.nextEmiDate && (
+                <span className="next-emi-tag">Next: {new Date(account.nextEmiDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+              )}
+            </div>
+            <div className="loan-progress-bar">
+              <div 
+                className="loan-progress-fill" 
+                style={{ width: `${(account.paidInstallments || 0) / (account.totalInstallments || 1) * 100}%` }}
+              />
+            </div>
           </div>
-          <div className="flow-out">
-            <small>Month Out</small>
-            <span>{money(account.monthlyDebited || 0)}</span>
+        ) : (
+          <div className="account-card-flows">
+            <div className="flow-in">
+              <small>Month In</small>
+              <span>{money(account.monthlyCredited || 0)}</span>
+            </div>
+            <div className="flow-out">
+              <small>Month Out</small>
+              <span>{money(account.monthlyDebited || 0)}</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </button>
   );
@@ -194,6 +214,8 @@ function PortfolioContent() {
             {portfolioData?.holdings[0] && <footer>Snapshot imported {new Date(portfolioData.holdings[0].asOfDate).toLocaleString('en-IN')}</footer>}
             {showVaultForInvestment && <VaultModal accountId={showVaultForInvestment} onClose={() => setShowVaultForInvestment(null)} />}
           </div>
+        ) : selectedAccount.type === 'LOAN' ? (
+          <LoanSchedule accountId={selectedAccountId} embedded={true} />
         ) : (
           <AccountTransactions accountId={selectedAccountId} embedded={true} />
         )}

@@ -84,7 +84,7 @@ export class LoansController {
     if (loan.account.userId !== user.id) throw new NotFoundException('Loan not found');
 
     const installments = await this.prisma.loanInstallment.findMany({ where: { loanId }, orderBy: { dueDate: 'asc' } });
-    return installments.map((i) => ({ id: i.id, dueDate: i.dueDate, principalAmount: Number(i.principalAmount), interestAmount: Number(i.interestAmount), emiAmount: Number(i.emiAmount), balance: Number(i.balance), status: i.status, confirmedAt: i.confirmedAt }));
+    return installments.map((i: any) => ({ id: i.id, dueDate: i.dueDate, principalAmount: Number(i.principalAmount), interestAmount: Number(i.interestAmount), emiAmount: Number(i.emiAmount), balance: Number(i.balance), status: i.status, confirmedAt: i.confirmedAt }));
   }
 
   @Post(':loanId/installments/:instId/confirm')

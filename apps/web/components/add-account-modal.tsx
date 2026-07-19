@@ -36,12 +36,26 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
     
     setAdding(true); setAccountError('');
     try {
-      await api('/accounts', { method: 'POST', body: JSON.stringify({
-        name: form.get('name'), type, institution: form.get('institution') || undefined,
-        openingBalance: form.get('openingBalance') ? Math.round(Number(form.get('openingBalance')) * 100) : 0,
-        creditLimit: form.get('creditLimit') ? Math.round(Number(form.get('creditLimit')) * 100) : undefined,
-        dueDay: form.get('dueDay') ? Number(form.get('dueDay')) : undefined,
-      }) });
+      const payload: any = {
+        name: form.get('name'),
+        type,
+        institution: form.get('institution') || undefined,
+      };
+
+      if (type === 'LOAN') {
+        payload.loanStartDate = form.get('loanStartDate');
+        payload.loanPrincipal = Math.round(Number(form.get('loanPrincipal')) * 100);
+        payload.loanInterestRate = Number(form.get('loanInterestRate'));
+        payload.loanEmiAmount = Math.round(Number(form.get('loanEmiAmount')) * 100);
+        payload.loanEmiDay = Number(form.get('loanEmiDay'));
+        payload.loanTermMonths = Number(form.get('loanTermMonths'));
+      } else {
+        payload.openingBalance = form.get('openingBalance') ? Math.round(Number(form.get('openingBalance')) * 100) : 0;
+        payload.creditLimit = form.get('creditLimit') ? Math.round(Number(form.get('creditLimit')) * 100) : undefined;
+        payload.dueDay = form.get('dueDay') ? Number(form.get('dueDay')) : undefined;
+      }
+
+      await api('/accounts', { method: 'POST', body: JSON.stringify(payload) });
       onSuccess();
       onClose();
     } catch (reason) {
@@ -96,6 +110,22 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
               <label>Card limit (₹)<input name="creditLimit" type="number" min="0" required /></label>
               <label>Payment due day<input name="dueDay" type="number" min="1" max="31" required /></label>
             </div>
+          )}
+          {newType === 'LOAN' && (
+            <>
+              <div className="form-row">
+                <label>Loan start date<input name="loanStartDate" type="date" required /></label>
+                <label>Principal amount (₹)<input name="loanPrincipal" type="number" min="1" step="0.01" required /></label>
+              </div>
+              <div className="form-row">
+                <label>Interest rate (% p.a.)<input name="loanInterestRate" type="number" min="0.01" max="100" step="0.01" required /></label>
+                <label>Monthly EMI (₹)<input name="loanEmiAmount" type="number" min="1" step="0.01" required /></label>
+              </div>
+              <div className="form-row">
+                <label>EMI due day (1-31)<input name="loanEmiDay" type="number" min="1" max="31" required /></label>
+                <label>Tenure (months)<input name="loanTermMonths" type="number" min="1" max="600" required /></label>
+              </div>
+            </>
           )}
         </div>
         {accountError && <p className="error">{accountError}</p>}

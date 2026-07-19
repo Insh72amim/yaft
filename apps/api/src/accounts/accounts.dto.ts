@@ -1,5 +1,5 @@
 import { AccountType } from '@prisma/client';
-import { IsEnum, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Length, Max, Min, IsNumber } from 'class-validator';
 
 export class CreateAccountDto {
   @IsString() @Length(2, 80) name!: string;
@@ -10,6 +10,14 @@ export class CreateAccountDto {
   @IsOptional() @IsInt() @Min(0) creditLimit?: number;
   @IsOptional() @IsInt() @Min(1) @Max(31) statementDay?: number;
   @IsOptional() @IsInt() @Min(1) @Max(31) dueDay?: number;
+
+  // Loan properties
+  @IsOptional() @IsString() loanStartDate?: string;
+  @IsOptional() @IsInt() @Min(1) loanPrincipal?: number;
+  @IsOptional() @IsNumber() @Min(0.01) @Max(100) loanInterestRate?: number;
+  @IsOptional() @IsInt() @Min(1) loanEmiAmount?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(31) loanEmiDay?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(600) loanTermMonths?: number;
 }
 
 export class DeleteAccountDto {

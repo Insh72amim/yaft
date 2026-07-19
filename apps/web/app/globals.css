@@ -328,3 +328,102 @@ html[data-theme='dark'] .wallet-copy-btn:hover{background:#2a3e32}
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: .5; transform: scale(1.5); }
 }
+
+/* ── Loan Schedule ───────────────────────────────── */
+.loan-card-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  width: 100%;
+}
+.loan-progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.loan-progress-label small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.next-emi-tag {
+  font-size: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+.loan-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.loan-progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 3px;
+}
+.loan-schedule-table article {
+  display: grid;
+  grid-template-columns: 40px 1.5fr 1.2fr 1fr 1fr 1.2fr 130px !important;
+  align-items: center;
+  gap: 12px;
+}
+.loan-row.paid {
+  background: rgba(16, 185, 129, 0.04);
+}
+.loan-row.past_unconfirmed {
+  background: rgba(245, 158, 11, 0.04);
+}
+.loan-row.future {
+  opacity: 0.55;
+}
+.loan-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+.loan-status-badge.paid {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+.loan-status-badge.future {
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.loan-confirm-btn {
+  background: #f59e0b;
+  color: white;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+}
+.loan-confirm-btn:hover {
+  background: #d97706;
+}
+.loan-confirm-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+html[data-theme='dark'] .loan-row.paid {
+  background: rgba(16, 185, 129, 0.08);
+}
+html[data-theme='dark'] .loan-row.past_unconfirmed {
+  background: rgba(245, 158, 11, 0.08);
+}
