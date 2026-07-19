@@ -61,3 +61,35 @@ This file maintains the running inventory of completed, verified features inside
 * **Persistent Dark Theme**: Consistent dark palette overrides for all layouts, aside panels, tables, and dialogs.
 * **Swagger/OpenAPI Documentation**: Automatically generated OpenAPI endpoint docs at `/api/docs`.
 * **Isolated Agent Worktrees**: Standard working rules and boundary controls defined in `AGENTS.md`.
+
+---
+
+## 9. Upcoming Roadmap & TODOs
+
+### 9.1 Overview Page
+- [ ] **Internal Transfer Matching Engine**:
+  - [ ] Compare internal transfers across bank statements to detect matching legs.
+  - [ ] Support tracking and reconciliation of transfers to Mutual Funds.
+- [ ] **Spend Analyser**:
+  - [ ] Implement custom rules for spend analyser auto-categorization.
+  - [ ] Extract and analyse external/outbound transfers specifically.
+
+### 9.2 Import Page
+- [ ] **Credit Card Parsers**:
+  - [x] Axis Bank credit card parser.
+  - [ ] ICICI Bank credit card parser.
+  - [ ] SBI Bank credit card parser.
+
+### 9.3 Accounts Page
+- [ ] **Credit Card Details Manager**:
+  - [ ] When a credit card account is selected, show option to update its details (e.g. billing date, limits, bank name).
+- [x] **Credit Card Image Scanner**:
+  - [x] Secure OCR card scanner integration inside Vault (client-side OCR scanning implemented).
+- [ ] **Manual EPFO Ledger entries**:
+  - [ ] Add manual transaction input form specifically for EPFO accounts (to log deposits/withdrawals and annual interest credits).
+
+### 9.4 Salary Page
+- [ ] **Bonus and Miscellaneous Payments**:
+  - [ ] Option to add and update bonuses, variable payouts, or other non-standard payments on the timeline.
+- [ ] **Acme Corp Layout Parser**:
+  - [ ] Design and implement parser compatibility for Acme Corp-style payroll formats.
