@@ -105,6 +105,7 @@ model Account {
   archived       Boolean       @default(false)
   createdAt      DateTime      @default(now())
   transactions   Transaction[]
+  loans          Loan[]
   imports        ImportBatch[]
   holdings       PortfolioHolding[]
   statementCredential StatementCredential?
@@ -271,4 +272,42 @@ model AccountVaultEntry {
   keyVersion           Int       @default(1)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
+}
+
+enum InstallmentStatus {
+  PAST_UNCONFIRMED
+  PAID
+  FUTURE
+}
+
+model Loan {
+  id           String      @id @default(cuid())
+  accountId    String
+  account      Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  startDate    DateTime
+  principal    BigInt
+  interestRate Decimal     // annual percentage (e.g. 9.5 for 9.5%)
+  emiAmount    BigInt
+  emiDay       Int?        // day of month for EMI due (1-31)
+  termMonths   Int
+  createdAt    DateTime    @default(now())
+  installments LoanInstallment[]
+
+  @@index([accountId])
+}
+
+model LoanInstallment {
+  id               String            @id @default(cuid())
+  loanId           String
+  loan             Loan              @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  dueDate          DateTime
+  principalAmount  BigInt
+  interestAmount   BigInt
+  emiAmount        BigInt
+  balance          BigInt
+  status           InstallmentStatus @default(FUTURE)
+  confirmedAt      DateTime?
+  createdAt        DateTime          @default(now())
+
+  @@index([loanId, dueDate])
 }

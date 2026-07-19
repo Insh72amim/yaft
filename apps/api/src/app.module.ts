@@ -11,6 +11,7 @@ import { InvestmentsModule } from './investments/investments.module';
 import { SalaryModule } from './salary/salary.module';
 import { UnifiedImportsModule } from './unified-imports/unified-imports.module';
 import { VaultModule } from './vault/vault.module';
+import { LoansModule } from './loans/loans.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { VaultModule } from './vault/vault.module';
     CommonModule,
     AuthModule,
     AccountsModule,
+    LoansModule,
     ImportsModule,
     InvestmentsModule,
     DashboardModule,

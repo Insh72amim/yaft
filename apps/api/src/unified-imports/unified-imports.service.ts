@@ -178,6 +178,10 @@ export class UnifiedImportsService {
         review: this.safeSalaryReview(review as SalaryReview), actions: this.salaryActions(review.id) };
     }
 
+    if (spec.kind === 'EPFO_PASSBOOK') {
+      return this.uploadEpfo(userId, file, dto);
+    }
+
     const result = spec.source === 'GROWW'
       ? await this.investments.importGrowwHoldings(userId, account!.id, file)
       : await this.investments.importZerodhaHoldings(userId, account!.id, file);
