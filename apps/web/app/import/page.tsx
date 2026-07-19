@@ -1,5 +1,5 @@
 'use client';
-import { AlertTriangle, ArrowLeft, BadgeIndianRupee, BriefcaseBusiness, Check, FileSpreadsheet, KeyRound, Landmark,
+import { AlertTriangle, ArrowLeft, BadgeIndianRupee, BriefcaseBusiness, Check, CreditCard, FileSpreadsheet, KeyRound, Landmark,
   RefreshCw, ShieldCheck, Trash2, UploadCloud } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -7,7 +7,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 
-type ImportKind = 'BANK_STATEMENT' | 'SALARY_PAYSLIP' | 'BROKER_HOLDINGS';
+type ImportKind = 'BANK_STATEMENT' | 'CREDIT_CARD_STATEMENT' | 'SALARY_PAYSLIP' | 'BROKER_HOLDINGS';
 type Account = { id: string; name: string; type: string; institution: string | null; currency: string; hasStatementPassword: boolean };
 type SourceOption = { source: string; label: string; description: string; extensions: string[]; maxBytes: number; accountRequired: boolean;
   commitMode: 'REVIEW_REQUIRED' | 'IMMEDIATE_ATOMIC_REPLACEMENT'; pdfPasswordSupported: boolean; rememberPasswordSupported: boolean; eligibleAccountIds: string[] };
@@ -31,7 +31,20 @@ type ReviewUploadResult = Omit<BankPending, 'createdAt'> | Omit<SalaryPending, '
 type HoldingsUploadResult = { kind: 'BROKER_HOLDINGS'; source: 'ZERODHA_KITE'; mode: 'IMMEDIATE_ATOMIC_REPLACEMENT';
   message: string; result: { imported: number } };
 
-const KIND_ICONS = { BANK_STATEMENT: Landmark, SALARY_PAYSLIP: BadgeIndianRupee, BROKER_HOLDINGS: BriefcaseBusiness } as const;
+const KIND_ICONS = { BANK_STATEMENT: Landmark, CREDIT_CARD_STATEMENT: CreditCard, SALARY_PAYSLIP: BadgeIndianRupee, BROKER_HOLDINGS: BriefcaseBusiness } as const;
+
+const SOURCE_URLS: Record<string, string> = {
+  SBI: 'https://retail.onlinesbi.sbi/',
+  PNB: 'https://netpnb.com/',
+  AXIS: 'https://omni.axisbank.co.in/',
+  GOLDMAN_SACHS: 'https://www.goldmansachs.com/',
+  ZERODHA_KITE: 'https://console.zerodha.com/',
+  GROWW: 'https://groww.in/',
+  HDFC_CC: 'https://netbanking.hdfcbank.com/',
+  ICICI_CC: 'https://infinity.icicibank.com/',
+  SBI_CC: 'https://www.sbicard.com/',
+  AXIS_CC: 'https://omni.axisbank.co.in/'
+};
 
 export default function ImportPage() {
   const router = useRouter();
@@ -197,7 +210,8 @@ export default function ImportPage() {
       <div>{catalog.options.map((option) => { const Icon = KIND_ICONS[option.kind]; return <button type="button" key={option.kind}
         className={kind === option.kind ? 'selected' : ''} aria-pressed={kind === option.kind} onClick={() => chooseKind(option.kind)}><Icon/><span><strong>{option.label}</strong><small>{option.description}</small></span></button>; })}</div></fieldset>
       <div className="unified-fields"><label>2. Source<select value={sourceOption.source} onChange={(event) => chooseSource(event.target.value)}>
-        {kindOption?.sources.map((option) => <option key={option.source} value={option.source}>{option.label}</option>)}</select><small>{sourceOption.description}</small></label>
+        {kindOption?.sources.map((option) => <option key={option.source} value={option.source}>{option.label}</option>)}</select>
+        <small>{sourceOption.description} <a href={SOURCE_URLS[sourceOption.source] ?? '#'} target="_blank" rel="noreferrer">Download from portal</a></small></label>
         {sourceOption.accountRequired && <label>3. Destination account<select required value={accountId} onChange={(event) => { setAccountId(event.target.value); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}>
           <option value="" disabled>Choose an eligible account</option>{eligibleAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.institution ? ` · ${account.institution}` : ''}</option>)}</select>
           <small>Only accounts matching this type and source are offered.</small></label>}</div>
