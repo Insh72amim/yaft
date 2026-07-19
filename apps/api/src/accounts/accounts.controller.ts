@@ -427,5 +427,30 @@ export class AccountsController {
       creditLimit: updated.creditLimit !== null ? Number(updated.creditLimit) : null
     };
   }
+
+  @Delete(':accountId/transactions/:transactionId')
+  @HttpCode(204)
+  async deleteEpfoTransaction(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Param('transactionId') transactionId: string
+  ) {
+    const account = await this.prisma.account.findFirst({
+      where: { id: accountId, userId: user.id }
+    });
+    if (!account) throw new NotFoundException('Account not found.');
+    if (account.type !== AccountType.EPFO) {
+      throw new BadRequestException('Transaction deletion is only allowed for EPFO accounts.');
+    }
+    
+    const transaction = await this.prisma.transaction.findFirst({
+      where: { id: transactionId, accountId: account.id }
+    });
+    if (!transaction) throw new NotFoundException('Transaction not found.');
+    
+    await this.prisma.transaction.delete({
+      where: { id: transaction.id }
+    });
+  }
 }
 

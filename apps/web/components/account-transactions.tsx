@@ -145,6 +145,17 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
     }
   };
 
+  const handleDeleteTransaction = async (transactionId: string) => {
+    if (!window.confirm('Are you sure you want to delete this transaction?')) return;
+    try {
+      await api(`/accounts/${accountId}/transactions/${transactionId}`, { method: 'DELETE' });
+      load();
+    } catch (reason) {
+      if (isUnauthorized(reason)) router.replace('/login');
+      else alert(errorMessage(reason, 'Could not delete this transaction.'));
+    }
+  };
+
   const content = (
     <div className={`account-detail-content ${embedded ? 'embedded' : ''}`}>
       {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><div style={{ display: 'flex', gap: '8px' }}>
@@ -162,13 +173,19 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
       </div></header>}
       <section className="summary-grid account-ledger-summary">
         <article><span className="summary-icon income"><Landmark/></span><div><small>Current balance</small><strong>{money(account.balance)}</strong>={account.currency}</div></article>
-        <article><span className="summary-icon saved"><CalendarDays/></span><div><small>Opening balance</small><strong>{money(account.openingBalance)}</strong><em>Account starting point</em></div></article>
+        <article><span className="summary-icon saved"><CalendarDays/></span><div><small>Opening balance</small><strong>{money(account.openingBalance)}</strong>={account.currency}</div></article>
         <article><span className="summary-icon expense"><ReceiptText/></span><div><small>Transactions</small><strong>{pagination.total.toLocaleString('en-IN')}</strong><em>Reviewed ledger entries</em></div></article>
       </section>
       <section className="panel account-ledger-panel">
         <div className="panel-title"><div><span className="eyebrow">Full history</span><h2>Transactions</h2></div>{pagination.total > 0 && <span className="month-pill">{(pagination.page - 1) * pagination.pageSize + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total}</span>}</div>
-        {transactions.length ? <div className="account-transaction-table">
-          <header><span>Date</span><span>Description</span><span>Category</span><span>Amount</span></header>
+        {transactions.length ? <div className={`account-transaction-table ${account.type === 'EPFO' ? 'has-actions' : ''}`}>
+          <header>
+            <span>Date</span>
+            <span>Description</span>
+            <span>Category</span>
+            <span>Amount</span>
+            {account.type === 'EPFO' && <span style={{ textAlign: 'center' }}>Action</span>}
+          </header>
           {transactions.map((transaction) => (
             <article key={transaction.id} className="transaction-row">
               <time className="transaction-time-cell">
@@ -185,6 +202,16 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
               <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
                 {transaction.amount > 0 ? '+' : ''}{money(transaction.amount)}
               </b>
+              {account.type === 'EPFO' && (
+                <button
+                  className="danger compact"
+                  style={{ padding: '6px', minWidth: '0', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}
+                  onClick={() => handleDeleteTransaction(transaction.id)}
+                  title="Delete transaction"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
             </article>
           ))}
         </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>{account.type === 'EPFO' ? 'Add a manual transaction to populate the ledger.' : 'Import and approve a statement for this account to build its ledger.'}</p>{account.type !== 'EPFO' && <Link className="secondary" href={`/import?accountId=${account.id}`}>Import statement</Link>}</div>}

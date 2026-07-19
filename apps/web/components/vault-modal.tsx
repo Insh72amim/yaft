@@ -430,7 +430,7 @@ export function VaultModal({
       <button className="backdrop" onClick={onClose} aria-label="Close vault modal" />
       <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '380px', margin: '0 auto' }}>
         {error && <p className="error" style={{ marginBottom: '16px' }}>{error}</p>}
-        <div className={`wallet-card-container ${mode !== 'front' ? 'flipped' : ''}`}>
+        <div className={`wallet-card-container ${mode !== 'front' ? 'flipped' : ''} ${mode === 'edit' ? 'edit-mode' : ''} ${mode === 'reveal' ? 'reveal-mode' : ''}`}>
           <div className="wallet-card-inner">
             {mode === 'front' && renderFront()}
             {mode === 'edit' && renderEdit()}

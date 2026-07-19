@@ -31,6 +31,10 @@
   gap: 18px;
   align-items: center;
 }
+.account-transaction-table.has-actions > header,
+.account-transaction-table.has-actions > article {
+  grid-template-columns: 120px minmax(240px, 1fr) 150px 105px 45px;
+}
 .account-transaction-table > header {
   padding: 14px 25px;
   background: #f1f4f2;
@@ -203,6 +207,9 @@ html[data-theme='dark'] .transaction-amount-cell.negative {
     grid-template-columns: 85px minmax(0, 1fr) auto;
     gap: 10px;
     padding: 14px 16px;
+  }
+  .account-transaction-table.has-actions>article {
+    grid-template-columns: 85px minmax(0, 1fr) auto 32px;
   }
   .account-transaction-table>article:hover {
     transform: none;
@@ -542,6 +549,23 @@ html[data-theme='dark'] .nav-bottom a.vault-nav:hover,html[data-theme='dark'] .n
 .wallet-copy-btn:hover{background:#dbe4df;color:var(--ink)}
 .wallet-spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite}
 .wallet-error{background:#fcebea;color:var(--red);font-size:11px;padding:8px 10px;border-radius:6px;margin-bottom:12px}
+
+.wallet-card-container.edit-mode,
+.wallet-card-container.reveal-mode {
+  aspect-ratio: auto;
+}
+.wallet-card-container.edit-mode .wallet-card-inner,
+.wallet-card-container.reveal-mode .wallet-card-inner {
+  height: auto;
+  transform: none;
+}
+.wallet-card-container.edit-mode .wallet-card-back,
+.wallet-card-container.reveal-mode .wallet-card-reveal {
+  position: relative;
+  transform: none;
+  height: auto;
+  min-height: 380px;
+}
 
 /* ── Card Scanner ────────────────────────────────────────────── */
 .card-scanner{margin-bottom:14px}
