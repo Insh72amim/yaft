@@ -135,6 +135,19 @@ function getDomainForInstitution(name: string | null) {
   return "bank.com";
 }
 
+function getLocalLogo(institution: string | null, name: string): string | null {
+  const check = ((institution || "") + " " + name).toLowerCase();
+  if (check.includes("axis")) return "/logos/axis.png";
+  if (check.includes("epfo") || check.includes("provident")) return "/logos/epfo.png";
+  if (check.includes("groww")) return "/logos/groww.jpeg";
+  if (check.includes("hdfc")) return "/logos/hdfc.png";
+  if (check.includes("icici")) return "/logos/icici.png";
+  if (check.includes("pnb") || check.includes("punjab national")) return "/logos/pnb.jpeg";
+  if (check.includes("sbi") || check.includes("state bank")) return "/logos/sbi.png";
+  if (check.includes("zerodha")) return "/logos/zerodha.png";
+  return null;
+}
+
 function AccountCard({
   account,
   onClick,
@@ -143,8 +156,9 @@ function AccountCard({
   onClick: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
+  const localLogo = getLocalLogo(account.institution, account.name);
   const domain = getDomainForInstitution(account.institution || account.name);
-  const logoUrl = `https://logo.clearbit.com/${domain}?size=128`;
+  const logoUrl = localLogo || `https://logo.clearbit.com/${domain}?size=128`;
   const isLoan = account.type === "LOAN";
 
   return (
