@@ -10,6 +10,7 @@ import { PrismaService } from '../common/prisma.service';
 import { S3Service } from '../s3/s3.service';
 import { isPayslipSchema, parsePayslipPdf, PAYSLIP_SCHEMAS } from './payslip-parser';
 import { StatementCredentialCipher } from '../common/statement-credentials.service';
+import { ManualSalaryDto } from './salary.dto';
 
 type SalaryWithItems = Prisma.SalaryStatementGetPayload<{ include: { lineItems: true } }>;
 
@@ -146,14 +147,22 @@ export class SalaryService {
   async download(userId: string, statementId: string) {
     const statement = await this.prisma.salaryStatement.findFirst({ where: { id: statementId, userId } });
     if (!statement) throw new NotFoundException('Salary statement not found.');
-    const buffer = await this.s3.downloadFile(`salaries/${userId}/${statementId}.pdf`);
-    return { buffer, payPeriod: statement.payPeriod };
+    if (statement.filename === 'Manual Entry') {
+      throw new BadRequestException('No proof document uploaded for this statement.');
+    }
+    const ext = path.extname(statement.filename);
+    const buffer = await this.s3.downloadFile(`salaries/${userId}/${statementId}${ext}`);
+    return { buffer, filename: statement.filename, payPeriod: statement.payPeriod };
   }
 
-  async view(userId: string, statementId: string): Promise<Buffer> {
+  async view(userId: string, statementId: string): Promise<{ buffer: Buffer; filename: string }> {
     const statement = await this.prisma.salaryStatement.findFirst({ where: { id: statementId, userId } });
     if (!statement) throw new NotFoundException('Salary statement not found.');
-    const buffer = await this.s3.downloadFile(`salaries/${userId}/${statementId}.pdf`);
+    if (statement.filename === 'Manual Entry') {
+      throw new BadRequestException('No proof document uploaded for this statement.');
+    }
+    const ext = path.extname(statement.filename);
+    const buffer = await this.s3.downloadFile(`salaries/${userId}/${statementId}${ext}`);
 
     if (statement.pdfPasswordCipher) {
       try {
@@ -165,14 +174,15 @@ export class SalaryService {
         });
 
         // Decrypt the PDF using qpdf
-        return await this.decryptPDFWithQpdf(buffer, decryptedPassword);
+        const decryptedBuffer = await this.decryptPDFWithQpdf(buffer, decryptedPassword);
+        return { buffer: decryptedBuffer, filename: statement.filename };
       } catch (err) {
         console.error('PDF decryption failed, serving original:', err);
-        return buffer;
+        return { buffer, filename: statement.filename };
       }
     }
 
-    return buffer;
+    return { buffer, filename: statement.filename };
   }
 
   private decryptPDFWithQpdf(buffer: Buffer, password: string): Promise<Buffer> {
@@ -244,11 +254,86 @@ export class SalaryService {
     });
   }
 
+  async createManual(userId: string, dto: ManualSalaryDto, file?: Express.Multer.File) {
+    const payPeriod = new Date(dto.payPeriod);
+    const grossEarnings = BigInt(dto.grossEarnings);
+    const grossDeductions = BigInt(dto.grossDeductions);
+    const netPay = BigInt(dto.netPay);
+
+    // Enforce uniqueness constraint (userId, employer, payPeriod)
+    const existing = await this.prisma.salaryStatement.findFirst({
+      where: {
+        userId,
+        employer: dto.employer,
+        payPeriod,
+      },
+    });
+    if (existing) {
+      await this.discard(userId, existing.id);
+    }
+
+    const statement = await this.prisma.salaryStatement.create({
+      data: {
+        userId,
+        payPeriod,
+        employer: dto.employer,
+        grossEarnings,
+        grossDeductions,
+        netPay,
+        filename: file ? file.originalname.slice(0, 200) : 'Manual Entry',
+        fileHash: file ? createHash('sha256').update(file.buffer).digest('hex') : 'manual-placeholder',
+        status: 'COMMITTED',
+        committedAt: new Date(),
+      },
+    });
+
+    if (file) {
+      const ext = path.extname(file.originalname);
+      const key = `salaries/${userId}/${statement.id}${ext}`;
+      await this.s3.uploadFile(key, file.buffer, file.mimetype);
+    } else {
+      await this.prisma.salaryStatement.update({
+        where: { id: statement.id },
+        data: { fileHash: `manual-${statement.id}` },
+      });
+    }
+
+    // Create line items for Tax and PF additions so timeline/summary calculations are correct
+    const lineItems: any[] = [];
+    if (dto.tax && BigInt(dto.tax) > 0n) {
+      lineItems.push({ type: SalaryItemType.DEDUCTION, description: 'Income Tax', currentAmount: BigInt(dto.tax) });
+    }
+    if (dto.pf && BigInt(dto.pf) > 0n) {
+      lineItems.push({ type: SalaryItemType.DEDUCTION, description: 'Provident Fund', currentAmount: BigInt(dto.pf) });
+    }
+
+    if (lineItems.length > 0) {
+      await this.prisma.salaryStatement.update({
+        where: { id: statement.id },
+        data: {
+          lineItems: {
+            create: lineItems,
+          },
+        },
+      });
+    }
+
+    const updated = await this.prisma.salaryStatement.findFirst({
+      where: { id: statement.id },
+      include: { lineItems: true },
+    });
+
+    return this.serialize(updated!);
+  }
+
   async discard(userId: string, statementId: string) {
     const statement = await this.prisma.salaryStatement.findFirst({ where: { id: statementId, userId } });
     if (!statement) throw new BadRequestException('Salary statement not found.');
-    const key = `salaries/${userId}/${statementId}.pdf`;
-    await this.s3.deleteFile(key).catch(() => undefined);
+    if (statement.filename !== 'Manual Entry') {
+      const ext = path.extname(statement.filename);
+      const key = `salaries/${userId}/${statementId}${ext}`;
+      await this.s3.deleteFile(key).catch(() => undefined);
+    }
     await this.prisma.salaryStatement.delete({ where: { id: statement.id } });
   }
 

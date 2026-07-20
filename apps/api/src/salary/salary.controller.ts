@@ -4,6 +4,14 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { SalaryService } from './salary.service';
+import { ManualSalaryDto } from './salary.dto';
+
+function getMimeType(filename: string): string {
+  const ext = filename.toLowerCase().split('.').pop();
+  if (ext === 'png') return 'image/png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  return 'application/pdf';
+}
 
 @Controller('salary-statements')
 @UseGuards(JwtAuthGuard)
@@ -23,6 +31,19 @@ export class SalaryController {
     return this.salary.upload(user.id, file, payslipSchema, pdfPassword, salaryType);
   }
 
+  @Post('manual')
+  @UseInterceptors(FileInterceptor('proof', { limits: { fileSize: 8 * 1024 * 1024, files: 1 } }))
+  createManual(
+    @CurrentUser() user: { id: string },
+    @UploadedFile() file?: Express.Multer.File,
+    @Body() dto?: ManualSalaryDto,
+  ) {
+    if (!dto) throw new BadRequestException('Form data is required.');
+    if (file && !/\.(pdf|png|jpg|jpeg)$/i.test(file.originalname)) {
+      throw new BadRequestException('Proof must be a PDF or PNG/JPG image.');
+    }
+    return this.salary.createManual(user.id, dto, file);
+  }
 
   @Post(':statementId/commit')
   commit(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string) { return this.salary.commit(user.id, statementId); }
@@ -32,9 +53,9 @@ export class SalaryController {
 
   @Get(':statementId/view')
   async view(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string, @Res() res: Response) {
-    const buffer = await this.salary.view(user.id, statementId);
+    const { buffer, filename } = await this.salary.view(user.id, statementId);
     res.set({
-      'Content-Type': 'application/pdf',
+      'Content-Type': getMimeType(filename),
       'Content-Disposition': 'inline',
     });
     res.send(buffer);
@@ -42,11 +63,12 @@ export class SalaryController {
 
   @Get(':statementId/download')
   async download(@CurrentUser() user: { id: string }, @Param('statementId') statementId: string, @Res() res: Response) {
-    const { buffer, payPeriod } = await this.salary.download(user.id, statementId);
+    const { buffer, filename, payPeriod } = await this.salary.download(user.id, statementId);
+    const ext = filename.toLowerCase().split('.').pop() || 'pdf';
     const date = payPeriod.toISOString().slice(0, 10);
     res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="payslip-${date}.pdf"`,
+      'Content-Type': getMimeType(filename),
+      'Content-Disposition': `attachment; filename="payslip-${date}.${ext}"`,
     });
     res.send(buffer);
   }

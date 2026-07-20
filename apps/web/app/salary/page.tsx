@@ -32,6 +32,7 @@ type SalaryStatement = {
   grossEarnings: number;
   grossDeductions: number;
   netPay: number;
+  filename: string;
 };
 type SalaryTimelinePoint = {
   month: string;
@@ -67,6 +68,7 @@ export default function SalaryPage() {
   const [deleteError, setDeleteError] = useState("");
   const [viewingStatement, setViewingStatement] =
     useState<SalaryStatement | null>(null);
+  const [showManualModal, setShowManualModal] = useState(false);
   const load = useCallback(async () => {
     try {
       setData(await api<SalaryOverview>("/salary-statements"));
@@ -82,9 +84,10 @@ export default function SalaryPage() {
 
   async function handleDownload(statement: SalaryStatement) {
     try {
+      const ext = statement.filename.toLowerCase().split('.').pop() || 'pdf';
       await downloadFile(
         `/salary-statements/${statement.id}/download`,
-        `payslip-${new Date(statement.payPeriod).toISOString().slice(0, 10)}.pdf`,
+        `payslip-${new Date(statement.payPeriod).toISOString().slice(0, 10)}.${ext}`,
       );
     } catch (reason) {
       setError(errorMessage(reason, "Could not download the payslip."));
@@ -128,12 +131,22 @@ export default function SalaryPage() {
             provident fund.
           </p>
         </div>
-        <Link
-          className="primary"
-          href="/import?kind=SALARY_PAYSLIP&source=GOLDMAN_SACHS">
-          <Upload />
-          Import payslip
-        </Link>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setShowManualModal(true)}
+          >
+            Add manually
+          </button>
+          <Link
+            className="primary"
+            href="/import?kind=SALARY_PAYSLIP&source=GOLDMAN_SACHS"
+          >
+            <Upload />
+            Import payslip
+          </Link>
+        </div>
       </header>
       {error && (
         <p className="error" role="alert">
@@ -233,17 +246,36 @@ export default function SalaryPage() {
                       <div className="button-group">
                         <b>{money(statement.netPay)}</b>
                         <div></div>
-                        <button
-                          className="secondary compact icon-only"
-                          onClick={() => setViewingStatement(statement)}
-                          title="View inline">
-                          <Eye size={14} />
-                        </button>
-                        <button
-                          className="secondary compact"
-                          onClick={() => void handleDownload(statement)}>
-                          Download
-                        </button>
+                        {statement.filename !== "Manual Entry" ? (
+                          <>
+                            <button
+                              className="secondary compact icon-only"
+                              onClick={() => setViewingStatement(statement)}
+                              title="View inline"
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
+                              className="secondary compact"
+                              onClick={() => void handleDownload(statement)}
+                            >
+                              Download
+                            </button>
+                          </>
+                        ) : (
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              color: "var(--text-muted)",
+                              padding: "4px 8px",
+                              backgroundColor: "var(--background-alt)",
+                              borderRadius: "4px",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            Manual
+                          </span>
+                        )}
                         <button
                           className="danger compact icon-only"
                           onClick={() => {
@@ -329,6 +361,15 @@ export default function SalaryPage() {
           title={viewingStatement.employer}
           payPeriod={viewingStatement.payPeriod}
           onClose={() => setViewingStatement(null)}
+        />
+      )}
+      {showManualModal && (
+        <ManualSalaryModal
+          onClose={() => setShowManualModal(false)}
+          onSuccess={async () => {
+            setShowManualModal(false);
+            await load();
+          }}
         />
       )}
     </Shell>
@@ -729,4 +770,179 @@ function shortMonthLabel(month: string) {
     year: "2-digit",
     timeZone: "UTC",
   });
+}
+
+function ManualSalaryModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [employer, setEmployer] = useState("");
+  const [payPeriod, setPayPeriod] = useState("");
+  const [grossEarnings, setGrossEarnings] = useState("");
+  const [grossDeductions, setGrossDeductions] = useState("");
+  const [netPay, setNetPay] = useState("");
+  const [tax, setTax] = useState("");
+  const [pf, setPf] = useState("");
+  const [proof, setProof] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  // Auto-calculate net pay when gross or deductions change
+  useEffect(() => {
+    const gross = parseFloat(grossEarnings) || 0;
+    const ded = parseFloat(grossDeductions) || 0;
+    if (gross > 0 || ded > 0) {
+      setNetPay((gross - ded).toString());
+    }
+  }, [grossEarnings, grossDeductions]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employer || !payPeriod || !grossEarnings || !grossDeductions || !netPay) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+
+    try {
+      const payload = new FormData();
+      payload.set("employer", employer);
+      payload.set("payPeriod", `${payPeriod}-01T00:00:00.000Z`);
+      payload.set("grossEarnings", (parseFloat(grossEarnings) * 100).toFixed(0));
+      payload.set("grossDeductions", (parseFloat(grossDeductions) * 100).toFixed(0));
+      payload.set("netPay", (parseFloat(netPay) * 100).toFixed(0));
+      if (tax) payload.set("tax", (parseFloat(tax) * 100).toFixed(0));
+      if (pf) payload.set("pf", (parseFloat(pf) * 100).toFixed(0));
+      if (proof) payload.set("proof", proof);
+
+      await api("/salary-statements/manual", {
+        method: "POST",
+        body: payload,
+      });
+
+      onSuccess();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to save manual salary entry."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal-wrap">
+      <button className="backdrop" onClick={onClose} aria-label="Close modal" />
+      <section className="modal manual-salary-modal" role="dialog" aria-modal="true" style={{ maxWidth: "560px", width: "100%" }}>
+        <header className="modal-header" style={{ marginBottom: "18px" }}>
+          <h2>Add salary manually</h2>
+          <p style={{ color: "var(--text-muted)", fontSize: "13px", marginTop: "4px" }}>
+            Enter your monthly earnings, deductions, and optional proof of payment.
+          </p>
+        </header>
+        {error && <p className="error" role="alert" style={{ marginBottom: "16px" }}>{error}</p>}
+        <form onSubmit={handleSubmit}>
+          <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+            <label className="span-2" style={{ gridColumn: "span 2" }}>
+              Employer Name *
+              <input
+                type="text"
+                required
+                value={employer}
+                onChange={(e) => setEmployer(e.target.value)}
+                placeholder="e.g. Goldman Sachs"
+              />
+            </label>
+            <label>
+              Pay Month *
+              <input
+                type="month"
+                required
+                value={payPeriod}
+                onChange={(e) => setPayPeriod(e.target.value)}
+              />
+            </label>
+            <div />
+            <label>
+              Gross Earnings (INR) *
+              <input
+                type="number"
+                required
+                min="0"
+                value={grossEarnings}
+                onChange={(e) => setGrossEarnings(e.target.value)}
+                placeholder="0"
+              />
+            </label>
+            <label>
+              Gross Deductions (INR) *
+              <input
+                type="number"
+                required
+                min="0"
+                value={grossDeductions}
+                onChange={(e) => setGrossDeductions(e.target.value)}
+                placeholder="0"
+              />
+            </label>
+            <label>
+              Net Pay (INR) *
+              <input
+                type="number"
+                required
+                min="0"
+                value={netPay}
+                onChange={(e) => setNetPay(e.target.value)}
+                placeholder="0"
+              />
+            </label>
+            <div />
+            <label>
+              Income Tax (INR)
+              <input
+                type="number"
+                min="0"
+                value={tax}
+                onChange={(e) => setTax(e.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label>
+              Provident Fund (INR)
+              <input
+                type="number"
+                min="0"
+                value={pf}
+                onChange={(e) => setPf(e.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label className="span-2" style={{ gridColumn: "span 2" }}>
+              Proof Document (Optional)
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={(e) => setProof(e.target.files?.[0] || null)}
+                style={{ padding: "8px 0" }}
+              />
+              <small style={{ display: "block", color: "var(--text-muted)", marginTop: "4px" }}>
+                Accepted formats: PDF, PNG, JPG, JPEG. Max size: 8MB.
+              </small>
+            </label>
+          </div>
+          <div className="modal-actions" style={{ marginTop: "24px", display: "flex", justifyContent: "flex-end", gap: "12px" }}>
+            <button type="button" className="ghost" onClick={onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" disabled={busy}>
+              {busy ? "Saving…" : "Save entry"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
 }
