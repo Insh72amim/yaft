@@ -11,7 +11,13 @@ type SalaryWithItems = Prisma.SalaryStatementGetPayload<{ include: { lineItems: 
 
 @Injectable()
 export class SalaryService {
-  private readonly cipher = new StatementCredentialCipher();
+  private _cipher: StatementCredentialCipher | null = null;
+  private get cipher() {
+    if (!this._cipher) {
+      this._cipher = new StatementCredentialCipher();
+    }
+    return this._cipher;
+  }
 
   constructor(private readonly prisma: PrismaService, private readonly s3: S3Service) {}
 
