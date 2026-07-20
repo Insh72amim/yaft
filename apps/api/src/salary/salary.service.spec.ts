@@ -48,3 +48,92 @@ describe('SalaryService timeline', () => {
     expect(overview.summary).toMatchObject({ statementCount: 3, totalGross: 27_000_000, totalNet: 21_500_000, taxes: 3_800_000 });
   });
 });
+
+describe('SalaryService createManual', () => {
+  it('creates manual statement and line items', async () => {
+    const create = jest.fn().mockImplementation(({ data }) => ({
+      id: 'manual-stmt-1',
+      ...data,
+      lineItems: [],
+    }));
+    const update = jest.fn().mockResolvedValue({});
+    const findFirst = jest.fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'manual-stmt-1',
+        employer: 'Manual Employer',
+        payPeriod: new Date('2026-07-01'),
+        grossEarnings: 1000000n,
+        grossDeductions: 100000n,
+        netPay: 900000n,
+        filename: 'Manual Entry',
+        fileHash: 'manual-manual-stmt-1',
+        status: 'COMMITTED',
+        lineItems: [
+          { id: 'tax-1', type: 'DEDUCTION', description: 'Income Tax', currentAmount: 50000n, ytdAmount: null },
+        ],
+      });
+
+    const prisma = {
+      salaryStatement: {
+        findFirst,
+        create,
+        update,
+      },
+    } as unknown as PrismaService;
+
+    const service = new SalaryService(prisma, { uploadFile: jest.fn(), downloadFile: jest.fn(), deleteFile: jest.fn(), onModuleInit: jest.fn() } as any);
+
+    const result = await service.createManual('owner-a', {
+      employer: 'Manual Employer',
+      payPeriod: '2026-07-01',
+      grossEarnings: '1000000',
+      grossDeductions: '100000',
+      netPay: '900000',
+      tax: '50000',
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        userId: 'owner-a',
+        payPeriod: new Date('2026-07-01'),
+        employer: 'Manual Employer',
+        grossEarnings: 1000000n,
+        grossDeductions: 100000n,
+        netPay: 900000n,
+        filename: 'Manual Entry',
+        fileHash: 'manual-placeholder',
+        status: 'COMMITTED',
+        committedAt: expect.any(Date),
+      },
+    });
+
+    expect(update).toHaveBeenNthCalledWith(1, {
+      where: { id: 'manual-stmt-1' },
+      data: { fileHash: 'manual-manual-stmt-1' },
+    });
+
+    expect(update).toHaveBeenNthCalledWith(2, {
+      where: { id: 'manual-stmt-1' },
+      data: {
+        lineItems: {
+          create: [
+            { type: 'DEDUCTION', description: 'Income Tax', currentAmount: 50000n },
+          ],
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      id: 'manual-stmt-1',
+      employer: 'Manual Employer',
+      grossEarnings: 1000000,
+      grossDeductions: 100000,
+      netPay: 900000,
+      filename: 'Manual Entry',
+      lineItems: [
+        { type: 'DEDUCTION', description: 'Income Tax', currentAmount: 50000 },
+      ],
+    });
+  });
+});
