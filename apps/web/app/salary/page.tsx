@@ -187,6 +187,14 @@ export default function SalaryPage() {
             </article>
             <article>
               <span className="summary-icon saved">
+                <BadgeIndianRupee />
+              </span>
+              <small>Cumulative net pay</small>
+              <strong>{money(data.summary.totalNet)}</strong>
+              <em>After all deductions</em>
+            </article>
+            <article>
+              <span className="summary-icon saved">
                 <ArrowUpRight />
               </span>
               <small>Cumulative gross</small>
