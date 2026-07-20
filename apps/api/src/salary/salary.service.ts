@@ -1,7 +1,11 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, SalaryItemType } from '@prisma/client';
 import { createHash } from 'crypto';
-import { decryptPDF } from '@pdfsmaller/pdf-decrypt';
+import { spawn } from 'child_process';
+import { existsSync } from 'fs';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as os from 'os';
 import { PrismaService } from '../common/prisma.service';
 import { S3Service } from '../s3/s3.service';
 import { isPayslipSchema, parsePayslipPdf, PAYSLIP_SCHEMAS } from './payslip-parser';
@@ -160,9 +164,8 @@ export class SalaryService {
           keyVersion: statement.pdfPasswordKeyVersion ?? 1,
         });
 
-        // Decrypt the PDF using @pdfsmaller/pdf-decrypt
-        const decryptedBytes = await decryptPDF(new Uint8Array(buffer), decryptedPassword);
-        return Buffer.from(decryptedBytes);
+        // Decrypt the PDF using qpdf
+        return await this.decryptPDFWithQpdf(buffer, decryptedPassword);
       } catch (err) {
         console.error('PDF decryption failed, serving original:', err);
         return buffer;
@@ -170,6 +173,75 @@ export class SalaryService {
     }
 
     return buffer;
+  }
+
+  private decryptPDFWithQpdf(buffer: Buffer, password: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const tempDir = os.tmpdir();
+      const rand = Math.random().toString(36).slice(2);
+      const inputPath = path.join(tempDir, `input-${Date.now()}-${rand}.pdf`);
+      const outputPath = path.join(tempDir, `output-${Date.now()}-${rand}.pdf`);
+
+      fs.writeFile(inputPath, buffer)
+        .then(() => {
+          const qpdfExecutable = existsSync('/opt/homebrew/bin/qpdf') ? '/opt/homebrew/bin/qpdf' : 'qpdf';
+          const qpdf = spawn(qpdfExecutable, [
+            '--decrypt',
+            '--password-file=-',
+            inputPath,
+            outputPath,
+          ]);
+
+          let stderr = '';
+          qpdf.stderr.on('data', (data) => {
+            stderr += data.toString();
+          });
+
+          qpdf.on('close', (code) => {
+            if (code !== 0) {
+              Promise.all([
+                fs.unlink(inputPath).catch(() => {}),
+                fs.unlink(outputPath).catch(() => {}),
+              ]).then(() => {
+                reject(new Error(`qpdf failed with exit code ${code}: ${stderr}`));
+              });
+              return;
+            }
+
+            fs.readFile(outputPath)
+              .then((decryptedBuffer) => {
+                Promise.all([
+                  fs.unlink(inputPath).catch(() => {}),
+                  fs.unlink(outputPath).catch(() => {}),
+                ]).then(() => {
+                  resolve(decryptedBuffer);
+                });
+              })
+              .catch((readError) => {
+                Promise.all([
+                  fs.unlink(inputPath).catch(() => {}),
+                  fs.unlink(outputPath).catch(() => {}),
+                ]).then(() => {
+                  reject(readError);
+                });
+              });
+          });
+
+          qpdf.on('error', (err) => {
+            Promise.all([
+              fs.unlink(inputPath).catch(() => {}),
+              fs.unlink(outputPath).catch(() => {}),
+            ]).then(() => {
+              reject(err);
+            });
+          });
+
+          // Write password to stdin and close it
+          qpdf.stdin.write(password);
+          qpdf.stdin.end();
+        })
+        .catch(reject);
+    });
   }
 
   async discard(userId: string, statementId: string) {
