@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Download,
   Eye,
   FileImage,
   FileText,
@@ -15,7 +16,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
-import { API_URL, api, errorMessage } from "@/lib/api";
+import { API_URL, api, downloadFile, errorMessage } from "@/lib/api";
 
 type AccountDocument = {
   id: string;
@@ -197,14 +198,22 @@ function documentBodyOverflow() {
   return typeof window === "undefined" ? "" : window.document.body.style.overflow;
 }
 
-export function AccountDocuments({ accountId }: { accountId: string }) {
+export function AccountDocumentsModal({
+  accountId,
+  onClose,
+}: {
+  accountId: string;
+  onClose: () => void;
+}) {
   const [documents, setDocuments] = useState<AccountDocument[]>([]);
   const [selected, setSelected] = useState<AccountDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState("");
+  const [downloadingId, setDownloadingId] = useState("");
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -221,6 +230,20 @@ export function AccountDocuments({ accountId }: { accountId: string }) {
     setLoading(true);
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const previousOverflow = documentBodyOverflow();
+    window.document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !selected) onClose();
+    };
+    window.document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.document.body.style.overflow = previousOverflow;
+      window.document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose, selected]);
 
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -263,68 +286,103 @@ export function AccountDocuments({ accountId }: { accountId: string }) {
     }
   };
 
+  const download = async (item: AccountDocument) => {
+    setDownloadingId(item.id);
+    setError("");
+    try {
+      await downloadFile(
+        `/accounts/${accountId}/documents/${item.id}/download`,
+        item.name,
+      );
+    } catch (reason) {
+      setError(errorMessage(reason, "Could not download the document."));
+    } finally {
+      setDownloadingId("");
+    }
+  };
+
   return (
-    <section className="panel account-documents-panel" aria-labelledby="account-documents-heading">
-      <header>
-        <div>
-          <span className="eyebrow">Account files</span>
-          <h2 id="account-documents-heading">Documents</h2>
-          <p>Keep agreements, statements, and supporting images with this account.</p>
-        </div>
-        <button type="button" className="secondary compact" onClick={() => inputRef.current?.click()} disabled={uploading}>
-          {uploading ? <Loader2 className="spin" size={15} /> : <Upload size={15} />}
-          {uploading ? "Uploading…" : "Add documents"}
-        </button>
-        <input
-          ref={inputRef}
-          className="account-document-input"
-          type="file"
-          accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
-          multiple
-          onChange={(event) => void upload(event)}
-          tabIndex={-1}
-        />
-      </header>
-      {error && <p className="error account-documents-error" role="alert">{error}</p>}
-      {loading ? (
-        <div className="account-documents-empty"><Loader2 className="spin" size={22} /><span>Loading documents…</span></div>
-      ) : documents.length ? (
-        <div className="account-document-list">
-          {documents.map((item) => {
-            const isImage = item.mimeType.startsWith("image/");
-            return (
-              <article key={item.id} className="account-document-row">
-                <span className={`account-document-icon ${isImage ? "image" : "pdf"}`}>
-                  {isImage ? <FileImage size={19} /> : <FileText size={19} />}
-                </span>
-                <div className="account-document-meta">
-                  <strong title={item.name}>{item.name}</strong>
-                  <small>{isImage ? "Image" : "PDF"} · {formatSize(item.byteSize)} · {formatDate(item.createdAt)}</small>
-                </div>
-                <div className="account-document-actions">
-                  <button type="button" className="secondary compact" onClick={() => setSelected(item)}>
-                    <Eye size={14} /> View
-                  </button>
-                  <button
-                    type="button"
-                    className="account-document-delete"
-                    onClick={() => void remove(item)}
-                    disabled={deletingId === item.id}
-                    aria-label={`Remove ${item.name}`}>
-                    {deletingId === item.id ? <Loader2 className="spin" size={15} /> : <Trash2 size={15} />}
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="account-documents-empty">
-          <FileText size={27} strokeWidth={1.5} />
-          <div><strong>No documents yet</strong><span>Add PDFs or images without leaving the account.</span></div>
-        </div>
-      )}
-      {selected && <DocumentViewer accountId={accountId} document={selected} onClose={() => setSelected(null)} />}
-    </section>
+    <div className="modal-wrap account-documents-library-wrap">
+      <button className="backdrop" onClick={onClose} aria-label="Close documents" />
+      <section
+        className="modal account-documents-library-modal account-documents-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="account-documents-heading">
+        <header>
+          <div>
+            <span className="eyebrow">Account files</span>
+            <h2 id="account-documents-heading">Documents</h2>
+            <p>Keep agreements, statements, and supporting images with this account.</p>
+          </div>
+          <div className="account-documents-header-actions">
+            <button type="button" className="secondary compact" onClick={() => inputRef.current?.click()} disabled={uploading}>
+              {uploading ? <Loader2 className="spin" size={15} /> : <Upload size={15} />}
+              {uploading ? "Uploading…" : "Add documents"}
+            </button>
+            <button ref={closeButtonRef} type="button" className="account-documents-close" onClick={onClose} aria-label="Close documents">
+              <X size={17} />
+            </button>
+            <input
+              ref={inputRef}
+              className="account-document-input"
+              type="file"
+              accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
+              multiple
+              onChange={(event) => void upload(event)}
+              tabIndex={-1}
+            />
+          </div>
+        </header>
+        {error && <p className="error account-documents-error" role="alert">{error}</p>}
+        {loading ? (
+          <div className="account-documents-empty"><Loader2 className="spin" size={22} /><span>Loading documents…</span></div>
+        ) : documents.length ? (
+          <div className="account-document-list">
+            {documents.map((item) => {
+              const isImage = item.mimeType.startsWith("image/");
+              return (
+                <article key={item.id} className="account-document-row">
+                  <span className={`account-document-icon ${isImage ? "image" : "pdf"}`}>
+                    {isImage ? <FileImage size={19} /> : <FileText size={19} />}
+                  </span>
+                  <div className="account-document-meta">
+                    <strong title={item.name}>{item.name}</strong>
+                    <small>{isImage ? "Image" : "PDF"} · {formatSize(item.byteSize)} · {formatDate(item.createdAt)}</small>
+                  </div>
+                  <div className="account-document-actions">
+                    <button type="button" className="secondary compact" onClick={() => setSelected(item)}>
+                      <Eye size={14} /> View
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      onClick={() => void download(item)}
+                      disabled={downloadingId === item.id}>
+                      {downloadingId === item.id ? <Loader2 className="spin" size={14} /> : <Download size={14} />}
+                      Download
+                    </button>
+                    <button
+                      type="button"
+                      className="account-document-delete"
+                      onClick={() => void remove(item)}
+                      disabled={deletingId === item.id}
+                      aria-label={`Remove ${item.name}`}>
+                      {deletingId === item.id ? <Loader2 className="spin" size={15} /> : <Trash2 size={15} />}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="account-documents-empty">
+            <FileText size={27} strokeWidth={1.5} />
+            <div><strong>No documents yet</strong><span>Add PDFs or images without leaving the account.</span></div>
+          </div>
+        )}
+        {selected && <DocumentViewer accountId={accountId} document={selected} onClose={() => setSelected(null)} />}
+      </section>
+    </div>
   );
 }

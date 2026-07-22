@@ -1,11 +1,12 @@
 'use client';
-import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 import { VaultModal } from '@/components/vault-modal';
+import { AccountDocumentsModal } from '@/components/account-documents';
 
 type AccountLedger = {
   account: { id: string; name: string; type: string; institution: string | null; currency: string; openingBalance: number; balance: number;
@@ -30,6 +31,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [showVault, setShowVault] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
 
   // Credit Card details edit states
   const [showEditCc, setShowEditCc] = useState(false);
@@ -64,6 +66,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
 
   const { account, transactions, pagination } = data;
   const isCreditCard = account.type === 'CREDIT_CARD';
+  const supportsDocuments = ['BANK', 'SAVINGS'].includes(account.type);
   const cardOutstanding = Math.max(0, -account.balance);
   const availableCredit = account.creditLimit == null ? null : Math.max(0, account.creditLimit - cardOutstanding);
   const maskedCardNumber = account.cardLast4 ? `••••  ••••  ••••  ${account.cardLast4}` : 'Card number not stored';
@@ -162,16 +165,18 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
 
   const content = (
     <div className={`account-detail-content ${embedded ? 'embedded' : ''}`}>
-      {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><div style={{ display: 'flex', gap: '8px' }}>
+      {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         {account.type === 'EPFO' && <button className="secondary" onClick={openAddEpfo}><Plus size={15}/>Add transaction</button>}
         {account.type === 'CREDIT_CARD' && <button className="secondary" onClick={openEditCc}><Settings size={15}/>Edit card</button>}
         <button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button>
+        {supportsDocuments && <button className="secondary" onClick={() => setShowDocuments(true)}><Files size={15}/>Documents</button>}
         <button className="danger" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/>Delete or clear</button>
       </div></header>}
-      {embedded && <header className={`embedded-header ${isCreditCard ? 'credit-card-embedded-header' : ''}`}><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2>{isCreditCard && <p className="credit-card-embedded-number"><CreditCard size={14}/>{maskedCardNumber}{account.cardNetwork ? <em>{account.cardNetwork}</em> : null}</p>}</div><div style={{ display: 'flex', gap: '8px' }}>
+      {embedded && <header className={`embedded-header ${isCreditCard ? 'credit-card-embedded-header' : ''}`}><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2>{isCreditCard && <p className="credit-card-embedded-number"><CreditCard size={14}/>{maskedCardNumber}{account.cardNetwork ? <em>{account.cardNetwork}</em> : null}</p>}</div><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         {account.type === 'EPFO' && <button className="secondary compact" onClick={openAddEpfo}><Plus size={14}/>Add</button>}
         {account.type === 'CREDIT_CARD' && <button className="secondary compact" onClick={openEditCc}><Settings size={14}/>Edit</button>}
         <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
+        {supportsDocuments && <button className="secondary compact" onClick={() => setShowDocuments(true)}><Files size={14}/>Documents</button>}
         {account.type !== 'EPFO' && <Link className="secondary compact" href={`/import?accountId=${account.id}`}>Import statement</Link>}
         <button className="danger compact" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/></button>
       </div></header>}
@@ -227,6 +232,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
       </section>
       {deleteStep > 0 && <div className="modal-wrap"><button className="backdrop" onClick={closeDelete} aria-label="Close deletion confirmation"/><section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title"><div className="delete-warning"><ShieldAlert/><span><strong>{deleteStep === 1 ? 'Select Action' : 'Final confirmation'}</strong><small>This action cannot be undone.</small></span></div>{deleteStep === 1 ? <><div><span className="eyebrow">First confirmation</span><h2 id="delete-account-title">Delete or Clear {account.name}?</h2><p>Choose whether to wipe all transactions/import history, or permanently delete the account itself.</p></div><div className="modal-actions" style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '12px' }}><button className="danger wide" onClick={() => { setDeleteAction('CLEAR_TRANSACTIONS'); setDeleteStep(2); setDeleteError(''); }}>Clear all transactions ({pagination.total.toLocaleString('en-IN')})</button><button className="danger wide" onClick={() => { setDeleteAction('DELETE_ACCOUNT'); setDeleteStep(2); setDeleteError(''); }}>Delete entire account</button><button className="ghost wide" onClick={closeDelete}>Cancel</button></div></> : <><div><span className="eyebrow">Second confirmation</span><h2 id="delete-account-title">Type the account name</h2><p>Enter <strong>{account.name}</strong> exactly to confirm {deleteAction === 'CLEAR_TRANSACTIONS' ? 'clearing all transactions' : 'permanent account deletion'}.</p></div><label>Account name<input autoFocus autoComplete="off" value={confirmationName} onChange={(event) => { setConfirmationName(event.target.value); setDeleteError(''); }} /></label>{deleteError && <p className="error">{deleteError}</p>}<div className="modal-actions"><button className="ghost" disabled={deleting} onClick={() => { setDeleteStep(1); setConfirmationName(''); setDeleteError(''); }}>Back</button><button className="danger" disabled={deleting || confirmationName !== account.name} onClick={handleDeleteConfirm}>{deleting ? 'Processing…' : deleteAction === 'CLEAR_TRANSACTIONS' ? 'Clear transactions' : 'Permanently delete'}</button></div></>}</section></div>}
       {showVault && <VaultModal accountId={account.id} onClose={() => setShowVault(false)} onChanged={load} />}
+      {showDocuments && <AccountDocumentsModal accountId={account.id} onClose={() => setShowDocuments(false)} />}
 
       {showEditCc && (
         <div className="modal-wrap">

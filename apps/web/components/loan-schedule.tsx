@@ -1,10 +1,11 @@
 'use client';
-import { ArrowLeft, Landmark, ReceiptText, ShieldAlert, Trash2, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
+import { ArrowLeft, Landmark, ReceiptText, ShieldAlert, Trash2, CheckCircle2, AlertCircle, Lock, Files } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 import { VaultModal } from '@/components/vault-modal';
+import { AccountDocumentsModal } from '@/components/account-documents';
 
 type LoanDetail = {
   loan: { id: string; startDate: string; principal: number; interestRate: number; emiAmount: number; emiDay: number; termMonths: number };
@@ -22,6 +23,7 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [showVault, setShowVault] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
 
   const load = useCallback(() => {
     setError('');
@@ -127,8 +129,9 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
           <span className="eyebrow">Loan Account</span>
           <h2>{accountName}</h2>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
+          <button className="secondary compact" onClick={() => setShowDocuments(true)}><Files size={14}/>Documents</button>
           <button className="danger compact" onClick={() => setDeleteStep(1)}><Trash2/></button>
         </div>
       </header>
@@ -251,6 +254,7 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
         </div>
       )}
       {showVault && <VaultModal accountId={accountId} onClose={() => setShowVault(false)} />}
+      {showDocuments && <AccountDocumentsModal accountId={accountId} onClose={() => setShowDocuments(false)} />}
     </div>
   );
 }

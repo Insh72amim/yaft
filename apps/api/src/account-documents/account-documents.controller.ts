@@ -69,6 +69,24 @@ export class AccountDocumentsController {
     response.send(document.buffer);
   }
 
+  @Get(':documentId/download')
+  async download(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Param('documentId') documentId: string,
+    @Res() response: Response,
+  ) {
+    const document = await this.documents.content(user.id, accountId, documentId);
+    response.set({
+      'Cache-Control': 'private, no-store',
+      'Content-Disposition': `attachment; filename="document"; filename*=UTF-8''${encodedFilename(document.name)}`,
+      'Content-Length': String(document.buffer.length),
+      'Content-Type': document.mimeType,
+      'X-Content-Type-Options': 'nosniff',
+    });
+    response.send(document.buffer);
+  }
+
   @Delete(':documentId')
   @HttpCode(204)
   remove(

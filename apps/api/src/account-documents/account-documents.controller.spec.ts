@@ -27,4 +27,30 @@ describe('AccountDocumentsController', () => {
     }));
     expect(send).toHaveBeenCalledWith(buffer);
   });
+
+  it('serves authenticated content as an attachment for downloads', async () => {
+    const buffer = Buffer.from('synthetic image');
+    const documents = {
+      content: jest.fn().mockResolvedValue({
+        buffer,
+        name: 'supporting image (1).png',
+        mimeType: 'image/png',
+      }),
+    } as unknown as AccountDocumentsService;
+    const set = jest.fn();
+    const send = jest.fn();
+    const response = { set, send } as unknown as Response;
+    const controller = new AccountDocumentsController(documents);
+
+    await controller.download({ id: 'owner-a' }, 'account-a', 'document-a', response);
+
+    expect(documents.content).toHaveBeenCalledWith('owner-a', 'account-a', 'document-a');
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({
+      'Cache-Control': 'private, no-store',
+      'Content-Disposition': "attachment; filename=\"document\"; filename*=UTF-8''supporting%20image%20%281%29.png",
+      'Content-Type': 'image/png',
+      'X-Content-Type-Options': 'nosniff',
+    }));
+    expect(send).toHaveBeenCalledWith(buffer);
+  });
 });
