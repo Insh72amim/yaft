@@ -115,10 +115,24 @@ model Account {
   loans          Loan[]
   imports        ImportBatch[]
   holdings       PortfolioHolding[]
+  documents      AccountDocument[]
   statementCredential StatementCredential?
   vaultEntry          AccountVaultEntry?
 
   @@index([userId])
+}
+
+model AccountDocument {
+  id           String   @id @default(cuid())
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name         String
+  mimeType     String
+  byteSize     Int
+  storageKey   String   @unique
+  createdAt    DateTime @default(now())
+
+  @@index([accountId, createdAt])
 }
 
 model Category {

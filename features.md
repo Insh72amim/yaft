@@ -35,6 +35,7 @@ This file maintains the running inventory of completed, verified features inside
 ## 4. Local S3 (MinIO) File Storage
 * **Local S3 Integration**: Automatically uploads original statement and salary PDFs to a local MinIO S3 server instance for safe retention.
 * **PDF File Downloader**: Secure file download endpoints to retrieve statements or salary slips from local S3 storage.
+* **Associated Account Documents**: Stores multiple PDF or image documents against Bank/Savings and Loan accounts, with an authenticated inline viewer and zoom controls.
 
 ---
 
@@ -87,9 +88,9 @@ This file maintains the running inventory of completed, verified features inside
   - [x] Secure OCR card scanner integration inside Vault (client-side OCR scanning implemented).
 - [x] **Manual EPFO Ledger entries**:
   - [x] Add manual transaction input form specifically for EPFO accounts (to log deposits/withdrawals and annual interest credits).
-- [ ] **Associated Account Documents (Loans & Bank Accounts)**:
-  - [ ] Allow uploading and linking multiple documents (PDFs, images) directly to Loan and Bank accounts.
-  - [ ] Provide seamless inline viewing via modal overlay with zoom controls, eliminating the need to download.
+- [x] **Associated Account Documents (Loans & Bank Accounts)**:
+  - [x] Allow uploading and linking multiple documents (PDFs, images) directly to Loan and Bank accounts.
+  - [x] Provide seamless inline viewing via modal overlay with zoom controls, eliminating the need to download.
 
 ### 9.4 Salary Page
 - [x] **Bonus and Miscellaneous Payments**:

@@ -19,6 +19,7 @@ YAFT turns Indian bank statements, credit-card statements, salary payslips, EPFO
 - **📈 Investments:** Import reconciled Zerodha Kite and Groww holdings snapshots with portfolio totals, sector tags and gain/loss indicators.
 - **💳 Debt tracking:** Monitor credit limits, utilisation, loans, amortisation schedules and confirmed EMIs.
 - **🔒 Credential vault:** Optionally retain document-opening passwords using account-bound AES-256-GCM encryption.
+- **🗂 Account documents:** Attach multiple PDFs or images to Bank/Savings and Loan accounts and view them inline with zoom controls.
 - **📱 Local web UI:** Responsive account, salary, import and dashboard views with dark-mode support.
 
 The detailed implementation inventory and longer roadmap live in [`features.md`](features.md).
@@ -28,7 +29,7 @@ The detailed implementation inventory and longer roadmap live in [`features.md`]
 YAFT intentionally keeps application data on the self-hosted instance:
 
 - **PostgreSQL** stores users, accounts, ledger transactions, import reviews, salary records and other structured data.
-- **MinIO** provides local S3-compatible document storage. Imported salary payslips and proof documents attached to manual salary records are currently retained there and can be retrieved through authenticated YAFT endpoints.
+- **MinIO** provides local S3-compatible document storage. Imported salary payslips, manual salary proofs and documents attached to Bank/Savings or Loan accounts are retained there and served through authenticated YAFT endpoints.
 - **Bank, credit-card and EPFO statement files, and broker spreadsheets, are currently parsed in request memory but their original files are not yet retained.** Approved transaction or holdings data is stored in PostgreSQL.
 - Docker persists PostgreSQL and MinIO data in the `postgres_data` and `minio_data` volumes. Removing those volumes removes the corresponding local data.
 
@@ -49,6 +50,7 @@ Browser
 ```
 
 Money is stored as integer minor units (paise) to avoid floating-point rounding errors. Import parsers reject unknown, ambiguous or unreconciled layouts instead of guessing.
+Transaction-import files are processed in memory. Files intentionally saved as salary proofs or associated account documents remain in local MinIO and are available only through authenticated, owner-scoped endpoints.
 
 ## 🚀 Run Locally with Docker
 
@@ -109,6 +111,7 @@ Current application protections include:
 - SHA-256 file hashes and transaction fingerprints for duplicate detection.
 - AES-256-GCM encryption for remembered PDF passwords, bound to the relevant record.
 - Owner-scoped database queries and authenticated document download/view endpoints.
+- Saved account documents accept only signature-verified PDF, PNG, or JPEG content and are served with private, no-store response headers.
 
 For use beyond a trusted local machine, place YAFT behind HTTPS and a private network or VPN, replace all development credentials, restrict host firewall access, encrypt the host disk and establish encrypted, tested backups. TOTP/passkeys and session revocation are not yet implemented, so direct public-internet exposure is not recommended.
 
@@ -123,7 +126,7 @@ For use beyond a trusted local machine, place YAFT behind HTTPS and a private ne
 
 ## 🔮 Next Three Priorities
 
-1. **Complete the local document library:** Retain original bank, credit-card and EPFO statements; support multiple documents on bank and loan accounts; add authenticated inline viewing, metadata and safe deletion.
+1. **Complete the local document library:** Retain original bank, credit-card and EPFO import files and extend the existing account-document library with richer metadata and recovery tooling.
 2. **Make self-hosted recovery dependable:** Add encrypted automated backups for PostgreSQL and MinIO, restore verification, configurable MinIO credentials and clear migration/recovery guidance.
 3. **Finish verified import coverage:** Implement the currently planned ICICI and SBI credit-card parsers, add the Acme Corp-style salary schema and ensure the unified importer advertises only sources with fully reconciled parser support.
 

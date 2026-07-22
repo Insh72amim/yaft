@@ -22,6 +22,7 @@ import { AccountTransactions } from "@/components/account-transactions";
 import { AddAccountModal } from "@/components/add-account-modal";
 import { VaultModal } from "@/components/vault-modal";
 import { LoanSchedule } from "@/components/loan-schedule";
+import { AccountDocuments } from "@/components/account-documents";
 
 type Holding = {
   id: string;
@@ -362,6 +363,9 @@ function PortfolioContent() {
   const portfolioData = isInvestment
     ? portfolio.find((p) => p.accountId === selectedAccountId)
     : null;
+  const supportsDocuments = selectedAccount
+    ? ["BANK", "SAVINGS", "LOAN"].includes(selectedAccount.type)
+    : false;
 
   if (selectedAccountId && selectedAccount) {
     // Full Page Detail View
@@ -537,10 +541,15 @@ function PortfolioContent() {
               />
             )}
           </div>
-        ) : selectedAccount.type === "LOAN" ? (
-          <LoanSchedule accountId={selectedAccountId} embedded={true} />
         ) : (
-          <AccountTransactions accountId={selectedAccountId} embedded={true} />
+          <div className="account-detail-stack">
+            {supportsDocuments && <AccountDocuments accountId={selectedAccountId} />}
+            {selectedAccount.type === "LOAN" ? (
+              <LoanSchedule accountId={selectedAccountId} embedded={true} />
+            ) : (
+              <AccountTransactions accountId={selectedAccountId} embedded={true} />
+            )}
+          </div>
         )}
       </Shell>
     );

@@ -7,6 +7,7 @@ import { StatementCredentialsService } from '../common/statement-credentials.ser
 import { CreateAccountDto, DeleteAccountDto, CreateTransactionDto, UpdateAccountDto } from './accounts.dto';
 import { generateAmortisationSchedule } from './loan-amortisation';
 import { createHash } from 'crypto';
+import { AccountDocumentsService } from '../account-documents/account-documents.service';
 
 
 export const SUPPORTED_SAVINGS_INSTITUTIONS = ['Axis Bank', 'Punjab National Bank', 'State Bank of India'] as const;
@@ -15,7 +16,11 @@ export const SUPPORTED_STOCK_BROKERS = ['Zerodha', 'Groww'] as const;
 @Controller('accounts')
 @UseGuards(JwtAuthGuard)
 export class AccountsController {
-  constructor(private readonly prisma: PrismaService, private readonly credentials: StatementCredentialsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly credentials: StatementCredentialsService,
+    private readonly accountDocuments: AccountDocumentsService,
+  ) {}
 
   @Get()
   async list(@CurrentUser() user: { id: string }) {
@@ -236,6 +241,7 @@ export class AccountsController {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId: user.id }, select: { id: true, name: true } });
     if (!account) throw new NotFoundException('Account not found.');
     if (dto.confirmationName !== account.name) throw new BadRequestException('Enter the account name exactly to confirm deletion.');
+    await this.accountDocuments.purgeForAccount(user.id, account.id);
     await this.prisma.$transaction(async (tx) => {
       const linkedTransfers = await tx.transaction.findMany({ where: { accountId: account.id, transferGroupId: { not: null } },
         select: { transferGroupId: true } });

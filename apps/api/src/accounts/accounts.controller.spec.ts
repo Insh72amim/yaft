@@ -1,7 +1,10 @@
 import type { PrismaService } from '../common/prisma.service';
 import type { StatementCredentialsService } from '../common/statement-credentials.service';
+import type { AccountDocumentsService } from '../account-documents/account-documents.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AccountsController } from './accounts.controller';
+
+const accountDocuments = () => ({ purgeForAccount: jest.fn() }) as unknown as AccountDocumentsService;
 
 describe('AccountsController statement credential exposure', () => {
   it('returns only saved-password status, never credential storage fields', async () => {
@@ -11,7 +14,7 @@ describe('AccountsController statement credential exposure', () => {
       transactions: [{ amount: -250n }], statementCredential: { accountId: 'account-a' }, vaultEntry: null,
     }]) } } as unknown as PrismaService;
     const credentials = {} as StatementCredentialsService;
-    const controller = new AccountsController(prisma, credentials);
+    const controller = new AccountsController(prisma, credentials, accountDocuments());
 
     const [account] = await controller.list({ id: 'owner-a' });
     expect(account).toMatchObject({ id: 'account-a', hasStatementPassword: true, balance: 750 });
@@ -31,7 +34,7 @@ describe('AccountsController statement credential exposure', () => {
       transactions: [{ amount: -2500n }], statementCredential: null, loans: [], holdings: [],
       vaultEntry: { last4: '4242', cardNetwork: 'Visa' },
     }]) } } as unknown as PrismaService;
-    const controller = new AccountsController(prisma, {} as StatementCredentialsService);
+    const controller = new AccountsController(prisma, {} as StatementCredentialsService, accountDocuments());
 
     const [account] = await controller.list({ id: 'owner-a' });
 
@@ -48,7 +51,7 @@ describe('AccountsController savings institutions', () => {
   it('creates a savings account for a supported parser bank', async () => {
     const create = jest.fn().mockResolvedValue({ id: 'account-a', userId: 'owner-a', name: 'Salary account', type: 'SAVINGS',
       institution: 'State Bank of India', currency: 'INR', openingBalance: 0n, creditLimit: null });
-    const controller = new AccountsController({ account: { create } } as unknown as PrismaService, credentials);
+    const controller = new AccountsController({ account: { create } } as unknown as PrismaService, credentials, accountDocuments());
 
     await controller.create({ id: 'owner-a' }, { name: 'Salary account', type: 'SAVINGS' as never, institution: 'State Bank of India' });
 
@@ -57,7 +60,7 @@ describe('AccountsController savings institutions', () => {
 
   it('rejects a savings account without one of the three supported parser banks', async () => {
     const create = jest.fn();
-    const controller = new AccountsController({ account: { create } } as unknown as PrismaService, credentials);
+    const controller = new AccountsController({ account: { create } } as unknown as PrismaService, credentials, accountDocuments());
 
     await expect(controller.create({ id: 'owner-a' }, { name: 'Other bank', type: 'SAVINGS' as never, institution: 'Other Bank' }))
       .rejects.toBeInstanceOf(BadRequestException);
@@ -71,7 +74,7 @@ describe('AccountsController stock brokers', () => {
   it('creates a stock account for a supported broker', async () => {
     const create = jest.fn().mockResolvedValue({ id: 'account-a', userId: 'owner-a', name: 'Demat account', type: 'STOCKS',
       institution: 'Zerodha', currency: 'INR', openingBalance: 0n, creditLimit: null });
-    const controller = new AccountsController({ account: { create } } as unknown as PrismaService, credentials);
+    const controller = new AccountsController({ account: { create } } as unknown as PrismaService, credentials, accountDocuments());
 
     await controller.create({ id: 'owner-a' }, { name: 'Demat account', type: 'STOCKS' as never, institution: 'Zerodha' });
 
@@ -80,7 +83,7 @@ describe('AccountsController stock brokers', () => {
 
   it('rejects a stock account without the supported broker', async () => {
     const create = jest.fn();
-    const controller = new AccountsController({ account: { create } } as unknown as PrismaService, credentials);
+    const controller = new AccountsController({ account: { create } } as unknown as PrismaService, credentials, accountDocuments());
 
     await expect(controller.create({ id: 'owner-a' }, { name: 'Other demat', type: 'STOCKS' as never, institution: 'Other Broker' }))
       .rejects.toBeInstanceOf(BadRequestException);
@@ -101,7 +104,7 @@ describe('AccountsController transaction history', () => {
       descriptionRaw: 'SYNTHETIC PURCHASE', merchant: 'Synthetic merchant', amount: -250n, transferGroupId: null,
       category: { name: 'Shopping' } }]);
     const prisma = { account: { findFirst }, transaction: { count, aggregate, findMany } } as unknown as PrismaService;
-    const controller = new AccountsController(prisma, credentials);
+    const controller = new AccountsController(prisma, credentials, accountDocuments());
 
     const result = await controller.transactions({ id: 'owner-a' }, 'account-a', 1);
 
@@ -122,7 +125,7 @@ describe('AccountsController transaction history', () => {
       count: jest.fn().mockResolvedValue(0), aggregate: jest.fn().mockResolvedValue({ _sum: { amount: -2500n } }),
       findMany: jest.fn().mockResolvedValue([]),
     } } as unknown as PrismaService;
-    const controller = new AccountsController(prisma, credentials);
+    const controller = new AccountsController(prisma, credentials, accountDocuments());
 
     const result = await controller.transactions({ id: 'owner-a' }, 'card-a', 1);
 
@@ -134,7 +137,7 @@ describe('AccountsController transaction history', () => {
   it('does not query transactions when the account is not owned by the current user', async () => {
     const count = jest.fn();
     const controller = new AccountsController({ account: { findFirst: jest.fn().mockResolvedValue(null) },
-      transaction: { count, aggregate: jest.fn(), findMany: jest.fn() } } as unknown as PrismaService, credentials);
+      transaction: { count, aggregate: jest.fn(), findMany: jest.fn() } } as unknown as PrismaService, credentials, accountDocuments());
 
     await expect(controller.transactions({ id: 'owner-a' }, 'another-account', 1)).rejects.toBeInstanceOf(NotFoundException);
     expect(count).not.toHaveBeenCalled();
@@ -151,11 +154,13 @@ describe('AccountsController account deletion', () => {
     const unlinkTransfers = jest.fn().mockResolvedValue({ count: 1 });
     const transaction = { account: { delete: deleteAccount }, transaction: { findMany: findLinkedTransfers, updateMany: unlinkTransfers } };
     const runTransaction = jest.fn().mockImplementation((callback: (tx: typeof transaction) => Promise<unknown>) => callback(transaction));
-    const controller = new AccountsController({ account: { findFirst }, $transaction: runTransaction } as unknown as PrismaService, credentials);
+    const documents = accountDocuments();
+    const controller = new AccountsController({ account: { findFirst }, $transaction: runTransaction } as unknown as PrismaService, credentials, documents);
 
     await expect(controller.deleteAccount({ id: 'owner-a' }, 'account-a', { confirmationName: 'Synthetic bank' })).resolves.toBeUndefined();
 
     expect(findFirst).toHaveBeenCalledWith({ where: { id: 'account-a', userId: 'owner-a' }, select: { id: true, name: true } });
+    expect(documents.purgeForAccount).toHaveBeenCalledWith('owner-a', 'account-a');
     expect(deleteAccount).toHaveBeenCalledWith({ where: { id: 'account-a' } });
     expect(unlinkTransfers).toHaveBeenCalledWith({ where: { accountId: { not: 'account-a' }, account: { userId: 'owner-a' },
       transferGroupId: { in: ['synthetic-transfer'] } }, data: { transferGroupId: null } });
@@ -165,7 +170,7 @@ describe('AccountsController account deletion', () => {
     const deleteAccount = jest.fn();
     const runTransaction = jest.fn();
     const controller = new AccountsController({ account: { findFirst: jest.fn().mockResolvedValue({ id: 'account-a', name: 'Synthetic bank' }) },
-      $transaction: runTransaction } as unknown as PrismaService, credentials);
+      $transaction: runTransaction } as unknown as PrismaService, credentials, accountDocuments());
 
     await expect(controller.deleteAccount({ id: 'owner-a' }, 'account-a', { confirmationName: 'synthetic bank' }))
       .rejects.toBeInstanceOf(BadRequestException);
@@ -177,7 +182,7 @@ describe('AccountsController account deletion', () => {
     const deleteAccount = jest.fn();
     const runTransaction = jest.fn();
     const controller = new AccountsController({ account: { findFirst: jest.fn().mockResolvedValue(null) },
-      $transaction: runTransaction } as unknown as PrismaService, credentials);
+      $transaction: runTransaction } as unknown as PrismaService, credentials, accountDocuments());
 
     await expect(controller.deleteAccount({ id: 'owner-a' }, 'another-account', { confirmationName: 'Synthetic bank' }))
       .rejects.toBeInstanceOf(NotFoundException);
