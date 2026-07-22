@@ -659,6 +659,50 @@ html[data-theme='dark'] .account-card { background: var(--card); }
 html[data-theme='dark'] .account-card-logo { background: #fff; border-color: transparent; } /* Keep logos on white background for visibility */
 html[data-theme='dark'] .flow-in span { color: #77d6a6; }
 html[data-theme='dark'] .flow-out span { color: #ffad77; }
+
+/* Credit cards intentionally read as payment cards, not generic accounts. */
+.credit-account-card{position:relative;isolation:isolate;overflow:hidden;min-height:250px;padding:22px;color:#fff;border-color:transparent;gap:14px;box-shadow:0 12px 28px rgba(18,31,48,.18)}
+.credit-account-card::before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.2),transparent 45%,rgba(0,0,0,.18))}
+.credit-account-card::after{content:"";position:absolute;z-index:-1;width:210px;height:210px;border-radius:50%;right:-95px;top:-105px;border:1px solid rgba(255,255,255,.16);box-shadow:0 0 0 28px rgba(255,255,255,.04)}
+.credit-account-card.credit-network-visa{background:linear-gradient(135deg,#293b8f,#11194f)}
+.credit-account-card.credit-network-mastercard{background:linear-gradient(135deg,#a42335,#e37232)}
+.credit-account-card.credit-network-amex{background:linear-gradient(135deg,#226cad,#173b66)}
+.credit-account-card.credit-network-rupay{background:linear-gradient(135deg,#de6724,#127b57)}
+.credit-account-card.credit-network-default{background:linear-gradient(135deg,#263b49,#111d26)}
+.credit-account-card:hover{border-color:rgba(255,255,255,.5);box-shadow:0 16px 34px rgba(18,31,48,.24)}
+.credit-account-card-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.credit-account-card-header>span{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.9}
+.credit-account-card-logo{width:42px;height:42px;border-radius:11px;background:#fff;display:grid;place-items:center;overflow:hidden;color:#263b49;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.credit-account-card-logo img{width:100%;height:100%;object-fit:contain}
+.credit-account-card-chip{width:36px;height:26px;margin-top:2px;border-radius:5px;background:linear-gradient(135deg,#f2dfad,#c9a548);box-shadow:inset 0 0 0 1px rgba(61,45,16,.18)}
+.credit-account-card-number{font-family:'SF Mono',ui-monospace,monospace;font-size:17px;letter-spacing:1.5px;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.24)}
+.credit-account-card-identity{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.credit-account-card-identity>span{min-width:0;display:grid;gap:2px}
+.credit-account-card-identity>span:last-child{text-align:right}
+.credit-account-card-identity small,.credit-account-card-metrics small{font-size:8px;letter-spacing:.08em;text-transform:uppercase;opacity:.66}
+.credit-account-card-identity strong{font-size:11px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.credit-account-card-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding-top:12px;border-top:1px solid rgba(255,255,255,.18)}
+.credit-account-card-metrics>span{min-width:0;display:grid;gap:3px}
+.credit-account-card-metrics>span:nth-child(2){text-align:center}
+.credit-account-card-metrics>span:last-child{text-align:right}
+.credit-account-card-metrics strong{font-size:11px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html[data-theme='dark'] .credit-account-card{color:#fff}
+
+.credit-card-embedded-header{position:relative;overflow:hidden;padding:22px 24px;border-radius:17px;background:linear-gradient(135deg,#263b49,#111d26);color:#fff;box-shadow:0 10px 25px rgba(18,31,48,.14)}
+.credit-card-embedded-header::after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;right:-75px;top:-95px;border:1px solid rgba(255,255,255,.13);box-shadow:0 0 0 25px rgba(255,255,255,.035);pointer-events:none}
+.credit-card-embedded-header>div{position:relative;z-index:1}
+.credit-card-embedded-header .eyebrow,.credit-card-embedded-header h2{color:#fff}
+.credit-card-embedded-header .secondary{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.22);color:#fff}
+.credit-card-embedded-header .secondary:hover{background:rgba(255,255,255,.2)}
+.credit-card-embedded-header .danger{background:rgba(168,48,48,.22);border-color:rgba(255,185,185,.24);color:#ffd0d0}
+.credit-card-embedded-number{display:flex;align-items:center;gap:7px;margin:5px 0 0;color:rgba(255,255,255,.78);font:500 12px 'SF Mono',ui-monospace,monospace}
+.credit-card-embedded-number em{font:700 8px 'DM Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:3px 6px;border-radius:999px;background:rgba(255,255,255,.12);color:#fff}
+.credit-card-ledger-summary .credit-card-outstanding{background:linear-gradient(135deg,#263b49,#111d26);border-color:transparent;color:#fff}
+.credit-card-ledger-summary .credit-card-outstanding small,.credit-card-ledger-summary .credit-card-outstanding em{color:rgba(255,255,255,.7)}
+.credit-card-ledger-summary .credit-card-outstanding strong{color:#fff}
+.credit-card-ledger-summary .credit-card-outstanding .summary-icon{background:rgba(255,255,255,.13);color:#fff}
+
+@media(max-width:760px){.credit-account-card-metrics{grid-template-columns:1fr 1fr}.credit-account-card-metrics>span:nth-child(2){text-align:right}.credit-account-card-metrics>span:last-child{text-align:left}.credit-card-embedded-header{align-items:flex-start;gap:18px;flex-direction:column}.credit-card-embedded-header>div:last-child{width:100%;flex-wrap:wrap}.credit-account-card-number{font-size:15px}}
 /* ── Vault nav bottom link ───────────────────────────────────── */
 .nav-bottom{margin-top:0;display:grid;gap:7px}
 .nav-bottom a.vault-nav{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:11px;color:#68756e;font-size:14px;font-weight:600;border:1px solid transparent}
@@ -689,13 +733,17 @@ html[data-theme='dark'] .nav-bottom a.vault-nav:hover,html[data-theme='dark'] .n
 .wallet-card-middle{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:center;padding:10px 0}
 .wallet-card-chip{width:36px;height:26px;background:linear-gradient(135deg,#e5d1a5,#d4af37);border-radius:5px;position:relative;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.1);margin-bottom:12px;opacity:0.95}
 .wallet-card-chip::after{content:"";position:absolute;inset:4px;border:1px solid rgba(0,0,0,0.15);border-radius:2px}
-.wallet-card-number{font-family:'SF Mono',monospace;font-size:18px;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,0.3);display:flex;align-items:center}
+.wallet-card-number{font-family:'SF Mono',monospace;font-size:18px;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:space-between;gap:8px}
 .wallet-card-empty-prompt{display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.8}
 .wallet-card-footer{display:flex;justify-content:space-between;align-items:flex-end;position:relative;z-index:2}
 .wallet-card-meta{display:grid;gap:2px;text-shadow:0 1px 2px rgba(0,0,0,0.2)}
 .wallet-card-meta small{font-size:8px;opacity:0.7;text-transform:uppercase;letter-spacing:.05em}
 .wallet-card-meta span{font-family:'SF Mono',monospace;font-size:14px}
 .wallet-card-actions{display:flex;gap:6px;align-items:center;margin-left:auto}
+.wallet-card-cvv{display:flex;align-items:center;gap:3px}
+.wallet-card-front .wallet-copy-btn{color:rgba(255,255,255,.8)}
+.wallet-card-front .wallet-copy-btn:hover{background:rgba(255,255,255,.15);color:#fff}
+.wallet-front-error{margin-top:8px;padding:6px 8px;border-radius:7px;background:rgba(93,16,24,.5);color:#ffe7e7;font:600 10px 'DM Sans',sans-serif;text-shadow:none}
 
 /* ── Card Themes ─────────────────────────────────────────────── */
 .type-card.network-visa{background:linear-gradient(135deg,#1a1f71,#0f1345)}
@@ -706,10 +754,9 @@ html[data-theme='dark'] .nav-bottom a.vault-nav:hover,html[data-theme='dark'] .n
 .type-bank{background:linear-gradient(135deg,var(--grad-start),var(--grad-end))}
 
 /* ── Wallet Card Back (Edit Form & Reveal View) ──────────────── */
-.wallet-card-back,.wallet-card-reveal{transform:rotateY(180deg);background:var(--card);border:1px solid var(--line);color:var(--ink);padding:20px;justify-content:flex-start}
+.wallet-card-back{transform:rotateY(180deg);background:var(--card);border:1px solid var(--line);color:var(--ink);padding:20px;justify-content:flex-start}
 .wallet-card-back-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
 .wallet-card-back-header strong{font-size:14px;letter-spacing:-.2px}
-.wallet-shield{display:flex;align-items:center;gap:6px;color:var(--green)}
 
 /* Form styles inside card */
 .wallet-form{display:flex;flex-direction:column;flex:1;gap:12px}
@@ -727,35 +774,24 @@ html[data-theme='dark'] .nav-bottom a.vault-nav:hover,html[data-theme='dark'] .n
 .wallet-btn.danger-solid{background:var(--red);color:white}
 .wallet-btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
 
-/* Reveal View styles inside card */
-.wallet-reveal-fields{display:grid;gap:12px;flex:1;align-content:start}
-.wallet-reveal-field{display:grid;gap:4px}
-.wallet-reveal-field span{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase}
-.wallet-reveal-field div{display:flex;align-items:center;justify-content:space-between;background:var(--paper);padding:8px 12px;border-radius:8px}
-.wallet-reveal-field code{font-family:'SF Mono',monospace;font-size:13px}
-.wallet-reveal-footer{margin-top:auto;display:flex;justify-content:center}
-
 /* ── Shared Buttons ──────────────────────────────────────────── */
 .wallet-btn-icon{width:28px;height:28px;border-radius:8px;border:none;background:rgba(255,255,255,0.15);color:white;display:grid;place-items:center;cursor:pointer;transition:background 0.2s}
 .wallet-btn-icon:hover{background:rgba(255,255,255,0.25)}
-.wallet-card-back .wallet-btn-icon,.wallet-card-reveal .wallet-btn-icon{background:var(--paper);color:var(--ink)}
-.wallet-card-back .wallet-btn-icon:hover,.wallet-card-reveal .wallet-btn-icon:hover{background:#e8efe9;color:var(--green)}
+.wallet-card-back .wallet-btn-icon{background:var(--paper);color:var(--ink)}
+.wallet-card-back .wallet-btn-icon:hover{background:#e8efe9;color:var(--green)}
 .wallet-copy-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;padding:4px;border-radius:4px}
 .wallet-copy-btn:hover{background:#dbe4df;color:var(--ink)}
 .wallet-spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite}
 .wallet-error{background:#fcebea;color:var(--red);font-size:11px;padding:8px 10px;border-radius:6px;margin-bottom:12px}
 
-.wallet-card-container.edit-mode,
-.wallet-card-container.reveal-mode {
+.wallet-card-container.edit-mode {
   aspect-ratio: auto;
 }
-.wallet-card-container.edit-mode .wallet-card-inner,
-.wallet-card-container.reveal-mode .wallet-card-inner {
+.wallet-card-container.edit-mode .wallet-card-inner {
   height: auto;
   transform: none;
 }
-.wallet-card-container.edit-mode .wallet-card-back,
-.wallet-card-container.reveal-mode .wallet-card-reveal {
+.wallet-card-container.edit-mode .wallet-card-back {
   position: relative;
   transform: none;
   height: auto;
@@ -778,9 +814,9 @@ html[data-theme='dark'] .nav-bottom a.vault-nav:hover,html[data-theme='dark'] .n
 
 /* ── Dark Mode ───────────────────────────────────────────────── */
 html[data-theme='dark'] .vault-global-badge{background:#1a2e24;color:#8ad9b2}
-html[data-theme='dark'] .wallet-card-back,html[data-theme='dark'] .wallet-card-reveal{background:#111b17;border-color:#203127}
-html[data-theme='dark'] .wallet-form input,html[data-theme='dark'] .wallet-reveal-field div,html[data-theme='dark'] .wallet-no-sensitive{background:#1a2720;color:#ccdcd4}
-html[data-theme='dark'] .wallet-card-back .wallet-btn-icon,html[data-theme='dark'] .wallet-card-reveal .wallet-btn-icon{background:#1a2720;color:#ccdcd4}
+html[data-theme='dark'] .wallet-card-back{background:#111b17;border-color:#203127}
+html[data-theme='dark'] .wallet-form input,html[data-theme='dark'] .wallet-no-sensitive{background:#1a2720;color:#ccdcd4}
+html[data-theme='dark'] .wallet-card-back .wallet-btn-icon{background:#1a2720;color:#ccdcd4}
 html[data-theme='dark'] .wallet-btn.ghost{border-color:#203127;color:#9caca4}
 html[data-theme='dark'] .wallet-copy-btn:hover{background:#2a3e32}
 html[data-theme='dark'] .card-scanner-btn{border-color:var(--theme-border-soft);background:linear-gradient(135deg,var(--theme-soft-start),var(--theme-soft-end));color:var(--green)}
@@ -1311,4 +1347,3 @@ html[data-theme='dark'] .pdf-viewer-body {
   animation: spin 1s linear infinite;
   color: var(--green);
 }
-

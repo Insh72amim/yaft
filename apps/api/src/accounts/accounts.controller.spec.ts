@@ -8,7 +8,7 @@ describe('AccountsController statement credential exposure', () => {
     const prisma = { account: { findMany: jest.fn().mockResolvedValue([{
       id: 'account-a', userId: 'owner-a', name: 'Synthetic bank', type: 'SAVINGS', institution: 'SBI', currency: 'INR',
       openingBalance: 1000n, creditLimit: null, statementDay: null, dueDay: null, archived: false, createdAt: new Date(0),
-      transactions: [{ amount: -250n }], statementCredential: { accountId: 'account-a' },
+      transactions: [{ amount: -250n }], statementCredential: { accountId: 'account-a' }, vaultEntry: null,
     }]) } } as unknown as PrismaService;
     const credentials = {} as StatementCredentialsService;
     const controller = new AccountsController(prisma, credentials);
@@ -16,10 +16,29 @@ describe('AccountsController statement credential exposure', () => {
     const [account] = await controller.list({ id: 'owner-a' });
     expect(account).toMatchObject({ id: 'account-a', hasStatementPassword: true, balance: 750 });
     expect(account).not.toHaveProperty('statementCredential');
+    expect(account).not.toHaveProperty('vaultEntry');
     expect(account).not.toHaveProperty('ciphertext');
     expect((prisma as any).account.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      include: expect.objectContaining({ statementCredential: { select: { accountId: true } } }),
+      include: expect.objectContaining({ statementCredential: { select: { accountId: true } },
+        vaultEntry: { select: { last4: true, cardNetwork: true } } }),
     }));
+  });
+
+  it('returns only safe card display metadata from the vault', async () => {
+    const prisma = { account: { findMany: jest.fn().mockResolvedValue([{
+      id: 'card-a', userId: 'owner-a', name: 'Synthetic card', type: 'CREDIT_CARD', institution: 'Example Bank', currency: 'INR',
+      openingBalance: 0n, creditLimit: 100000n, statementDay: 12, dueDay: 30, archived: false, createdAt: new Date(0),
+      transactions: [{ amount: -2500n }], statementCredential: null, loans: [], holdings: [],
+      vaultEntry: { last4: '4242', cardNetwork: 'Visa' },
+    }]) } } as unknown as PrismaService;
+    const controller = new AccountsController(prisma, {} as StatementCredentialsService);
+
+    const [account] = await controller.list({ id: 'owner-a' });
+
+    expect(account).toMatchObject({ id: 'card-a', cardLast4: '4242', cardNetwork: 'Visa', balance: -2500 });
+    expect(account).not.toHaveProperty('vaultEntry');
+    expect(account).not.toHaveProperty('cardNumber');
+    expect(account).not.toHaveProperty('cardNumberCipher');
   });
 });
 
@@ -74,7 +93,8 @@ describe('AccountsController transaction history', () => {
 
   it('returns a paginated ledger for an account owned by the current user', async () => {
     const findFirst = jest.fn().mockResolvedValue({ id: 'account-a', name: 'Synthetic bank', type: 'SAVINGS',
-      institution: 'Axis Bank', currency: 'INR', openingBalance: 1000n });
+      institution: 'Axis Bank', currency: 'INR', openingBalance: 1000n, creditLimit: null, statementDay: null, dueDay: null,
+      vaultEntry: null });
     const count = jest.fn().mockResolvedValue(1);
     const aggregate = jest.fn().mockResolvedValue({ _sum: { amount: -250n } });
     const findMany = jest.fn().mockResolvedValue([{ id: 'transaction-a', transactionDate: new Date('2026-01-02T00:00:00Z'), postedDate: null,
@@ -92,6 +112,23 @@ describe('AccountsController transaction history', () => {
     expect(result.account).toMatchObject({ id: 'account-a', openingBalance: 1000, balance: 750 });
     expect(result.transactions[0]).toMatchObject({ id: 'transaction-a', description: 'Synthetic merchant', amount: -250, category: 'Shopping' });
     expect(result.pagination).toEqual({ page: 1, pageSize: 50, total: 1, pages: 1 });
+  });
+
+  it('includes safe credit-card display and cycle details in the ledger response', async () => {
+    const findFirst = jest.fn().mockResolvedValue({ id: 'card-a', name: 'Synthetic card', type: 'CREDIT_CARD',
+      institution: 'Example Bank', currency: 'INR', openingBalance: 0n, creditLimit: 100000n, statementDay: 12, dueDay: 30,
+      vaultEntry: { last4: '4242', cardNetwork: 'Visa' } });
+    const prisma = { account: { findFirst }, transaction: {
+      count: jest.fn().mockResolvedValue(0), aggregate: jest.fn().mockResolvedValue({ _sum: { amount: -2500n } }),
+      findMany: jest.fn().mockResolvedValue([]),
+    } } as unknown as PrismaService;
+    const controller = new AccountsController(prisma, credentials);
+
+    const result = await controller.transactions({ id: 'owner-a' }, 'card-a', 1);
+
+    expect(result.account).toEqual(expect.objectContaining({ creditLimit: 100000, statementDay: 12, dueDay: 30,
+      cardLast4: '4242', cardNetwork: 'Visa', balance: -2500 }));
+    expect(result.account).not.toHaveProperty('vaultEntry');
   });
 
   it('does not query transactions when the account is not owned by the current user', async () => {

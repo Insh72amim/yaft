@@ -30,6 +30,7 @@ export class AccountsController {
         transactions: { select: { amount: true, transactionDate: true } },
         holdings: { select: { currentValue: true } },
         statementCredential: { select: { accountId: true } },
+        vaultEntry: { select: { last4: true, cardNetwork: true } },
         loans: {
           include: {
             installments: {
@@ -40,7 +41,7 @@ export class AccountsController {
       }
     });
 
-    return accounts.map(({ transactions, holdings = [], statementCredential, loans = [], ...account }) => {
+    return accounts.map(({ transactions, holdings = [], statementCredential, vaultEntry, loans = [], ...account }) => {
       if (account.type === AccountType.LOAN) {
         const loan = loans[0];
         let balance = Number(account.openingBalance);
@@ -98,6 +99,8 @@ export class AccountsController {
         balance: isPortfolio && hasCompleteValuation
           ? holdings.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0) : ledgerBalance,
         monthlyCredited, monthlyDebited,
+        cardLast4: account.type === AccountType.CREDIT_CARD ? vaultEntry?.last4 ?? null : null,
+        cardNetwork: account.type === AccountType.CREDIT_CARD ? vaultEntry?.cardNetwork ?? null : null,
         hasStatementPassword: Boolean(statementCredential) };
     });
   }
@@ -194,7 +197,9 @@ export class AccountsController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) requestedPage: number) {
     const account = await this.prisma.account.findFirst({
       where: { id: accountId, userId: user.id, archived: false },
-      select: { id: true, name: true, type: true, institution: true, currency: true, openingBalance: true },
+      select: { id: true, name: true, type: true, institution: true, currency: true, openingBalance: true,
+        creditLimit: true, statementDay: true, dueDay: true,
+        vaultEntry: { select: { last4: true, cardNetwork: true } } },
     });
     if (!account) throw new NotFoundException('Account not found.');
 
@@ -210,7 +215,10 @@ export class AccountsController {
 
     return {
       account: { id: account.id, name: account.name, type: account.type, institution: account.institution, currency: account.currency,
-        openingBalance: Number(account.openingBalance), balance: Number(account.openingBalance) + Number(amount._sum.amount ?? 0n) },
+        openingBalance: Number(account.openingBalance), balance: Number(account.openingBalance) + Number(amount._sum.amount ?? 0n),
+        creditLimit: account.creditLimit === null ? null : Number(account.creditLimit), statementDay: account.statementDay, dueDay: account.dueDay,
+        cardLast4: account.type === AccountType.CREDIT_CARD ? account.vaultEntry?.last4 ?? null : null,
+        cardNetwork: account.type === AccountType.CREDIT_CARD ? account.vaultEntry?.cardNetwork ?? null : null },
       transactions: transactions.map((item) => ({ id: item.id, transactionDate: item.transactionDate, postedDate: item.postedDate,
         description: item.merchant || item.descriptionRaw, details: item.merchant ? item.descriptionRaw : null, amount: Number(item.amount),
         category: item.category?.name ?? 'Uncategorised', isTransfer: Boolean(item.transferGroupId) })),
@@ -453,4 +461,3 @@ export class AccountsController {
     });
   }
 }
-

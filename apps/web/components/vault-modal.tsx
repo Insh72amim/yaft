@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import {
   Lock, Eye, EyeOff, CreditCard, Landmark, PiggyBank, TrendingUp,
   ChartPieIcon as ChartPie, Building2, BadgeIndianRupee, Pencil,
-  Trash2, Save, X, ShieldCheck, Check, Copy
+  Trash2, Save, X, Check, Copy
 } from 'lucide-react';
 import { api, errorMessage, isUnauthorized } from '@/lib/api';
 import { CardScanner, type CardScanResult } from '@/components/card-scanner';
@@ -80,10 +80,12 @@ function CopyButton({ value }: { value: string }) {
 
 export function VaultModal({ 
   accountId, 
-  onClose 
+  onClose,
+  onChanged,
 }: { 
   accountId: string; 
-  onClose: () => void; 
+  onClose: () => void;
+  onChanged?: () => void | Promise<void>;
 }) {
   const router = useRouter();
   const [account, setAccount] = useState<VaultAccount | null>(null);
@@ -91,7 +93,7 @@ export function VaultModal({
   const [error, setError] = useState('');
   
   // WalletCard states
-  const [mode, setMode] = useState<'front' | 'edit' | 'reveal'>('front');
+  const [mode, setMode] = useState<'front' | 'edit'>('front');
   const [revealed, setRevealed] = useState<RevealedData | null>(null);
   const [revealing, setRevealing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -131,12 +133,16 @@ export function VaultModal({
   const hasVault = Boolean(account.vault);
 
   const reveal = async () => {
+    if (revealed) {
+      setRevealed(null);
+      setActionError('');
+      return;
+    }
     setRevealing(true);
     setActionError('');
     try {
       const data = await api<RevealedData>(`/vault/${account.id}/reveal`);
       setRevealed(data);
-      setMode('reveal');
     } catch (e) {
       setActionError(errorMessage(e, 'Could not decrypt details.'));
     } finally {
@@ -169,8 +175,10 @@ export function VaultModal({
     setSaving(true); setActionError('');
     try {
       await api(`/vault/${account.id}`, { method: 'PUT', body: JSON.stringify(body) });
+      setRevealed(null);
       setMode('front');
       await load();
+      await onChanged?.();
     } catch (e) {
       setActionError(errorMessage(e, 'Could not save vault entry.'));
     } finally {
@@ -183,8 +191,10 @@ export function VaultModal({
     try {
       await api(`/vault/${account.id}`, { method: 'DELETE' });
       setConfirmDelete(false);
+      setRevealed(null);
       setMode('front');
       await load();
+      await onChanged?.();
     } catch (e) {
       setActionError(errorMessage(e, 'Could not delete vault entry.'));
     } finally {
@@ -209,12 +219,14 @@ export function VaultModal({
         {isCard && <div className="wallet-card-chip"></div>}
         {isCard && hasVault && (
           <div className="wallet-card-number">
-            {maskCardNumber(account.vault?.last4 || null)}
+            <span>{revealed?.cardNumber ? formatCardNumber(revealed.cardNumber) : maskCardNumber(account.vault?.last4 || null)}</span>
+            {revealed?.cardNumber && <CopyButton value={revealed.cardNumber} />}
           </div>
         )}
         {isBank && hasVault && (
           <div className="wallet-card-number">
-            {maskAccountNumber(account.vault?.last4 || null)}
+            <span>{revealed?.accountNumber || maskAccountNumber(account.vault?.last4 || null)}</span>
+            {revealed?.accountNumber && <CopyButton value={revealed.accountNumber} />}
           </div>
         )}
         {!hasVault && (
@@ -222,6 +234,7 @@ export function VaultModal({
             <Lock size={16} /> No details stored
           </div>
         )}
+        {actionError && <div className="wallet-front-error" role="alert">{actionError}</div>}
       </div>
 
       <div className="wallet-card-footer">
@@ -237,14 +250,20 @@ export function VaultModal({
             <span>{account.vault.ifsc}</span>
           </div>
         )}
+        {isCard && revealed?.cvv && (
+          <div className="wallet-card-meta">
+            <small>CVV</small>
+            <span className="wallet-card-cvv">{revealed.cvv}<CopyButton value={revealed.cvv} /></span>
+          </div>
+        )}
 
         <div className="wallet-card-actions">
           {hasVault && (
-            <button type="button" className="wallet-btn-icon" onClick={() => reveal()} title="Reveal details" disabled={revealing}>
-              {revealing ? <span className="wallet-spinner"/> : <Eye size={15} />}
+            <button type="button" className="wallet-btn-icon" onClick={() => reveal()} title={revealed ? 'Hide details' : 'Reveal details'} disabled={revealing}>
+              {revealing ? <span className="wallet-spinner"/> : revealed ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           )}
-          <button type="button" className="wallet-btn-icon" onClick={() => setMode('edit')} title="Edit details">
+          <button type="button" className="wallet-btn-icon" onClick={() => { setRevealed(null); setMode('edit'); }} title="Edit details">
             <Pencil size={14} />
           </button>
         </div>
@@ -353,88 +372,15 @@ export function VaultModal({
     </div>
   );
 
-  const renderReveal = () => (
-    <div className="wallet-card-face wallet-card-reveal">
-      <div className="wallet-card-back-header">
-        <div className="wallet-shield">
-          <ShieldCheck size={16} /> <strong>Decrypted Details</strong>
-        </div>
-        <button type="button" className="wallet-btn-icon" onClick={() => setMode('front')}><EyeOff size={16} /></button>
-      </div>
-
-      <div className="wallet-reveal-fields">
-        {isBank && (
-          <>
-            <div className="wallet-reveal-field">
-              <span>Account Number</span>
-              <div>
-                <code>{revealed?.accountNumber || maskAccountNumber(account.vault?.last4 || null)}</code>
-                {revealed?.accountNumber && <CopyButton value={revealed.accountNumber} />}
-              </div>
-            </div>
-            {account.vault?.ifsc && (
-              <div className="wallet-reveal-field">
-                <span>IFSC</span>
-                <div>
-                  <code>{account.vault.ifsc}</code>
-                  <CopyButton value={account.vault.ifsc} />
-                </div>
-              </div>
-            )}
-            {account.vault?.upiId && (
-              <div className="wallet-reveal-field">
-                <span>UPI ID</span>
-                <div>
-                  <code>{account.vault.upiId}</code>
-                  <CopyButton value={account.vault.upiId} />
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {isCard && (
-          <>
-            <div className="wallet-reveal-field">
-              <span>Card Number</span>
-              <div>
-                <code>{revealed?.cardNumber ? formatCardNumber(revealed.cardNumber) : maskCardNumber(account.vault?.last4 || null)}</code>
-                {revealed?.cardNumber && <CopyButton value={revealed.cardNumber} />}
-              </div>
-            </div>
-            <div className="wallet-form-row">
-              <div className="wallet-reveal-field">
-                <span>Expiry</span>
-                <div><code>{String(account.vault?.cardExpiryMm).padStart(2, '0')}/{account.vault?.cardExpiryYy}</code></div>
-              </div>
-              <div className="wallet-reveal-field">
-                <span>CVV</span>
-                <div>
-                  <code>{revealed?.cvv || '•••'}</code>
-                  {revealed?.cvv && <CopyButton value={revealed.cvv} />}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="wallet-reveal-footer">
-        <button type="button" className="wallet-btn ghost" onClick={() => setMode('front')}>Hide Details</button>
-      </div>
-    </div>
-  );
-
   return (
     <div className="modal-wrap">
       <button className="backdrop" onClick={onClose} aria-label="Close vault modal" />
       <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '380px', margin: '0 auto' }}>
         {error && <p className="error" style={{ marginBottom: '16px' }}>{error}</p>}
-        <div className={`wallet-card-container ${mode !== 'front' ? 'flipped' : ''} ${mode === 'edit' ? 'edit-mode' : ''} ${mode === 'reveal' ? 'reveal-mode' : ''}`}>
+        <div className={`wallet-card-container ${mode !== 'front' ? 'flipped' : ''} ${mode === 'edit' ? 'edit-mode' : ''}`}>
           <div className="wallet-card-inner">
             {mode === 'front' && renderFront()}
             {mode === 'edit' && renderEdit()}
-            {mode === 'reveal' && renderReveal()}
           </div>
         </div>
       </div>

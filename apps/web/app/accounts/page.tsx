@@ -58,6 +58,8 @@ type Account = {
   balance: number;
   creditLimit: number | null;
   dueDay: number | null;
+  cardLast4: string | null;
+  cardNetwork: string | null;
   monthlyCredited: number;
   monthlyDebited: number;
   loanOutstanding?: number;
@@ -148,6 +150,82 @@ function getLocalLogo(institution: string | null, name: string): string | null {
   return null;
 }
 
+function cardNetworkClass(network: string | null) {
+  const normalized = network?.toLowerCase().replace(/[^a-z]/g, "");
+  return normalized && ["visa", "mastercard", "amex", "rupay"].includes(normalized)
+    ? normalized
+    : "default";
+}
+
+function CreditCardAccountCard({
+  account,
+  onClick,
+}: {
+  account: Account;
+  onClick: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const localLogo = getLocalLogo(account.institution, account.name);
+  const domain = getDomainForInstitution(account.institution || account.name);
+  const logoUrl = localLogo || `https://logo.clearbit.com/${domain}?size=128`;
+  const outstanding = Math.max(0, -account.balance);
+  const available = account.creditLimit === null
+    ? null
+    : Math.max(0, account.creditLimit - outstanding);
+  const maskedNumber = account.cardLast4
+    ? `••••  ••••  ••••  ${account.cardLast4}`
+    : "••••  ••••  ••••  ••••";
+
+  return (
+    <button
+      className={`account-card credit-account-card credit-network-${cardNetworkClass(account.cardNetwork)}`}
+      onClick={onClick}>
+      <div className="credit-account-card-header">
+        <div className="credit-account-card-logo">
+          {!imgError ? (
+            <img
+              src={logoUrl}
+              alt={account.institution || account.name}
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <CreditCard size={20} />
+          )}
+        </div>
+        <span>{account.cardNetwork || "Credit card"}</span>
+      </div>
+      <div className="credit-account-card-chip" aria-hidden="true" />
+      <strong className="credit-account-card-number" aria-label={account.cardLast4 ? `Card ending ${account.cardLast4}` : "Card number not stored"}>
+        {maskedNumber}
+      </strong>
+      <div className="credit-account-card-identity">
+        <span>
+          <small>Card</small>
+          <strong>{account.name}</strong>
+        </span>
+        <span>
+          <small>Institution</small>
+          <strong>{account.institution || "Unknown"}</strong>
+        </span>
+      </div>
+      <div className="credit-account-card-metrics">
+        <span>
+          <small>Outstanding</small>
+          <strong>{money(outstanding)}</strong>
+        </span>
+        <span>
+          <small>Available credit</small>
+          <strong>{available === null ? "Not set" : money(available)}</strong>
+        </span>
+        <span>
+          <small>Payment due</small>
+          <strong>{account.dueDay ? `Day ${account.dueDay}` : "Not set"}</strong>
+        </span>
+      </div>
+    </button>
+  );
+}
+
 function AccountCard({
   account,
   onClick,
@@ -156,6 +234,10 @@ function AccountCard({
   onClick: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
+  if (account.type === "CREDIT_CARD") {
+    return <CreditCardAccountCard account={account} onClick={onClick} />;
+  }
+
   const localLogo = getLocalLogo(account.institution, account.name);
   const domain = getDomainForInstitution(account.institution || account.name);
   const logoUrl = localLogo || `https://logo.clearbit.com/${domain}?size=128`;
