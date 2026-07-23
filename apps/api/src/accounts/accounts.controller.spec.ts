@@ -160,6 +160,24 @@ describe('AccountsController transaction history', () => {
     expect(findMany).toHaveBeenCalled();
     expect(result.transactions[0]).toMatchObject({ id: 'tx-1', accountName: 'HDFC', amount: -5000 });
   });
+
+  it('queries all-transactions with date range filters', async () => {
+    const count = jest.fn().mockResolvedValue(1);
+    const aggregate = jest.fn().mockResolvedValue({ _sum: { amount: -5000n } });
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = { transaction: { count, aggregate, findMany } } as unknown as PrismaService;
+    const controller = new AccountsController(prisma, credentials, accountDocuments());
+
+    await controller.allTransactions({ id: 'owner-a' }, 1, '50', undefined, undefined, undefined, undefined, undefined, '2026-04-01', '2026-04-30');
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        transactionDate: expect.objectContaining({
+          gte: new Date('2026-04-01'),
+        }),
+      }),
+    }));
+  });
 });
 
 describe('AccountsController account deletion', () => {

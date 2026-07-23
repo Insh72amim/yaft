@@ -207,6 +207,8 @@ export class AccountsController {
     @Query('minAmount') minAmountStr?: string,
     @Query('maxAmount') maxAmountStr?: string,
     @Query('type') type?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     const page = Math.max(1, requestedPage);
     const pageSize = requestedPageSize ? Math.min(100, Math.max(1, Number(requestedPageSize))) : 50;
@@ -214,7 +216,7 @@ export class AccountsController {
     const minAmount = minAmountStr !== undefined && minAmountStr !== '' ? Number(minAmountStr) : undefined;
     const maxAmount = maxAmountStr !== undefined && maxAmountStr !== '' ? Number(maxAmountStr) : undefined;
 
-    const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type);
+    const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate);
 
     const [total, amountSum, transactions] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),
@@ -260,6 +262,8 @@ export class AccountsController {
     @Query('minAmount') minAmountStr?: string,
     @Query('maxAmount') maxAmountStr?: string,
     @Query('type') type?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     const account = await this.prisma.account.findFirst({
       where: { id: accountId, userId: user.id, archived: false },
@@ -275,7 +279,7 @@ export class AccountsController {
     const minAmount = minAmountStr !== undefined && minAmountStr !== '' ? Number(minAmountStr) : undefined;
     const maxAmount = maxAmountStr !== undefined && maxAmountStr !== '' ? Number(maxAmountStr) : undefined;
 
-    const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type);
+    const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate);
 
     const [total, amount, transactions] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),
@@ -534,13 +538,15 @@ export class AccountsController {
   }
 }
 
-function buildTransactionWhere(
+export function buildTransactionWhere(
   userId: string,
   accountId?: string,
   search?: string,
   minAmount?: number,
   maxAmount?: number,
   type?: string,
+  startDateStr?: string,
+  endDateStr?: string,
 ) {
   const where: any = { account: { userId, archived: false } };
 
@@ -554,6 +560,23 @@ function buildTransactionWhere(
       { merchant: { contains: query, mode: 'insensitive' } },
       { descriptionRaw: { contains: query, mode: 'insensitive' } },
     ];
+  }
+
+  if (startDateStr || endDateStr) {
+    where.transactionDate = {};
+    if (startDateStr) {
+      const start = new Date(startDateStr);
+      if (!isNaN(start.getTime())) {
+        where.transactionDate.gte = start;
+      }
+    }
+    if (endDateStr) {
+      const end = new Date(endDateStr);
+      if (!isNaN(end.getTime())) {
+        end.setUTCHours(23, 59, 59, 999);
+        where.transactionDate.lte = end;
+      }
+    }
   }
 
   const minPaise = minAmount !== undefined && !isNaN(minAmount) ? BigInt(Math.round(Math.abs(minAmount) * 100)) : undefined;
