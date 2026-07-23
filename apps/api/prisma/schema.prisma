@@ -44,6 +44,7 @@ model User {
   createdAt    DateTime      @default(now())
   accounts     Account[]
   categories   Category[]
+  categoryRules CategoryRule[]
   imports      ImportBatch[]
   salaryStatements SalaryStatement[]
 }
@@ -143,8 +144,37 @@ model Category {
   color        String        @default("#64748b")
   transactions Transaction[]
   staged       StagedTransaction[]
+  rules        CategoryRule[]
 
   @@unique([userId, name])
+}
+
+enum MatchType {
+  CONTAINS
+  EXACT
+  STARTS_WITH
+  REGEX
+}
+
+enum MatchField {
+  DESCRIPTION
+  MERCHANT
+  REFERENCE
+}
+
+model CategoryRule {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pattern    String
+  matchField MatchField @default(DESCRIPTION)
+  matchType  MatchType  @default(CONTAINS)
+  categoryId String
+  category   Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  priority   Int        @default(0)
+  createdAt  DateTime   @default(now())
+
+  @@index([userId, priority])
 }
 
 model ImportBatch {
