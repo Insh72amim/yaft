@@ -169,9 +169,6 @@ function CreditCardAccountCard({
   const domain = getDomainForInstitution(account.institution || account.name);
   const logoUrl = localLogo || `https://logo.clearbit.com/${domain}?size=128`;
   const outstanding = Math.max(0, -account.balance);
-  const available = account.creditLimit === null
-    ? null
-    : Math.max(0, account.creditLimit - outstanding);
   const maskedNumber = account.cardLast4
     ? `••••  ••••  ••••  ${account.cardLast4}`
     : "••••  ••••  ••••  ••••";
@@ -194,7 +191,6 @@ function CreditCardAccountCard({
         </div>
         <span>{account.cardNetwork || "Credit card"}</span>
       </div>
-      <div className="credit-account-card-chip" aria-hidden="true" />
       <strong className="credit-account-card-number" aria-label={account.cardLast4 ? `Card ending ${account.cardLast4}` : "Card number not stored"}>
         {maskedNumber}
       </strong>
@@ -210,16 +206,8 @@ function CreditCardAccountCard({
       </div>
       <div className="credit-account-card-metrics">
         <span>
-          <small>Outstanding</small>
+          <small>Credit used</small>
           <strong>{money(outstanding)}</strong>
-        </span>
-        <span>
-          <small>Available credit</small>
-          <strong>{available === null ? "Not set" : money(available)}</strong>
-        </span>
-        <span>
-          <small>Payment due</small>
-          <strong>{account.dueDay ? `Day ${account.dueDay}` : "Not set"}</strong>
         </span>
       </div>
     </button>
