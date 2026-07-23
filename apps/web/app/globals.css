@@ -1354,6 +1354,7 @@ html[data-theme='dark'] .account-document-icon.pdf{color:#fb923c;background:#3a1
 @media(max-width:700px){.account-documents-panel>header{align-items:stretch;flex-direction:column}.account-documents-panel>header .secondary{justify-content:center}.account-document-row{grid-template-columns:auto minmax(0,1fr);padding:13px 16px}.account-document-actions{grid-column:1/-1;justify-content:flex-end}.account-document-viewer-wrap{padding:0}.account-document-viewer{width:100vw;height:100vh;border:0;border-radius:0}.account-document-viewer-header{align-items:flex-start;padding:11px 12px}.account-document-viewer-title small{display:none}.account-document-viewer-controls{gap:3px}.account-document-viewer-controls button{width:29px;height:29px}.account-document-viewer-controls>span{min-width:36px}.account-document-viewer-controls i,.account-document-viewer-controls button:nth-of-type(4){display:none}}
 
 .account-documents-page {
+  margin-top: 18px;
   padding: 0;
   overflow: hidden;
   min-height: 260px;
