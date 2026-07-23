@@ -13,7 +13,6 @@ import {
   Check,
   Trash2,
   Plus,
-  Unlink,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -37,6 +36,33 @@ type TransferSuggestion = {
   credit: { id: string; account: string; amount: number; date: string; description: string };
 };
 
+type AccountFlow = {
+  accounts: Array<{
+    id: string;
+    name: string;
+    type: string;
+    institution: string | null;
+    externalInbound: number;
+    externalOutbound: number;
+    internalInbound: number;
+    internalOutbound: number;
+    totalInbound: number;
+    totalOutbound: number;
+  }>;
+  internalTransfers: Array<{
+    fromAccountId: string;
+    fromAccountName: string;
+    toAccountId: string;
+    toAccountName: string;
+    amount: number;
+  }>;
+  overall: {
+    totalExternalInbound: number;
+    totalExternalOutbound: number;
+    totalInternalTransfers: number;
+  };
+};
+
 type Dashboard = {
   month: string;
   income: number;
@@ -45,6 +71,7 @@ type Dashboard = {
   savingsRate: number;
   savingsNetInbound?: number;
   savingsNetOutbound?: number;
+  accountFlow?: AccountFlow;
   netWorth: number;
   accounts: Account[];
   spendAnalysis?: {
@@ -390,10 +417,15 @@ export default function DashboardPage() {
         <div className="panel-title">
           <div>
             <span className="eyebrow">Cash Flow</span>
-            <h2>Monthly Flow</h2>
+            <h2>Savings Accounts Cash Flow & Transfers</h2>
           </div>
         </div>
-        <MonthlyFlow income={data.income} expenses={data.expenses} savings={data.savings} />
+        <MonthlyFlow
+          income={data.income}
+          expenses={data.expenses}
+          savings={data.savings}
+          accountFlow={data.accountFlow}
+        />
       </section>
 
       <section className="panel transactions">
@@ -723,9 +755,133 @@ function TransferReconcilerModal({ onClose, onUpdate }: { onClose: () => void; o
   );
 }
 
-function MonthlyFlow({ income, expenses, savings }: { income: number; expenses: number; savings: number }) {
-  if (income <= 0) return <Empty text="No income found for this month to generate flow." />;
+function MonthlyFlow({
+  income,
+  expenses,
+  savings,
+  accountFlow,
+}: {
+  income: number;
+  expenses: number;
+  savings: number;
+  accountFlow?: AccountFlow;
+}) {
+  if (!accountFlow || accountFlow.accounts.length === 0) {
+    if (income <= 0) return <Empty text="No income found for this month to generate flow." />;
+    return <LegacyMonthlyFlow income={income} expenses={expenses} savings={savings} />;
+  }
 
+  const { accounts, internalTransfers, overall } = accountFlow;
+
+  return (
+    <div style={{ display: 'grid', gap: '20px' }}>
+      {/* Overall Flow Summary Pills */}
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
+          <small style={{ color: '#10b981', display: 'block', fontSize: '11px', fontWeight: 600 }}>Overall External Inbound</small>
+          <strong style={{ fontSize: '16px' }}>{money(overall.totalExternalInbound)}</strong>
+        </div>
+        <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
+          <small style={{ color: '#3b82f6', display: 'block', fontSize: '11px', fontWeight: 600 }}>Internal Transfers Moved</small>
+          <strong style={{ fontSize: '16px' }}>{money(overall.totalInternalTransfers)}</strong>
+        </div>
+        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
+          <small style={{ color: '#ef4444', display: 'block', fontSize: '11px', fontWeight: 600 }}>Overall External Outbound</small>
+          <strong style={{ fontSize: '16px' }}>{money(overall.totalExternalOutbound)}</strong>
+        </div>
+      </div>
+
+      {/* Internal Transfers Diagram List if present */}
+      {internalTransfers.length > 0 && (
+        <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', borderRadius: '12px', padding: '14px 18px' }}>
+          <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)' }}>
+            Internal Account-to-Account Transfer Movements
+          </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '10px' }}>
+            {internalTransfers.map((it, idx) => (
+              <div
+                key={idx}
+                style={{
+                  background: 'var(--background)',
+                  border: '1px solid var(--line)',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <strong>{it.fromAccountName}</strong>
+                <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>⟶</span>
+                <strong>{it.toAccountName}</strong>
+                <span style={{ color: 'var(--muted)', fontSize: '11px', fontWeight: 600 }}>
+                  ({money(it.amount)})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Per Savings Account Flow Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(280px, 1fr))`, gap: '16px' }}>
+        {accounts.map((acc) => (
+          <div
+            key={acc.id}
+            style={{
+              background: 'var(--background-alt)',
+              border: '1px solid var(--line)',
+              borderRadius: '12px',
+              padding: '16px',
+              display: 'grid',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '10px' }}>
+              <div>
+                <strong style={{ fontSize: '14px', display: 'block' }}>{acc.name}</strong>
+                {acc.institution && <small style={{ fontSize: '11px', color: 'var(--muted)' }}>{acc.institution}</small>}
+              </div>
+              <span style={{ fontSize: '10px', background: 'var(--line)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                {acc.type}
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
+              <div style={{ background: 'var(--background)', padding: '10px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                <small style={{ color: '#10b981', display: 'block', fontSize: '10px', fontWeight: 600 }}>Inbound</small>
+                <strong style={{ fontSize: '14px', color: '#10b981' }}>+{money(acc.externalInbound)}</strong>
+                {acc.internalInbound > 0 && (
+                  <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '4px' }}>
+                    + {money(acc.internalInbound)} internal
+                  </div>
+                )}
+              </div>
+
+              <div style={{ background: 'var(--background)', padding: '10px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                <small style={{ color: '#ef4444', display: 'block', fontSize: '10px', fontWeight: 600 }}>Outbound</small>
+                <strong style={{ fontSize: '14px', color: '#ef4444' }}>-{money(acc.externalOutbound)}</strong>
+                {acc.internalOutbound > 0 && (
+                  <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '4px' }}>
+                    - {money(acc.internalOutbound)} internal
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', paddingTop: '4px' }}>
+              <span>Total Inbound: <strong>{money(acc.totalInbound)}</strong></span>
+              <span>Total Outbound: <strong>{money(acc.totalOutbound)}</strong></span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LegacyMonthlyFlow({ income, expenses, savings }: { income: number; expenses: number; savings: number }) {
   const expensePct = Math.min(100, Math.max(0, (expenses / income) * 100));
   const savingsPct = Math.max(0, 100 - expensePct);
 
