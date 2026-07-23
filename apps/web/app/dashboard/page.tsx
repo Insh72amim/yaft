@@ -43,6 +43,8 @@ type Dashboard = {
   expenses: number;
   savings: number;
   savingsRate: number;
+  savingsNetInbound?: number;
+  savingsNetOutbound?: number;
   netWorth: number;
   accounts: Account[];
   spendAnalysis?: {
@@ -199,15 +201,15 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="summary-grid">
+      <section className="summary-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         <article>
           <span className="summary-icon income">
             <ArrowUpRight />
           </span>
           <div>
-            <small>Income</small>
-            <strong>{money(data.income)}</strong>
-            <em>{monthLabel}</em>
+            <small>Savings Net Inbound</small>
+            <strong>{money(data.savingsNetInbound ?? data.income)}</strong>
+            <em>Excl. internal transfers</em>
           </div>
         </article>
         <article>
@@ -215,8 +217,18 @@ export default function DashboardPage() {
             <ArrowDownRight />
           </span>
           <div>
-            <small>Spent</small>
-            <strong>{money(data.expenses)}</strong>
+            <small>Savings Net Outbound</small>
+            <strong>{money(data.savingsNetOutbound ?? data.expenses)}</strong>
+            <em>Excl. internal transfers</em>
+          </div>
+        </article>
+        <article>
+          <span className="summary-icon income">
+            <TrendingUp />
+          </span>
+          <div>
+            <small>Total Income</small>
+            <strong>{money(data.income)}</strong>
             <em>{monthLabel}</em>
           </div>
         </article>
