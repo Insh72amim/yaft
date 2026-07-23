@@ -131,14 +131,15 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
           <h2>{accountName}</h2>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
+          <button className={`secondary compact account-view-button ${!showDocuments ? 'active' : ''}`} aria-pressed={!showDocuments} onClick={() => setShowDocuments(false)}><ReceiptText size={14}/>Schedule</button>
           <button className={`secondary compact account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={14}/>Documents</button>
+          <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
           <button className="danger compact" onClick={() => setDeleteStep(1)}><Trash2/></button>
         </div>
       </header>
 
       {showDocuments ? (
-        <AccountDocuments accountId={accountId} onBack={() => setShowDocuments(false)} />
+        <AccountDocuments accountId={accountId} />
       ) : <><section className="summary-grid account-ledger-summary">
         <article>
           <span className="summary-icon expense"><Landmark/></span>

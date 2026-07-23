@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowLeft,
   Download,
   Eye,
   FileImage,
@@ -201,10 +200,8 @@ function documentBodyOverflow() {
 
 export function AccountDocuments({
   accountId,
-  onBack,
 }: {
   accountId: string;
-  onBack: () => void;
 }) {
   const [documents, setDocuments] = useState<AccountDocument[]>([]);
   const [selected, setSelected] = useState<AccountDocument | null>(null);
@@ -296,9 +293,6 @@ export function AccountDocuments({
             <p>Keep agreements, statements, and supporting images with this account.</p>
           </div>
           <div className="account-documents-header-actions">
-            <button type="button" className="ghost compact" onClick={onBack}>
-              <ArrowLeft size={15} /> Back to account
-            </button>
             <button type="button" className="secondary compact" onClick={() => inputRef.current?.click()} disabled={uploading}>
               {uploading ? <Loader2 className="spin" size={15} /> : <Upload size={15} />}
               {uploading ? "Uploading…" : "Add documents"}

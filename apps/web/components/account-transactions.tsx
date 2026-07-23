@@ -169,20 +169,23 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
       {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         {account.type === 'EPFO' && <button className="secondary" onClick={openAddEpfo}><Plus size={15}/>Add transaction</button>}
         {account.type === 'CREDIT_CARD' && <button className="secondary" onClick={openEditCc}><Settings size={15}/>Edit card</button>}
-        <button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button>
+        {supportsDocuments && <button className={`secondary account-view-button ${!showDocuments ? 'active' : ''}`} aria-pressed={!showDocuments} onClick={() => setShowDocuments(false)}><ReceiptText size={15}/>Transactions</button>}
         {supportsDocuments && <button className={`secondary account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={15}/>Documents</button>}
+        {supportsDocuments && <Link className="secondary" href={`/import?accountId=${account.id}`}>Import statement</Link>}
+        <button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button>
         <button className="danger" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/>Delete or clear</button>
       </div></header>}
       {embedded && <header className={`embedded-header ${isCreditCard ? 'credit-card-embedded-header' : ''}`}><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2>{isCreditCard && <p className="credit-card-embedded-number"><CreditCard size={14}/>{maskedCardNumber}{account.cardNetwork ? <em>{account.cardNetwork}</em> : null}</p>}</div><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         {account.type === 'EPFO' && <button className="secondary compact" onClick={openAddEpfo}><Plus size={14}/>Add</button>}
         {account.type === 'CREDIT_CARD' && <button className="secondary compact" onClick={openEditCc}><Settings size={14}/>Edit</button>}
-        <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
+        {supportsDocuments && <button className={`secondary compact account-view-button ${!showDocuments ? 'active' : ''}`} aria-pressed={!showDocuments} onClick={() => setShowDocuments(false)}><ReceiptText size={14}/>Transactions</button>}
         {supportsDocuments && <button className={`secondary compact account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={14}/>Documents</button>}
         {account.type !== 'EPFO' && <Link className="secondary compact" href={`/import?accountId=${account.id}`}>Import statement</Link>}
+        <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
         <button className="danger compact" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/></button>
       </div></header>}
       {showDocuments ? (
-        <AccountDocuments accountId={account.id} onBack={() => setShowDocuments(false)} />
+        <AccountDocuments accountId={account.id} />
       ) : <>{isCreditCard ? <section className="summary-grid account-ledger-summary credit-card-ledger-summary">
         <article className="credit-card-outstanding"><span className="summary-icon"><CreditCard/></span><div><small>Outstanding</small><strong>{money(cardOutstanding)}</strong><em>Based on reviewed transactions</em></div></article>
         <article><span className="summary-icon saved"><Landmark/></span><div><small>Available credit</small><strong>{availableCredit === null ? 'Not set' : money(availableCredit)}</strong><em>{account.creditLimit == null ? 'Add a credit limit in card settings' : `${money(account.creditLimit)} total limit`}</em></div></article>
