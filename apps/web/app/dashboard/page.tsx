@@ -913,12 +913,16 @@ function MultiBankSankeyDiagram({
     return BANK_COLOR_PALETTE[index % BANK_COLOR_PALETTE.length];
   };
 
-  const BANK_NODE_HEIGHT = 54;
   const BANK_NODE_GAP = 24;
-
-  const totalMiddleH = accounts.length * BANK_NODE_HEIGHT + (accounts.length - 1) * BANK_NODE_GAP;
   const startY = 40;
-  const usableH = Math.max(220, totalMiddleH);
+
+  // Compute bank node bar heights proportional to each bank's transaction volume
+  const bankVolumes = accounts.map((a) => Math.max(a.totalInbound, a.totalOutbound, 1));
+  const totalVolumeSum = bankVolumes.reduce((sum, v) => sum + v, 0) || 1;
+
+  const totalMinHeightNeeded = accounts.length * 38 + (accounts.length - 1) * BANK_NODE_GAP;
+  const usableH = Math.max(340, totalMinHeightNeeded);
+  const availableH = usableH - (accounts.length - 1) * BANK_NODE_GAP;
   const SVG_HEIGHT = usableH + startY * 2;
   const SVG_WIDTH = 1050;
 
@@ -929,15 +933,18 @@ function MultiBankSankeyDiagram({
 
   let currentY = startY;
   const bankNodes = accounts.map((acc, idx) => {
+    const vol = Math.max(acc.totalInbound, acc.totalOutbound, 1);
+    const rawProp = vol / totalVolumeSum;
+    const height = Math.max(38, Math.round(availableH * rawProp));
     const color = getBankColor(idx, acc.name);
     const node = {
       ...acc,
       x: middleX,
       y: currentY,
-      height: BANK_NODE_HEIGHT,
+      height,
       color,
     };
-    currentY += BANK_NODE_HEIGHT + BANK_NODE_GAP;
+    currentY += height + BANK_NODE_GAP;
     return node;
   });
 
@@ -946,7 +953,7 @@ function MultiBankSankeyDiagram({
   let currLeftY = startY;
   const inboundSlices = bankNodes.map((bank) => {
     const share = (bank.externalInbound || 0) / sumInbound;
-    const sliceH = Math.max(8, share * usableH);
+    const sliceH = Math.max(6, share * usableH);
     const topY = currLeftY;
     const botY = topY + sliceH;
     currLeftY += sliceH;
@@ -958,7 +965,7 @@ function MultiBankSankeyDiagram({
   let currRightY = startY;
   const outboundSlices = bankNodes.map((bank) => {
     const share = (bank.externalOutbound || 0) / sumOutbound;
-    const sliceH = Math.max(8, share * usableH);
+    const sliceH = Math.max(6, share * usableH);
     const topY = currRightY;
     const botY = topY + sliceH;
     currRightY += sliceH;
@@ -1007,7 +1014,7 @@ function MultiBankSankeyDiagram({
         {inboundSlices.map(({ bank, topY, botY }) => (
           <path
             key={`in-${bank.id}`}
-            d={sankeyLink(leftX + nodeW, topY, botY, bank.x, bank.y + 4, bank.y + bank.height - 4)}
+            d={sankeyLink(leftX + nodeW, topY, botY, bank.x, bank.y + 2, bank.y + Math.max(6, bank.height * 0.45))}
             fill={`url(#grad-in-${bank.id})`}
             opacity="0.35"
             className="sankey-path hover-opacity"
@@ -1018,7 +1025,7 @@ function MultiBankSankeyDiagram({
         {outboundSlices.map(({ bank, topY, botY }) => (
           <path
             key={`out-${bank.id}`}
-            d={sankeyLink(bank.x + nodeW, bank.y + 4, bank.y + bank.height - 4, rightX, topY, botY)}
+            d={sankeyLink(bank.x + nodeW, bank.y + Math.max(6, bank.height * 0.45), bank.y + bank.height - 2, rightX, topY, botY)}
             fill={`url(#grad-out-${bank.id})`}
             opacity="0.35"
             className="sankey-path hover-opacity"
@@ -1063,14 +1070,14 @@ function MultiBankSankeyDiagram({
           +{money(overall.totalExternalInbound)}
         </text>
 
-        {/* Middle Nodes: Individual Bank Accounts */}
+        {/* Middle Nodes: Individual Bank Accounts (Proportional Heights) */}
         {bankNodes.map((bank) => (
           <g key={`node-${bank.id}`}>
             <rect x={bank.x} y={bank.y} width={nodeW} height={bank.height} fill={bank.color} rx="4" />
-            <text x={bank.x + nodeW + 12} y={bank.y + 20} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+            <text x={bank.x + nodeW + 12} y={bank.y + Math.min(22, bank.height / 2)} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
               {bank.name}
             </text>
-            <text x={bank.x + nodeW + 12} y={bank.y + 38} fill="var(--muted)" fontSize="11" fontWeight="500" textAnchor="start">
+            <text x={bank.x + nodeW + 12} y={bank.y + Math.min(38, bank.height / 2 + 16)} fill="var(--muted)" fontSize="11" fontWeight="500" textAnchor="start">
               In: {money(bank.totalInbound)} · Out: {money(bank.totalOutbound)}
             </text>
           </g>
