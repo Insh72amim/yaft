@@ -238,22 +238,31 @@ export function VaultModal({
       </div>
 
       <div className="wallet-card-footer">
-        {isCard && hasVault && account.vault?.cardExpiryMm && account.vault?.cardExpiryYy && (
-          <div className="wallet-card-meta">
-            <small>VALID THRU</small>
-            <span>{String(account.vault.cardExpiryMm).padStart(2, '0')}/{String(account.vault.cardExpiryYy)}</span>
+        {isCard && hasVault && (
+          <div className="wallet-card-details">
+            {account.vault?.cardExpiryMm && account.vault?.cardExpiryYy && (
+              <div className="wallet-card-meta">
+                <small>VALID THRU</small>
+                <span>{String(account.vault.cardExpiryMm).padStart(2, '0')}/{String(account.vault.cardExpiryYy)}</span>
+              </div>
+            )}
+            {account.vault?.hasCvv && (
+              <div className={`wallet-card-cvv-panel ${revealed?.cvv ? 'revealed' : ''}`}>
+                <small>SECURITY CODE</small>
+                <span className="wallet-card-cvv">
+                  <b aria-label={revealed?.cvv ? undefined : 'CVV hidden'}>
+                    {revealed?.cvv || '•••'}
+                  </b>
+                  {revealed?.cvv && <CopyButton value={revealed.cvv} />}
+                </span>
+              </div>
+            )}
           </div>
         )}
         {isBank && hasVault && account.vault?.ifsc && (
           <div className="wallet-card-meta">
             <small>IFSC</small>
             <span>{account.vault.ifsc}</span>
-          </div>
-        )}
-        {isCard && revealed?.cvv && (
-          <div className="wallet-card-meta">
-            <small>CVV</small>
-            <span className="wallet-card-cvv">{revealed.cvv}<CopyButton value={revealed.cvv} /></span>
           </div>
         )}
 
