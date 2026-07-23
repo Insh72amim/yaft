@@ -194,8 +194,8 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         <article><span className="summary-icon saved"><Landmark/></span><div><small>Available credit</small><strong>{availableCredit === null ? 'Not set' : money(availableCredit)}</strong><em>{account.creditLimit == null ? 'Add a credit limit in card settings' : `${money(account.creditLimit)} total limit`}</em></div></article>
         <article><span className="summary-icon expense"><CalendarDays/></span><div><small>Billing cycle</small><strong>{account.statementDay ? `Day ${account.statementDay}` : 'Not set'}</strong><em>{account.dueDay ? `Payment due on day ${account.dueDay}` : 'Payment due day not set'}</em></div></article>
       </section> : <section className="summary-grid account-ledger-summary">
-        <article><span className="summary-icon income"><Landmark/></span><div><small>Current balance</small><strong>{money(account.balance)}</strong>={account.currency}</div></article>
-        <article><span className="summary-icon saved"><CalendarDays/></span><div><small>Opening balance</small><strong>{money(account.openingBalance)}</strong>={account.currency}</div></article>
+        <article><span className="summary-icon income"><Landmark/></span><div><small>Current balance</small><strong>{money(account.balance)}</strong></div></article>
+        <article><span className="summary-icon saved"><CalendarDays/></span><div><small>Opening balance</small><strong>{money(account.openingBalance)}</strong></div></article>
         <article><span className="summary-icon expense"><ReceiptText/></span><div><small>Transactions</small><strong>{pagination.total.toLocaleString('en-IN')}</strong><em>Reviewed ledger entries</em></div></article>
       </section>}
       <section className="panel account-ledger-panel">
