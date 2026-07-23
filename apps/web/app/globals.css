@@ -1353,20 +1353,17 @@ html[data-theme='dark'] .pdf-viewer-body {
 html[data-theme='dark'] .account-document-icon.pdf{color:#fb923c;background:#3a1c1a}html[data-theme='dark'] .account-document-icon.image{color:#60a5fa;background:#172554}html[data-theme='dark'] .account-document-delete:hover:not(:disabled),html[data-theme='dark'] .account-document-viewer-controls .viewer-close:hover{background:#3a1c1a}html[data-theme='dark'] .account-document-viewer-body{background:#0f1712}
 @media(max-width:700px){.account-documents-panel>header{align-items:stretch;flex-direction:column}.account-documents-panel>header .secondary{justify-content:center}.account-document-row{grid-template-columns:auto minmax(0,1fr);padding:13px 16px}.account-document-actions{grid-column:1/-1;justify-content:flex-end}.account-document-viewer-wrap{padding:0}.account-document-viewer{width:100vw;height:100vh;border:0;border-radius:0}.account-document-viewer-header{align-items:flex-start;padding:11px 12px}.account-document-viewer-title small{display:none}.account-document-viewer-controls{gap:3px}.account-document-viewer-controls button{width:29px;height:29px}.account-document-viewer-controls>span{min-width:36px}.account-document-viewer-controls i,.account-document-viewer-controls button:nth-of-type(4){display:none}}
 
-.account-documents-library-wrap .backdrop {
-  background: rgba(10, 24, 18, 0.55);
-  backdrop-filter: blur(4px);
-}
-.account-documents-library-modal {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  width: min(860px, 95vw);
-  max-height: min(82vh, 760px);
+.account-documents-page {
   padding: 0;
   overflow: hidden;
-  background: var(--card);
-  border: 1px solid var(--line);
+  min-height: 260px;
+}
+.account-view-button.active,
+.account-view-button.active:hover {
+  border-color: var(--green);
+  background: var(--green);
+  color: white;
+  box-shadow: 0 6px 16px var(--theme-shadow-color);
 }
 .account-documents-header-actions {
   display: flex;
@@ -1374,46 +1371,13 @@ html[data-theme='dark'] .account-document-icon.pdf{color:#fb923c;background:#3a1
   gap: 8px;
   flex: none;
 }
-.account-documents-close {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--card);
-  color: var(--muted);
-  cursor: pointer;
-}
-.account-documents-close:hover {
-  border-color: #fca5a5;
-  background: #fff0ee;
-  color: #dc2626;
-}
-.account-documents-library-modal .account-document-list {
-  min-height: 0;
-  overflow: auto;
-}
-.account-documents-library-modal .account-documents-empty {
-  flex: 1;
-}
 .account-document-viewer-wrap {
   z-index: 60;
 }
-html[data-theme='dark'] .account-documents-close:hover {
-  background: #3a1c1a;
-}
 @media(max-width:700px) {
-  .account-documents-library-wrap {
-    padding: 10px;
-  }
-  .account-documents-library-modal {
-    width: 100%;
-    max-height: calc(100vh - 20px);
-  }
   .account-documents-header-actions {
     width: 100%;
+    flex-wrap: wrap;
   }
   .account-documents-header-actions .secondary {
     flex: 1;

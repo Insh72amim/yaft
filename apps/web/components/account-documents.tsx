@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowLeft,
   Download,
   Eye,
   FileImage,
@@ -198,12 +199,12 @@ function documentBodyOverflow() {
   return typeof window === "undefined" ? "" : window.document.body.style.overflow;
 }
 
-export function AccountDocumentsModal({
+export function AccountDocuments({
   accountId,
-  onClose,
+  onBack,
 }: {
   accountId: string;
-  onClose: () => void;
+  onBack: () => void;
 }) {
   const [documents, setDocuments] = useState<AccountDocument[]>([]);
   const [selected, setSelected] = useState<AccountDocument | null>(null);
@@ -213,7 +214,6 @@ export function AccountDocumentsModal({
   const [downloadingId, setDownloadingId] = useState("");
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -230,20 +230,6 @@ export function AccountDocumentsModal({
     setLoading(true);
     void load();
   }, [load]);
-
-  useEffect(() => {
-    const previousOverflow = documentBodyOverflow();
-    window.document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !selected) onClose();
-    };
-    window.document.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.document.body.style.overflow = previousOverflow;
-      window.document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [onClose, selected]);
 
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -302,13 +288,7 @@ export function AccountDocumentsModal({
   };
 
   return (
-    <div className="modal-wrap account-documents-library-wrap">
-      <button className="backdrop" onClick={onClose} aria-label="Close documents" />
-      <section
-        className="modal account-documents-library-modal account-documents-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="account-documents-heading">
+      <section className="panel account-documents-panel account-documents-page" aria-labelledby="account-documents-heading">
         <header>
           <div>
             <span className="eyebrow">Account files</span>
@@ -316,12 +296,12 @@ export function AccountDocumentsModal({
             <p>Keep agreements, statements, and supporting images with this account.</p>
           </div>
           <div className="account-documents-header-actions">
+            <button type="button" className="ghost compact" onClick={onBack}>
+              <ArrowLeft size={15} /> Back to account
+            </button>
             <button type="button" className="secondary compact" onClick={() => inputRef.current?.click()} disabled={uploading}>
               {uploading ? <Loader2 className="spin" size={15} /> : <Upload size={15} />}
               {uploading ? "Uploading…" : "Add documents"}
-            </button>
-            <button ref={closeButtonRef} type="button" className="account-documents-close" onClick={onClose} aria-label="Close documents">
-              <X size={17} />
             </button>
             <input
               ref={inputRef}
@@ -383,6 +363,5 @@ export function AccountDocumentsModal({
         )}
         {selected && <DocumentViewer accountId={accountId} document={selected} onClose={() => setSelected(null)} />}
       </section>
-    </div>
   );
 }

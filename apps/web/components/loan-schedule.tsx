@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 import { VaultModal } from '@/components/vault-modal';
-import { AccountDocumentsModal } from '@/components/account-documents';
+import { AccountDocuments } from '@/components/account-documents';
 
 type LoanDetail = {
   loan: { id: string; startDate: string; principal: number; interestRate: number; emiAmount: number; emiDay: number; termMonths: number };
@@ -34,6 +34,7 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
   }, [accountId, router]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setShowDocuments(false); }, [accountId]);
 
   const confirmPayment = async (installmentId: string) => {
     setConfirmingId(installmentId);
@@ -131,12 +132,14 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
-          <button className="secondary compact" onClick={() => setShowDocuments(true)}><Files size={14}/>Documents</button>
+          <button className={`secondary compact account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={14}/>Documents</button>
           <button className="danger compact" onClick={() => setDeleteStep(1)}><Trash2/></button>
         </div>
       </header>
 
-      <section className="summary-grid account-ledger-summary">
+      {showDocuments ? (
+        <AccountDocuments accountId={accountId} onBack={() => setShowDocuments(false)} />
+      ) : <><section className="summary-grid account-ledger-summary">
         <article>
           <span className="summary-icon expense"><Landmark/></span>
           <div>
@@ -206,6 +209,7 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
           ))}
         </div>
       </section>
+      </>}
 
       {deleteStep > 0 && (
         <div className="modal-wrap">
@@ -254,7 +258,6 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
         </div>
       )}
       {showVault && <VaultModal accountId={accountId} onClose={() => setShowVault(false)} />}
-      {showDocuments && <AccountDocumentsModal accountId={accountId} onClose={() => setShowDocuments(false)} />}
     </div>
   );
 }
