@@ -46,6 +46,7 @@ type AccountFlow = {
     institution: string | null;
     externalInbound: number;
     externalOutbound: number;
+    investments?: number;
     internalInbound: number;
     internalOutbound: number;
     totalInbound: number;
@@ -61,6 +62,7 @@ type AccountFlow = {
   overall: {
     totalExternalInbound: number;
     totalExternalOutbound: number;
+    totalInvestments?: number;
     totalInternalTransfers: number;
   };
 };
@@ -1102,6 +1104,12 @@ function MonthlyFlow({
           <small style={{ color: '#3b82f6', display: 'block', fontSize: '11px', fontWeight: 600 }}>Internal Transfers Moved</small>
           <strong style={{ fontSize: '16px' }}>{money(overall.totalInternalTransfers)}</strong>
         </div>
+        {overall.totalInvestments !== undefined && overall.totalInvestments > 0 && (
+          <div style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
+            <small style={{ color: '#8b5cf6', display: 'block', fontSize: '11px', fontWeight: 600 }}>Mutual Funds & SIP Investments</small>
+            <strong style={{ fontSize: '16px' }}>{money(overall.totalInvestments)}</strong>
+          </div>
+        )}
         <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
           <small style={{ color: '#ef4444', display: 'block', fontSize: '11px', fontWeight: 600 }}>Overall External Outbound</small>
           <strong style={{ fontSize: '16px' }}>{money(overall.totalExternalOutbound)}</strong>
@@ -1285,15 +1293,39 @@ function MultiBankSankeyDiagram({
     return { bank, topY, botY };
   });
 
-  // Calculate Right Bar Outbound Slices
+  // Calculate Right Bar Slices: External Outbound vs Mutual Funds & Investments
+  const hasInvestments = (overall.totalInvestments || 0) > 0;
+  const totalRightSum = (overall.totalExternalOutbound || 0) + (overall.totalInvestments || 0) || 1;
+
+  const outboundNodeH = hasInvestments
+    ? Math.max(30, Math.round(usableH * ((overall.totalExternalOutbound || 0) / totalRightSum)))
+    : usableH;
+  const investmentNodeH = hasInvestments
+    ? Math.max(30, usableH - outboundNodeH - 20)
+    : 0;
+
+  const outboundRightY = startY;
+  const investmentRightY = startY + outboundNodeH + 20;
+
   const sumOutbound = accounts.reduce((sum, a) => sum + (a.externalOutbound || 0), 0) || 1;
-  let currRightY = startY;
+  let currRightY = outboundRightY;
   const outboundSlices = bankNodes.map((bank) => {
     const share = (bank.externalOutbound || 0) / sumOutbound;
-    const sliceH = Math.max(6, share * usableH);
+    const sliceH = Math.max(4, share * outboundNodeH);
     const topY = currRightY;
     const botY = topY + sliceH;
     currRightY += sliceH;
+    return { bank, topY, botY };
+  });
+
+  const sumInvestments = accounts.reduce((sum, a) => sum + (a.investments || 0), 0) || 1;
+  let currInvY = investmentRightY;
+  const investmentSlices = bankNodes.map((bank) => {
+    const share = (bank.investments || 0) / sumInvestments;
+    const sliceH = Math.max(4, share * investmentNodeH);
+    const topY = currInvY;
+    const botY = topY + sliceH;
+    currInvY += sliceH;
     return { bank, topY, botY };
   });
 
@@ -1333,6 +1365,13 @@ function MultiBankSankeyDiagram({
               <stop offset="100%" stopColor="#ef4444" />
             </linearGradient>
           ))}
+
+          {bankNodes.map((bank) => (
+            <linearGradient key={`grad-inv-${bank.id}`} id={`grad-inv-${bank.id}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={bank.color} />
+              <stop offset="100%" stopColor="#8b5cf6" />
+            </linearGradient>
+          ))}
         </defs>
 
         {/* 1. Inbound Bezier Ribbons from Left Bar to Bank Nodes */}
@@ -1362,7 +1401,7 @@ function MultiBankSankeyDiagram({
           );
         })}
 
-        {/* 2. Outbound Bezier Ribbons from Bank Nodes to Right Bar */}
+        {/* 2. Outbound Bezier Ribbons from Bank Nodes to Right Bar (Expenses) */}
         {outboundSlices.map(({ bank, topY, botY }) => {
           const midX = (bank.x + nodeW + rightX) / 2;
           const midY = (bank.y + Math.max(6, bank.height * 0.45) + topY) / 2;
@@ -1388,6 +1427,35 @@ function MultiBankSankeyDiagram({
             </path>
           );
         })}
+
+        {/* 2b. Investment Bezier Ribbons from Bank Nodes to Mutual Funds & Investments */}
+        {hasInvestments &&
+          investmentSlices.map(({ bank, topY, botY }) => {
+            if (!bank.investments) return null;
+            const midX = (bank.x + nodeW + rightX) / 2;
+            const midY = (bank.y + Math.max(6, bank.height * 0.45) + topY) / 2;
+            return (
+              <path
+                key={`inv-${bank.id}`}
+                d={sankeyLink(bank.x + nodeW, bank.y + Math.max(6, bank.height * 0.3), bank.y + bank.height * 0.7, rightX, topY, botY)}
+                fill={`url(#grad-inv-${bank.id})`}
+                opacity="0.45"
+                className="sankey-path hover-opacity"
+                onMouseEnter={() =>
+                  setHoveredFlow({
+                    title: `${bank.name} ⟶ Mutual Funds & Investments`,
+                    amount: `+${money(bank.investments || 0)}`,
+                    x: midX,
+                    y: midY,
+                    color: '#8b5cf6',
+                  })
+                }
+                onMouseLeave={() => setHoveredFlow(null)}
+              >
+                <title>{`${bank.name} ⟶ Mutual Funds & Investments: +${money(bank.investments || 0)}`}</title>
+              </path>
+            );
+          })}
 
         {/* 3. Internal Transfer Bezier Curves & Badges */}
         {internalTransfers.map((it, idx) => {
@@ -1440,14 +1508,27 @@ function MultiBankSankeyDiagram({
           </g>
         ))}
 
-        {/* Right Node: External Outbound */}
-        <rect x={rightX} y={startY} width={nodeW} height={usableH} fill="#ef4444" rx="4" />
-        <text x={rightX + nodeW + 14} y={startY + usableH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+        {/* Right Node 1: External Outbound */}
+        <rect x={rightX} y={outboundRightY} width={nodeW} height={outboundNodeH} fill="#ef4444" rx="4" />
+        <text x={rightX + nodeW + 14} y={outboundRightY + outboundNodeH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
           External Outbound
         </text>
-        <text x={rightX + nodeW + 14} y={startY + usableH / 2 + 12} fill="#ef4444" fontSize="13" fontWeight="600" textAnchor="start">
+        <text x={rightX + nodeW + 14} y={outboundRightY + outboundNodeH / 2 + 12} fill="#ef4444" fontSize="13" fontWeight="600" textAnchor="start">
           -{money(overall.totalExternalOutbound)}
         </text>
+
+        {/* Right Node 2: Mutual Funds & Investments */}
+        {hasInvestments && (
+          <g>
+            <rect x={rightX} y={investmentRightY} width={nodeW} height={investmentNodeH} fill="#8b5cf6" rx="4" />
+            <text x={rightX + nodeW + 14} y={investmentRightY + investmentNodeH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+              Mutual Funds & Investments
+            </text>
+            <text x={rightX + nodeW + 14} y={investmentRightY + investmentNodeH / 2 + 12} fill="#8b5cf6" fontSize="13" fontWeight="600" textAnchor="start">
+              +{money(overall.totalInvestments || 0)}
+            </text>
+          </g>
+        )}
 
         {/* 5. Floating Interactive Hover Tooltip */}
         {hoveredFlow && (

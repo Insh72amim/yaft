@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files, Pencil, Trash, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -7,6 +7,7 @@ import { Shell } from '@/components/shell';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 import { VaultModal } from '@/components/vault-modal';
 import { AccountDocuments } from '@/components/account-documents';
+import { SipModal, type Sip } from '@/components/sip-modal';
 
 type AccountLedger = {
   account: { id: string; name: string; type: string; institution: string | null; currency: string; openingBalance: number; balance: number;
@@ -210,6 +211,11 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         <article><span className="summary-icon saved"><CalendarDays/></span><div><small>Opening balance</small><strong>{money(account.openingBalance)}</strong></div></article>
         <article><span className="summary-icon expense"><ReceiptText/></span><div><small>Transactions</small><strong>{pagination.total.toLocaleString('en-IN')}</strong><em>Reviewed ledger entries</em></div></article>
       </section>}
+
+      {['STOCKS', 'INVESTMENT', 'SAVINGS', 'BANK'].includes(account.type) && (
+        <ActiveSipsPanel accountId={account.id} />
+      )}
+
       <section className="panel account-ledger-panel">
         <div className="panel-title"><div><span className="eyebrow">Full history</span><h2>Transactions</h2></div>{pagination.total > 0 && <span className="month-pill">{(pagination.page - 1) * pagination.pageSize + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total}</span>}</div>
 
@@ -374,4 +380,144 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   );
 
   return embedded ? content : <Shell>{content}</Shell>;
+}
+
+function ActiveSipsPanel({ accountId }: { accountId: string }) {
+  const [sips, setSips] = useState<Sip[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingSip, setEditingSip] = useState<Sip | null>(null);
+
+  const loadSips = useCallback(() => {
+    setLoading(true);
+    api<Sip[]>(`/investments/sips?accountId=${accountId}`)
+      .then((res) => {
+        setSips(res || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [accountId]);
+
+  useEffect(() => {
+    loadSips();
+  }, [loadSips]);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this active SIP?')) return;
+    try {
+      await api(`/investments/sips/${id}`, { method: 'DELETE' });
+      loadSips();
+    } catch (err) {
+      alert(errorMessage(err, 'Failed to delete SIP.'));
+    }
+  };
+
+  return (
+    <section className="panel" style={{ marginBottom: '20px' }}>
+      <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <span className="eyebrow" style={{ color: '#10b981' }}>Automated Investments</span>
+          <h2>Active SIPs</h2>
+        </div>
+        <button
+          type="button"
+          className="secondary compact"
+          onClick={() => {
+            setEditingSip(null);
+            setShowModal(true);
+          }}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <Plus size={14} /> Add Active SIP
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>Loading active SIPs...</div>
+      ) : sips.length ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', marginTop: '12px' }}>
+          {sips.map((sip) => (
+            <div
+              key={sip.id}
+              style={{
+                background: 'var(--background-alt)',
+                borderRadius: '10px',
+                padding: '14px 16px',
+                border: '1px solid var(--line)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                  <strong style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>{sip.name}</strong>
+                  <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '12px', background: '#d1fae5', color: '#065f46', fontWeight: 700 }}>
+                    {sip.status}
+                  </span>
+                </div>
+                {sip.folioNumber && <small style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '8px' }}>Folio: {sip.folioNumber}</small>}
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#10b981', margin: '4px 0 8px 0' }}>
+                  {money(sip.amount)} <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--muted)' }}>/ {sip.frequency.toLowerCase()}</span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--ink)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span>Debit Day: <strong>{sip.sipDay}th</strong> of month</span>
+                  <span>
+                    Source Account:{' '}
+                    <strong>{sip.sourceAccountName ? `${sip.sourceAccountName}${sip.sourceAccountLast4 ? ` (•••• ${sip.sourceAccountLast4})` : ''}` : 'Not linked'}</strong>
+                  </span>
+                  {sip.billerKeyword && <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Keyword: {sip.billerKeyword}</span>}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid var(--line)' }}>
+                <button
+                  type="button"
+                  className="ghost compact"
+                  style={{ fontSize: '12px', padding: '4px 8px' }}
+                  onClick={() => {
+                    setEditingSip(sip);
+                    setShowModal(true);
+                  }}
+                >
+                  <Pencil size={12} /> Edit
+                </button>
+                <button
+                  type="button"
+                  className="ghost compact"
+                  style={{ fontSize: '12px', padding: '4px 8px', color: '#ef4444' }}
+                  onClick={() => handleDelete(sip.id)}
+                >
+                  <Trash size={12} /> Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ padding: '20px', textAlign: 'center', background: 'var(--background-alt)', borderRadius: '8px', border: '1px dashed var(--line)', marginTop: '12px' }}>
+          <TrendingUp size={24} color="#10b981" style={{ marginBottom: '6px' }} />
+          <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: 'var(--muted)' }}>No active SIPs added for this account yet.</p>
+          <button
+            type="button"
+            className="secondary compact"
+            onClick={() => {
+              setEditingSip(null);
+              setShowModal(true);
+            }}
+          >
+            <Plus size={14} /> Add Active SIP
+          </button>
+        </div>
+      )}
+
+      {showModal && (
+        <SipModal
+          accountId={accountId}
+          sip={editingSip}
+          onClose={() => setShowModal(false)}
+          onSaved={loadSips}
+        />
+      )}
+    </section>
+  );
 }

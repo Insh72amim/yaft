@@ -90,6 +90,7 @@ export class DashboardController {
         institution: string | null;
         externalInbound: number;
         externalOutbound: number;
+        investments: number;
         internalInbound: number;
         internalOutbound: number;
       }
@@ -103,6 +104,7 @@ export class DashboardController {
         institution: acc.institution,
         externalInbound: 0,
         externalOutbound: 0,
+        investments: 0,
         internalInbound: 0,
         internalOutbound: 0,
       });
@@ -161,21 +163,30 @@ export class DashboardController {
         if (tx.amount > 0) {
           accFlow.externalInbound += amt;
         } else {
-          accFlow.externalOutbound += amt;
+          const isInvestmentCategory = tx.category?.name && /INVEST|MUTUAL|SIP|STOCK|BROKER/i.test(tx.category.name);
+          const isInvestmentKeyword = /MUTUAL|FUND|ZERODHA|GROWW|BSE|NSE|SGB|NPS|INDIABULLS|ICICI PRUDENTIAL|MF CENTRAL|RAZORPAY MF/i.test(tx.descriptionRaw);
+          if (isInvestmentCategory || isInvestmentKeyword) {
+            accFlow.investments += amt;
+          } else {
+            accFlow.externalOutbound += amt;
+          }
         }
       }
     });
+
+    const totalInvestments = [...savingsMap.values()].reduce((sum, acc) => sum + acc.investments, 0);
 
     const accountFlowData = {
       accounts: [...savingsMap.values()].map((acc) => ({
         ...acc,
         totalInbound: acc.externalInbound + acc.internalInbound,
-        totalOutbound: acc.externalOutbound + acc.internalOutbound,
+        totalOutbound: acc.externalOutbound + acc.investments + acc.internalOutbound,
       })),
       internalTransfers: internalTransfersList,
       overall: {
         totalExternalInbound: savingsNetInbound,
-        totalExternalOutbound: savingsNetOutbound,
+        totalExternalOutbound: Math.max(0, savingsNetOutbound - totalInvestments),
+        totalInvestments,
         totalInternalTransfers: internalTransfersList.reduce((sum, item) => sum + item.amount, 0),
       },
     };
