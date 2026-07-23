@@ -774,7 +774,7 @@ function MonthlyFlow({
   const { accounts, internalTransfers, overall } = accountFlow;
 
   return (
-    <div style={{ display: 'grid', gap: '20px' }}>
+    <div style={{ display: 'grid', gap: '24px' }}>
       {/* Overall Flow Summary Pills */}
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
@@ -789,6 +789,14 @@ function MonthlyFlow({
           <small style={{ color: '#ef4444', display: 'block', fontSize: '11px', fontWeight: 600 }}>Overall External Outbound</small>
           <strong style={{ fontSize: '16px' }}>{money(overall.totalExternalOutbound)}</strong>
         </div>
+      </div>
+
+      {/* Multi-Bank Visual Sankey Diagram */}
+      <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px' }}>
+        <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '12px' }}>
+          Multi-Bank Cash Flow & Internal Transfer Sankey Diagram
+        </span>
+        <MultiBankSankeyDiagram accountFlow={accountFlow} income={income} expenses={expenses} savings={savings} />
       </div>
 
       {/* Internal Transfers Diagram List if present */}
@@ -880,6 +888,183 @@ function MonthlyFlow({
     </div>
   );
 }
+
+function MultiBankSankeyDiagram({
+  accountFlow,
+  income,
+  expenses,
+  savings,
+}: {
+  accountFlow: AccountFlow;
+  income: number;
+  expenses: number;
+  savings: number;
+}) {
+  const { accounts, internalTransfers, overall } = accountFlow;
+
+  const totalInbound = Math.max(1, overall.totalExternalInbound || income);
+  const totalOutbound = Math.max(1, overall.totalExternalOutbound || expenses);
+
+  const SVG_WIDTH = 1000;
+  const SVG_HEIGHT = Math.max(380, accounts.length * 90 + 80);
+  const startY = 50;
+  const usableH = SVG_HEIGHT - 100;
+
+  const leftX = 140;
+  const middleX = 500;
+  const rightX = 840;
+  const nodeW = 16;
+
+  const bankGap = 24;
+  const availableH = usableH - (accounts.length - 1) * bankGap;
+
+  let currentY = startY;
+  const bankNodes = accounts.map((acc) => {
+    const prop = (acc.totalInbound || 1) / totalInbound;
+    const height = Math.max(42, availableH * prop);
+    const node = {
+      ...acc,
+      x: middleX,
+      y: currentY,
+      height,
+    };
+    currentY += height + bankGap;
+    return node;
+  });
+
+  const sankeyLink = (x1: number, y1Top: number, y1Bot: number, x2: number, y2Top: number, y2Bot: number) => {
+    const cp = (x2 - x1) * 0.45;
+    return `
+      M ${x1} ${y1Top}
+      C ${x1 + cp} ${y1Top}, ${x2 - cp} ${y2Top}, ${x2} ${y2Top}
+      L ${x2} ${y2Bot}
+      C ${x2 - cp} ${y2Bot}, ${x1 + cp} ${y1Bot}, ${x1} ${y1Bot}
+      Z
+    `;
+  };
+
+  const internalLoopPath = (fromY: number, toY: number) => {
+    const cpX = middleX - 70;
+    return `
+      M ${middleX} ${fromY}
+      C ${cpX} ${fromY}, ${cpX} ${toY}, ${middleX} ${toY}
+    `;
+  };
+
+  return (
+    <div className="beautiful-flow-wrapper" style={{ padding: '0', border: 'none', background: 'transparent' }}>
+      <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="beautiful-flow-svg" style={{ overflow: 'visible' }}>
+        <defs>
+          <linearGradient id="sankey-inbound" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#10b981" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+          <linearGradient id="sankey-outbound-spent" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#ef4444" />
+          </linearGradient>
+        </defs>
+
+        {/* 1. Inbound Bezier Ribbons from Left (External Inbound) to Middle (Bank Nodes) */}
+        {bankNodes.map((bank) => {
+          const inProp = (bank.externalInbound || 1) / totalInbound;
+          const ribbonH = Math.max(4, usableH * inProp);
+          return (
+            <path
+              key={`in-${bank.id}`}
+              d={sankeyLink(leftX + nodeW, startY, startY + ribbonH, bank.x, bank.y, bank.y + Math.max(4, bank.height * 0.4))}
+              fill="url(#sankey-inbound)"
+              opacity="0.28"
+              className="sankey-path hover-opacity"
+            />
+          );
+        })}
+
+        {/* 2. Outbound Bezier Ribbons from Middle (Bank Nodes) to Right (Outbound) */}
+        {bankNodes.map((bank) => {
+          const outProp = (bank.externalOutbound || 1) / totalOutbound;
+          const ribbonH = Math.max(4, usableH * outProp);
+          return (
+            <path
+              key={`out-${bank.id}`}
+              d={sankeyLink(bank.x + nodeW, bank.y + bank.height * 0.5, bank.y + bank.height, rightX, startY, startY + ribbonH)}
+              fill="url(#sankey-outbound-spent)"
+              opacity="0.28"
+              className="sankey-path hover-opacity"
+            />
+          );
+        })}
+
+        {/* 3. Internal Transfer Bezier Curves between Bank Nodes */}
+        {internalTransfers.map((it, idx) => {
+          const fromNode = bankNodes.find((b) => b.id === it.fromAccountId);
+          const toNode = bankNodes.find((b) => b.id === it.toAccountId);
+          if (!fromNode || !toNode) return null;
+
+          const fromY = fromNode.y + fromNode.height / 2;
+          const toY = toNode.y + toNode.height / 2;
+
+          return (
+            <g key={`it-${idx}`}>
+              <path
+                d={internalLoopPath(fromY, toY)}
+                fill="none"
+                stroke="#3b82f6"
+                strokeWidth="3"
+                strokeDasharray="5,5"
+                opacity="0.75"
+              />
+              <text x={middleX - 85} y={(fromY + toY) / 2} fill="#3b82f6" fontSize="11" fontWeight="700" textAnchor="end">
+                {money(it.amount)} ⟵
+              </text>
+            </g>
+          );
+        })}
+
+        {/* 4. Node Rectangles & Labels */}
+        {/* Left Node: External Inbound */}
+        <rect x={leftX} y={startY} width={nodeW} height={usableH} fill="#10b981" rx="4" />
+        <text x={leftX - 14} y={startY + usableH / 2 - 10} fill="var(--ink)" fontSize="16" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="end">
+          External Inbound
+        </text>
+        <text x={leftX - 14} y={startY + usableH / 2 + 12} fill="#10b981" fontSize="14" fontWeight="600" textAnchor="end">
+          +{money(overall.totalExternalInbound)}
+        </text>
+
+        {/* Middle Nodes: Individual Savings/Bank Accounts */}
+        {bankNodes.map((bank) => (
+          <g key={`node-${bank.id}`}>
+            <rect x={bank.x} y={bank.y} width={nodeW} height={bank.height} fill="#3b82f6" rx="4" />
+            <text x={bank.x + nodeW + 12} y={bank.y + bank.height / 2 - 8} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+              {bank.name}
+            </text>
+            <text x={bank.x + nodeW + 12} y={bank.y + bank.height / 2 + 10} fill="var(--muted)" fontSize="12" fontWeight="500" textAnchor="start">
+              In: {money(bank.totalInbound)} · Out: {money(bank.totalOutbound)}
+            </text>
+          </g>
+        ))}
+
+        {/* Right Node: Outbound */}
+        <rect x={rightX} y={startY} width={nodeW} height={usableH} fill="#ef4444" rx="4" />
+        <text x={rightX + nodeW + 14} y={startY + usableH / 2 - 10} fill="var(--ink)" fontSize="16" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+          External Outbound
+        </text>
+        <text x={rightX + nodeW + 14} y={startY + usableH / 2 + 12} fill="#ef4444" fontSize="14" fontWeight="600" textAnchor="start">
+          -{money(overall.totalExternalOutbound)}
+        </text>
+      </svg>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        .hover-opacity { transition: opacity 0.2s ease-in-out; }
+        .hover-opacity:hover { opacity: 0.6; }
+      `,
+        }}
+      />
+    </div>
+  );
+}
+
 
 function LegacyMonthlyFlow({ income, expenses, savings }: { income: number; expenses: number; savings: number }) {
   const expensePct = Math.min(100, Math.max(0, (expenses / income) * 100));
