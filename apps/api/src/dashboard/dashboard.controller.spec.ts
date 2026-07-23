@@ -85,5 +85,13 @@ describe('DashboardController portfolio valuation', () => {
 
     expect(result.savingsNetInbound).toBe(1000000);
     expect(result.savingsNetOutbound).toBe(50000);
+    expect(result.accountFlow).toBeDefined();
+    expect(result.accountFlow.accounts).toHaveLength(2);
+    expect(result.accountFlow.internalTransfers).toHaveLength(1);
+    expect(result.accountFlow.internalTransfers[0]).toMatchObject({
+      fromAccountId: 'acc-sbi',
+      toAccountId: 'acc-axis',
+      amount: 200000,
+    });
   });
 });

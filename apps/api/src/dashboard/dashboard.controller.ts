@@ -50,7 +50,7 @@ export class DashboardController {
       },
       include: {
         category: true,
-        account: { select: { id: true, name: true, type: true } },
+        account: { select: { id: true, name: true, type: true, institution: true } },
       },
       orderBy: { transactionDate: 'desc' },
     });
@@ -78,6 +78,107 @@ export class DashboardController {
         .filter((t) => t.amount < 0)
         .reduce((sum, t) => sum + Number(t.amount), 0),
     );
+
+    // Detailed Account-Level Cash Flow (external inbounds, internal transfers, external outbounds)
+    const savingsAccountsList = accounts.filter((a) => ['SAVINGS', 'BANK'].includes(a.type));
+    const savingsMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        type: string;
+        institution: string | null;
+        externalInbound: number;
+        externalOutbound: number;
+        internalInbound: number;
+        internalOutbound: number;
+      }
+    >();
+
+    savingsAccountsList.forEach((acc) => {
+      savingsMap.set(acc.id, {
+        id: acc.id,
+        name: acc.name,
+        type: acc.type,
+        institution: acc.institution,
+        externalInbound: 0,
+        externalOutbound: 0,
+        internalInbound: 0,
+        internalOutbound: 0,
+      });
+    });
+
+    const internalTransfersList: Array<{
+      fromAccountId: string;
+      fromAccountName: string;
+      toAccountId: string;
+      toAccountName: string;
+      amount: number;
+    }> = [];
+
+    monthTransactions.forEach((tx) => {
+      const accFlow = savingsMap.get(tx.accountId);
+      if (!accFlow) return;
+
+      const amt = Math.abs(Number(tx.amount));
+      const internal = isInternalTransfer(tx);
+
+      if (internal) {
+        if (tx.amount > 0) {
+          accFlow.internalInbound += amt;
+        } else {
+          accFlow.internalOutbound += amt;
+
+          let destAccountId: string | undefined;
+          if (tx.transferGroupId) {
+            const opposite = monthTransactions.find(
+              (other) => other.transferGroupId === tx.transferGroupId && other.id !== tx.id,
+            );
+            if (opposite) destAccountId = opposite.accountId;
+          } else {
+            for (const v of activeVaults) {
+              if (v.last4 && v.accountId !== tx.accountId && tx.descriptionRaw.includes(v.last4)) {
+                destAccountId = v.accountId;
+                break;
+              }
+            }
+          }
+
+          if (destAccountId) {
+            const destAcc = accounts.find((a) => a.id === destAccountId);
+            if (destAcc) {
+              internalTransfersList.push({
+                fromAccountId: tx.accountId,
+                fromAccountName: accFlow.name,
+                toAccountId: destAcc.id,
+                toAccountName: destAcc.name,
+                amount: amt,
+              });
+            }
+          }
+        }
+      } else {
+        if (tx.amount > 0) {
+          accFlow.externalInbound += amt;
+        } else {
+          accFlow.externalOutbound += amt;
+        }
+      }
+    });
+
+    const accountFlowData = {
+      accounts: [...savingsMap.values()].map((acc) => ({
+        ...acc,
+        totalInbound: acc.externalInbound + acc.internalInbound,
+        totalOutbound: acc.externalOutbound + acc.internalOutbound,
+      })),
+      internalTransfers: internalTransfersList,
+      overall: {
+        totalExternalInbound: savingsNetInbound,
+        totalExternalOutbound: savingsNetOutbound,
+        totalInternalTransfers: internalTransfersList.reduce((sum, item) => sum + item.amount, 0),
+      },
+    };
 
     const nonTransfers = monthTransactions.filter((item) => !isInternalTransfer(item));
     const income = nonTransfers.filter((item) => item.amount > 0).reduce((sum, item) => sum + Number(item.amount), 0);
@@ -151,6 +252,7 @@ export class DashboardController {
       savingsRate: income > 0 ? Math.round(((income - totalExpenses) / income) * 1000) / 10 : 0,
       savingsNetInbound,
       savingsNetOutbound,
+      accountFlow: accountFlowData,
       netWorth: balances.reduce((sum, account) => sum + account.balance, 0),
       accounts: balances,
       spendAnalysis: {
