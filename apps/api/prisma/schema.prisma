@@ -47,6 +47,7 @@ model User {
   categoryRules CategoryRule[]
   imports      ImportBatch[]
   salaryStatements SalaryStatement[]
+  activeSips   ActiveSip[]
 }
 
 model SalaryStatement {
@@ -117,6 +118,7 @@ model Account {
   imports        ImportBatch[]
   holdings       PortfolioHolding[]
   documents      AccountDocument[]
+  activeSips     ActiveSip[]
   statementCredential StatementCredential?
   vaultEntry          AccountVaultEntry?
 
@@ -361,4 +363,24 @@ model LoanInstallment {
   createdAt        DateTime          @default(now())
 
   @@index([loanId, dueDate])
+}
+
+model ActiveSip {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId       String
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name            String
+  folioNumber     String?
+  amount          BigInt
+  frequency       String   @default("MONTHLY")
+  sipDay          Int      @default(10)
+  sourceAccountId String?
+  billerKeyword   String?
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, accountId])
 }
