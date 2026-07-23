@@ -792,7 +792,7 @@ function MonthlyFlow({
       </div>
 
       {/* Multi-Bank Visual Sankey Diagram */}
-      <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px' }}>
+      <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px', width: '100%', overflowX: 'auto' }}>
         <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '12px' }}>
           Multi-Bank Cash Flow & Internal Transfer Sankey Diagram
         </span>
@@ -910,9 +910,9 @@ function MultiBankSankeyDiagram({
   const startY = 50;
   const usableH = SVG_HEIGHT - 100;
 
-  const leftX = 140;
-  const middleX = 500;
-  const rightX = 840;
+  const leftX = 160;
+  const middleX = 480;
+  const rightX = 760;
   const nodeW = 16;
 
   const bankGap = 24;
@@ -952,8 +952,8 @@ function MultiBankSankeyDiagram({
   };
 
   return (
-    <div className="beautiful-flow-wrapper" style={{ padding: '0', border: 'none', background: 'transparent' }}>
-      <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="beautiful-flow-svg" style={{ overflow: 'visible' }}>
+    <div className="beautiful-flow-wrapper" style={{ padding: '0', border: 'none', background: 'transparent', width: '100%', overflowX: 'auto' }}>
+      <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="beautiful-flow-svg" style={{ width: '100%', height: 'auto', display: 'block' }}>
         <defs>
           <linearGradient id="sankey-inbound" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="#10b981" />
@@ -1024,10 +1024,10 @@ function MultiBankSankeyDiagram({
         {/* 4. Node Rectangles & Labels */}
         {/* Left Node: External Inbound */}
         <rect x={leftX} y={startY} width={nodeW} height={usableH} fill="#10b981" rx="4" />
-        <text x={leftX - 14} y={startY + usableH / 2 - 10} fill="var(--ink)" fontSize="16" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="end">
+        <text x={leftX - 12} y={startY + usableH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="end">
           External Inbound
         </text>
-        <text x={leftX - 14} y={startY + usableH / 2 + 12} fill="#10b981" fontSize="14" fontWeight="600" textAnchor="end">
+        <text x={leftX - 12} y={startY + usableH / 2 + 12} fill="#10b981" fontSize="13" fontWeight="600" textAnchor="end">
           +{money(overall.totalExternalInbound)}
         </text>
 
@@ -1035,10 +1035,10 @@ function MultiBankSankeyDiagram({
         {bankNodes.map((bank) => (
           <g key={`node-${bank.id}`}>
             <rect x={bank.x} y={bank.y} width={nodeW} height={bank.height} fill="#3b82f6" rx="4" />
-            <text x={bank.x + nodeW + 12} y={bank.y + bank.height / 2 - 8} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+            <text x={bank.x + nodeW + 10} y={bank.y + bank.height / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
               {bank.name}
             </text>
-            <text x={bank.x + nodeW + 12} y={bank.y + bank.height / 2 + 10} fill="var(--muted)" fontSize="12" fontWeight="500" textAnchor="start">
+            <text x={bank.x + nodeW + 10} y={bank.y + bank.height / 2 + 10} fill="var(--muted)" fontSize="11" fontWeight="500" textAnchor="start">
               In: {money(bank.totalInbound)} · Out: {money(bank.totalOutbound)}
             </text>
           </g>
@@ -1046,10 +1046,10 @@ function MultiBankSankeyDiagram({
 
         {/* Right Node: Outbound */}
         <rect x={rightX} y={startY} width={nodeW} height={usableH} fill="#ef4444" rx="4" />
-        <text x={rightX + nodeW + 14} y={startY + usableH / 2 - 10} fill="var(--ink)" fontSize="16" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+        <text x={rightX + nodeW + 12} y={startY + usableH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
           External Outbound
         </text>
-        <text x={rightX + nodeW + 14} y={startY + usableH / 2 + 12} fill="#ef4444" fontSize="14" fontWeight="600" textAnchor="start">
+        <text x={rightX + nodeW + 12} y={startY + usableH / 2 + 12} fill="#ef4444" fontSize="13" fontWeight="600" textAnchor="start">
           -{money(overall.totalExternalOutbound)}
         </text>
       </svg>
