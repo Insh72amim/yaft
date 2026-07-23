@@ -12,6 +12,8 @@ import {
   TrendingUp,
   ChevronLeft,
   Lock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -157,12 +159,30 @@ function cardNetworkClass(network: string | null) {
     : "default";
 }
 
+function AccountAmount({
+  value,
+  visible,
+}: {
+  value: number;
+  visible: boolean;
+}) {
+  return (
+    <span
+      className={visible ? undefined : "account-masked-amount"}
+      aria-label={visible ? money(value) : "Amount hidden"}>
+      {visible ? money(value) : "₹ ••••••"}
+    </span>
+  );
+}
+
 function CreditCardAccountCard({
   account,
   onClick,
+  amountsVisible,
 }: {
   account: Account;
   onClick: () => void;
+  amountsVisible: boolean;
 }) {
   const [imgError, setImgError] = useState(false);
   const localLogo = getLocalLogo(account.institution, account.name);
@@ -207,7 +227,9 @@ function CreditCardAccountCard({
       <div className="credit-account-card-metrics">
         <span>
           <small>Credit used</small>
-          <strong>{money(outstanding)}</strong>
+          <strong>
+            <AccountAmount value={outstanding} visible={amountsVisible} />
+          </strong>
         </span>
       </div>
     </button>
@@ -217,13 +239,21 @@ function CreditCardAccountCard({
 function AccountCard({
   account,
   onClick,
+  amountsVisible,
 }: {
   account: Account;
   onClick: () => void;
+  amountsVisible: boolean;
 }) {
   const [imgError, setImgError] = useState(false);
   if (account.type === "CREDIT_CARD") {
-    return <CreditCardAccountCard account={account} onClick={onClick} />;
+    return (
+      <CreditCardAccountCard
+        account={account}
+        onClick={onClick}
+        amountsVisible={amountsVisible}
+      />
+    );
   }
 
   const localLogo = getLocalLogo(account.institution, account.name);
@@ -258,11 +288,14 @@ function AccountCard({
         <div className="account-card-balance">
           <small>{isLoan ? "Outstanding Principal" : "Current Balance"}</small>
           <strong>
-            {money(
-              isLoan && account.loanOutstanding !== undefined
-                ? account.loanOutstanding
-                : account.balance,
-            )}
+            <AccountAmount
+              value={
+                isLoan && account.loanOutstanding !== undefined
+                  ? account.loanOutstanding
+                  : account.balance
+              }
+              visible={amountsVisible}
+            />
           </strong>
         </div>
         {isLoan && account.totalInstallments !== undefined ? (
@@ -307,6 +340,7 @@ function PortfolioContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [addingAccount, setAddingAccount] = useState(false);
+  const [amountsVisible, setAmountsVisible] = useState(false);
 
   const [showVaultForInvestment, setShowVaultForInvestment] = useState<
     string | null
@@ -537,13 +571,32 @@ function PortfolioContent() {
   // Accounts Overview View
   return (
     <Shell>
-      <header className="page-header">
+      <header className="page-header accounts-page-header">
         <div>
           <span className="eyebrow">Portfolio & Accounts</span>
           <h1>My accounts</h1>
           <p>View your balances, holdings, and ledgers in one place.</p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions accounts-page-actions">
+          <button
+            type="button"
+            className={`account-amount-toggle${amountsVisible ? " visible" : ""}`}
+            role="switch"
+            aria-checked={amountsVisible}
+            aria-label={
+              amountsVisible ? "Hide account amounts" : "Show account amounts"
+            }
+            onClick={() => setAmountsVisible((visible) => !visible)}>
+            <span className="account-amount-toggle-icon" aria-hidden="true">
+              {amountsVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+            </span>
+            <span className="account-amount-toggle-label">
+              {amountsVisible ? "Hide amounts" : "Show amounts"}
+            </span>
+            <span className="account-amount-toggle-track" aria-hidden="true">
+              <span />
+            </span>
+          </button>
           <button className="secondary" onClick={() => setAddingAccount(true)}>
             <Plus size={17} />
             Add account
@@ -587,12 +640,13 @@ function PortfolioContent() {
                       fontWeight: 600,
                       color: "var(--ink)",
                     }}>
-                    {money(
-                      sectionAccounts.reduce(
+                    <AccountAmount
+                      value={sectionAccounts.reduce(
                         (sum, account) => sum + account.balance,
                         0,
-                      ),
-                    )}
+                      )}
+                      visible={amountsVisible}
+                    />
                   </span>
                 </header>
                 <div
@@ -634,12 +688,13 @@ function PortfolioContent() {
                               fontWeight: 550,
                               color: "var(--muted)",
                             }}>
-                            {money(
-                              subAccounts.reduce(
+                            <AccountAmount
+                              value={subAccounts.reduce(
                                 (sum, account) => sum + account.balance,
                                 0,
-                              ),
-                            )}
+                              )}
+                              visible={amountsVisible}
+                            />
                           </span>
                         </header>
                         <div className="account-cards-grid">
@@ -647,6 +702,7 @@ function PortfolioContent() {
                             <AccountCard
                               key={account.id}
                               account={account}
+                              amountsVisible={amountsVisible}
                               onClick={() =>
                                 router.push(`/accounts?account=${account.id}`)
                               }
@@ -681,12 +737,13 @@ function PortfolioContent() {
                       fontWeight: 600,
                       color: "var(--ink)",
                     }}>
-                    {money(
-                      sectionAccounts.reduce(
+                    <AccountAmount
+                      value={sectionAccounts.reduce(
                         (sum, account) => sum + account.balance,
                         0,
-                      ),
-                    )}
+                      )}
+                      visible={amountsVisible}
+                    />
                   </span>
                 </header>
                 <div className="account-cards-grid">
@@ -694,6 +751,7 @@ function PortfolioContent() {
                     <AccountCard
                       key={account.id}
                       account={account}
+                      amountsVisible={amountsVisible}
                       onClick={() =>
                         router.push(`/accounts?account=${account.id}`)
                       }

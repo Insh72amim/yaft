@@ -634,6 +634,17 @@ html[data-theme='dark'] .portfolio-sidebar-item.active{box-shadow:inset 3px 0 0 
 
 /* New Account Card Styles */
 .accounts-overview { display: grid; gap: 32px; margin-top: 24px; }
+.account-amount-toggle{min-height:42px;padding:7px 8px 7px 12px;border:1px solid #cddbd3;border-radius:999px;background:linear-gradient(135deg,#fff,#f1f7f3);color:var(--green);display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;box-shadow:0 5px 16px rgba(23,79,59,.08)}
+.account-amount-toggle:hover{border-color:#8fb7a2;box-shadow:0 7px 20px rgba(23,79,59,.13);transform:translateY(-1px)}
+.account-amount-toggle:focus-visible{outline:3px solid var(--theme-shadow-color);outline-offset:2px}
+.account-amount-toggle.visible{background:linear-gradient(135deg,var(--theme-soft-start),var(--theme-soft-end));border-color:#8fb7a2}
+.account-amount-toggle-icon{width:20px;height:20px;display:grid;place-items:center}
+.account-amount-toggle-label{white-space:nowrap}
+.account-amount-toggle-track{position:relative;width:36px;height:20px;border-radius:999px;background:#cbd6d0;box-shadow:inset 0 1px 3px rgba(20,45,33,.16);transition:.2s ease}
+.account-amount-toggle-track>span{position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(20,45,33,.25);transition:transform .2s ease}
+.account-amount-toggle.visible .account-amount-toggle-track{background:var(--green)}
+.account-amount-toggle.visible .account-amount-toggle-track>span{transform:translateX(16px)}
+.account-masked-amount{display:inline-block;color:inherit;font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.11em;white-space:nowrap}
 .accounts-section-header { margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
 .accounts-section-header h2 { font-size: 16px; margin: 0; color: var(--muted); }
 .account-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
@@ -659,6 +670,10 @@ html[data-theme='dark'] .account-card { background: var(--card); }
 html[data-theme='dark'] .account-card-logo { background: #fff; border-color: transparent; } /* Keep logos on white background for visibility */
 html[data-theme='dark'] .flow-in span { color: #77d6a6; }
 html[data-theme='dark'] .flow-out span { color: #ffad77; }
+html[data-theme='dark'] .account-amount-toggle{background:linear-gradient(135deg,#17231d,#111b17);border-color:#35463e;color:#8ad9b2}
+html[data-theme='dark'] .account-amount-toggle.visible{background:linear-gradient(135deg,#1d3529,#15271f);border-color:#56826a}
+
+@media(max-width:760px){.accounts-page-header{flex-direction:column}.accounts-page-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.account-amount-toggle{padding:7px}.account-amount-toggle-label{display:none}}
 
 /* Credit cards intentionally read as payment cards, not generic accounts. */
 .credit-account-card{position:relative;isolation:isolate;overflow:hidden;min-height:188px;padding:18px;color:#fff;border-color:transparent;gap:10px;box-shadow:0 12px 28px rgba(18,31,48,.18)}
