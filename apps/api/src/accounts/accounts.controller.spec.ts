@@ -110,7 +110,7 @@ describe('AccountsController transaction history', () => {
 
     expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'account-a', userId: 'owner-a', archived: false } }));
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { accountId: 'account-a', account: { userId: 'owner-a' } }, skip: 0, take: 50,
+      where: expect.objectContaining({ accountId: 'account-a', account: expect.objectContaining({ userId: 'owner-a', archived: false }) }), skip: 0, take: 50,
     }));
     expect(result.account).toMatchObject({ id: 'account-a', openingBalance: 1000, balance: 750 });
     expect(result.transactions[0]).toMatchObject({ id: 'transaction-a', description: 'Synthetic merchant', amount: -250, category: 'Shopping' });
@@ -141,6 +141,24 @@ describe('AccountsController transaction history', () => {
 
     await expect(controller.transactions({ id: 'owner-a' }, 'another-account', 1)).rejects.toBeInstanceOf(NotFoundException);
     expect(count).not.toHaveBeenCalled();
+  });
+
+  it('queries all-transactions across accounts with amount range filters', async () => {
+    const count = jest.fn().mockResolvedValue(1);
+    const aggregate = jest.fn().mockResolvedValue({ _sum: { amount: -5000n } });
+    const findMany = jest.fn().mockResolvedValue([{
+      id: 'tx-1', accountId: 'acc-1', transactionDate: new Date(), postedDate: null,
+      descriptionRaw: 'SHOPPING', merchant: 'Supermarket', amount: -5000n, transferGroupId: null,
+      account: { id: 'acc-1', name: 'HDFC', type: 'SAVINGS', institution: 'HDFC' },
+      category: { name: 'Groceries' },
+    }]);
+    const prisma = { transaction: { count, aggregate, findMany } } as unknown as PrismaService;
+    const controller = new AccountsController(prisma, credentials, accountDocuments());
+
+    const result = await controller.allTransactions({ id: 'owner-a' }, 1, '50', undefined, 'super', '10', '100', 'EXPENSE');
+
+    expect(findMany).toHaveBeenCalled();
+    expect(result.transactions[0]).toMatchObject({ id: 'tx-1', accountName: 'HDFC', amount: -5000 });
   });
 });
 

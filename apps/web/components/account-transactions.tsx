@@ -50,13 +50,25 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [savingEpfo, setSavingEpfo] = useState(false);
   const [saveEpfoError, setSaveEpfoError] = useState('');
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'EXPENSE' | 'INCOME'>('ALL');
+
   const load = useCallback(() => {
     setError('');
-    api<AccountLedger>(`/accounts/${accountId}/transactions?page=${requestedPage}`).then(setData).catch((reason: unknown) => {
+    const params = new URLSearchParams();
+    params.set('page', String(requestedPage));
+    if (searchQuery.trim()) params.set('search', searchQuery.trim());
+    if (minAmount.trim()) params.set('minAmount', minAmount.trim());
+    if (maxAmount.trim()) params.set('maxAmount', maxAmount.trim());
+    if (typeFilter !== 'ALL') params.set('type', typeFilter);
+
+    api<AccountLedger>(`/accounts/${accountId}/transactions?${params.toString()}`).then(setData).catch((reason: unknown) => {
       if (isUnauthorized(reason)) router.replace('/login');
       else setError(errorMessage(reason, 'Could not load this account.'));
     });
-  }, [accountId, requestedPage, router]);
+  }, [accountId, requestedPage, searchQuery, minAmount, maxAmount, typeFilter, router]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setShowDocuments(false); }, [accountId]);
 
@@ -200,6 +212,64 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
       </section>}
       <section className="panel account-ledger-panel">
         <div className="panel-title"><div><span className="eyebrow">Full history</span><h2>Transactions</h2></div>{pagination.total > 0 && <span className="month-pill">{(pagination.page - 1) * pagination.pageSize + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total}</span>}</div>
+
+        {/* Amount & Search Filter Bar */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', margin: '12px 0 8px 0', padding: '12px 14px', background: 'var(--background-alt)', borderRadius: '10px', border: '1px solid var(--line)' }}>
+          <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+            <input
+              type="text"
+              placeholder="Search description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ width: '100%', height: '36px', fontSize: '13px', paddingLeft: '10px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>Amount (₹):</span>
+            <input
+              type="number"
+              placeholder="Min ₹"
+              value={minAmount}
+              onChange={(e) => setMinAmount(e.target.value)}
+              style={{ width: '90px', height: '36px', fontSize: '13px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)' }}
+            />
+            <span style={{ fontSize: '12px', color: 'var(--muted)' }}>to</span>
+            <input
+              type="number"
+              placeholder="Max ₹"
+              value={maxAmount}
+              onChange={(e) => setMaxAmount(e.target.value)}
+              style={{ width: '90px', height: '36px', fontSize: '13px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button type="button" className={`secondary compact ${typeFilter === 'ALL' ? 'active' : ''}`} onClick={() => setTypeFilter('ALL')} style={{ height: '36px', fontSize: '12px' }}>All</button>
+            <button type="button" className={`secondary compact ${typeFilter === 'EXPENSE' ? 'active' : ''}`} onClick={() => setTypeFilter('EXPENSE')} style={{ height: '36px', fontSize: '12px', color: typeFilter === 'EXPENSE' ? '#ef4444' : undefined }}>Debits</button>
+            <button type="button" className={`secondary compact ${typeFilter === 'INCOME' ? 'active' : ''}`} onClick={() => setTypeFilter('INCOME')} style={{ height: '36px', fontSize: '12px', color: typeFilter === 'INCOME' ? '#10b981' : undefined }}>Credits</button>
+          </div>
+          {(searchQuery || minAmount || maxAmount || typeFilter !== 'ALL') && (
+            <button
+              type="button"
+              className="ghost compact"
+              onClick={() => {
+                setSearchQuery('');
+                setMinAmount('');
+                setMaxAmount('');
+                setTypeFilter('ALL');
+              }}
+              style={{ height: '36px', fontSize: '12px' }}
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
+          <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600, alignSelf: 'center', marginRight: '4px' }}>Presets:</span>
+          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '4px 8px' }} onClick={() => { setMinAmount('0'); setMaxAmount('1000'); }}>&lt; ₹1,000</button>
+          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '4px 8px' }} onClick={() => { setMinAmount('1000'); setMaxAmount('10000'); }}>₹1k – ₹10k</button>
+          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '4px 8px' }} onClick={() => { setMinAmount('10000'); setMaxAmount('50000'); }}>₹10k – ₹50k</button>
+          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '4px 8px' }} onClick={() => { setMinAmount('50000'); setMaxAmount(''); }}>&gt; ₹50,000</button>
+        </div>
         {transactions.length ? <div className={`account-transaction-table ${account.type === 'EPFO' ? 'has-actions' : ''}`}>
           <header>
             <span>Date</span>

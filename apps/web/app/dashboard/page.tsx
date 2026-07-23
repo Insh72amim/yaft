@@ -2,6 +2,8 @@
 import {
   ArrowDownRight,
   ArrowUpRight,
+  ArrowLeft,
+  ArrowRight,
   CalendarDays,
   WalletCards,
   TrendingUp,
@@ -428,35 +430,7 @@ export default function DashboardPage() {
         />
       </section>
 
-      <section className="panel transactions">
-        <div className="panel-title">
-          <div>
-            <span className="eyebrow">Activity</span>
-            <h2>Recent transactions</h2>
-          </div>
-        </div>
-        {data.recent.length ? (
-          <div className="transaction-list">
-            {data.recent.map((item) => (
-              <div key={item.id}>
-                <span className="transaction-date">{new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
-                <div>
-                  <strong>{item.description}</strong>
-                  <small>
-                    {item.account} · {item.isTransfer ? 'Transfer' : item.category}
-                  </small>
-                </div>
-                <b className={item.amount > 0 ? 'positive' : ''}>
-                  {item.amount > 0 ? '+' : ''}
-                  {money(item.amount)}
-                </b>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <Empty text="Reviewed transactions will appear here." />
-        )}
-      </section>
+      <GlobalTransactionExplorer />
 
       {/* Category Rules Modal */}
       {showRulesModal && <CategoryRulesModal onClose={() => setShowRulesModal(false)} onUpdate={() => void load()} />}
@@ -473,6 +447,349 @@ function Empty({ text }: { text: string }) {
       <span>◎</span>
       <p>{text}</p>
     </div>
+  );
+}
+
+function GlobalTransactionExplorer() {
+  const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'EXPENSE' | 'INCOME'>('ALL');
+  const [page, setPage] = useState(1);
+
+  const [data, setData] = useState<{
+    transactions: {
+      id: string;
+      accountId: string;
+      accountName: string;
+      accountType: string;
+      transactionDate: string;
+      description: string;
+      details: string | null;
+      amount: number;
+      category: string;
+      isTransfer: boolean;
+    }[];
+    totalAmount: number;
+    pagination: { page: number; pageSize: number; total: number; pages: number };
+  }>();
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api<{ id: string; name: string }[]>('/accounts')
+      .then((res) => setAccounts(res || []))
+      .catch(() => {});
+  }, []);
+
+  const fetchTransactions = useCallback(() => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('pageSize', '20');
+    if (selectedAccountId !== 'all') params.set('accountId', selectedAccountId);
+    if (searchQuery.trim()) params.set('search', searchQuery.trim());
+    if (minAmount.trim()) params.set('minAmount', minAmount.trim());
+    if (maxAmount.trim()) params.set('maxAmount', maxAmount.trim());
+    if (typeFilter !== 'ALL') params.set('type', typeFilter);
+
+    api<any>(`/accounts/all-transactions?${params.toString()}`)
+      .then((res) => {
+        setData(res);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [page, selectedAccountId, searchQuery, minAmount, maxAmount, typeFilter]);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+
+  return (
+    <section className="panel transactions">
+      <div className="panel-title" style={{ flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <span className="eyebrow">Global Ledger Explorer</span>
+          <h2>All Transactions & Amount Filter</h2>
+        </div>
+        {data && data.pagination.total > 0 && (
+          <span className="month-pill">
+            {money(data.totalAmount)} total ({data.pagination.total} transaction{data.pagination.total === 1 ? '' : 's'})
+          </span>
+        )}
+      </div>
+
+      {/* Filter Controls Bar */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '10px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          margin: '12px 0 8px 0',
+          padding: '12px 14px',
+          background: 'var(--background-alt)',
+          borderRadius: '10px',
+          border: '1px solid var(--line)',
+        }}
+      >
+        <div style={{ flex: '1 1 160px', minWidth: '140px' }}>
+          <select
+            value={selectedAccountId}
+            onChange={(e) => {
+              setSelectedAccountId(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              width: '100%',
+              height: '36px',
+              fontSize: '13px',
+              padding: '0 8px',
+              borderRadius: '6px',
+              border: '1px solid var(--line)',
+              background: 'var(--background)',
+              color: 'var(--ink)',
+            }}
+          >
+            <option value="all">All Bank Accounts</option>
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ flex: '1 1 180px', minWidth: '160px' }}>
+          <input
+            type="text"
+            placeholder="Search description..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              width: '100%',
+              height: '36px',
+              fontSize: '13px',
+              paddingLeft: '10px',
+              borderRadius: '6px',
+              border: '1px solid var(--line)',
+              background: 'var(--background)',
+              color: 'var(--ink)',
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>Amount Range (₹):</span>
+          <input
+            type="number"
+            placeholder="Min ₹"
+            value={minAmount}
+            onChange={(e) => {
+              setMinAmount(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              width: '90px',
+              height: '36px',
+              fontSize: '13px',
+              padding: '0 8px',
+              borderRadius: '6px',
+              border: '1px solid var(--line)',
+              background: 'var(--background)',
+              color: 'var(--ink)',
+            }}
+          />
+          <span style={{ fontSize: '12px', color: 'var(--muted)' }}>to</span>
+          <input
+            type="number"
+            placeholder="Max ₹"
+            value={maxAmount}
+            onChange={(e) => {
+              setMaxAmount(e.target.value);
+              setPage(1);
+            }}
+            style={{
+              width: '90px',
+              height: '36px',
+              fontSize: '13px',
+              padding: '0 8px',
+              borderRadius: '6px',
+              border: '1px solid var(--line)',
+              background: 'var(--background)',
+              color: 'var(--ink)',
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            type="button"
+            className={`secondary compact ${typeFilter === 'ALL' ? 'active' : ''}`}
+            onClick={() => {
+              setTypeFilter('ALL');
+              setPage(1);
+            }}
+            style={{ height: '36px', fontSize: '12px' }}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className={`secondary compact ${typeFilter === 'EXPENSE' ? 'active' : ''}`}
+            onClick={() => {
+              setTypeFilter('EXPENSE');
+              setPage(1);
+            }}
+            style={{ height: '36px', fontSize: '12px', color: typeFilter === 'EXPENSE' ? '#ef4444' : undefined }}
+          >
+            Debits
+          </button>
+          <button
+            type="button"
+            className={`secondary compact ${typeFilter === 'INCOME' ? 'active' : ''}`}
+            onClick={() => {
+              setTypeFilter('INCOME');
+              setPage(1);
+            }}
+            style={{ height: '36px', fontSize: '12px', color: typeFilter === 'INCOME' ? '#10b981' : undefined }}
+          >
+            Credits
+          </button>
+        </div>
+
+        {(selectedAccountId !== 'all' || searchQuery || minAmount || maxAmount || typeFilter !== 'ALL') && (
+          <button
+            type="button"
+            className="ghost compact"
+            onClick={() => {
+              setSelectedAccountId('all');
+              setSearchQuery('');
+              setMinAmount('');
+              setMaxAmount('');
+              setTypeFilter('ALL');
+              setPage(1);
+            }}
+            style={{ height: '36px', fontSize: '12px' }}
+          >
+            Reset Filters
+          </button>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
+        <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600, alignSelf: 'center', marginRight: '4px' }}>
+          Presets:
+        </span>
+        <button
+          type="button"
+          className="ghost compact"
+          style={{ fontSize: '11px', padding: '4px 8px' }}
+          onClick={() => {
+            setMinAmount('0');
+            setMaxAmount('1000');
+            setPage(1);
+          }}
+        >
+          &lt; ₹1,000
+        </button>
+        <button
+          type="button"
+          className="ghost compact"
+          style={{ fontSize: '11px', padding: '4px 8px' }}
+          onClick={() => {
+            setMinAmount('1000');
+            setMaxAmount('10000');
+            setPage(1);
+          }}
+        >
+          ₹1k – ₹10k
+        </button>
+        <button
+          type="button"
+          className="ghost compact"
+          style={{ fontSize: '11px', padding: '4px 8px' }}
+          onClick={() => {
+            setMinAmount('10000');
+            setMaxAmount('50000');
+            setPage(1);
+          }}
+        >
+          ₹10k – ₹50k
+        </button>
+        <button
+          type="button"
+          className="ghost compact"
+          style={{ fontSize: '11px', padding: '4px 8px' }}
+          onClick={() => {
+            setMinAmount('50000');
+            setMaxAmount('');
+            setPage(1);
+          }}
+        >
+          &gt; ₹50,000
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="loading" style={{ padding: '24px 0' }}>
+          <span />
+          <p>Filtering transactions…</p>
+        </div>
+      ) : data?.transactions.length ? (
+        <>
+          <div className="transaction-list">
+            {data.transactions.map((item) => (
+              <div key={item.id}>
+                <span className="transaction-date">
+                  {new Date(item.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
+                </span>
+                <div>
+                  <strong>{item.description}</strong>
+                  <small>
+                    {item.accountName} · {item.isTransfer ? 'Transfer' : item.category}
+                  </small>
+                </div>
+                <b className={item.amount > 0 ? 'positive' : ''}>
+                  {item.amount > 0 ? '+' : ''}
+                  {money(item.amount)}
+                </b>
+              </div>
+            ))}
+          </div>
+
+          {data.pagination.pages > 1 && (
+            <footer className="ledger-pagination" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+              <button
+                type="button"
+                className="secondary compact"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ArrowLeft size={14} /> Previous
+              </button>
+              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                Page {page} of {data.pagination.pages}
+              </span>
+              <button
+                type="button"
+                className="secondary compact"
+                disabled={page >= data.pagination.pages}
+                onClick={() => setPage((p) => Math.min(data.pagination.pages, p + 1))}
+              >
+                Next <ArrowRight size={14} />
+              </button>
+            </footer>
+          )}
+        </>
+      ) : (
+        <Empty text="No transactions match the selected amount range or filters." />
+      )}
+    </section>
   );
 }
 
