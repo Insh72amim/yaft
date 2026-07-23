@@ -13,6 +13,8 @@ import { UnifiedImportsModule } from './unified-imports/unified-imports.module';
 import { VaultModule } from './vault/vault.module';
 import { LoansModule } from './loans/loans.module';
 import { AccountDocumentsModule } from './account-documents/account-documents.module';
+import { CategoryRulesModule } from './category-rules/category-rules.module';
+import { TransfersModule } from './transfers/transfers.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { AccountDocumentsModule } from './account-documents/account-documents.mo
     SalaryModule,
     UnifiedImportsModule,
     VaultModule,
+    CategoryRulesModule,
+    TransfersModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
