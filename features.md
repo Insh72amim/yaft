@@ -8,6 +8,9 @@ This file maintains the running inventory of completed, verified features inside
 * **Consolidated Accounts Overview**: Single master-detail view grouping accounts by category (Savings, Investments, Debt Accounts).
 * **Multiple Account Types**: Support for Bank/Savings accounts, Credit Cards, Loans, Stocks, EPFO, Fixed Deposits, and Cash.
 * **Auto-Recalculating Ledger**: Automatically computes real-time current balances, outstanding loan principals, monthly incoming/outgoing flows, and credit limits.
+* **Enhanced Credit Card View**: Shows card last 4 digits, card network (Visa, Mastercard, Amex, RuPay), credit limit, available credit, and outstanding balance instead of plain balance.
+* **Local Bank & Broker Logos**: High-resolution, offline local logos for Axis Bank, SBI, PNB, HDFC, ICICI, Zerodha, Groww, and EPFO displayed across account tiles.
+* **Privacy Amount Masking**: Toggle to hide/unhide sensitive account balances, loan amounts, and net pay numbers across the application.
 * **Double-Confirmation Deletion**: Protects data by requiring the user to type the exact account name to delete.
 * **Clear Ledger Option**: Clicking the trash icon provides a choice to either delete the account or **clear all transactions** (wipes transaction/import history, resets opening balance to zero, but preserves credentials and settings).
 * **Enhanced Transactions List**: Clean visual layout displaying dates, exact transaction times, category pill tags, hover animations, and color-coded transaction amounts (+/-).
@@ -24,7 +27,9 @@ This file maintains the running inventory of completed, verified features inside
 
 ## 3. Salary Payslip Workflows & Timelines
 * **Employer-Aware Payslip Parsing**: Reconciled parsing of payslip details (e.g. Goldman Sachs salary slips).
-* **PDF Password Decryption**: Support for unlocking password-protected payslips during parsing.
+* **Password-Free Inline Payslip Viewer**: Decrypts password-protected payslips on-the-fly via backend `qpdf` integration, rendering payslip PDFs in a zoomable inline modal without prompting the user for passwords (password prompts reserved exclusively for file downloads).
+* **Manual Salary Entry with Optional Proof**: Support for entering salary details manually with optional proof document (PDF/image) attachment, dynamic MIME-type inline viewing/downloading, and automatic Net Pay calculation.
+* **Cumulative Net Pay Overview**: Aggregate net earnings display card on the Salary overview dashboard.
 * **Sequential Bulk Upload**: Allows selecting and uploading multiple payslip PDFs simultaneously in a loop with visual progress updates.
 * **Automatic Overwriting**: Automatically discards and replaces old duplicate records (by file hash or employer/month combination) upon re-uploading.
 * **Interactive Pay Timeline**: Consolidated charts showing Monthly Pay Breakdown (Gross, Net, Tax) and Cumulative Growth with interactive legends.
@@ -32,10 +37,10 @@ This file maintains the running inventory of completed, verified features inside
 
 ---
 
-## 4. Local S3 (MinIO) File Storage
+## 4. Local S3 (MinIO) File Storage & Account Documents
 * **Local S3 Integration**: Automatically uploads original statement and salary PDFs to a local MinIO S3 server instance for safe retention.
 * **PDF File Downloader**: Secure file download endpoints to retrieve statements or salary slips from local S3 storage.
-* **Associated Account Documents**: Stores multiple PDF or image documents against Bank/Savings and Loan accounts, with an authenticated inline viewer and zoom controls.
+* **Associated Account Documents (Loans & Bank Accounts)**: Dedicated document management for Bank and Loan accounts to attach multiple PDFs or images, with authenticated inline modal viewer and zoom controls without downloading.
 
 ---
 
@@ -46,14 +51,14 @@ This file maintains the running inventory of completed, verified features inside
 ---
 
 ## 6. EPFO & Investment Portfolios
-* **EPFO Onboarding**: Monthly transaction row extraction and review staging for EPFO member passbooks.
+* **EPFO Onboarding & Manual Ledger**: Monthly transaction row extraction, review staging, and manual transaction logging (deposits, withdrawals, annual interest credits).
 * **Broker Holdings Parser**: Reconciled holdings snapshot imports (Zerodha Kite & Groww sheets) with immediate atomic replacement.
 * **Sector tags & P&L Badges**: Colored indicators for unrealized gains/losses and sector categories.
 
 ---
 
 ## 7. Credential Vault & Security
-* **On-Disk Credential Vault**: Stores bank statement PDF unlock passwords securely.
+* **On-Disk Credential Vault**: Stores bank statement PDF unlock passwords securely using AES-256-GCM encryption.
 * **Credit Card OCR Scanner**: Allows scanning credit cards using client-side OCR image text extraction.
 
 ---
@@ -77,27 +82,9 @@ This file maintains the running inventory of completed, verified features inside
 
 ### 9.2 Import Page
 - [ ] **Credit Card Parsers**:
-  - [x] Axis Bank credit card parser.
   - [ ] ICICI Bank credit card parser.
   - [ ] SBI Bank credit card parser.
 
-### 9.3 Accounts Page
-- [x] **Credit Card Details Manager**:
-  - [x] When a credit card account is selected, show option to update its details (e.g. billing date, limits, bank name).
-- [x] **Credit Card Image Scanner**:
-  - [x] Secure OCR card scanner integration inside Vault (client-side OCR scanning implemented).
-- [x] **Manual EPFO Ledger entries**:
-  - [x] Add manual transaction input form specifically for EPFO accounts (to log deposits/withdrawals and annual interest credits).
-- [x] **Associated Account Documents (Loans & Bank Accounts)**:
-  - [x] Allow uploading and linking multiple documents (PDFs, images) directly to Loan and Bank accounts.
-  - [x] Provide seamless inline viewing via modal overlay with zoom controls, eliminating the need to download.
-
-### 9.4 Salary Page
-- [x] **Bonus and Miscellaneous Payments**:
-  - [x] Option to add and update bonuses, variable payouts, or other non-standard payments on the timeline.
+### 9.3 Salary Page
 - [ ] **Acme Corp Layout Parser**:
   - [ ] Design and implement parser compatibility for Acme Corp-style payroll formats.
-- [ ] **Password-Free Inline Document Viewer**:
-  - [ ] Implement backend storage of salary/payslip level decryption passwords.
-  - [ ] Auto-decrypt and display payslips inline using a zoomable modal overlay (no password prompt during viewing).
-  - [ ] Restrict password-protection prompt exclusively to original file downloads.
