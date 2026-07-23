@@ -902,6 +902,14 @@ function MultiBankSankeyDiagram({
 }) {
   const { accounts, internalTransfers, overall } = accountFlow;
 
+  const [hoveredFlow, setHoveredFlow] = useState<{
+    title: string;
+    amount: string;
+    x: number;
+    y: number;
+    color: string;
+  } | null>(null);
+
   const BANK_COLOR_PALETTE = ['#3b82f6', '#06b6d4', '#ec4899', '#f59e0b', '#8b5cf6', '#10b981', '#6366f1'];
   const getBankColor = (index: number, name: string): string => {
     const lower = name.toLowerCase();
@@ -1011,26 +1019,58 @@ function MultiBankSankeyDiagram({
         </defs>
 
         {/* 1. Inbound Bezier Ribbons from Left Bar to Bank Nodes */}
-        {inboundSlices.map(({ bank, topY, botY }) => (
-          <path
-            key={`in-${bank.id}`}
-            d={sankeyLink(leftX + nodeW, topY, botY, bank.x, bank.y + 2, bank.y + Math.max(6, bank.height * 0.45))}
-            fill={`url(#grad-in-${bank.id})`}
-            opacity="0.35"
-            className="sankey-path hover-opacity"
-          />
-        ))}
+        {inboundSlices.map(({ bank, topY, botY }) => {
+          const midX = (leftX + nodeW + bank.x) / 2;
+          const midY = (topY + bank.y + 4) / 2;
+          return (
+            <path
+              key={`in-${bank.id}`}
+              d={sankeyLink(leftX + nodeW, topY, botY, bank.x, bank.y + 2, bank.y + Math.max(6, bank.height * 0.45))}
+              fill={`url(#grad-in-${bank.id})`}
+              opacity="0.35"
+              className="sankey-path hover-opacity"
+              onMouseEnter={() =>
+                setHoveredFlow({
+                  title: `External Inbound ⟶ ${bank.name}`,
+                  amount: `+${money(bank.externalInbound)}`,
+                  x: midX,
+                  y: midY,
+                  color: '#10b981',
+                })
+              }
+              onMouseLeave={() => setHoveredFlow(null)}
+            >
+              <title>{`External Inbound ⟶ ${bank.name}: +${money(bank.externalInbound)}`}</title>
+            </path>
+          );
+        })}
 
         {/* 2. Outbound Bezier Ribbons from Bank Nodes to Right Bar */}
-        {outboundSlices.map(({ bank, topY, botY }) => (
-          <path
-            key={`out-${bank.id}`}
-            d={sankeyLink(bank.x + nodeW, bank.y + Math.max(6, bank.height * 0.45), bank.y + bank.height - 2, rightX, topY, botY)}
-            fill={`url(#grad-out-${bank.id})`}
-            opacity="0.35"
-            className="sankey-path hover-opacity"
-          />
-        ))}
+        {outboundSlices.map(({ bank, topY, botY }) => {
+          const midX = (bank.x + nodeW + rightX) / 2;
+          const midY = (bank.y + Math.max(6, bank.height * 0.45) + topY) / 2;
+          return (
+            <path
+              key={`out-${bank.id}`}
+              d={sankeyLink(bank.x + nodeW, bank.y + Math.max(6, bank.height * 0.45), bank.y + bank.height - 2, rightX, topY, botY)}
+              fill={`url(#grad-out-${bank.id})`}
+              opacity="0.35"
+              className="sankey-path hover-opacity"
+              onMouseEnter={() =>
+                setHoveredFlow({
+                  title: `${bank.name} ⟶ External Outbound`,
+                  amount: `-${money(bank.externalOutbound)}`,
+                  x: midX,
+                  y: midY,
+                  color: '#ef4444',
+                })
+              }
+              onMouseLeave={() => setHoveredFlow(null)}
+            >
+              <title>{`${bank.name} ⟶ External Outbound: -${money(bank.externalOutbound)}`}</title>
+            </path>
+          );
+        })}
 
         {/* 3. Internal Transfer Bezier Curves & Badges */}
         {internalTransfers.map((it, idx) => {
@@ -1091,12 +1131,35 @@ function MultiBankSankeyDiagram({
         <text x={rightX + nodeW + 14} y={startY + usableH / 2 + 12} fill="#ef4444" fontSize="13" fontWeight="600" textAnchor="start">
           -{money(overall.totalExternalOutbound)}
         </text>
+
+        {/* 5. Floating Interactive Hover Tooltip */}
+        {hoveredFlow && (
+          <g pointerEvents="none">
+            <rect
+              x={hoveredFlow.x - 140}
+              y={hoveredFlow.y - 24}
+              width="280"
+              height="44"
+              rx="8"
+              fill="#0f172a"
+              stroke={hoveredFlow.color}
+              strokeWidth="1.5"
+              style={{ filter: 'drop-shadow(0 6px 16px rgba(0,0,0,0.6))' }}
+            />
+            <text x={hoveredFlow.x} y={hoveredFlow.y - 6} fill="#f8fafc" fontSize="12" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="middle">
+              {hoveredFlow.title}
+            </text>
+            <text x={hoveredFlow.x} y={hoveredFlow.y + 12} fill={hoveredFlow.color} fontSize="13" fontWeight="800" textAnchor="middle">
+              {hoveredFlow.amount}
+            </text>
+          </g>
+        )}
       </svg>
       <style
         dangerouslySetInnerHTML={{
           __html: `
-        .hover-opacity { transition: opacity 0.2s ease-in-out; }
-        .hover-opacity:hover { opacity: 0.65; }
+        .hover-opacity { transition: opacity 0.2s ease-in-out; cursor: pointer; }
+        .hover-opacity:hover { opacity: 0.75; }
       `,
         }}
       />
