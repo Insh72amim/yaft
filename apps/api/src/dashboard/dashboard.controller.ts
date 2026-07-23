@@ -38,6 +38,11 @@ export class DashboardController {
       },
     });
 
+    const activeVaults = await this.prisma.accountVaultEntry.findMany({
+      where: { account: { userId: user.id } },
+      select: { accountId: true, last4: true },
+    });
+
     const monthTransactions = await this.prisma.transaction.findMany({
       where: {
         account: { userId: user.id },
@@ -50,7 +55,31 @@ export class DashboardController {
       orderBy: { transactionDate: 'desc' },
     });
 
-    const nonTransfers = monthTransactions.filter((item) => !item.transferGroupId);
+    const isInternalTransfer = (tx: (typeof monthTransactions)[0]) => {
+      if (tx.transferGroupId) return true;
+      for (const v of activeVaults) {
+        if (v.last4 && v.accountId !== tx.accountId && tx.descriptionRaw.includes(v.last4)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // Calculate Savings Net Inbound and Net Outbound across all SAVINGS/BANK accounts (excluding internal transfers)
+    const savingsTransactions = monthTransactions.filter((t) => ['SAVINGS', 'BANK'].includes(t.account.type));
+    const savingsNonTransfers = savingsTransactions.filter((t) => !isInternalTransfer(t));
+
+    const savingsNetInbound = savingsNonTransfers
+      .filter((t) => t.amount > 0)
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const savingsNetOutbound = Math.abs(
+      savingsNonTransfers
+        .filter((t) => t.amount < 0)
+        .reduce((sum, t) => sum + Number(t.amount), 0),
+    );
+
+    const nonTransfers = monthTransactions.filter((item) => !isInternalTransfer(item));
     const income = nonTransfers.filter((item) => item.amount > 0).reduce((sum, item) => sum + Number(item.amount), 0);
     const totalExpenses = Math.abs(nonTransfers.filter((item) => item.amount < 0).reduce((sum, item) => sum + Number(item.amount), 0));
 
@@ -120,6 +149,8 @@ export class DashboardController {
       expenses: totalExpenses,
       savings: income - totalExpenses,
       savingsRate: income > 0 ? Math.round(((income - totalExpenses) / income) * 1000) / 10 : 0,
+      savingsNetInbound,
+      savingsNetOutbound,
       netWorth: balances.reduce((sum, account) => sum + account.balance, 0),
       accounts: balances,
       spendAnalysis: {
