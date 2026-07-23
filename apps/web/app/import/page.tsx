@@ -2,8 +2,8 @@
 import { AlertTriangle, ArrowLeft, BadgeIndianRupee, BriefcaseBusiness, Building2, Check, CreditCard, FileSpreadsheet, KeyRound, Landmark,
   RefreshCw, ShieldCheck, Trash2, UploadCloud } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { api, downloadFile, errorMessage, isUnauthorized, money } from '@/lib/api';
 
@@ -54,8 +54,17 @@ const SOURCE_URLS: Record<string, string> = {
 };
 
 export default function ImportPage() {
+  return <Suspense fallback={<Shell><div className="loading"><span/><p>Preparing the unified importer…</p></div></Shell>}>
+    <ImportWorkspace />
+  </Suspense>;
+}
+
+function ImportWorkspace() {
   const router = useRouter();
-  const initialized = useRef(false);
+  const searchParams = useSearchParams();
+  const requestedKind = searchParams.get('kind') as ImportKind | null;
+  const requestedSource = searchParams.get('source');
+  const requestedAccount = searchParams.get('accountId');
   const [catalog, setCatalog] = useState<Catalog>();
   const [pending, setPending] = useState<PendingImport[]>([]);
   const [selectedReviewId, setSelectedReviewId] = useState('');
@@ -87,43 +96,40 @@ export default function ImportPage() {
       ]);
       setCatalog(nextCatalog); setPending(reviews);
       setSelectedReviewId((current) => reviews.some((item) => item.review.id === current) ? current : reviews[0]?.review.id ?? '');
-      if (!initialized.current) {
-        const params = new URLSearchParams(window.location.search);
-        const requestedKind = params.get('kind') as ImportKind | null;
-        const requestedAccount = params.get('accountId');
-        
-        let selectedKind = nextCatalog.options.find((item) => item.kind === requestedKind);
-        let selectedSource = selectedKind?.sources.find((item) => item.source === params.get('source'));
+      let selectedKind = nextCatalog.options.find((item) => item.kind === requestedKind);
+      let selectedSource = selectedKind?.sources.find((item) => item.source === requestedSource);
 
-        if (requestedAccount && (!selectedKind || !selectedSource)) {
-          for (const kOption of nextCatalog.options) {
-            for (const sOption of kOption.sources) {
-              if (sOption.eligibleAccountIds.includes(requestedAccount)) {
-                selectedKind = kOption;
-                selectedSource = sOption;
-                break;
-              }
-            }
-            if (selectedSource) break;
+      if (requestedAccount && !selectedSource?.eligibleAccountIds.includes(requestedAccount)) {
+        const preferredKinds = selectedKind
+          ? [selectedKind, ...nextCatalog.options.filter((item) => item.kind !== selectedKind?.kind)]
+          : nextCatalog.options;
+        for (const kindOption of preferredKinds) {
+          const sourceOption = kindOption.sources.find((item) =>
+            item.eligibleAccountIds.includes(requestedAccount)
+            && (!requestedSource || item.source === requestedSource),
+          ) ?? kindOption.sources.find((item) => item.eligibleAccountIds.includes(requestedAccount));
+          if (sourceOption) {
+            selectedKind = kindOption;
+            selectedSource = sourceOption;
+            break;
           }
         }
+      }
 
-        if (!selectedKind) selectedKind = nextCatalog.options[0];
-        if (!selectedSource) selectedSource = selectedKind?.sources.find((item) => item.source === params.get('source')) ?? selectedKind?.sources[0];
+      if (!selectedKind) selectedKind = nextCatalog.options[0];
+      if (!selectedSource) selectedSource = selectedKind?.sources.find((item) => item.source === requestedSource) ?? selectedKind?.sources[0];
 
-        if (selectedKind) setKind(selectedKind.kind);
-        if (selectedSource) {
-          setSource(selectedSource.source);
-          setAccountId(requestedAccount && selectedSource.eligibleAccountIds.includes(requestedAccount) ? requestedAccount
-            : selectedSource.eligibleAccountIds.length === 1 ? selectedSource.eligibleAccountIds[0] : '');
-        }
-        initialized.current = true;
+      if (selectedKind) setKind(selectedKind.kind);
+      if (selectedSource) {
+        setSource(selectedSource.source);
+        setAccountId(requestedAccount && selectedSource.eligibleAccountIds.includes(requestedAccount) ? requestedAccount
+          : selectedSource.eligibleAccountIds.length === 1 ? selectedSource.eligibleAccountIds[0] : '');
       }
     } catch (reason) {
       if (isUnauthorized(reason)) router.replace('/login');
       else setError(errorMessage(reason, 'Could not prepare the import workspace.'));
     } finally { setLoading(false); }
-  }, [router]);
+  }, [requestedAccount, requestedKind, requestedSource, router]);
 
   useEffect(() => { void load(); }, [load]);
 

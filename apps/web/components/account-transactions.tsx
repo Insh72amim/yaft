@@ -68,6 +68,9 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const { account, transactions, pagination } = data;
   const isCreditCard = account.type === 'CREDIT_CARD';
   const supportsDocuments = ['BANK', 'SAVINGS'].includes(account.type);
+  const supportsStatementImport = ['BANK', 'SAVINGS', 'CREDIT_CARD'].includes(account.type);
+  const statementImportKind = isCreditCard ? 'CREDIT_CARD_STATEMENT' : 'BANK_STATEMENT';
+  const statementImportHref = `/import?kind=${statementImportKind}&accountId=${encodeURIComponent(account.id)}`;
   const cardOutstanding = Math.max(0, -account.balance);
   const availableCredit = account.creditLimit == null ? null : Math.max(0, account.creditLimit - cardOutstanding);
   const maskedCardNumber = account.cardLast4 ? `••••  ••••  ••••  ${account.cardLast4}` : 'Card number not stored';
@@ -171,7 +174,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         {account.type === 'CREDIT_CARD' && <button className="secondary" onClick={openEditCc}><Settings size={15}/>Edit card</button>}
         {supportsDocuments && <button className={`secondary account-view-button ${!showDocuments ? 'active' : ''}`} aria-pressed={!showDocuments} onClick={() => setShowDocuments(false)}><ReceiptText size={15}/>Transactions</button>}
         {supportsDocuments && <button className={`secondary account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={15}/>Documents</button>}
-        {supportsDocuments && <Link className="secondary" href={`/import?accountId=${account.id}`}>Import statement</Link>}
+        {supportsStatementImport && <Link className="secondary" href={statementImportHref}>Import statement</Link>}
         <button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button>
         <button className="danger" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/>Delete or clear</button>
       </div></header>}
@@ -180,7 +183,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         {account.type === 'CREDIT_CARD' && <button className="secondary compact" onClick={openEditCc}><Settings size={14}/>Edit</button>}
         {supportsDocuments && <button className={`secondary compact account-view-button ${!showDocuments ? 'active' : ''}`} aria-pressed={!showDocuments} onClick={() => setShowDocuments(false)}><ReceiptText size={14}/>Transactions</button>}
         {supportsDocuments && <button className={`secondary compact account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={14}/>Documents</button>}
-        {account.type !== 'EPFO' && <Link className="secondary compact" href={`/import?accountId=${account.id}`}>Import statement</Link>}
+        {supportsStatementImport && <Link className="secondary compact" href={statementImportHref}>Import statement</Link>}
         <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
         <button className="danger compact" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/></button>
       </div></header>}
@@ -233,7 +236,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
               )}
             </article>
           ))}
-        </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>{account.type === 'EPFO' ? 'Add a manual transaction to populate the ledger.' : 'Import and approve a statement for this account to build its ledger.'}</p>{account.type !== 'EPFO' && <Link className="secondary" href={`/import?accountId=${account.id}`}>Import statement</Link>}</div>}
+        </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>{account.type === 'EPFO' ? 'Add a manual transaction to populate the ledger.' : 'Import and approve a statement for this account to build its ledger.'}</p>{supportsStatementImport && <Link className="secondary" href={statementImportHref}>Import statement</Link>}</div>}
         {pagination.pages > 1 && <footer className="ledger-pagination"><button className="secondary" disabled={pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}><ArrowLeft/>Previous</button><span>Page {pagination.page} of {pagination.pages}</span><button className="secondary" disabled={pagination.page >= pagination.pages} onClick={() => goToPage(pagination.page + 1)}>Next<ArrowRight/></button></footer>}
       </section>
       </>}
