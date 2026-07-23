@@ -902,9 +902,6 @@ function MultiBankSankeyDiagram({
 }) {
   const { accounts, internalTransfers, overall } = accountFlow;
 
-  const totalInbound = Math.max(1, overall.totalExternalInbound || income);
-  const totalOutbound = Math.max(1, overall.totalExternalOutbound || expenses);
-
   const BANK_COLOR_PALETTE = ['#3b82f6', '#06b6d4', '#ec4899', '#f59e0b', '#8b5cf6', '#10b981', '#6366f1'];
   const getBankColor = (index: number, name: string): string => {
     const lower = name.toLowerCase();
@@ -916,33 +913,56 @@ function MultiBankSankeyDiagram({
     return BANK_COLOR_PALETTE[index % BANK_COLOR_PALETTE.length];
   };
 
+  const BANK_NODE_HEIGHT = 54;
+  const BANK_NODE_GAP = 24;
+
+  const totalMiddleH = accounts.length * BANK_NODE_HEIGHT + (accounts.length - 1) * BANK_NODE_GAP;
+  const startY = 40;
+  const usableH = Math.max(220, totalMiddleH);
+  const SVG_HEIGHT = usableH + startY * 2;
   const SVG_WIDTH = 1050;
-  const SVG_HEIGHT = Math.max(400, accounts.length * 100 + 80);
-  const startY = 50;
-  const usableH = SVG_HEIGHT - 100;
 
   const leftX = 180;
   const middleX = 525;
   const rightX = 820;
   const nodeW = 18;
 
-  const bankGap = 24;
-  const availableH = usableH - (accounts.length - 1) * bankGap;
-
   let currentY = startY;
   const bankNodes = accounts.map((acc, idx) => {
-    const prop = (acc.totalInbound || 1) / totalInbound;
-    const height = Math.max(48, availableH * prop);
     const color = getBankColor(idx, acc.name);
     const node = {
       ...acc,
       x: middleX,
       y: currentY,
-      height,
+      height: BANK_NODE_HEIGHT,
       color,
     };
-    currentY += height + bankGap;
+    currentY += BANK_NODE_HEIGHT + BANK_NODE_GAP;
     return node;
+  });
+
+  // Calculate Left Bar Inbound Slices
+  const sumInbound = accounts.reduce((sum, a) => sum + (a.externalInbound || 0), 0) || 1;
+  let currLeftY = startY;
+  const inboundSlices = bankNodes.map((bank) => {
+    const share = (bank.externalInbound || 0) / sumInbound;
+    const sliceH = Math.max(8, share * usableH);
+    const topY = currLeftY;
+    const botY = topY + sliceH;
+    currLeftY += sliceH;
+    return { bank, topY, botY };
+  });
+
+  // Calculate Right Bar Outbound Slices
+  const sumOutbound = accounts.reduce((sum, a) => sum + (a.externalOutbound || 0), 0) || 1;
+  let currRightY = startY;
+  const outboundSlices = bankNodes.map((bank) => {
+    const share = (bank.externalOutbound || 0) / sumOutbound;
+    const sliceH = Math.max(8, share * usableH);
+    const topY = currRightY;
+    const botY = topY + sliceH;
+    currRightY += sliceH;
+    return { bank, topY, botY };
   });
 
   const sankeyLink = (x1: number, y1Top: number, y1Bot: number, x2: number, y2Top: number, y2Bot: number) => {
@@ -957,7 +977,7 @@ function MultiBankSankeyDiagram({
   };
 
   const internalLoopPath = (fromY: number, toY: number) => {
-    const cpX = middleX - 100;
+    const cpX = middleX - 110;
     return `
       M ${middleX} ${fromY}
       C ${cpX} ${fromY}, ${cpX} ${toY}, ${middleX} ${toY}
@@ -968,11 +988,6 @@ function MultiBankSankeyDiagram({
     <div className="beautiful-flow-wrapper" style={{ padding: '0', border: 'none', background: 'transparent', width: '100%', overflow: 'hidden' }}>
       <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="beautiful-flow-svg" style={{ width: '100%', height: 'auto', display: 'block' }}>
         <defs>
-          <linearGradient id="sankey-inbound-base" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#10b981" />
-            <stop offset="100%" stopColor="#3b82f6" />
-          </linearGradient>
-
           {bankNodes.map((bank) => (
             <linearGradient key={`grad-in-${bank.id}`} id={`grad-in-${bank.id}`} x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="#10b981" />
@@ -988,37 +1003,29 @@ function MultiBankSankeyDiagram({
           ))}
         </defs>
 
-        {/* 1. Inbound Bezier Ribbons from Left (External Inbound) to Middle (Bank Nodes) */}
-        {bankNodes.map((bank) => {
-          const inProp = (bank.externalInbound || 1) / totalInbound;
-          const ribbonH = Math.max(4, usableH * inProp);
-          return (
-            <path
-              key={`in-${bank.id}`}
-              d={sankeyLink(leftX + nodeW, startY, startY + ribbonH, bank.x, bank.y, bank.y + Math.max(4, bank.height * 0.4))}
-              fill={`url(#grad-in-${bank.id})`}
-              opacity="0.35"
-              className="sankey-path hover-opacity"
-            />
-          );
-        })}
+        {/* 1. Inbound Bezier Ribbons from Left Bar to Bank Nodes */}
+        {inboundSlices.map(({ bank, topY, botY }) => (
+          <path
+            key={`in-${bank.id}`}
+            d={sankeyLink(leftX + nodeW, topY, botY, bank.x, bank.y + 4, bank.y + bank.height - 4)}
+            fill={`url(#grad-in-${bank.id})`}
+            opacity="0.35"
+            className="sankey-path hover-opacity"
+          />
+        ))}
 
-        {/* 2. Outbound Bezier Ribbons from Middle (Bank Nodes) to Right (Outbound) */}
-        {bankNodes.map((bank) => {
-          const outProp = (bank.externalOutbound || 1) / totalOutbound;
-          const ribbonH = Math.max(4, usableH * outProp);
-          return (
-            <path
-              key={`out-${bank.id}`}
-              d={sankeyLink(bank.x + nodeW, bank.y + bank.height * 0.5, bank.y + bank.height, rightX, startY, startY + ribbonH)}
-              fill={`url(#grad-out-${bank.id})`}
-              opacity="0.35"
-              className="sankey-path hover-opacity"
-            />
-          );
-        })}
+        {/* 2. Outbound Bezier Ribbons from Bank Nodes to Right Bar */}
+        {outboundSlices.map(({ bank, topY, botY }) => (
+          <path
+            key={`out-${bank.id}`}
+            d={sankeyLink(bank.x + nodeW, bank.y + 4, bank.y + bank.height - 4, rightX, topY, botY)}
+            fill={`url(#grad-out-${bank.id})`}
+            opacity="0.35"
+            className="sankey-path hover-opacity"
+          />
+        ))}
 
-        {/* 3. Internal Transfer Bezier Curves & Badges between Bank Nodes */}
+        {/* 3. Internal Transfer Bezier Curves & Badges */}
         {internalTransfers.map((it, idx) => {
           const fromNode = bankNodes.find((b) => b.id === it.fromAccountId);
           const toNode = bankNodes.find((b) => b.id === it.toAccountId);
@@ -1034,12 +1041,12 @@ function MultiBankSankeyDiagram({
                 d={internalLoopPath(fromY, toY)}
                 fill="none"
                 stroke={fromNode.color}
-                strokeWidth="3.5"
+                strokeWidth="3"
                 strokeDasharray="6,4"
                 opacity="0.85"
               />
-              <rect x={middleX - 145} y={midY - 12} width="135" height="24" rx="6" fill="var(--background)" stroke={fromNode.color} strokeWidth="1" />
-              <text x={middleX - 78} y={midY + 4} fill={fromNode.color} fontSize="11" fontWeight="700" textAnchor="middle">
+              <rect x={middleX - 150} y={midY - 12} width="140" height="24" rx="6" fill="var(--background)" stroke={fromNode.color} strokeWidth="1" />
+              <text x={middleX - 80} y={midY + 4} fill={fromNode.color} fontSize="11" fontWeight="700" textAnchor="middle">
                 {it.fromAccountName.split(' ')[0]} ⟶ {it.toAccountName.split(' ')[0]} ({money(it.amount)})
               </text>
             </g>
@@ -1056,20 +1063,20 @@ function MultiBankSankeyDiagram({
           +{money(overall.totalExternalInbound)}
         </text>
 
-        {/* Middle Nodes: Individual Savings/Bank Accounts with Distinct Colors */}
+        {/* Middle Nodes: Individual Bank Accounts */}
         {bankNodes.map((bank) => (
           <g key={`node-${bank.id}`}>
             <rect x={bank.x} y={bank.y} width={nodeW} height={bank.height} fill={bank.color} rx="4" />
-            <text x={bank.x + nodeW + 12} y={bank.y + bank.height / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+            <text x={bank.x + nodeW + 12} y={bank.y + 20} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
               {bank.name}
             </text>
-            <text x={bank.x + nodeW + 12} y={bank.y + bank.height / 2 + 10} fill="var(--muted)" fontSize="11" fontWeight="500" textAnchor="start">
+            <text x={bank.x + nodeW + 12} y={bank.y + 38} fill="var(--muted)" fontSize="11" fontWeight="500" textAnchor="start">
               In: {money(bank.totalInbound)} · Out: {money(bank.totalOutbound)}
             </text>
           </g>
         ))}
 
-        {/* Right Node: Outbound */}
+        {/* Right Node: External Outbound */}
         <rect x={rightX} y={startY} width={nodeW} height={usableH} fill="#ef4444" rx="4" />
         <text x={rightX + nodeW + 14} y={startY + usableH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
           External Outbound
