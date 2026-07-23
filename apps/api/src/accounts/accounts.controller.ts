@@ -197,9 +197,70 @@ export class AccountsController {
       creditLimit: account.creditLimit === null ? null : Number(account.creditLimit), hasStatementPassword: false };
   }
 
+  @Get('all-transactions')
+  async allTransactions(
+    @CurrentUser() user: { id: string },
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) requestedPage: number,
+    @Query('pageSize') requestedPageSize?: string,
+    @Query('accountId') accountId?: string,
+    @Query('search') search?: string,
+    @Query('minAmount') minAmountStr?: string,
+    @Query('maxAmount') maxAmountStr?: string,
+    @Query('type') type?: string,
+  ) {
+    const page = Math.max(1, requestedPage);
+    const pageSize = requestedPageSize ? Math.min(100, Math.max(1, Number(requestedPageSize))) : 50;
+
+    const minAmount = minAmountStr !== undefined && minAmountStr !== '' ? Number(minAmountStr) : undefined;
+    const maxAmount = maxAmountStr !== undefined && maxAmountStr !== '' ? Number(maxAmountStr) : undefined;
+
+    const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type);
+
+    const [total, amountSum, transactions] = await Promise.all([
+      this.prisma.transaction.count({ where: transactionWhere }),
+      this.prisma.transaction.aggregate({ where: transactionWhere, _sum: { amount: true } }),
+      this.prisma.transaction.findMany({
+        where: transactionWhere,
+        include: {
+          account: { select: { id: true, name: true, type: true, institution: true } },
+          category: { select: { name: true } },
+        },
+        orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    return {
+      transactions: transactions.map((item) => ({
+        id: item.id,
+        accountId: item.accountId,
+        accountName: item.account.name,
+        accountType: item.account.type,
+        institution: item.account.institution,
+        transactionDate: item.transactionDate,
+        postedDate: item.postedDate,
+        description: item.merchant || item.descriptionRaw,
+        details: item.merchant ? item.descriptionRaw : null,
+        amount: Number(item.amount),
+        category: item.category?.name ?? 'Uncategorised',
+        isTransfer: Boolean(item.transferGroupId),
+      })),
+      totalAmount: Number(amountSum._sum.amount ?? 0n),
+      pagination: { page, pageSize, total, pages: Math.ceil(total / pageSize) },
+    };
+  }
+
   @Get(':accountId/transactions')
-  async transactions(@CurrentUser() user: { id: string }, @Param('accountId') accountId: string,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) requestedPage: number) {
+  async transactions(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) requestedPage: number,
+    @Query('search') search?: string,
+    @Query('minAmount') minAmountStr?: string,
+    @Query('maxAmount') maxAmountStr?: string,
+    @Query('type') type?: string,
+  ) {
     const account = await this.prisma.account.findFirst({
       where: { id: accountId, userId: user.id, archived: false },
       select: { id: true, name: true, type: true, institution: true, currency: true, openingBalance: true,
@@ -210,10 +271,15 @@ export class AccountsController {
 
     const page = Math.max(1, requestedPage);
     const pageSize = 50;
-    const transactionWhere = { accountId, account: { userId: user.id } };
+
+    const minAmount = minAmountStr !== undefined && minAmountStr !== '' ? Number(minAmountStr) : undefined;
+    const maxAmount = maxAmountStr !== undefined && maxAmountStr !== '' ? Number(maxAmountStr) : undefined;
+
+    const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type);
+
     const [total, amount, transactions] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),
-      this.prisma.transaction.aggregate({ where: transactionWhere, _sum: { amount: true } }),
+      this.prisma.transaction.aggregate({ where: { accountId, account: { userId: user.id } }, _sum: { amount: true } }),
       this.prisma.transaction.findMany({ where: transactionWhere, include: { category: { select: { name: true } } },
         orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }], skip: (page - 1) * pageSize, take: pageSize }),
     ]);
@@ -466,4 +532,58 @@ export class AccountsController {
       where: { id: transaction.id }
     });
   }
+}
+
+function buildTransactionWhere(
+  userId: string,
+  accountId?: string,
+  search?: string,
+  minAmount?: number,
+  maxAmount?: number,
+  type?: string,
+) {
+  const where: any = { account: { userId, archived: false } };
+
+  if (accountId && accountId !== 'all') {
+    where.accountId = accountId;
+  }
+
+  if (search && search.trim()) {
+    const query = search.trim();
+    where.OR = [
+      { merchant: { contains: query, mode: 'insensitive' } },
+      { descriptionRaw: { contains: query, mode: 'insensitive' } },
+    ];
+  }
+
+  const minPaise = minAmount !== undefined && !isNaN(minAmount) ? BigInt(Math.round(Math.abs(minAmount) * 100)) : undefined;
+  const maxPaise = maxAmount !== undefined && !isNaN(maxAmount) ? BigInt(Math.round(Math.abs(maxAmount) * 100)) : undefined;
+
+  const conditions: any[] = [];
+
+  if (type === 'EXPENSE') {
+    conditions.push({ amount: { lt: 0n } });
+    if (minPaise !== undefined) conditions.push({ amount: { lte: -minPaise } });
+    if (maxPaise !== undefined) conditions.push({ amount: { gte: -maxPaise } });
+  } else if (type === 'INCOME') {
+    conditions.push({ amount: { gt: 0n } });
+    if (minPaise !== undefined) conditions.push({ amount: { gte: minPaise } });
+    if (maxPaise !== undefined) conditions.push({ amount: { lte: maxPaise } });
+  } else if (minPaise !== undefined || maxPaise !== undefined) {
+    const posCond: any = { amount: { gt: 0n } };
+    if (minPaise !== undefined) posCond.amount.gte = minPaise;
+    if (maxPaise !== undefined) posCond.amount.lte = maxPaise;
+
+    const negCond: any = { amount: { lt: 0n } };
+    if (minPaise !== undefined) negCond.amount.lte = -minPaise;
+    if (maxPaise !== undefined) negCond.amount.gte = -maxPaise;
+
+    conditions.push({ OR: [posCond, negCond] });
+  }
+
+  if (conditions.length > 0) {
+    where.AND = conditions;
+  }
+
+  return where;
 }
