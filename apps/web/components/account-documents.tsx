@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Check,
   Download,
   Eye,
   FileImage,
@@ -8,6 +9,7 @@ import {
   Loader2,
   Maximize,
   Minimize,
+  Pencil,
   RotateCcw,
   Trash2,
   Upload,
@@ -209,6 +211,9 @@ export function AccountDocuments({
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState("");
   const [downloadingId, setDownloadingId] = useState("");
+  const [renamingId, setRenamingId] = useState("");
+  const [renameName, setRenameName] = useState("");
+  const [savingRename, setSavingRename] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -284,6 +289,36 @@ export function AccountDocuments({
     }
   };
 
+  const startRename = (item: AccountDocument) => {
+    setRenamingId(item.id);
+    setRenameName(item.name);
+    setError("");
+  };
+
+  const cancelRename = () => {
+    setRenamingId("");
+    setRenameName("");
+  };
+
+  const handleSaveRename = async (item: AccountDocument) => {
+    if (!renameName.trim()) return setError("Document name cannot be empty.");
+    setSavingRename(true);
+    setError("");
+    try {
+      const updated = await api<AccountDocument>(`/accounts/${accountId}/documents/${item.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: renameName.trim() }),
+      });
+      setDocuments((current) => current.map((d) => (d.id === item.id ? { ...d, name: updated.name } : d)));
+      setRenamingId("");
+      setRenameName("");
+    } catch (reason) {
+      setError(errorMessage(reason, "Could not rename document."));
+    } finally {
+      setSavingRename(false);
+    }
+  };
+
   return (
       <section className="panel account-documents-panel account-documents-page" aria-labelledby="account-documents-heading">
         <header>
@@ -315,16 +350,44 @@ export function AccountDocuments({
           <div className="account-document-list">
             {documents.map((item) => {
               const isImage = item.mimeType.startsWith("image/");
+              const isRenaming = renamingId === item.id;
               return (
                 <article key={item.id} className="account-document-row">
                   <span className={`account-document-icon ${isImage ? "image" : "pdf"}`}>
                     {isImage ? <FileImage size={19} /> : <FileText size={19} />}
                   </span>
-                  <div className="account-document-meta">
-                    <strong title={item.name}>{item.name}</strong>
-                    <small>{isImage ? "Image" : "PDF"} · {formatSize(item.byteSize)} · {formatDate(item.createdAt)}</small>
+                  <div className="account-document-meta" style={{ flex: 1 }}>
+                    {isRenaming ? (
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <input
+                          type="text"
+                          value={renameName}
+                          onChange={(e) => setRenameName(e.target.value)}
+                          style={{ fontSize: "13px", padding: "4px 8px", borderRadius: "6px", border: "1px solid var(--line)", background: "var(--background)", color: "var(--ink)", width: "100%", maxWidth: "300px" }}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void handleSaveRename(item);
+                            if (e.key === "Escape") cancelRename();
+                          }}
+                        />
+                        <button type="button" className="secondary compact" disabled={savingRename} onClick={() => void handleSaveRename(item)} title="Save name">
+                          {savingRename ? <Loader2 className="spin" size={13} /> : <Check size={13} />}
+                        </button>
+                        <button type="button" className="ghost compact" disabled={savingRename} onClick={cancelRename} title="Cancel">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <strong title={item.name}>{item.name}</strong>
+                        <small>{isImage ? "Image" : "PDF"} · {formatSize(item.byteSize)} · {formatDate(item.createdAt)}</small>
+                      </>
+                    )}
                   </div>
                   <div className="account-document-actions">
+                    <button type="button" className="secondary compact" onClick={() => startRename(item)} title="Rename document">
+                      <Pencil size={14} /> Rename
+                    </button>
                     <button type="button" className="secondary compact" onClick={() => setSelected(item)}>
                       <Eye size={14} /> View
                     </button>

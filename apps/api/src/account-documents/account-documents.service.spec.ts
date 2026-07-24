@@ -1,4 +1,5 @@
 import { BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { AccountType } from '@prisma/client';
 import type { PrismaService } from '../common/prisma.service';
 import type { S3Service } from '../s3/s3.service';
 import { AccountDocumentsService } from './account-documents.service';
@@ -58,7 +59,7 @@ describe('AccountDocumentsService', () => {
         id: 'account-a',
         userId: 'owner-a',
         archived: false,
-        type: { in: ['BANK', 'SAVINGS', 'LOAN'] },
+        type: { in: Object.values(AccountType) },
       }),
     }));
     expect(result[0]).toEqual({

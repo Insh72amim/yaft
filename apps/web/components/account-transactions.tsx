@@ -9,11 +9,14 @@ import { VaultModal } from '@/components/vault-modal';
 import { AccountDocuments } from '@/components/account-documents';
 import { SipModal, type Sip } from '@/components/sip-modal';
 
+type CategoryOption = { id: string; name: string; color: string };
+
 type AccountLedger = {
   account: { id: string; name: string; type: string; institution: string | null; currency: string; openingBalance: number; balance: number;
     creditLimit?: number | null; statementDay?: number | null; dueDay?: number | null; cardLast4?: string | null; cardNetwork?: string | null };
   transactions: { id: string; transactionDate: string; postedDate: string | null; description: string; details: string | null;
-    amount: number; category: string; isTransfer: boolean }[];
+    amount: number; categoryId?: string | null; category: string; categoryColor?: string; isTransfer: boolean }[];
+  categories?: CategoryOption[];
   pagination: { page: number; pageSize: number; total: number; pages: number };
 };
 
@@ -42,11 +45,11 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [savingCc, setSavingCc] = useState(false);
   const [saveCcError, setSaveCcError] = useState('');
 
-  // EPFO manual transaction states
+  // EPFO manual add states
   const [showAddEpfo, setShowAddEpfo] = useState(false);
+  const [epfoDate, setEpfoDate] = useState('');
   const [epfoDesc, setEpfoDesc] = useState('');
   const [epfoAmount, setEpfoAmount] = useState('');
-  const [epfoDate, setEpfoDate] = useState('');
   const [epfoIsCredit, setEpfoIsCredit] = useState(true);
   const [savingEpfo, setSavingEpfo] = useState(false);
   const [saveEpfoError, setSaveEpfoError] = useState('');
@@ -77,6 +80,19 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setShowDocuments(false); }, [accountId]);
 
+  const handleUpdateCategory = async (transactionId: string, categoryId: string) => {
+    try {
+      await api(`/accounts/${accountId}/transactions/${transactionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ categoryId: categoryId || null }),
+      });
+      load();
+    } catch (reason) {
+      if (isUnauthorized(reason)) router.replace('/login');
+      else alert(errorMessage(reason, 'Could not update category.'));
+    }
+  };
+
   if (!data) {
     const errorState = error ? <section className="panel account-ledger-error"><ReceiptText/><h2>Account unavailable</h2><p>{error}</p><Link className="secondary" href="/dashboard"><ArrowLeft/>Back to overview</Link></section> : <div className="loading"><span/><p>Loading account transactions…</p></div>;
     return embedded ? errorState : <Shell>{errorState}</Shell>;
@@ -84,7 +100,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
 
   const { account, transactions, pagination } = data;
   const isCreditCard = account.type === 'CREDIT_CARD';
-  const supportsDocuments = ['BANK', 'SAVINGS'].includes(account.type);
+  const supportsDocuments = true;
   const supportsStatementImport = ['BANK', 'SAVINGS', 'CREDIT_CARD'].includes(account.type);
   const statementImportKind = isCreditCard ? 'CREDIT_CARD_STATEMENT' : 'BANK_STATEMENT';
   const statementImportHref = `/import?kind=${statementImportKind}&accountId=${encodeURIComponent(account.id)}`;
@@ -437,7 +453,33 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                 <small>{transaction.details || (transaction.postedDate ? `Posted ${new Date(transaction.postedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}` : 'Ledger transaction')}</small>
               </div>
               <div className="transaction-category-cell">
-                <span className={`category-pill ${transaction.isTransfer ? 'transfer' : ''}`}>{transaction.isTransfer ? 'Transfer' : transaction.category}</span>
+                {transaction.isTransfer ? (
+                  <span className="category-pill transfer">Transfer</span>
+                ) : (
+                  <select
+                    className="category-pill-select"
+                    value={transaction.categoryId ?? ''}
+                    onChange={(e) => void handleUpdateCategory(transaction.id, e.target.value)}
+                    title="Click to change category"
+                    style={{
+                      background: 'var(--background)',
+                      border: '1px solid var(--line)',
+                      borderRadius: '12px',
+                      padding: '3px 8px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: 'var(--ink)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="">Uncategorised</option>
+                    {(data.categories || []).map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
                 {transaction.amount > 0 ? '+' : ''}{money(transaction.amount)}

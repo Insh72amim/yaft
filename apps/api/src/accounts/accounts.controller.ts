@@ -218,19 +218,20 @@ export class AccountsController {
 
     const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate);
 
-    const [total, amountSum, transactions] = await Promise.all([
+    const [total, amountSum, transactions, userCategories] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),
       this.prisma.transaction.aggregate({ where: transactionWhere, _sum: { amount: true } }),
       this.prisma.transaction.findMany({
         where: transactionWhere,
         include: {
           account: { select: { id: true, name: true, type: true, institution: true } },
-          category: { select: { name: true } },
+          category: { select: { id: true, name: true, color: true } },
         },
         orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
+      this.prisma.category.findMany({ where: { userId: user.id }, orderBy: { name: 'asc' } }),
     ]);
 
     return {
@@ -245,9 +246,12 @@ export class AccountsController {
         description: item.merchant || item.descriptionRaw,
         details: item.merchant ? item.descriptionRaw : null,
         amount: Number(item.amount),
+        categoryId: item.categoryId,
         category: item.category?.name ?? 'Uncategorised',
+        categoryColor: item.category?.color ?? '#94a3b8',
         isTransfer: Boolean(item.transferGroupId),
       })),
+      categories: userCategories.map((c) => ({ id: c.id, name: c.name, color: c.color })),
       totalAmount: Number(amountSum._sum.amount ?? 0n),
       pagination: { page, pageSize, total, pages: Math.ceil(total / pageSize) },
     };
@@ -281,11 +285,12 @@ export class AccountsController {
 
     const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate);
 
-    const [total, amount, transactions] = await Promise.all([
+    const [total, amount, transactions, userCategories] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),
       this.prisma.transaction.aggregate({ where: { accountId, account: { userId: user.id } }, _sum: { amount: true } }),
-      this.prisma.transaction.findMany({ where: transactionWhere, include: { category: { select: { name: true } } },
+      this.prisma.transaction.findMany({ where: transactionWhere, include: { category: { select: { id: true, name: true, color: true } } },
         orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }], skip: (page - 1) * pageSize, take: pageSize }),
+      this.prisma.category.findMany({ where: { userId: user.id }, orderBy: { name: 'asc' } }),
     ]);
 
     return {
@@ -296,7 +301,9 @@ export class AccountsController {
         cardNetwork: account.type === AccountType.CREDIT_CARD ? account.vaultEntry?.cardNetwork ?? null : null },
       transactions: transactions.map((item) => ({ id: item.id, transactionDate: item.transactionDate, postedDate: item.postedDate,
         description: item.merchant || item.descriptionRaw, details: item.merchant ? item.descriptionRaw : null, amount: Number(item.amount),
-        category: item.category?.name ?? 'Uncategorised', isTransfer: Boolean(item.transferGroupId) })),
+        categoryId: item.categoryId, category: item.category?.name ?? 'Uncategorised', categoryColor: item.category?.color ?? '#94a3b8',
+        isTransfer: Boolean(item.transferGroupId) })),
+      categories: userCategories.map((c) => ({ id: c.id, name: c.name, color: c.color })),
       pagination: { page, pageSize, total, pages: Math.ceil(total / pageSize) },
     };
   }
@@ -535,6 +542,46 @@ export class AccountsController {
     await this.prisma.transaction.delete({
       where: { id: transaction.id }
     });
+  }
+
+  @Patch(':accountId/transactions/:transactionId')
+  async updateTransactionCategory(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Param('transactionId') transactionId: string,
+    @Body() dto: { categoryId?: string | null },
+  ) {
+    const account = await this.prisma.account.findFirst({
+      where: { id: accountId, userId: user.id, archived: false },
+    });
+    if (!account) throw new NotFoundException('Account not found.');
+
+    const transaction = await this.prisma.transaction.findFirst({
+      where: { id: transactionId, accountId: account.id },
+    });
+    if (!transaction) throw new NotFoundException('Transaction not found.');
+
+    let newCategoryId: string | null = null;
+    if (dto.categoryId) {
+      const category = await this.prisma.category.findFirst({
+        where: { id: dto.categoryId, userId: user.id },
+      });
+      if (!category) throw new NotFoundException('Category not found.');
+      newCategoryId = category.id;
+    }
+
+    const updated = await this.prisma.transaction.update({
+      where: { id: transaction.id },
+      data: { categoryId: newCategoryId },
+      include: { category: { select: { id: true, name: true, color: true } } },
+    });
+
+    return {
+      id: updated.id,
+      categoryId: updated.categoryId,
+      category: updated.category?.name ?? 'Uncategorised',
+      categoryColor: updated.category?.color ?? '#94a3b8',
+    };
   }
 }
 
