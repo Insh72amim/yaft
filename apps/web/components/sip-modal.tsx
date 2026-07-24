@@ -15,6 +15,7 @@ export type Sip = {
   sourceAccountId: string | null;
   sourceAccountName: string | null;
   sourceAccountLast4: string | null;
+  destinationAccount: string | null;
   billerKeyword: string | null;
   status: string;
 };
@@ -34,6 +35,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
   const [frequency, setFrequency] = useState(sip?.frequency ?? 'MONTHLY');
   const [sipDay, setSipDay] = useState(sip ? String(sip.sipDay) : '10');
   const [sourceAccountId, setSourceAccountId] = useState(sip?.sourceAccountId ?? '');
+  const [destinationAccount, setDestinationAccount] = useState(sip?.destinationAccount ?? '');
   const [billerKeyword, setBillerKeyword] = useState(sip?.billerKeyword ?? '');
   const [status, setStatus] = useState(sip?.status ?? 'ACTIVE');
   const [saving, setSaving] = useState(false);
@@ -53,6 +55,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
     if (!name.trim()) return setError('Mutual fund / SIP name is required.');
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return setError('Please enter a valid monthly amount.');
+    if (!sourceAccountId) return setError('Payment source bank account is required.');
 
     setSaving(true);
     setError('');
@@ -68,6 +71,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
             frequency,
             sipDay: parseInt(sipDay, 10) || 10,
             sourceAccountId: sourceAccountId || null,
+            destinationAccount: destinationAccount || null,
             billerKeyword,
             status,
           }),
@@ -83,6 +87,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
             frequency,
             sipDay: parseInt(sipDay, 10) || 10,
             sourceAccountId: sourceAccountId || null,
+            destinationAccount: destinationAccount || null,
             billerKeyword,
             status,
           }),
@@ -98,10 +103,10 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
 
   return (
     <div className="modal-backdrop" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)' }}>
-      <div className="modal-card" style={{ background: 'var(--background)', borderRadius: '12px', padding: '24px', maxWidth: '480px', width: '100%', border: '1px solid var(--line)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+      <div className="modal-card" style={{ background: 'var(--background)', borderRadius: '12px', padding: '24px', maxWidth: '500px', width: '100%', border: '1px solid var(--line)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <TrendingUp size={20} color="#10b981" />
+            <TrendingUp size={20} color="#8b5cf6" />
             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>{sip ? 'Edit Active SIP' : 'Add Active SIP'}</h3>
           </div>
           <button type="button" className="ghost compact" onClick={onClose} style={{ padding: '4px' }}>
@@ -137,7 +142,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Debit Day of Month</label>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>SIP Debit Day</label>
               <input
                 type="number"
                 min="1"
@@ -151,20 +156,33 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Payment Source Account (Bank)</label>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Payment Source Account (Required) *</label>
             <select
               value={sourceAccountId}
               onChange={(e) => setSourceAccountId(e.target.value)}
+              required
               style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
             >
-              <option value="">Select linked bank account...</option>
+              <option value="">Select linked bank account (debit source)...</option>
               {bankAccounts.map((bank) => (
                 <option key={bank.id} value={bank.id}>
                   {bank.name} {bank.institution ? `(${bank.institution})` : ''}
                 </option>
               ))}
             </select>
-            <small style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px', display: 'block' }}>Account from which payment will be debited for this SIP</small>
+            <small style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px', display: 'block' }}>Bank account from which payment will be debited for this SIP</small>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Payment Destination Account / Mandate # (Optional)</label>
+            <input
+              type="text"
+              placeholder="e.g. Zerodha Broking / ICCL Mandate # 810293"
+              value={destinationAccount}
+              onChange={(e) => setDestinationAccount(e.target.value)}
+              style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+            />
+            <small style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px', display: 'block' }}>Account or biller mandate number to which payment is made</small>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -179,7 +197,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Statement Keyword / Biller</label>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Statement Keyword (Optional)</label>
               <input
                 type="text"
                 placeholder="e.g. BSE MEMBERS, ZERODHA"
@@ -191,7 +209,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
           </div>
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-            <button type="submit" className="primary" disabled={saving} style={{ flex: 1, height: '38px' }}>
+            <button type="submit" className="primary" disabled={saving} style={{ flex: 1, height: '38px', background: '#8b5cf6', borderColor: '#8b5cf6' }}>
               {saving ? 'Saving...' : sip ? 'Update SIP' : 'Add Active SIP'}
             </button>
             <button type="button" className="secondary" onClick={onClose} style={{ height: '38px' }}>
