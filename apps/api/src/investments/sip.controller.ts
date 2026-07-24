@@ -12,32 +12,101 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { PrismaService } from '../common/prisma.service';
 
 export class CreateSipDto {
+  @IsString()
+  @IsNotEmpty()
   accountId!: string;
+
+  @IsString()
+  @IsNotEmpty()
   name!: string;
+
+  @IsOptional()
+  @IsString()
   folioNumber?: string;
+
+  @IsNumber()
+  @Min(0.01)
   amount!: number;
+
+  @IsOptional()
+  @IsString()
   frequency?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(31)
   sipDay?: number;
+
+  @IsOptional()
+  @IsString()
   sourceAccountId?: string;
+
+  @IsOptional()
+  @IsString()
   destinationAccount?: string;
+
+  @IsOptional()
+  @IsString()
   billerKeyword?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
 }
 
 export class UpdateSipDto {
+  @IsOptional()
+  @IsString()
   name?: string;
+
+  @IsOptional()
+  @IsString()
   folioNumber?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.01)
   amount?: number;
+
+  @IsOptional()
+  @IsString()
   frequency?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(31)
   sipDay?: number;
+
+  @IsOptional()
+  @IsString()
   sourceAccountId?: string;
+
+  @IsOptional()
+  @IsString()
   destinationAccount?: string;
+
+  @IsOptional()
+  @IsString()
   billerKeyword?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
 }
 
