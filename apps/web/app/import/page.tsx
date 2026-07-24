@@ -1,13 +1,13 @@
 'use client';
 import { AlertTriangle, ArrowLeft, BadgeIndianRupee, BriefcaseBusiness, Building2, Check, CreditCard, FileSpreadsheet, KeyRound, Landmark,
-  RefreshCw, ShieldCheck, Trash2, UploadCloud } from 'lucide-react';
+  RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { api, downloadFile, errorMessage, isUnauthorized, money } from '@/lib/api';
 
-type ImportKind = 'BANK_STATEMENT' | 'CREDIT_CARD_STATEMENT' | 'SALARY_PAYSLIP' | 'BROKER_HOLDINGS';
+type ImportKind = 'BANK_STATEMENT' | 'CREDIT_CARD_STATEMENT' | 'SALARY_PAYSLIP' | 'BROKER_HOLDINGS' | 'UPI_STATEMENT';
 type Account = { id: string; name: string; type: string; institution: string | null; currency: string; hasStatementPassword: boolean };
 type SourceOption = { source: string; label: string; description: string; extensions: string[]; maxBytes: number; accountRequired: boolean;
   commitMode: 'REVIEW_REQUIRED' | 'IMMEDIATE_ATOMIC_REPLACEMENT'; pdfPasswordSupported: boolean; rememberPasswordSupported: boolean; eligibleAccountIds: string[] };
@@ -36,6 +36,7 @@ function kindIcon(kind: string) {
   if (kind === 'CREDIT_CARD_STATEMENT') return CreditCard;
   if (kind === 'SALARY_PAYSLIP') return BadgeIndianRupee;
   if (kind === 'BROKER_HOLDINGS') return BriefcaseBusiness;
+  if (kind === 'UPI_STATEMENT') return Smartphone;
   return Landmark;
 }
 
@@ -51,6 +52,9 @@ const SOURCE_URLS: Record<string, string> = {
   SBI_CC: 'https://www.sbicard.com/',
   AXIS_CC: 'https://omni.axis.bank.in/axisretailbanking/',
   EPFO: 'https://passbook.epfindia.gov.in/MemberPassBook/Login',
+  GPAY: 'https://pay.google.com/',
+  PHONEPE: 'https://www.phonepe.com/',
+  PAYTM: 'https://paytm.com/',
 };
 
 export default function ImportPage() {
@@ -269,7 +273,7 @@ function ImportWorkspace() {
 
   if (loading || !catalog || !sourceOption) return <Shell><div className="loading"><span/><p>{error || 'Preparing the unified importer…'}</p></div></Shell>;
   const accept = sourceOption.extensions.join(',');
-  const fileLabel = kind === 'BANK_STATEMENT' ? 'bank statement' : kind === 'SALARY_PAYSLIP' ? 'payslip' : 'holdings report';
+  const fileLabel = kind === 'BANK_STATEMENT' ? 'bank statement' : kind === 'SALARY_PAYSLIP' ? 'payslip' : kind === 'UPI_STATEMENT' ? 'UPI app statement' : 'holdings report';
 
   return <Shell><header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link>
     <span className="eyebrow">Unified import workspace</span><h1>Import financial records</h1><p>Choose what you are importing and who issued it. YAFT applies the matching validator and never guesses an unknown layout.</p></div></header>

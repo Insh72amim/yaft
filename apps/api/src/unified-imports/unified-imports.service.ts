@@ -7,11 +7,12 @@ import { InvestmentsService } from '../investments/investments.service';
 import { SalaryService } from '../salary/salary.service';
 import { UnifiedImportUploadDto } from './unified-imports.dto';
 
-export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'CREDIT_CARD_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS'] as const;
+export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'CREDIT_CARD_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS', 'UPI_STATEMENT'] as const;
 export type UnifiedImportKind = (typeof UNIFIED_IMPORT_KINDS)[number];
 export type BankImportSource = 'SBI' | 'PNB' | 'AXIS' | 'EPFO';
 export type CreditCardImportSource = 'HDFC_CC' | 'ICICI_CC' | 'SBI_CC' | 'AXIS_CC';
-export type UnifiedImportSource = BankImportSource | CreditCardImportSource | 'GOLDMAN_SACHS' | 'ZERODHA_KITE' | 'GROWW';
+export type UPIImportSource = 'GPAY' | 'PHONEPE' | 'PAYTM';
+export type UnifiedImportSource = BankImportSource | CreditCardImportSource | UPIImportSource | 'GOLDMAN_SACHS' | 'ZERODHA_KITE' | 'GROWW';
 
 type SourceSpec = {
   kind: UnifiedImportKind;
@@ -59,6 +60,15 @@ const SOURCE_SPECS: readonly SourceSpec[] = [
   { kind: 'BANK_STATEMENT', source: 'EPFO', label: 'EPFO India',
     description: 'EPFO member passbook PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
     accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+  { kind: 'UPI_STATEMENT', source: 'GPAY', label: 'GPay (Google Pay)',
+    description: 'Exported PDF or CSV statement from Google Pay app.', extensions: ['.pdf', '.csv'], maxBytes: 5 * MIB,
+    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+  { kind: 'UPI_STATEMENT', source: 'PHONEPE', label: 'PhonePe',
+    description: 'Exported PDF or CSV statement from PhonePe app.', extensions: ['.pdf', '.csv'], maxBytes: 5 * MIB,
+    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+  { kind: 'UPI_STATEMENT', source: 'PAYTM', label: 'Paytm',
+    description: 'Exported PDF or CSV passbook statement from Paytm.', extensions: ['.pdf', '.csv'], maxBytes: 5 * MIB,
+    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
 ];
 
 const KIND_LABELS: Record<UnifiedImportKind, { label: string; description: string }> = {
@@ -66,6 +76,7 @@ const KIND_LABELS: Record<UnifiedImportKind, { label: string; description: strin
   CREDIT_CARD_STATEMENT: { label: 'Credit card statement', description: 'Stage credit card transactions for review before adding them to the ledger.' },
   SALARY_PAYSLIP: { label: 'Salary payslip', description: 'Review reconciled payroll facts before saving the salary month.' },
   BROKER_HOLDINGS: { label: 'Broker holdings', description: 'Replace a broker account snapshot atomically after full reconciliation.' },
+  UPI_STATEMENT: { label: 'UPI App statement', description: 'Import payment history statements from GPay, PhonePe, or Paytm.' },
 };
 
 type BankReview = Awaited<ReturnType<ImportsService['get']>>;
@@ -176,6 +187,9 @@ export class UnifiedImportsService {
       return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
         review: this.safeSalaryReview(review as SalaryReview), actions: this.salaryActions(review.id) };
     }
+    if (spec.kind === 'UPI_STATEMENT') {
+      throw new BadRequestException(`UPI statement parser for ${spec.label} is in preview mode. Statement parsing support will be enabled soon.`);
+    }
 
 
     const result = spec.source === 'GROWW'
@@ -225,6 +239,9 @@ export class UnifiedImportsService {
     }
     if (spec.kind === 'CREDIT_CARD_STATEMENT') {
       return account.type === 'CREDIT_CARD';
+    }
+    if (spec.kind === 'UPI_STATEMENT') {
+      return ['BANK', 'SAVINGS'].includes(account.type);
     }
     if (spec.kind === 'BROKER_HOLDINGS') {
       const matchInstitution = (account.institution ?? '');
