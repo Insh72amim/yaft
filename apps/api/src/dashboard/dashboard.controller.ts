@@ -43,6 +43,12 @@ export class DashboardController {
       select: { accountId: true, last4: true },
     });
 
+    const activeSips = (this.prisma as any).activeSip
+      ? await (this.prisma as any).activeSip.findMany({
+          where: { userId: user.id, status: 'ACTIVE' },
+        })
+      : [];
+
     const monthTransactions = await this.prisma.transaction.findMany({
       where: {
         account: { userId: user.id },
@@ -163,9 +169,22 @@ export class DashboardController {
         if (tx.amount > 0) {
           accFlow.externalInbound += amt;
         } else {
+          const matchesSip = activeSips.some((sip: any) => {
+            const accountMatch = !sip.sourceAccountId || sip.sourceAccountId === tx.accountId;
+            const descLower = tx.descriptionRaw.toLowerCase();
+            const merchantLower = (tx.merchant || '').toLowerCase();
+            const keywordMatch =
+              (sip.billerKeyword && descLower.includes(sip.billerKeyword.toLowerCase())) ||
+              (sip.name && descLower.includes(sip.name.toLowerCase())) ||
+              (sip.destinationAccount && descLower.includes(sip.destinationAccount.toLowerCase())) ||
+              (sip.name && merchantLower.includes(sip.name.toLowerCase()));
+            return accountMatch && keywordMatch;
+          });
+
           const isInvestmentCategory = tx.category?.name && /INVEST|MUTUAL|SIP|STOCK|BROKER/i.test(tx.category.name);
-          const isInvestmentKeyword = /MUTUAL|FUND|ZERODHA|GROWW|BSE|NSE|SGB|NPS|INDIABULLS|ICICI PRUDENTIAL|MF CENTRAL|RAZORPAY MF/i.test(tx.descriptionRaw);
-          if (isInvestmentCategory || isInvestmentKeyword) {
+          const isInvestmentKeyword = /MUTUAL|FUND|ZERODHA|GROWW|BSE|NSE|SGB|NPS|INDIABULLS|ICICI PRUDENTIAL|MF CENTRAL|RAZORPAY MF|SIP/i.test(tx.descriptionRaw);
+
+          if (matchesSip || isInvestmentCategory || isInvestmentKeyword) {
             accFlow.investments += amt;
           } else {
             accFlow.externalOutbound += amt;
@@ -205,7 +224,7 @@ export class DashboardController {
       .forEach((item) => {
         const amt = Math.abs(Number(item.amount));
         const isInvestmentAccount = ['INVESTMENT', 'STOCKS', 'EPFO', 'FIXED_DEPOSIT'].includes(item.account.type);
-        const isInvestmentKeyword = /MUTUAL|FUND|ZERODHA|GROWW|BSE|NSE|SGB|NPS/i.test(item.descriptionRaw);
+        const isInvestmentKeyword = /MUTUAL|FUND|ZERODHA|GROWW|BSE|NSE|SGB|NPS|SIP/i.test(item.descriptionRaw);
 
         if (isInvestmentAccount || isInvestmentKeyword) {
           investmentTotal += amt;
@@ -255,6 +274,10 @@ export class DashboardController {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
 
+    const savingsMonthTransactions = monthTransactions.filter((item) =>
+      ['SAVINGS', 'BANK'].includes(item.account.type),
+    );
+
     return {
       month: `${year}-${String(monthIndex + 1).padStart(2, '0')}`,
       income,
@@ -273,7 +296,7 @@ export class DashboardController {
       },
       topOutboundRecipients,
       categories: [...categoryMap.values()].sort((a, b) => b.amount - a.amount),
-      recent: monthTransactions.slice(0, 8).map((item) => ({
+      recent: savingsMonthTransactions.slice(0, 8).map((item) => ({
         id: item.id,
         date: item.transactionDate,
         description: item.merchant || item.descriptionRaw,
