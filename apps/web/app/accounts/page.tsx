@@ -20,7 +20,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, Suspense } from "react";
 import { Shell } from "@/components/shell";
 import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
-import { AccountTransactions } from "@/components/account-transactions";
+import { AccountTransactions, ActiveSipsPanel } from "@/components/account-transactions";
 import { AddAccountModal } from "@/components/add-account-modal";
 import { VaultModal } from "@/components/vault-modal";
 import { LoanSchedule } from "@/components/loan-schedule";
@@ -412,6 +412,7 @@ function PortfolioContent() {
           </div>
         </header>
         {isInvestment ? (
+          <>
           <div className="panel portfolio-account">
             <header>
               <div>
@@ -450,6 +451,15 @@ function PortfolioContent() {
                       }>
                       <Lock size={14} />
                       Credentials
+                    </button>
+                    <button
+                      className="secondary compact"
+                      onClick={() => {
+                        const el = document.getElementById('active-sips-section');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }}>
+                      <TrendingUp size={14} color="#8b5cf6" />
+                      SIPs
                     </button>
                     <Link
                       className="secondary compact"
@@ -559,6 +569,8 @@ function PortfolioContent() {
               />
             )}
           </div>
+          <ActiveSipsPanel accountId={selectedAccountId} />
+          </>
         ) : selectedAccount.type === "LOAN" ? (
           <LoanSchedule accountId={selectedAccountId} embedded={true} />
         ) : (

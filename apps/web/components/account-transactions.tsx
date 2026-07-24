@@ -513,7 +513,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   return embedded ? content : <Shell>{content}</Shell>;
 }
 
-function ActiveSipsPanel({ accountId }: { accountId: string }) {
+export function ActiveSipsPanel({ accountId }: { accountId: string }) {
   const [sips, setSips] = useState<Sip[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
