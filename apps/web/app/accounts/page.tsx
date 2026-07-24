@@ -416,162 +416,180 @@ function PortfolioContent() {
         </header>
         {isInvestment ? (
           <>
-          <div className="panel portfolio-account">
-            <header>
-              <div>
-                <span className="eyebrow">Portfolio</span>
-                <h2>Holdings</h2>
+            <section className="summary-grid account-ledger-summary">
+              <article>
+                <span className="summary-icon saved"><BriefcaseBusiness /></span>
+                <div>
+                  <small>Total holdings</small>
+                  <strong>{portfolioData ? `${portfolioData.holdings.length} instruments` : '0'}</strong>
+                </div>
+              </article>
+              <article>
+                <span className="summary-icon income"><Landmark /></span>
+                <div>
+                  <small>Current portfolio value</small>
+                  <strong>{portfolioData ? money(portfolioData.currentValue) : '₹0'}</strong>
+                </div>
+              </article>
+              <article>
+                <span className={`summary-icon ${portfolioData && portfolioData.unrealizedPnl < 0 ? 'expense' : 'saved'}`}>
+                  <TrendingUp />
+                </span>
+                <div>
+                  <small>Unrealized P&L</small>
+                  <strong className={portfolioData && portfolioData.unrealizedPnl < 0 ? 'loss' : 'gain'}>
+                    {portfolioData ? money(portfolioData.unrealizedPnl) : '₹0'}
+                  </strong>
+                </div>
+              </article>
+            </section>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '6px', background: 'var(--card)', padding: '4px', borderRadius: '12px', border: '1px solid var(--line)' }}>
+                <button
+                  type="button"
+                  className={`secondary compact ${!showInvestmentDocs ? 'active' : ''}`}
+                  onClick={() => setShowInvestmentDocs(false)}
+                >
+                  <BriefcaseBusiness size={14} /> Holdings
+                </button>
+                <button
+                  type="button"
+                  className={`secondary compact ${showInvestmentDocs ? 'active' : ''}`}
+                  onClick={() => setShowInvestmentDocs(true)}
+                >
+                  <Files size={14} /> Documents
+                </button>
               </div>
-              {portfolioData && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "24px",
-                    alignItems: "center",
-                  }}>
-                  <div style={{ display: "flex", gap: "24px" }}>
-                    <span>
-                      <small>Holdings</small>
-                      <strong>{portfolioData.holdings.length}</strong>
-                    </span>
-                    <span>
-                      <small>Value</small>
-                      <strong>{money(portfolioData.currentValue)}</strong>
-                    </span>
-                    <span
-                      className={
-                        portfolioData.unrealizedPnl < 0 ? "loss" : "gain"
-                      }>
-                      <small>Unrealized</small>
-                      <strong>{money(portfolioData.unrealizedPnl)}</strong>
-                    </span>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="secondary compact"
+                  onClick={() => setShowVaultForInvestment(selectedAccountId)}
+                >
+                  <Lock size={14} /> Credentials
+                </button>
+                <button
+                  type="button"
+                  className="secondary compact"
+                  onClick={() => {
+                    const el = document.getElementById('active-sips-section');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  <TrendingUp size={14} color="#8b5cf6" /> SIPs
+                </button>
+                <Link
+                  className="secondary compact"
+                  href={`/import?kind=BROKER_HOLDINGS&accountId=${encodeURIComponent(selectedAccountId)}`}
+                >
+                  <Upload size={14} /> Import snapshot
+                </Link>
+              </div>
+            </div>
+
+            {showInvestmentDocs ? (
+              <AccountDocuments accountId={selectedAccountId} />
+            ) : (
+              <div className="panel portfolio-account">
+                <header>
+                  <div>
+                    <span className="eyebrow">Portfolio</span>
+                    <h2>Holdings List</h2>
                   </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      className={`secondary compact ${showInvestmentDocs ? 'active' : ''}`}
-                      onClick={() => setShowInvestmentDocs(!showInvestmentDocs)}>
-                      <Files size={14} />
-                      Documents
-                    </button>
-                    <button
-                      className="secondary compact"
-                      onClick={() =>
-                        setShowVaultForInvestment(selectedAccountId)
-                      }>
-                      <Lock size={14} />
-                      Credentials
-                    </button>
-                    <button
-                      className="secondary compact"
-                      onClick={() => {
-                        const el = document.getElementById('active-sips-section');
-                        if (el) el.scrollIntoView({ behavior: 'smooth' });
-                      }}>
-                      <TrendingUp size={14} color="#8b5cf6" />
-                      SIPs
-                    </button>
+                </header>
+                {portfolioData?.holdings.length ? (
+                  <div className="holdings-scroll">
+                    <table className="holdings-table">
+                      <thead>
+                        <tr>
+                          <th>Instrument</th>
+                          <th>Quantity detail</th>
+                          <th>Avg. cost</th>
+                          <th>Previous close</th>
+                          <th>Value</th>
+                          <th>Unrealized P&amp;L</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {portfolioData.holdings.map((holding) => {
+                          const pnl = holding.unrealizedPnl ?? 0;
+                          const invested =
+                            Number(holding.quantity) * holding.averagePrice;
+                          return (
+                            <tr key={holding.id}>
+                              <td>
+                                <strong>{holding.symbol}</strong>
+                                <span className="holding-sector-tag">
+                                  {holding.sector ||
+                                    holding.assetType.replace("_", " ")}
+                                </span>
+                                <small>{holding.isin || "ISIN unavailable"}</small>
+                              </td>
+                              <td>
+                                <strong>{quantity(holding.quantity)}</strong>
+                                <span>
+                                  {quantity(holding.availableQuantity)} available
+                                  {Number(holding.pledgedQuantity)
+                                    ? ` · ${quantity(holding.pledgedQuantity)} pledged`
+                                    : ""}
+                                </span>
+                                {Number(holding.discrepantQuantity) > 0 && (
+                                  <small className="warning">
+                                    {quantity(holding.discrepantQuantity)}{" "}
+                                    discrepant
+                                  </small>
+                                )}
+                              </td>
+                              <td>{price(holding.averagePrice)}</td>
+                              <td>{price(holding.previousClosingPrice)}</td>
+                              <td>
+                                <strong>
+                                  {holding.currentValue === null
+                                    ? "—"
+                                    : money(holding.currentValue)}
+                                </strong>
+                              </td>
+                              <td className={pnl < 0 ? "loss" : "gain"}>
+                                <div className="pnl-badge">
+                                  <strong>{money(pnl)}</strong>
+                                  <span>
+                                    {invested
+                                      ? `${pnl >= 0 ? "+" : ""}${((pnl / invested) * 100).toFixed(2)}%`
+                                      : "—"}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="portfolio-empty">
+                    <BriefcaseBusiness size={48} strokeWidth={1} />
+                    <strong>No holdings imported</strong>
+                    <p>
+                      Use Import records to validate a broker holdings snapshot for
+                      this account.
+                    </p>
                     <Link
                       className="secondary compact"
                       href={`/import?kind=BROKER_HOLDINGS&accountId=${encodeURIComponent(selectedAccountId)}`}>
-                      <Upload size={14} />
                       Import snapshot
                     </Link>
                   </div>
-                </div>
-              )}
-            </header>
-            {showInvestmentDocs ? (
-              <AccountDocuments accountId={selectedAccountId} />
-            ) : portfolioData?.holdings.length ? (
-              <div className="holdings-scroll">
-                <table className="holdings-table">
-                  <thead>
-                    <tr>
-                      <th>Instrument</th>
-                      <th>Quantity detail</th>
-                      <th>Avg. cost</th>
-                      <th>Previous close</th>
-                      <th>Value</th>
-                      <th>Unrealized P&amp;L</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {portfolioData.holdings.map((holding) => {
-                      const pnl = holding.unrealizedPnl ?? 0;
-                      const invested =
-                        Number(holding.quantity) * holding.averagePrice;
-                      return (
-                        <tr key={holding.id}>
-                          <td>
-                            <strong>{holding.symbol}</strong>
-                            <span className="holding-sector-tag">
-                              {holding.sector ||
-                                holding.assetType.replace("_", " ")}
-                            </span>
-                            <small>{holding.isin || "ISIN unavailable"}</small>
-                          </td>
-                          <td>
-                            <strong>{quantity(holding.quantity)}</strong>
-                            <span>
-                              {quantity(holding.availableQuantity)} available
-                              {Number(holding.pledgedQuantity)
-                                ? ` · ${quantity(holding.pledgedQuantity)} pledged`
-                                : ""}
-                            </span>
-                            {Number(holding.discrepantQuantity) > 0 && (
-                              <small className="warning">
-                                {quantity(holding.discrepantQuantity)}{" "}
-                                discrepant
-                              </small>
-                            )}
-                          </td>
-                          <td>{price(holding.averagePrice)}</td>
-                          <td>{price(holding.previousClosingPrice)}</td>
-                          <td>
-                            <strong>
-                              {holding.currentValue === null
-                                ? "—"
-                                : money(holding.currentValue)}
-                            </strong>
-                          </td>
-                          <td className={pnl < 0 ? "loss" : "gain"}>
-                            <div className="pnl-badge">
-                              <strong>{money(pnl)}</strong>
-                              <span>
-                                {invested
-                                  ? `${pnl >= 0 ? "+" : ""}${((pnl / invested) * 100).toFixed(2)}%`
-                                  : "—"}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="portfolio-empty">
-                <BriefcaseBusiness size={48} strokeWidth={1} />
-                <strong>No holdings imported</strong>
-                <p>
-                  Use Import records to validate a broker holdings snapshot for
-                  this account.
-                </p>
-                <Link
-                  className="secondary compact"
-                  href={`/import?kind=BROKER_HOLDINGS&accountId=${encodeURIComponent(selectedAccountId)}`}>
-                  Import snapshot
-                </Link>
-              </div>
-            )}
-            {portfolioData?.holdings[0] && (
-              <footer>
-                Snapshot imported{" "}
-                {new Date(portfolioData.holdings[0].asOfDate).toLocaleString(
-                  "en-IN",
                 )}
-              </footer>
+                {portfolioData?.holdings[0] && (
+                  <footer>
+                    Snapshot imported{" "}
+                    {new Date(portfolioData.holdings[0].asOfDate).toLocaleString(
+                      "en-IN",
+                    )}
+                  </footer>
+                )}
+              </div>
             )}
             {showVaultForInvestment && (
               <VaultModal
@@ -579,8 +597,7 @@ function PortfolioContent() {
                 onClose={() => setShowVaultForInvestment(null)}
               />
             )}
-          </div>
-          <ActiveSipsPanel accountId={selectedAccountId} />
+            <ActiveSipsPanel accountId={selectedAccountId} />
           </>
         ) : selectedAccount.type === "LOAN" ? (
           <LoanSchedule accountId={selectedAccountId} embedded={true} />

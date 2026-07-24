@@ -9,6 +9,7 @@ import {
   Loader2,
   Maximize,
   Minimize,
+  MoreVertical,
   Pencil,
   RotateCcw,
   Trash2,
@@ -110,85 +111,89 @@ function DocumentViewer({
   };
 
   return (
-    <div className="modal-wrap account-document-viewer-wrap">
-      <button className="backdrop" onClick={onClose} aria-label="Close document viewer" />
+    <div className="account-document-modal-wrap">
+      <div className="account-document-backdrop" onClick={onClose} />
       <div
         ref={modalRef}
-        className={`modal account-document-viewer ${fullscreen ? "fullscreen" : ""}`}
+        className={`account-document-modal ${fullscreen ? "fullscreen" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="account-document-viewer-title">
-        <header className="account-document-viewer-header">
-          <div className="account-document-viewer-title">
-            <span>{isImage ? <FileImage size={18} /> : <FileText size={18} />}</span>
-            <div>
-              <strong id="account-document-viewer-title">{document.name}</strong>
-              <small>{formatSize(document.byteSize)} · Added {formatDate(document.createdAt)}</small>
-            </div>
+        aria-label={document.name}>
+        <header className="account-document-modal-header">
+          <div>
+            <strong>{document.name}</strong>
+            <small>
+              {isImage ? "Image" : "PDF"} · {formatSize(document.byteSize)} ·{" "}
+              {formatDate(document.createdAt)}
+            </small>
           </div>
-          <div className="account-document-viewer-controls">
-            <button type="button" onClick={() => setScale((value) => Math.max(0.5, value - 0.25))} disabled={scale <= 0.5} aria-label="Zoom out">
-              <ZoomOut size={16} />
+          <div className="account-document-modal-actions">
+            {isImage && (
+              <>
+                <button
+                  type="button"
+                  className="secondary compact"
+                  onClick={() => setScale((current) => Math.min(3, current + 0.25))}
+                  title="Zoom in">
+                  <ZoomIn size={15} />
+                </button>
+                <button
+                  type="button"
+                  className="secondary compact"
+                  onClick={() => setScale((current) => Math.max(0.5, current - 0.25))}
+                  title="Zoom out">
+                  <ZoomOut size={15} />
+                </button>
+                <button
+                  type="button"
+                  className="secondary compact"
+                  onClick={() => setScale(1)}
+                  title="Reset zoom">
+                  <RotateCcw size={15} />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className="secondary compact"
+              onClick={toggleFullscreen}
+              title={fullscreen ? "Exit fullscreen" : "Fullscreen"}>
+              {fullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
             </button>
-            <span>{Math.round(scale * 100)}%</span>
-            <button type="button" onClick={() => setScale((value) => Math.min(2.5, value + 0.25))} disabled={scale >= 2.5} aria-label="Zoom in">
-              <ZoomIn size={16} />
-            </button>
-            <button type="button" onClick={() => setScale(1)} disabled={scale === 1} aria-label="Reset zoom">
-              <RotateCcw size={15} />
-            </button>
-            <i />
-            <button type="button" onClick={toggleFullscreen} aria-label={fullscreen ? "Exit fullscreen" : "Open fullscreen"}>
-              {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-            </button>
-            <button ref={closeButtonRef} type="button" className="viewer-close" onClick={onClose} aria-label="Close document viewer">
+            <button
+              ref={closeButtonRef}
+              type="button"
+              className="ghost compact account-document-close"
+              onClick={onClose}
+              title="Close viewer">
               <X size={17} />
             </button>
           </div>
         </header>
         <div className="account-document-viewer-body">
-          {loading && (
-            <div className="account-document-viewer-status">
-              <Loader2 className="spin" size={30} />
+          {loading ? (
+            <div className="account-document-viewer-state">
+              <Loader2 className="spin" size={24} />
               <span>Opening document…</span>
             </div>
-          )}
-          {viewerError && (
-            <div className="account-document-viewer-status error-state" role="alert">
-              <FileText size={30} />
-              <strong>Unable to open this document</strong>
-              <span>{viewerError}</span>
+          ) : viewerError ? (
+            <div className="account-document-viewer-state error">
+              <p>{viewerError}</p>
             </div>
-          )}
-          {source && (
-            <div className="account-document-viewport">
-              {isImage ? (
-                <img
-                  src={source}
-                  alt={document.name}
-                  style={{ width: `${scale * 100}%` }}
-                />
-              ) : (
-                <div
-                  className="account-document-pdf-scale"
-                  style={{
-                    width: `${scale * 100}%`,
-                    height: `${scale * 100}%`,
-                    margin: scale <= 1 ? "0 auto" : 0,
-                  }}>
-                  <iframe
-                    src={`${source}#toolbar=0`}
-                    title={document.name}
-                    style={{
-                      width: `${100 / scale}%`,
-                      height: `${100 / scale}%`,
-                      transform: `scale(${scale})`,
-                      transformOrigin: "top left",
-                    }}
-                  />
-                </div>
-              )}
+          ) : isImage ? (
+            <div className="account-document-image-stage">
+              <img
+                src={source}
+                alt={document.name}
+                style={{ transform: `scale(${scale})` }}
+              />
             </div>
+          ) : (
+            <iframe
+              src={source}
+              title={document.name}
+              className="account-document-frame"
+            />
           )}
         </div>
       </div>
@@ -196,8 +201,8 @@ function DocumentViewer({
   );
 }
 
-function documentBodyOverflow() {
-  return typeof window === "undefined" ? "" : window.document.body.style.overflow;
+function documentBodyOverflow(): string {
+  return window.document.body.style.overflow;
 }
 
 export function AccountDocuments({
@@ -214,6 +219,7 @@ export function AccountDocuments({
   const [renamingId, setRenamingId] = useState("");
   const [renameName, setRenameName] = useState("");
   const [savingRename, setSavingRename] = useState(false);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -232,6 +238,12 @@ export function AccountDocuments({
     setLoading(true);
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const handleClickOutside = () => setMenuOpenId(null);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
 
   const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
@@ -384,29 +396,84 @@ export function AccountDocuments({
                       </>
                     )}
                   </div>
-                  <div className="account-document-actions">
-                    <button type="button" className="secondary compact" onClick={() => startRename(item)} title="Rename document">
-                      <Pencil size={14} /> Rename
-                    </button>
+                  <div className="account-document-actions" style={{ position: "relative", display: "flex", alignItems: "center", gap: "6px" }}>
                     <button type="button" className="secondary compact" onClick={() => setSelected(item)}>
                       <Eye size={14} /> View
                     </button>
                     <button
                       type="button"
                       className="secondary compact"
-                      onClick={() => void download(item)}
-                      disabled={downloadingId === item.id}>
-                      {downloadingId === item.id ? <Loader2 className="spin" size={14} /> : <Download size={14} />}
-                      Download
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpenId(menuOpenId === item.id ? null : item.id);
+                      }}
+                      aria-label="More options"
+                      style={{ padding: "6px 8px", borderRadius: "8px" }}>
+                      <MoreVertical size={16} />
                     </button>
-                    <button
-                      type="button"
-                      className="account-document-delete"
-                      onClick={() => void remove(item)}
-                      disabled={deletingId === item.id}
-                      aria-label={`Remove ${item.name}`}>
-                      {deletingId === item.id ? <Loader2 className="spin" size={15} /> : <Trash2 size={15} />}
-                    </button>
+                    {menuOpenId === item.id && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          position: "absolute",
+                          right: 0,
+                          top: "calc(100% + 4px)",
+                          zIndex: 30,
+                          background: "var(--card)",
+                          border: "1px solid var(--line)",
+                          borderRadius: "12px",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.4)",
+                          padding: "6px",
+                          minWidth: "160px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "3px",
+                        }}>
+                        <button
+                          type="button"
+                          className="ghost compact"
+                          onClick={() => {
+                            setMenuOpenId(null);
+                            setSelected(item);
+                          }}
+                          style={{ justifyContent: "flex-start", padding: "8px 12px", fontSize: "12px", width: "100%", gap: "8px", color: "var(--ink)" }}>
+                          <Eye size={14} /> View document
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost compact"
+                          onClick={() => {
+                            setMenuOpenId(null);
+                            startRename(item);
+                          }}
+                          style={{ justifyContent: "flex-start", padding: "8px 12px", fontSize: "12px", width: "100%", gap: "8px", color: "var(--ink)" }}>
+                          <Pencil size={14} /> Rename
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost compact"
+                          disabled={downloadingId === item.id}
+                          onClick={() => {
+                            setMenuOpenId(null);
+                            void download(item);
+                          }}
+                          style={{ justifyContent: "flex-start", padding: "8px 12px", fontSize: "12px", width: "100%", gap: "8px", color: "var(--ink)" }}>
+                          {downloadingId === item.id ? <Loader2 className="spin" size={14} /> : <Download size={14} />} Download
+                        </button>
+                        <div style={{ height: "1px", background: "var(--line)", margin: "3px 0" }} />
+                        <button
+                          type="button"
+                          className="ghost compact"
+                          disabled={deletingId === item.id}
+                          onClick={() => {
+                            setMenuOpenId(null);
+                            void remove(item);
+                          }}
+                          style={{ justifyContent: "flex-start", padding: "8px 12px", fontSize: "12px", width: "100%", gap: "8px", color: "#ef4444" }}>
+                          {deletingId === item.id ? <Loader2 className="spin" size={14} /> : <Trash2 size={14} />} Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </article>
               );
