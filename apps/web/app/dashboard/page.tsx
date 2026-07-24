@@ -19,10 +19,12 @@ import {
   RotateCcw,
   X,
   Filter,
+  Sparkles,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
+import { SpendRulesModal } from '@/components/spend-rules-modal';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 
 type Account = { id: string; name: string; type: string; balance: number; creditLimit: number | null; dueDay: number | null };
@@ -468,6 +470,13 @@ function GlobalTransactionExplorer() {
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Spend Rules & Batch Categorization states
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [ruleInitialPattern, setRuleInitialPattern] = useState('');
+  const [ruleInitialCategoryId, setRuleInitialCategoryId] = useState('');
+  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+  const [batchUpdating, setBatchUpdating] = useState(false);
+
   const [data, setData] = useState<{
     transactions: {
       id: string;
@@ -537,6 +546,60 @@ function GlobalTransactionExplorer() {
     }
   };
 
+  const toggleSelectTx = (id: string) => {
+    setSelectedTxIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (!data?.transactions) return;
+    if (selectedTxIds.length === data.transactions.length) {
+      setSelectedTxIds([]);
+    } else {
+      setSelectedTxIds(data.transactions.map((t) => t.id));
+    }
+  };
+
+  const handleBatchUpdateCategory = async (categoryId: string) => {
+    if (selectedTxIds.length === 0) return;
+    setBatchUpdating(true);
+    try {
+      await api('/categories/batch-update', {
+        method: 'POST',
+        body: JSON.stringify({
+          transactionIds: selectedTxIds,
+          categoryId: categoryId || null,
+        }),
+      }).catch(() =>
+        api('/category-rules/batch-update', {
+          method: 'POST',
+          body: JSON.stringify({
+            transactionIds: selectedTxIds,
+            categoryId: categoryId || null,
+          }),
+        }),
+      );
+      setSelectedTxIds([]);
+      fetchTransactions();
+    } catch (reason) {
+      alert(errorMessage(reason, 'Could not bulk update categories.'));
+    } finally {
+      setBatchUpdating(false);
+    }
+  };
+
+  const handleCreateRuleFromSelection = () => {
+    if (selectedTxIds.length === 0 || !data?.transactions) return;
+    const firstTx = data.transactions.find((t) => selectedTxIds.includes(t.id));
+    if (firstTx) {
+      const cleanKeyword = firstTx.description.split('/')[0].split('-')[0].trim();
+      setRuleInitialPattern(cleanKeyword || firstTx.description);
+      setRuleInitialCategoryId(firstTx.categoryId || '');
+      setShowRulesModal(true);
+    }
+  };
+
   useEffect(() => {
     fetchTransactions();
   }, [fetchTransactions]);
@@ -562,6 +625,19 @@ function GlobalTransactionExplorer() {
               {(data.pagination.page - 1) * data.pagination.pageSize + 1}–{Math.min(data.pagination.page * data.pagination.pageSize, data.pagination.total)} of {data.pagination.total}
             </span>
           )}
+          <button
+            type="button"
+            className="secondary compact"
+            onClick={() => {
+              setRuleInitialPattern('');
+              setRuleInitialCategoryId('');
+              setShowRulesModal(true);
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <SlidersHorizontal size={14} color="var(--green)" />
+            Category Rules
+          </button>
           <button
             type="button"
             className={`secondary compact ${showFilters || activeFilterCount > 0 ? 'active' : ''}`}
@@ -802,8 +878,16 @@ function GlobalTransactionExplorer() {
         </div>
       ) : data?.transactions.length ? (
         <>
-          <div className="account-transaction-table">
+          <div className="account-transaction-table" style={{ gridTemplateColumns: '36px 140px minmax(0, 1fr) 160px 120px' }}>
             <header>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(data?.transactions.length && selectedTxIds.length === data.transactions.length)}
+                  onChange={toggleSelectAll}
+                  style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                />
+              </span>
               <span>Date</span>
               <span>Description</span>
               <span>Category</span>
@@ -811,6 +895,14 @@ function GlobalTransactionExplorer() {
             </header>
             {data.transactions.map((item) => (
               <article key={item.id} className="transaction-row">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedTxIds.includes(item.id)}
+                    onChange={() => toggleSelectTx(item.id)}
+                    style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                  />
+                </div>
                 <time className="transaction-time-cell">
                   <span className="date-text">{new Date(item.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
                   <span className="time-text">{new Date(item.transactionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })}</span>
@@ -859,6 +951,75 @@ function GlobalTransactionExplorer() {
             ))}
           </div>
 
+          {selectedTxIds.length > 0 && (
+            <div
+              style={{
+                position: 'fixed',
+                bottom: '24px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 9999,
+                background: 'var(--card)',
+                border: '1px solid var(--line)',
+                borderRadius: '16px',
+                boxShadow: '0 12px 30px rgba(0,0,0,0.3)',
+                padding: '10px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>
+                {selectedTxIds.length} transaction{selectedTxIds.length === 1 ? '' : 's'} selected
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <select
+                  disabled={batchUpdating}
+                  onChange={(e) => void handleBatchUpdateCategory(e.target.value)}
+                  defaultValue=""
+                  style={{
+                    height: '34px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    padding: '0 10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: 'var(--background)',
+                    color: 'var(--ink)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="" disabled>Set Category for All...</option>
+                  <option value="">Uncategorised</option>
+                  {(data?.categories || []).map((cat: any) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  className="secondary compact"
+                  onClick={handleCreateRuleFromSelection}
+                  style={{ height: '34px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Sparkles size={14} color="var(--green)" /> Create Rule
+                </button>
+
+                <button
+                  type="button"
+                  className="ghost compact"
+                  onClick={() => setSelectedTxIds([])}
+                  style={{ height: '34px', fontSize: '12px', color: 'var(--muted)' }}
+                >
+                  Deselect
+                </button>
+              </div>
+            </div>
+          )}
+
           {data.pagination.pages > 1 && (
             <footer className="ledger-pagination" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
               <button
@@ -885,6 +1046,15 @@ function GlobalTransactionExplorer() {
         </>
       ) : (
         <Empty text="No transactions match the selected amount range or filters." />
+      )}
+
+      {showRulesModal && (
+        <SpendRulesModal
+          onClose={() => setShowRulesModal(false)}
+          onRulesApplied={() => fetchTransactions()}
+          initialPattern={ruleInitialPattern}
+          initialCategoryId={ruleInitialCategoryId}
+        />
       )}
     </section>
   );
