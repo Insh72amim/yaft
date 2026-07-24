@@ -192,6 +192,18 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         {supportsDocuments && <button className={`secondary account-view-button ${!showDocuments ? 'active' : ''}`} aria-pressed={!showDocuments} onClick={() => setShowDocuments(false)}><ReceiptText size={15}/>Transactions</button>}
         {supportsDocuments && <button className={`secondary account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={15}/>Documents</button>}
         {supportsStatementImport && <Link className="secondary" href={statementImportHref}>Import statement</Link>}
+        {['STOCKS', 'INVESTMENT'].includes(account.type) && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              const el = document.getElementById('active-sips-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            <TrendingUp size={15} color="#8b5cf6" /> SIPs
+          </button>
+        )}
         <button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button>
         <button className="danger" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/>Delete or clear</button>
       </div></header>}
@@ -201,6 +213,18 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         {supportsDocuments && <button className={`secondary compact account-view-button ${!showDocuments ? 'active' : ''}`} aria-pressed={!showDocuments} onClick={() => setShowDocuments(false)}><ReceiptText size={14}/>Transactions</button>}
         {supportsDocuments && <button className={`secondary compact account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={14}/>Documents</button>}
         {supportsStatementImport && <Link className="secondary compact" href={statementImportHref}>Import statement</Link>}
+        {['STOCKS', 'INVESTMENT'].includes(account.type) && (
+          <button
+            type="button"
+            className="secondary compact"
+            onClick={() => {
+              const el = document.getElementById('active-sips-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            <TrendingUp size={14} color="#8b5cf6" /> SIPs
+          </button>
+        )}
         <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
         <button className="danger compact" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/></button>
       </div></header>}
@@ -216,7 +240,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         <article><span className="summary-icon expense"><ReceiptText/></span><div><small>Transactions</small><strong>{pagination.total.toLocaleString('en-IN')}</strong><em>Reviewed ledger entries</em></div></article>
       </section>}
 
-      {['STOCKS', 'INVESTMENT', 'SAVINGS', 'BANK'].includes(account.type) && (
+      {['STOCKS', 'INVESTMENT'].includes(account.type) && (
         <ActiveSipsPanel accountId={account.id} />
       )}
 
@@ -453,7 +477,7 @@ function ActiveSipsPanel({ accountId }: { accountId: string }) {
   };
 
   return (
-    <section className="panel" style={{ marginBottom: '20px' }}>
+    <section id="active-sips-section" className="panel" style={{ marginBottom: '20px' }}>
       <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <span className="eyebrow" style={{ color: '#10b981' }}>Automated Investments</span>
@@ -501,12 +525,17 @@ function ActiveSipsPanel({ accountId }: { accountId: string }) {
                   {money(sip.amount)} <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--muted)' }}>/ {sip.frequency.toLowerCase()}</span>
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--ink)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span>Debit Day: <strong>{sip.sipDay}th</strong> of month</span>
+                  <span>SIP Debit Day: <strong>{sip.sipDay}th</strong> of month</span>
                   <span>
-                    Source Account:{' '}
+                    Payment Source:{' '}
                     <strong>{sip.sourceAccountName ? `${sip.sourceAccountName}${sip.sourceAccountLast4 ? ` (•••• ${sip.sourceAccountLast4})` : ''}` : 'Not linked'}</strong>
                   </span>
-                  {sip.billerKeyword && <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Keyword: {sip.billerKeyword}</span>}
+                  {sip.destinationAccount && (
+                    <span>
+                      Payment Destination: <strong>{sip.destinationAccount}</strong>
+                    </span>
+                  )}
+                  {sip.billerKeyword && <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Statement Keyword: {sip.billerKeyword}</span>}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid var(--line)' }}>

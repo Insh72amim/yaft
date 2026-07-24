@@ -24,6 +24,7 @@ export class CreateSipDto {
   frequency?: string;
   sipDay?: number;
   sourceAccountId?: string;
+  destinationAccount?: string;
   billerKeyword?: string;
   status?: string;
 }
@@ -35,6 +36,7 @@ export class UpdateSipDto {
   frequency?: string;
   sipDay?: number;
   sourceAccountId?: string;
+  destinationAccount?: string;
   billerKeyword?: string;
   status?: string;
 }
@@ -92,6 +94,7 @@ export class SipController {
         sourceAccountId: sip.sourceAccountId,
         sourceAccountName: sourceAcc ? sourceAcc.name : null,
         sourceAccountLast4: sourceAcc?.vaultEntry?.last4 ?? null,
+        destinationAccount: sip.destinationAccount,
         billerKeyword: sip.billerKeyword,
         status: sip.status,
         createdAt: sip.createdAt,
@@ -127,6 +130,7 @@ export class SipController {
         frequency: dto.frequency || 'MONTHLY',
         sipDay: dto.sipDay ? Math.min(31, Math.max(1, Number(dto.sipDay))) : 10,
         sourceAccountId: dto.sourceAccountId || null,
+        destinationAccount: dto.destinationAccount?.trim() || null,
         billerKeyword: dto.billerKeyword?.trim() || null,
         status: dto.status || 'ACTIVE',
       },
@@ -163,6 +167,7 @@ export class SipController {
     if (dto.frequency !== undefined) data.frequency = dto.frequency;
     if (dto.sipDay !== undefined) data.sipDay = Math.min(31, Math.max(1, Number(dto.sipDay)));
     if (dto.sourceAccountId !== undefined) data.sourceAccountId = dto.sourceAccountId || null;
+    if (dto.destinationAccount !== undefined) data.destinationAccount = dto.destinationAccount?.trim() || null;
     if (dto.billerKeyword !== undefined) data.billerKeyword = dto.billerKeyword?.trim() || null;
     if (dto.status !== undefined) data.status = dto.status;
 
