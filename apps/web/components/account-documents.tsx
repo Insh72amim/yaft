@@ -172,7 +172,7 @@ function DocumentViewer({
           </div>
         </header>
         <div className="account-document-viewer-body">
-          {loading ? (
+          {loading || !source ? (
             <div className="account-document-viewer-state">
               <Loader2 className="spin" size={24} />
               <span>Opening document…</span>
