@@ -88,3 +88,26 @@ This file maintains the running inventory of completed, verified features inside
 ### 9.3 Salary Page
 - [ ] **Acme Corp Layout Parser**:
   - [ ] Design and implement parser compatibility for Acme Corp-style payroll formats.
+
+### 9.4 Data Security & Backups
+- [ ] **Encrypted Local Backup & Restore**:
+  - [ ] One-click AES-256-GCM encrypted export and restore of database records and S3 document files (`.yaft-backup`).
+
+### 9.5 Parser Engine & Organization Onboarding
+- [ ] **Organization Onboarding for Salary**:
+  - [ ] Dynamic layout configuration engine for onboarding new company payslips (regex patterns, field anchors, earnings/deduction markers) without writing custom code.
+- [ ] **Generic Pluggable Statement Parser Pipeline**:
+  - [ ] Schema-driven statement parser layout builder for dynamic onboarding of new bank and credit card statement formats.
+
+### 9.6 Categorization & Bulk Operations
+- [ ] **Batch Category & Bulk Apply**:
+  - [ ] Select multiple transactions by recipient, keyword, or account and apply category changes in bulk across ledger records.
+- [ ] **Custom Category Rules & Automated Engine**:
+  - [ ] Rule builder with conditions (merchant/description patterns) for auto-categorization and tax-deductible tagging (80C, 80D, HRA).
+
+### 9.7 Budgeting & Analytics
+- [ ] **Category Envelopes & Monthly Budget Tracker**:
+  - [ ] Target monthly envelope budgets per category with progress indicators and threshold alerts.
+- [ ] **Net Worth & Asset Allocation History**:
+  - [ ] Monthly historical net worth tracking with visual asset allocation breakdowns (Liquid Cash, Equities, EPFO, Debt/Loans).
+
