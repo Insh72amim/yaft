@@ -305,11 +305,6 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
               <Settings size={14} /> Edit
             </button>
           )}
-          {supportsStatementImport && (
-            <Link className="secondary compact" href={statementImportHref}>
-              Import statement
-            </Link>
-          )}
           <button type="button" className="secondary compact" onClick={() => setShowVault(true)}>
             <Lock size={14} /> Credentials
           </button>
@@ -597,7 +592,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
               )}
             </article>
           ))}
-        </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>{account.type === 'EPFO' ? 'Add a manual transaction to populate the ledger.' : 'Import and approve a statement for this account to build its ledger.'}</p>{supportsStatementImport && <Link className="secondary" href={statementImportHref}>Import statement</Link>}</div>}
+        </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>{account.type === 'EPFO' ? 'Add a manual transaction to populate the ledger.' : 'No transactions recorded for this account.'}</p></div>}
         {pagination.pages > 1 && <footer className="ledger-pagination"><button className="secondary" disabled={pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}><ArrowLeft/>Previous</button><span>Page {pagination.page} of {pagination.pages}</span><button className="secondary" disabled={pagination.page >= pagination.pages} onClick={() => goToPage(pagination.page + 1)}>Next<ArrowRight/></button></footer>}
       </section>
       )}
