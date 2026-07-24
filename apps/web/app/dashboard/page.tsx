@@ -564,7 +564,7 @@ function GlobalTransactionExplorer() {
           (typeFilter !== 'ALL' ? 1 : 0);
 
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '14px 0 24px 0', padding: '16px', background: 'var(--background-alt)', borderRadius: '14px', border: '1px solid var(--line)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '14px 24px 24px 24px', padding: '16px', background: 'var(--background-alt)', borderRadius: '14px', border: '1px solid var(--line)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
             {/* Top Row: Account Select & Search & Type Toggle & Reset */}
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
               {/* Account Dropdown */}

@@ -39,6 +39,7 @@ export class S3Service implements OnModuleInit {
         this.logger.warn(`S3 access denied for bucket "${this.bucket}". Check credentials and bucket policy.`);
       } else {
         this.logger.warn(`S3 bucket check failed: ${error.message}`);
+        throw error;
       }
     }
   }

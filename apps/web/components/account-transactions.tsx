@@ -273,7 +273,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
             (typeFilter !== 'ALL' ? 1 : 0);
 
           return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '14px 0 24px 0', padding: '16px', background: 'var(--background-alt)', borderRadius: '14px', border: '1px solid var(--line)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '14px 24px 24px 24px', padding: '16px', background: 'var(--background-alt)', borderRadius: '14px', border: '1px solid var(--line)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
               {/* Top Row: Search & Type Toggle & Reset */}
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
                   {/* Search Bar */}
@@ -683,19 +683,9 @@ export function ActiveSipsPanel({ accountId }: { accountId: string }) {
           ))}
         </div>
       ) : (
-        <div style={{ padding: '20px', textAlign: 'center', background: 'var(--background-alt)', borderRadius: '8px', border: '1px dashed var(--line)', marginTop: '12px' }}>
+        <div style={{ padding: '24px 20px', textAlign: 'center', background: 'var(--background-alt)', borderRadius: '12px', border: '1px dashed var(--line)', marginTop: '12px' }}>
           <TrendingUp size={24} color="#10b981" style={{ marginBottom: '6px' }} />
-          <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: 'var(--muted)' }}>No active SIPs added for this account yet.</p>
-          <button
-            type="button"
-            className="secondary compact"
-            onClick={() => {
-              setEditingSip(null);
-              setShowModal(true);
-            }}
-          >
-            <Plus size={14} /> Add Active SIP
-          </button>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>No active SIPs configured for this account yet.</p>
         </div>
       )}
 
