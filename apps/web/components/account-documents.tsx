@@ -403,12 +403,15 @@ export function AccountDocuments({
         {loading ? (
           <div className="account-documents-empty"><Loader2 className="spin" size={22} /><span>Loading documents…</span></div>
         ) : documents.length ? (
-          <div className="account-document-list">
-            {documents.map((item) => {
+          <div className="account-document-list" style={{ overflow: "visible" }}>
+            {documents.map((item, index) => {
               const isImage = item.mimeType.startsWith("image/");
               const isRenaming = renamingId === item.id;
+              const isMenuOpen = menuOpenId === item.id;
+              const openUpward = index >= documents.length - 2;
+
               return (
-                <article key={item.id} className="account-document-row">
+                <article key={item.id} className="account-document-row" style={{ position: "relative", zIndex: isMenuOpen ? 50 : 1 }}>
                   <span className={`account-document-icon ${isImage ? "image" : "pdf"}`}>
                     {isImage ? <FileImage size={19} /> : <FileText size={19} />}
                   </span>
@@ -449,20 +452,21 @@ export function AccountDocuments({
                       className="secondary compact"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setMenuOpenId(menuOpenId === item.id ? null : item.id);
+                        setMenuOpenId(isMenuOpen ? null : item.id);
                       }}
                       aria-label="More options"
                       style={{ padding: "6px 8px", borderRadius: "8px" }}>
                       <MoreVertical size={16} />
                     </button>
-                    {menuOpenId === item.id && (
+                    {isMenuOpen && (
                       <div
                         onClick={(e) => e.stopPropagation()}
                         style={{
                           position: "absolute",
                           right: 0,
-                          top: "calc(100% + 4px)",
-                          zIndex: 30,
+                          top: openUpward ? "auto" : "calc(100% + 4px)",
+                          bottom: openUpward ? "calc(100% + 4px)" : "auto",
+                          zIndex: 100,
                           background: "var(--card)",
                           border: "1px solid var(--line)",
                           borderRadius: "12px",
