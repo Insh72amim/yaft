@@ -485,8 +485,8 @@ function GlobalTransactionExplorer() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api<{ id: string; name: string }[]>('/accounts')
-      .then((res) => setAccounts(res || []))
+    api<{ id: string; name: string; type: string }[]>('/accounts')
+      .then((res) => setAccounts((res || []).filter((a) => a.type === 'SAVINGS' || a.type === 'BANK')))
       .catch(() => {});
   }, []);
 
@@ -505,7 +505,17 @@ function GlobalTransactionExplorer() {
 
     api<any>(`/accounts/all-transactions?${params.toString()}`)
       .then((res) => {
-        setData(res);
+        if (res && res.transactions) {
+          const savingsOnlyTxns = res.transactions.filter(
+            (t: any) => t.accountType === 'SAVINGS' || t.accountType === 'BANK',
+          );
+          setData({
+            ...res,
+            transactions: savingsOnlyTxns,
+          });
+        } else {
+          setData(res);
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -1202,7 +1212,7 @@ function MonthlyFlow({
               </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: (acc.investments ?? 0) > 0 ? '1fr 1fr 1fr' : '1fr 1fr', gap: '10px', fontSize: '12px' }}>
               <div style={{ background: 'var(--background)', padding: '10px', borderRadius: '8px', border: '1px solid var(--line)' }}>
                 <small style={{ color: '#10b981', display: 'block', fontSize: '10px', fontWeight: 600 }}>Inbound</small>
                 <strong style={{ fontSize: '14px', color: '#10b981' }}>+{money(acc.externalInbound)}</strong>
@@ -1222,6 +1232,16 @@ function MonthlyFlow({
                   </div>
                 )}
               </div>
+
+              {(acc.investments ?? 0) > 0 && (
+                <div style={{ background: 'var(--background)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+                  <small style={{ color: '#8b5cf6', display: 'block', fontSize: '10px', fontWeight: 600 }}>Mutual Funds & SIPs</small>
+                  <strong style={{ fontSize: '14px', color: '#8b5cf6' }}>{money(acc.investments ?? 0)}</strong>
+                  <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>
+                    SIP & MF debits
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', paddingTop: '4px' }}>
