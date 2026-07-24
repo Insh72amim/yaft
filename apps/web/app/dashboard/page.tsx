@@ -1477,7 +1477,6 @@ function MonthlyFlow({
                 </div>
               )}
             </div>
-
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', paddingTop: '4px' }}>
               <span>Total Inbound: <strong>{money(acc.totalInbound)}</strong></span>
               <span>Total Outbound: <strong>{money(acc.totalOutbound)}</strong></span>
@@ -1557,12 +1556,19 @@ function MultiBankSankeyDiagram({
     return node;
   });
 
-  // Calculate Left Bar Inbound Slices
-  const sumInbound = accounts.reduce((sum, a) => sum + (a.externalInbound || 0), 0) || 1;
-  let currLeftY = startY;
+  // Calculate Left Bar Inbound Slices (Proportional height & vertically centered)
+  const activeInboundBanks = bankNodes.filter((b) => b.externalInbound > 0);
+  const sumInbound = activeInboundBanks.reduce((sum, a) => sum + (a.externalInbound || 0), 0) || 1;
+
+  const inboundSpanH = activeInboundBanks.length === 0 ? 40 : Math.max(40, Math.min(usableH * 0.6, activeInboundBanks.length * 32));
+  const inboundNodeStartY = startY + (usableH - inboundSpanH) / 2;
+  const inboundNodeH = inboundSpanH;
+
+  let currLeftY = inboundNodeStartY;
   const inboundSlices = bankNodes.map((bank) => {
-    const share = (bank.externalInbound || 0) / sumInbound;
-    const sliceH = Math.max(4, share * usableH);
+    if (bank.externalInbound <= 0) return { bank, topY: currLeftY, botY: currLeftY };
+    const share = bank.externalInbound / sumInbound;
+    const sliceH = Math.max(8, share * inboundSpanH);
     const topY = currLeftY;
     const botY = topY + sliceH;
     currLeftY += sliceH;
@@ -1570,35 +1576,41 @@ function MultiBankSankeyDiagram({
   });
 
   // Calculate Right Bar Slices: External Outbound vs Mutual Funds & Investments
+  const activeOutboundBanks = bankNodes.filter((b) => b.externalOutbound > 0);
+  const sumOutbound = activeOutboundBanks.reduce((sum, a) => sum + (a.externalOutbound || 0), 0) || 1;
+
   const hasInvestments = (overall.totalInvestments || 0) > 0;
   const totalRightSum = (overall.totalExternalOutbound || 0) + (overall.totalInvestments || 0) || 1;
 
+  const outboundSpanH = activeOutboundBanks.length === 0 ? 40 : Math.max(60, Math.min(usableH * 0.65, activeOutboundBanks.length * 36));
   const outboundNodeH = hasInvestments
-    ? Math.max(30, Math.round(usableH * ((overall.totalExternalOutbound || 0) / totalRightSum)))
-    : usableH;
+    ? Math.max(40, Math.round(usableH * 0.6 * ((overall.totalExternalOutbound || 0) / totalRightSum)))
+    : outboundSpanH;
   const investmentNodeH = hasInvestments
-    ? Math.max(30, usableH - outboundNodeH - 20)
+    ? Math.max(36, Math.round(usableH * 0.25 * ((overall.totalInvestments || 0) / totalRightSum)))
     : 0;
 
-  const outboundRightY = startY;
-  const investmentRightY = startY + outboundNodeH + 20;
+  const outboundRightY = startY + (usableH - (outboundNodeH + (hasInvestments ? investmentNodeH + 20 : 0))) / 2;
+  const investmentRightY = outboundRightY + outboundNodeH + 20;
 
-  const sumOutbound = accounts.reduce((sum, a) => sum + (a.externalOutbound || 0), 0) || 1;
   let currRightY = outboundRightY;
   const outboundSlices = bankNodes.map((bank) => {
-    const share = (bank.externalOutbound || 0) / sumOutbound;
-    const sliceH = Math.max(4, share * outboundNodeH);
+    if (bank.externalOutbound <= 0) return { bank, topY: currRightY, botY: currRightY };
+    const share = bank.externalOutbound / sumOutbound;
+    const sliceH = Math.max(6, share * outboundNodeH);
     const topY = currRightY;
     const botY = topY + sliceH;
     currRightY += sliceH;
     return { bank, topY, botY };
   });
 
-  const sumInvestments = accounts.reduce((sum, a) => sum + (a.investments || 0), 0) || 1;
+  const activeInvBanks = bankNodes.filter((b) => (b.investments || 0) > 0);
+  const sumInvestments = activeInvBanks.reduce((sum, a) => sum + (a.investments || 0), 0) || 1;
   let currInvY = investmentRightY;
   const investmentSlices = bankNodes.map((bank) => {
+    if ((bank.investments || 0) <= 0) return { bank, topY: currInvY, botY: currInvY };
     const share = (bank.investments || 0) / sumInvestments;
-    const sliceH = Math.max(4, share * investmentNodeH);
+    const sliceH = Math.max(6, share * investmentNodeH);
     const topY = currInvY;
     const botY = topY + sliceH;
     currInvY += sliceH;
@@ -1642,9 +1654,9 @@ function MultiBankSankeyDiagram({
           ))}
         </defs>
 
-        {/* 1. Inbound Bezier Ribbons from Left Bar to Bank Nodes (Filtered for > 0) */}
+        {/* 1. Inbound Bezier Ribbons from Left Bar to Bank Nodes */}
         {inboundSlices.map(({ bank, topY, botY }) => {
-          if (bank.externalInbound <= 0) return null; // Zero-volume guard!
+          if (bank.externalInbound <= 0) return null;
           const midX = (leftX + nodeW + bank.x) / 2;
           const midY = (topY + bank.y + 4) / 2;
           const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
@@ -1670,15 +1682,13 @@ function MultiBankSankeyDiagram({
                 setHoveredBankId(null);
                 setHoveredFlow(null);
               }}
-            >
-              <title>{`External Inbound ⟶ ${bank.name}: +${money(bank.externalInbound)}`}</title>
-            </path>
+            />
           );
         })}
 
-        {/* 2. Outbound Bezier Ribbons from Bank Nodes to Right Bar (Filtered for > 0) */}
+        {/* 2. Outbound Bezier Ribbons from Bank Nodes to Right Bar */}
         {outboundSlices.map(({ bank, topY, botY }) => {
-          if (bank.externalOutbound <= 0) return null; // Zero-volume guard!
+          if (bank.externalOutbound <= 0) return null;
           const midX = (bank.x + nodeW + rightX) / 2;
           const midY = (bank.y + Math.max(6, bank.height * 0.45) + topY) / 2;
           const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
@@ -1704,16 +1714,14 @@ function MultiBankSankeyDiagram({
                 setHoveredBankId(null);
                 setHoveredFlow(null);
               }}
-            >
-              <title>{`${bank.name} ⟶ External Outbound: -${money(bank.externalOutbound)}`}</title>
-            </path>
+            />
           );
         })}
 
-        {/* 2b. Investment Bezier Ribbons from Bank Nodes to Mutual Funds & Investments (Filtered for > 0) */}
+        {/* 2b. Investment Bezier Ribbons from Bank Nodes to Mutual Funds & Investments */}
         {hasInvestments &&
           investmentSlices.map(({ bank, topY, botY }) => {
-            if ((bank.investments || 0) <= 0) return null; // Zero-volume guard!
+            if ((bank.investments || 0) <= 0) return null;
             const midX = (bank.x + nodeW + rightX) / 2;
             const midY = (bank.y + Math.max(6, bank.height * 0.45) + topY) / 2;
             const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
@@ -1739,9 +1747,7 @@ function MultiBankSankeyDiagram({
                   setHoveredBankId(null);
                   setHoveredFlow(null);
                 }}
-              >
-                <title>{`${bank.name} ⟶ Mutual Funds & Investments: +${money(bank.investments || 0)}`}</title>
-              </path>
+              />
             );
           })}
 
@@ -1755,10 +1761,11 @@ function MultiBankSankeyDiagram({
           const toY = toNode.y + toNode.height / 2;
           const baseMidY = (fromY + toY) / 2;
 
-          // Stagger multiple internal transfer badges vertically to avoid overlapping
-          const verticalShift = (idx - (internalTransfers.length - 1) / 2) * 32;
+          // Stagger multiple internal transfer badges vertically and horizontally to open space (x = 360)
+          const verticalShift = (idx - (internalTransfers.length - 1) / 2) * 36;
           const badgeY = baseMidY + verticalShift;
-          const curveCpX = middleX - 110 - Math.abs(verticalShift) * 0.7;
+          const curveCpX = middleX - 170 - Math.abs(verticalShift) * 0.8;
+          const badgeCenterX = middleX - 165; // Position at x = 360 (away from middle bank nodes)
 
           const transferPath = `
             M ${middleX} ${fromY}
@@ -1766,7 +1773,7 @@ function MultiBankSankeyDiagram({
           `;
 
           const labelText = `${it.fromAccountName.split(' ')[0]} ⟶ ${it.toAccountName.split(' ')[0]} (${money(it.amount)})`;
-          const badgeW = Math.max(160, labelText.length * 7);
+          const badgeW = Math.max(150, labelText.length * 7);
           const isHighlighted = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
 
           return (
@@ -1780,7 +1787,7 @@ function MultiBankSankeyDiagram({
                 opacity="0.85"
               />
               <rect
-                x={middleX - badgeW / 2 - 35}
+                x={badgeCenterX - badgeW / 2}
                 y={badgeY - 13}
                 width={badgeW}
                 height="26"
@@ -1788,10 +1795,10 @@ function MultiBankSankeyDiagram({
                 fill="var(--card)"
                 stroke={fromNode.color}
                 strokeWidth="1.5"
-                style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.15))' }}
+                style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))' }}
               />
               <text
-                x={middleX - 35}
+                x={badgeCenterX}
                 y={badgeY + 4}
                 fill={fromNode.color}
                 fontSize="11"
@@ -1805,16 +1812,16 @@ function MultiBankSankeyDiagram({
         })}
 
         {/* 4. Node Rectangles & Labels */}
-        {/* Left Node: External Inbound */}
-        <rect x={leftX} y={startY} width={nodeW} height={usableH} fill="#10b981" rx="4" />
-        <text x={leftX - 14} y={startY + usableH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="end">
+        {/* Left Node: External Inbound (Scaled height & centered) */}
+        <rect x={leftX} y={inboundNodeStartY} width={nodeW} height={inboundNodeH} fill="#10b981" rx="4" />
+        <text x={leftX - 14} y={inboundNodeStartY + inboundNodeH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="end">
           External Inbound
         </text>
-        <text x={leftX - 14} y={startY + usableH / 2 + 12} fill="#10b981" fontSize="13" fontWeight="600" textAnchor="end">
+        <text x={leftX - 14} y={inboundNodeStartY + inboundNodeH / 2 + 12} fill="#10b981" fontSize="13" fontWeight="600" textAnchor="end">
           +{money(overall.totalExternalInbound)}
         </text>
 
-        {/* Middle Nodes: Individual Bank Accounts (Proportional Heights & Hover Highlights) */}
+        {/* Middle Nodes: Individual Bank Accounts */}
         {bankNodes.map((bank) => {
           const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
           return (
