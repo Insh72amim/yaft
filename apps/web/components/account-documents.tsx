@@ -476,16 +476,6 @@ export function AccountDocuments({
                         <button
                           type="button"
                           className="ghost compact"
-                          onClick={() => {
-                            setMenuOpenId(null);
-                            setSelected(item);
-                          }}
-                          style={{ justifyContent: "flex-start", padding: "8px 12px", fontSize: "12px", width: "100%", gap: "8px", color: "var(--ink)" }}>
-                          <Eye size={14} /> View document
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost compact"
                           disabled={downloadingId === item.id}
                           onClick={() => {
                             setMenuOpenId(null);
