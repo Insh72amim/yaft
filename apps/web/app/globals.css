@@ -1405,9 +1405,110 @@ html[data-theme='dark'] .account-document-icon.pdf{color:#fb923c;background:#3a1
   gap: 8px;
   flex: none;
 }
-.account-document-viewer-wrap {
-  z-index: 60;
+
+/* ── Document Viewer Fixed Fullscreen Modal Overlay ──────────────── */
+.account-document-modal-wrap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
 }
+.account-document-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 12, 9, 0.75);
+  backdrop-filter: blur(6px);
+}
+.account-document-modal {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  width: min(1150px, 94vw);
+  height: min(88vh, 900px);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.account-document-modal.fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  border: none;
+}
+.account-document-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+.account-document-modal-header strong {
+  display: block;
+  font-size: 14px;
+  color: var(--ink);
+}
+.account-document-modal-header small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.account-document-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.account-document-viewer-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--background-alt);
+}
+.account-document-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: white;
+}
+.account-document-image-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  padding: 24px;
+}
+.account-document-image-stage img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+}
+.account-document-viewer-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 @media(max-width:700px) {
   .account-documents-header-actions {
     width: 100%;
@@ -1415,5 +1516,14 @@ html[data-theme='dark'] .account-document-icon.pdf{color:#fb923c;background:#3a1
   }
   .account-documents-header-actions .secondary {
     flex: 1;
+  }
+  .account-document-modal-wrap {
+    padding: 0;
+  }
+  .account-document-modal {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    border: none;
   }
 }
