@@ -8,11 +8,12 @@ import {
   Patch,
   Post,
   Res,
+  UploadedFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -97,6 +98,19 @@ export class AccountDocumentsController {
     @Body() dto: { name: string },
   ) {
     return this.documents.rename(user.id, accountId, documentId, dto.name);
+  }
+
+  @Post(':documentId/reupload')
+  @UseInterceptors(FileInterceptor('document', {
+    limits: { fileSize: MAX_ACCOUNT_DOCUMENT_BYTES },
+  }))
+  reupload(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Param('documentId') documentId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    return this.documents.reupload(user.id, accountId, documentId, file);
   }
 
   @Delete(':documentId')
