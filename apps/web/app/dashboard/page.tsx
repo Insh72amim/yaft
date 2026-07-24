@@ -18,6 +18,7 @@ import {
   Search,
   RotateCcw,
   X,
+  Filter,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -465,6 +466,7 @@ function GlobalTransactionExplorer() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [page, setPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
 
   const [data, setData] = useState<{
     transactions: {
@@ -539,249 +541,259 @@ function GlobalTransactionExplorer() {
     fetchTransactions();
   }, [fetchTransactions]);
 
+  const activeFilterCount = (selectedAccountId !== 'all' ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0) +
+    (startDate ? 1 : 0) +
+    (endDate ? 1 : 0) +
+    (minAmount ? 1 : 0) +
+    (maxAmount ? 1 : 0) +
+    (typeFilter !== 'ALL' ? 1 : 0);
+
   return (
     <section className="panel transactions">
-      <div className="panel-title" style={{ flexWrap: 'wrap', gap: '12px' }}>
+      <div className="panel-title" style={{ flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
         <div>
-          <span className="eyebrow">Global Ledger Explorer</span>
-          <h2>All Transactions & Amount Filter</h2>
+          <span className="eyebrow">Savings Accounts</span>
+          <h2>Recent Transactions</h2>
         </div>
-        {data && data.pagination.total > 0 && (
-          <span className="month-pill">
-            {money(data.totalAmount)} total ({data.pagination.total} transaction{data.pagination.total === 1 ? '' : 's'})
-          </span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {data && data.pagination.total > 0 && (
+            <span className="month-pill">
+              {data.pagination.total} transaction{data.pagination.total === 1 ? '' : 's'} ({money(data.totalAmount)})
+            </span>
+          )}
+          <button
+            type="button"
+            className={`secondary compact ${showFilters || activeFilterCount > 0 ? 'active' : ''}`}
+            onClick={() => setShowFilters(!showFilters)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Filter size={14} />
+            {showFilters ? 'Hide Filters' : 'Filter Transactions'}
+            {activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+          </button>
+        </div>
       </div>
 
-      {/* Redesigned Search & Filter Control Center */}
-      {(() => {
-        const activeFilterCount = (selectedAccountId !== 'all' ? 1 : 0) +
-          (searchQuery.trim() ? 1 : 0) +
-          (startDate ? 1 : 0) +
-          (endDate ? 1 : 0) +
-          (minAmount ? 1 : 0) +
-          (maxAmount ? 1 : 0) +
-          (typeFilter !== 'ALL' ? 1 : 0);
+      {/* Redesigned Toggleable Search & Filter Control Center */}
+      {(showFilters || activeFilterCount > 0) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '0 0 20px 0', padding: '16px', background: 'var(--background-alt)', borderRadius: '14px', border: '1px solid var(--line)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          {/* Top Row: Account Select & Search & Type Toggle & Reset */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+            {/* Account Dropdown */}
+            <div style={{ flex: '1 1 180px', minWidth: '160px' }}>
+              <select
+                value={selectedAccountId}
+                onChange={(e) => {
+                  setSelectedAccountId(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  fontSize: '13px',
+                  padding: '0 10px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--background)',
+                  color: 'var(--ink)',
+                  fontWeight: 600,
+                }}
+              >
+                <option value="all">All Bank Accounts</option>
+                {accounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '14px 24px 24px 24px', padding: '16px', background: 'var(--background-alt)', borderRadius: '14px', border: '1px solid var(--line)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-            {/* Top Row: Account Select & Search & Type Toggle & Reset */}
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-              {/* Account Dropdown */}
-              <div style={{ flex: '1 1 180px', minWidth: '160px' }}>
-                <select
-                  value={selectedAccountId}
-                  onChange={(e) => {
-                    setSelectedAccountId(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    fontSize: '13px',
-                    padding: '0 10px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--line)',
-                    background: 'var(--background)',
-                    color: 'var(--ink)',
-                    fontWeight: 600,
-                  }}
-                >
-                  <option value="all">All Bank Accounts</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Search Bar */}
-              <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '200px' }}>
-                <Search size={16} color="var(--muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                <input
-                  type="text"
-                  placeholder="Search description or merchant..."
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{
-                    width: '100%',
-                    height: '38px',
-                    fontSize: '13px',
-                    paddingLeft: '36px',
-                    paddingRight: searchQuery ? '32px' : '12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--line)',
-                    background: 'var(--background)',
-                    color: 'var(--ink)',
-                  }}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('');
-                      setPage(1);
-                    }}
-                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--muted)', display: 'flex', alignItems: 'center' }}
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              {/* Type Filter Segmented Controls */}
-              <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', padding: '3px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+            {/* Search Bar */}
+            <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '200px' }}>
+              <Search size={16} color="var(--muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                placeholder="Search description or merchant..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  fontSize: '13px',
+                  paddingLeft: '36px',
+                  paddingRight: searchQuery ? '32px' : '12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--background)',
+                  color: 'var(--ink)',
+                }}
+              />
+              {searchQuery && (
                 <button
                   type="button"
-                  className={`secondary compact ${typeFilter === 'ALL' ? 'active' : ''}`}
                   onClick={() => {
-                    setTypeFilter('ALL');
-                    setPage(1);
-                  }}
-                  style={{ height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px' }}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  className={`secondary compact ${typeFilter === 'EXPENSE' ? 'active' : ''}`}
-                  onClick={() => {
-                    setTypeFilter('EXPENSE');
-                    setPage(1);
-                  }}
-                  style={{ height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', color: typeFilter === 'EXPENSE' ? '#ef4444' : undefined }}
-                >
-                  Debits
-                </button>
-                <button
-                  type="button"
-                  className={`secondary compact ${typeFilter === 'INCOME' ? 'active' : ''}`}
-                  onClick={() => {
-                    setTypeFilter('INCOME');
-                    setPage(1);
-                  }}
-                  style={{ height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', color: typeFilter === 'INCOME' ? '#10b981' : undefined }}
-                >
-                  Credits
-                </button>
-              </div>
-
-              {/* Reset Filters Chip */}
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  className="ghost compact"
-                  onClick={() => {
-                    setSelectedAccountId('all');
                     setSearchQuery('');
-                    setMinAmount('');
-                    setMaxAmount('');
-                    setStartDate('');
-                    setEndDate('');
-                    setTypeFilter('ALL');
                     setPage(1);
                   }}
-                  style={{ height: '38px', fontSize: '12px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', padding: '0 12px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--muted)', display: 'flex', alignItems: 'center' }}
                 >
-                  <RotateCcw size={14} /> Reset ({activeFilterCount})
+                  <X size={14} />
                 </button>
               )}
             </div>
 
-            {/* Bottom Grid: Date Range Card & Amount Range Card */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
-              {/* 📅 Date Range Card */}
-              <div style={{ background: 'var(--background)', borderRadius: '10px', padding: '12px 14px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Range</span>
-                  {(startDate || endDate) && <small style={{ fontSize: '11px', color: '#8b5cf6', fontWeight: 600 }}>Filter active</small>}
+            {/* Type Filter Segmented Controls */}
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', padding: '3px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+              <button
+                type="button"
+                className={`secondary compact ${typeFilter === 'ALL' ? 'active' : ''}`}
+                onClick={() => {
+                  setTypeFilter('ALL');
+                  setPage(1);
+                }}
+                style={{ height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px' }}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={`secondary compact ${typeFilter === 'EXPENSE' ? 'active' : ''}`}
+                onClick={() => {
+                  setTypeFilter('EXPENSE');
+                  setPage(1);
+                }}
+                style={{ height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', color: typeFilter === 'EXPENSE' ? '#ef4444' : undefined }}
+              >
+                Debits
+              </button>
+              <button
+                type="button"
+                className={`secondary compact ${typeFilter === 'INCOME' ? 'active' : ''}`}
+                onClick={() => {
+                  setTypeFilter('INCOME');
+                  setPage(1);
+                }}
+                style={{ height: '32px', padding: '0 12px', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', color: typeFilter === 'INCOME' ? '#10b981' : undefined }}
+              >
+                Credits
+              </button>
+            </div>
+
+            {/* Reset Filters Chip */}
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                className="ghost compact"
+                onClick={() => {
+                  setSelectedAccountId('all');
+                  setSearchQuery('');
+                  setMinAmount('');
+                  setMaxAmount('');
+                  setStartDate('');
+                  setEndDate('');
+                  setTypeFilter('ALL');
+                  setPage(1);
+                }}
+                style={{ height: '38px', fontSize: '12px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', padding: '0 12px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+              >
+                <RotateCcw size={14} /> Reset ({activeFilterCount})
+              </button>
+            )}
+          </div>
+
+          {/* Bottom Grid: Date Range Card & Amount Range Card */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
+            {/* 📅 Date Range Card */}
+            <div style={{ background: 'var(--background)', borderRadius: '10px', padding: '12px 14px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Date Range</span>
+                {(startDate || endDate) && <small style={{ fontSize: '11px', color: '#8b5cf6', fontWeight: 600 }}>Filter active</small>}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '3px' }}>From</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ width: '100%', height: '34px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                  />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '3px' }}>From</label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => {
-                        setStartDate(e.target.value);
-                        setPage(1);
-                      }}
-                      style={{ width: '100%', height: '34px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '3px' }}>To</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => {
-                        setEndDate(e.target.value);
-                        setPage(1);
-                      }}
-                      style={{ width: '100%', height: '34px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
-                    />
-                  </div>
-                </div>
-                {/* Presets */}
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
-                  <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const y = now.getUTCFullYear(); const m = String(now.getUTCMonth() + 1).padStart(2, '0'); setStartDate(`${y}-${m}-01`); setEndDate(''); setPage(1); }}>This Month</button>
-                  <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); let y = now.getUTCFullYear(); let m = now.getUTCMonth(); if (m === 0) { m = 12; y -= 1; } const mStr = String(m).padStart(2, '0'); setStartDate(`${y}-${mStr}-01`); setEndDate(`${y}-${mStr}-31`); setPage(1); }}>Last Month</button>
-                  <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const today = now.toISOString().split('T')[0]; const d = new Date(now); d.setMonth(d.getMonth() - 6); setStartDate(d.toISOString().split('T')[0]); setEndDate(today); setPage(1); }}>Last 6 Months</button>
-                  <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const y = now.getUTCFullYear(); const startYr = now.getUTCMonth() >= 3 ? y : y - 1; setStartDate(`${startYr}-04-01`); setEndDate(`${startYr + 1}-03-31`); setPage(1); }}>This FY</button>
-                  <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const y = now.getUTCFullYear(); const currentStart = now.getUTCMonth() >= 3 ? y : y - 1; const prevStart = currentStart - 1; setStartDate(`${prevStart}-04-01`); setEndDate(`${currentStart}-03-31`); setPage(1); }}>Previous FY</button>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '3px' }}>To</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ width: '100%', height: '34px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                  />
                 </div>
               </div>
+              {/* Presets */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const y = now.getUTCFullYear(); const m = String(now.getUTCMonth() + 1).padStart(2, '0'); setStartDate(`${y}-${m}-01`); setEndDate(''); setPage(1); }}>This Month</button>
+                <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); let y = now.getUTCFullYear(); let m = now.getUTCMonth(); if (m === 0) { m = 12; y -= 1; } const mStr = String(m).padStart(2, '0'); setStartDate(`${y}-${mStr}-01`); setEndDate(`${y}-${mStr}-31`); setPage(1); }}>Last Month</button>
+                <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const today = now.toISOString().split('T')[0]; const d = new Date(now); d.setMonth(d.getMonth() - 6); setStartDate(d.toISOString().split('T')[0]); setEndDate(today); setPage(1); }}>Last 6 Months</button>
+                <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const y = now.getUTCFullYear(); const startYr = now.getUTCMonth() >= 3 ? y : y - 1; setStartDate(`${startYr}-04-01`); setEndDate(`${startYr + 1}-03-31`); setPage(1); }}>This FY</button>
+                <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const y = now.getUTCFullYear(); const currentStart = now.getUTCMonth() >= 3 ? y : y - 1; const prevStart = currentStart - 1; setStartDate(`${prevStart}-04-01`); setEndDate(`${currentStart}-03-31`); setPage(1); }}>Previous FY</button>
+              </div>
+            </div>
 
-              {/* 💰 Amount Range Card */}
-              <div style={{ background: 'var(--background)', borderRadius: '10px', padding: '12px 14px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount Range (₹)</span>
-                  {(minAmount || maxAmount) && <small style={{ fontSize: '11px', color: '#8b5cf6', fontWeight: 600 }}>Filter active</small>}
+            {/* 💰 Amount Range Card */}
+            <div style={{ background: 'var(--background)', borderRadius: '10px', padding: '12px 14px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount Range (₹)</span>
+                {(minAmount || maxAmount) && <small style={{ fontSize: '11px', color: '#8b5cf6', fontWeight: 600 }}>Filter active</small>}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '3px' }}>Min ₹</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={minAmount}
+                    onChange={(e) => {
+                      setMinAmount(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ width: '100%', height: '34px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                  />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '3px' }}>Min ₹</label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={minAmount}
-                      onChange={(e) => {
-                        setMinAmount(e.target.value);
-                        setPage(1);
-                      }}
-                      style={{ width: '100%', height: '34px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '3px' }}>Max ₹</label>
-                    <input
-                      type="number"
-                      placeholder="No max"
-                      value={maxAmount}
-                      onChange={(e) => {
-                        setMaxAmount(e.target.value);
-                        setPage(1);
-                      }}
-                      style={{ width: '100%', height: '34px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
-                    />
-                  </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '3px' }}>Max ₹</label>
+                  <input
+                    type="number"
+                    placeholder="No max"
+                    value={maxAmount}
+                    onChange={(e) => {
+                      setMaxAmount(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{ width: '100%', height: '34px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                  />
                 </div>
-                {/* Presets */}
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
-                  <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { setMinAmount('0'); setMaxAmount('1000'); setPage(1); }}>&lt; ₹1k</button>
-                  <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { setMinAmount('1000'); setMaxAmount('10000'); setPage(1); }}>₹1k – ₹10k</button>
-                  <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { setMinAmount('10000'); setMaxAmount('50000'); setPage(1); }}>₹10k – ₹50k</button>
-                  <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { setMinAmount('50000'); setMaxAmount(''); setPage(1); }}>&gt; ₹50k</button>
-                </div>
+              </div>
+              {/* Presets */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { setMinAmount('0'); setMaxAmount('1000'); setPage(1); }}>&lt; ₹1k</button>
+                <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { setMinAmount('1000'); setMaxAmount('10000'); setPage(1); }}>₹1k – ₹10k</button>
+                <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { setMinAmount('10000'); setMaxAmount('50000'); setPage(1); }}>₹10k – ₹50k</button>
+                <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { setMinAmount('50000'); setMaxAmount(''); setPage(1); }}>&gt; ₹50k</button>
               </div>
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {loading ? (
         <div className="loading" style={{ padding: '24px 0' }}>
@@ -810,14 +822,18 @@ function GlobalTransactionExplorer() {
                         onChange={(e) => void handleUpdateCategory(item.accountId, item.id, e.target.value)}
                         title="Click to change category"
                         style={{
-                          background: 'var(--background)',
+                          display: 'inline-block',
+                          width: 'auto',
+                          maxWidth: '160px',
+                          background: item.categoryId ? 'var(--theme-soft-start)' : 'var(--background-alt)',
                           border: '1px solid var(--line)',
-                          borderRadius: '10px',
-                          padding: '2px 6px',
+                          borderRadius: '8px',
+                          padding: '2px 8px',
                           fontSize: '11px',
                           fontWeight: 600,
-                          color: 'var(--ink)',
+                          color: item.categoryId ? 'var(--green)' : 'var(--muted)',
                           cursor: 'pointer',
+                          outline: 'none',
                         }}
                       >
                         <option value="">Uncategorised</option>
