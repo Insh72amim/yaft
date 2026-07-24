@@ -103,7 +103,7 @@ describe('AccountsController transaction history', () => {
     const findMany = jest.fn().mockResolvedValue([{ id: 'transaction-a', transactionDate: new Date('2026-01-02T00:00:00Z'), postedDate: null,
       descriptionRaw: 'SYNTHETIC PURCHASE', merchant: 'Synthetic merchant', amount: -250n, transferGroupId: null,
       category: { name: 'Shopping' } }]);
-    const prisma = { account: { findFirst }, transaction: { count, aggregate, findMany } } as unknown as PrismaService;
+    const prisma = { account: { findFirst }, transaction: { count, aggregate, findMany }, category: { findMany: jest.fn().mockResolvedValue([]) } } as unknown as PrismaService;
     const controller = new AccountsController(prisma, credentials, accountDocuments());
 
     const result = await controller.transactions({ id: 'owner-a' }, 'account-a', 1);
@@ -124,7 +124,7 @@ describe('AccountsController transaction history', () => {
     const prisma = { account: { findFirst }, transaction: {
       count: jest.fn().mockResolvedValue(0), aggregate: jest.fn().mockResolvedValue({ _sum: { amount: -2500n } }),
       findMany: jest.fn().mockResolvedValue([]),
-    } } as unknown as PrismaService;
+    }, category: { findMany: jest.fn().mockResolvedValue([]) } } as unknown as PrismaService;
     const controller = new AccountsController(prisma, credentials, accountDocuments());
 
     const result = await controller.transactions({ id: 'owner-a' }, 'card-a', 1);
@@ -137,7 +137,7 @@ describe('AccountsController transaction history', () => {
   it('does not query transactions when the account is not owned by the current user', async () => {
     const count = jest.fn();
     const controller = new AccountsController({ account: { findFirst: jest.fn().mockResolvedValue(null) },
-      transaction: { count, aggregate: jest.fn(), findMany: jest.fn() } } as unknown as PrismaService, credentials, accountDocuments());
+      transaction: { count, aggregate: jest.fn(), findMany: jest.fn() }, category: { findMany: jest.fn().mockResolvedValue([]) } } as unknown as PrismaService, credentials, accountDocuments());
 
     await expect(controller.transactions({ id: 'owner-a' }, 'another-account', 1)).rejects.toBeInstanceOf(NotFoundException);
     expect(count).not.toHaveBeenCalled();
@@ -152,7 +152,7 @@ describe('AccountsController transaction history', () => {
       account: { id: 'acc-1', name: 'HDFC', type: 'SAVINGS', institution: 'HDFC' },
       category: { name: 'Groceries' },
     }]);
-    const prisma = { transaction: { count, aggregate, findMany } } as unknown as PrismaService;
+    const prisma = { transaction: { count, aggregate, findMany }, category: { findMany: jest.fn().mockResolvedValue([]) } } as unknown as PrismaService;
     const controller = new AccountsController(prisma, credentials, accountDocuments());
 
     const result = await controller.allTransactions({ id: 'owner-a' }, 1, '50', undefined, 'super', '10', '100', 'EXPENSE');
@@ -165,7 +165,7 @@ describe('AccountsController transaction history', () => {
     const count = jest.fn().mockResolvedValue(1);
     const aggregate = jest.fn().mockResolvedValue({ _sum: { amount: -5000n } });
     const findMany = jest.fn().mockResolvedValue([]);
-    const prisma = { transaction: { count, aggregate, findMany } } as unknown as PrismaService;
+    const prisma = { transaction: { count, aggregate, findMany }, category: { findMany: jest.fn().mockResolvedValue([]) } } as unknown as PrismaService;
     const controller = new AccountsController(prisma, credentials, accountDocuments());
 
     await controller.allTransactions({ id: 'owner-a' }, 1, '50', undefined, undefined, undefined, undefined, undefined, '2026-04-01', '2026-04-30');

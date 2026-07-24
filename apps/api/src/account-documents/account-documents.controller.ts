@@ -1,9 +1,11 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   Res,
   UploadedFiles,
@@ -85,6 +87,16 @@ export class AccountDocumentsController {
       'X-Content-Type-Options': 'nosniff',
     });
     response.send(document.buffer);
+  }
+
+  @Patch(':documentId')
+  rename(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Param('documentId') documentId: string,
+    @Body() dto: { name: string },
+  ) {
+    return this.documents.rename(user.id, accountId, documentId, dto.name);
   }
 
   @Delete(':documentId')

@@ -13,11 +13,7 @@ import { S3Service } from '../s3/s3.service';
 export const MAX_ACCOUNT_DOCUMENT_BYTES = 8 * 1024 * 1024;
 export const MAX_ACCOUNT_DOCUMENTS_PER_UPLOAD = 10;
 
-const ELIGIBLE_ACCOUNT_TYPES: AccountType[] = [
-  AccountType.BANK,
-  AccountType.SAVINGS,
-  AccountType.LOAN,
-];
+const ELIGIBLE_ACCOUNT_TYPES: AccountType[] = Object.values(AccountType);
 
 type StoredDocument = {
   id: string;
@@ -145,6 +141,25 @@ export class AccountDocumentsService {
     const document = await this.findOwnedDocument(userId, accountId, documentId);
     await this.s3.deleteFile(document.storageKey);
     await this.prisma.accountDocument.delete({ where: { id: document.id } });
+  }
+
+  async rename(userId: string, accountId: string, documentId: string, newName: string) {
+    const document = await this.findOwnedDocument(userId, accountId, documentId);
+    const trimmed = (newName || '').trim();
+    if (!trimmed) throw new BadRequestException('Document name cannot be empty.');
+
+    let finalName = trimmed;
+    const parts = document.name.split('.');
+    const currentExt = parts.length > 1 ? parts.pop() : '';
+    if (currentExt && !finalName.toLowerCase().endsWith(`.${currentExt.toLowerCase()}`)) {
+      finalName = `${finalName}.${currentExt}`;
+    }
+
+    const updated = await this.prisma.accountDocument.update({
+      where: { id: document.id },
+      data: { name: finalName },
+    });
+    return serialize(updated);
   }
 
   async purgeForAccount(userId: string, accountId: string) {

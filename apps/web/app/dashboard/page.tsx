@@ -476,9 +476,11 @@ function GlobalTransactionExplorer() {
       description: string;
       details: string | null;
       amount: number;
+      categoryId?: string | null;
       category: string;
       isTransfer: boolean;
     }[];
+    categories?: { id: string; name: string; color: string }[];
     totalAmount: number;
     pagination: { page: number; pageSize: number; total: number; pages: number };
   }>();
@@ -520,6 +522,18 @@ function GlobalTransactionExplorer() {
       })
       .catch(() => setLoading(false));
   }, [page, selectedAccountId, searchQuery, minAmount, maxAmount, typeFilter, startDate, endDate]);
+
+  const handleUpdateCategory = async (accountId: string, transactionId: string, categoryId: string) => {
+    try {
+      await api(`/accounts/${accountId}/transactions/${transactionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ categoryId: categoryId || null }),
+      });
+      fetchTransactions();
+    } catch (reason) {
+      alert(errorMessage(reason, 'Could not update category.'));
+    }
+  };
 
   useEffect(() => {
     fetchTransactions();
@@ -570,6 +584,7 @@ function GlobalTransactionExplorer() {
                     border: '1px solid var(--line)',
                     background: 'var(--background)',
                     color: 'var(--ink)',
+                    fontWeight: 600,
                   }}
                 >
                   <option value="all">All Bank Accounts</option>
@@ -783,8 +798,36 @@ function GlobalTransactionExplorer() {
                 </span>
                 <div>
                   <strong>{item.description}</strong>
-                  <small>
-                    {item.accountName} · {item.isTransfer ? 'Transfer' : item.category}
+                  <small style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
+                    <span>{item.accountName}</span>
+                    <span>·</span>
+                    {item.isTransfer ? (
+                      <span className="category-pill transfer">Transfer</span>
+                    ) : (
+                      <select
+                        className="category-pill-select"
+                        value={item.categoryId ?? ''}
+                        onChange={(e) => void handleUpdateCategory(item.accountId, item.id, e.target.value)}
+                        title="Click to change category"
+                        style={{
+                          background: 'var(--background)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '10px',
+                          padding: '2px 6px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: 'var(--ink)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <option value="">Uncategorised</option>
+                        {(data.categories || []).map((cat: any) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </small>
                 </div>
                 <b className={item.amount > 0 ? 'positive' : ''}>

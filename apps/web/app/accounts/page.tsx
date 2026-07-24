@@ -14,6 +14,7 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Files,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -23,6 +24,7 @@ import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
 import { AccountTransactions, ActiveSipsPanel } from "@/components/account-transactions";
 import { AddAccountModal } from "@/components/add-account-modal";
 import { VaultModal } from "@/components/vault-modal";
+import { AccountDocuments } from "@/components/account-documents";
 import { LoanSchedule } from "@/components/loan-schedule";
 
 type Holding = {
@@ -345,6 +347,7 @@ function PortfolioContent() {
   const [showVaultForInvestment, setShowVaultForInvestment] = useState<
     string | null
   >(null);
+  const [showInvestmentDocs, setShowInvestmentDocs] = useState(false);
 
   const selectedAccountId = searchParams.get("account");
 
@@ -445,6 +448,12 @@ function PortfolioContent() {
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
                     <button
+                      className={`secondary compact ${showInvestmentDocs ? 'active' : ''}`}
+                      onClick={() => setShowInvestmentDocs(!showInvestmentDocs)}>
+                      <Files size={14} />
+                      Documents
+                    </button>
+                    <button
                       className="secondary compact"
                       onClick={() =>
                         setShowVaultForInvestment(selectedAccountId)
@@ -471,7 +480,9 @@ function PortfolioContent() {
                 </div>
               )}
             </header>
-            {portfolioData?.holdings.length ? (
+            {showInvestmentDocs ? (
+              <AccountDocuments accountId={selectedAccountId} />
+            ) : portfolioData?.holdings.length ? (
               <div className="holdings-scroll">
                 <table className="holdings-table">
                   <thead>
