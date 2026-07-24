@@ -19,10 +19,10 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemeColorSelector } from "@/components/theme-color-selector";
 
 const links = [
-  { href: "/import", label: "Import", icon: Upload },
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/accounts", label: "Accounts", icon: BriefcaseBusiness },
   { href: "/salary", label: "Salary", icon: BadgeIndianRupee },
+  { href: "/import", label: "Import", icon: Upload },
 ];
 
 const bottomLinks: { href: string; label: string; icon: any }[] = [];
