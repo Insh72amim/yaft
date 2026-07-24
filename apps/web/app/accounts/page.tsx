@@ -347,7 +347,9 @@ function PortfolioContent() {
   const [showVaultForInvestment, setShowVaultForInvestment] = useState<
     string | null
   >(null);
-  const [showInvestmentDocs, setShowInvestmentDocs] = useState(false);
+  const [investmentTab, setInvestmentTab] = useState<
+    "HOLDINGS" | "DOCUMENTS" | "SIPS"
+  >("HOLDINGS");
 
   const selectedAccountId = searchParams.get("account");
 
@@ -448,17 +450,24 @@ function PortfolioContent() {
               <div style={{ display: 'flex', gap: '6px', background: 'var(--card)', padding: '4px', borderRadius: '12px', border: '1px solid var(--line)' }}>
                 <button
                   type="button"
-                  className={`secondary compact ${!showInvestmentDocs ? 'active' : ''}`}
-                  onClick={() => setShowInvestmentDocs(false)}
+                  className={`secondary compact ${investmentTab === 'HOLDINGS' ? 'active' : ''}`}
+                  onClick={() => setInvestmentTab('HOLDINGS')}
                 >
                   <BriefcaseBusiness size={14} /> Holdings
                 </button>
                 <button
                   type="button"
-                  className={`secondary compact ${showInvestmentDocs ? 'active' : ''}`}
-                  onClick={() => setShowInvestmentDocs(true)}
+                  className={`secondary compact ${investmentTab === 'DOCUMENTS' ? 'active' : ''}`}
+                  onClick={() => setInvestmentTab('DOCUMENTS')}
                 >
                   <Files size={14} /> Documents
+                </button>
+                <button
+                  type="button"
+                  className={`secondary compact ${investmentTab === 'SIPS' ? 'active' : ''}`}
+                  onClick={() => setInvestmentTab('SIPS')}
+                >
+                  <TrendingUp size={14} color="#8b5cf6" /> Active SIPs
                 </button>
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -469,16 +478,6 @@ function PortfolioContent() {
                 >
                   <Lock size={14} /> Credentials
                 </button>
-                <button
-                  type="button"
-                  className="secondary compact"
-                  onClick={() => {
-                    const el = document.getElementById('active-sips-section');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  <TrendingUp size={14} color="#8b5cf6" /> SIPs
-                </button>
                 <Link
                   className="secondary compact"
                   href={`/import?kind=BROKER_HOLDINGS&accountId=${encodeURIComponent(selectedAccountId)}`}
@@ -488,8 +487,10 @@ function PortfolioContent() {
               </div>
             </div>
 
-            {showInvestmentDocs ? (
+            {investmentTab === 'DOCUMENTS' ? (
               <AccountDocuments accountId={selectedAccountId} />
+            ) : investmentTab === 'SIPS' ? (
+              <ActiveSipsPanel accountId={selectedAccountId} />
             ) : (
               <div className="panel portfolio-account">
                 <header>
@@ -597,7 +598,6 @@ function PortfolioContent() {
                 onClose={() => setShowVaultForInvestment(null)}
               />
             )}
-            <ActiveSipsPanel accountId={selectedAccountId} />
           </>
         ) : selectedAccount.type === "LOAN" ? (
           <LoanSchedule accountId={selectedAccountId} embedded={true} />
