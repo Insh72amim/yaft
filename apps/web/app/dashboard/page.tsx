@@ -1502,6 +1502,7 @@ function MultiBankSankeyDiagram({
 }) {
   const { accounts, internalTransfers, overall } = accountFlow;
 
+  const [hoveredBankId, setHoveredBankId] = useState<string | null>(null);
   const [hoveredFlow, setHoveredFlow] = useState<{
     title: string;
     amount: string;
@@ -1561,7 +1562,7 @@ function MultiBankSankeyDiagram({
   let currLeftY = startY;
   const inboundSlices = bankNodes.map((bank) => {
     const share = (bank.externalInbound || 0) / sumInbound;
-    const sliceH = Math.max(6, share * usableH);
+    const sliceH = Math.max(4, share * usableH);
     const topY = currLeftY;
     const botY = topY + sliceH;
     currLeftY += sliceH;
@@ -1615,14 +1616,6 @@ function MultiBankSankeyDiagram({
     `;
   };
 
-  const internalLoopPath = (fromY: number, toY: number) => {
-    const cpX = middleX - 110;
-    return `
-      M ${middleX} ${fromY}
-      C ${cpX} ${fromY}, ${cpX} ${toY}, ${middleX} ${toY}
-    `;
-  };
-
   return (
     <div className="beautiful-flow-wrapper" style={{ padding: '0', border: 'none', background: 'transparent', width: '100%', overflow: 'hidden' }}>
       <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="beautiful-flow-svg" style={{ width: '100%', height: 'auto', display: 'block' }}>
@@ -1649,90 +1642,110 @@ function MultiBankSankeyDiagram({
           ))}
         </defs>
 
-        {/* 1. Inbound Bezier Ribbons from Left Bar to Bank Nodes */}
+        {/* 1. Inbound Bezier Ribbons from Left Bar to Bank Nodes (Filtered for > 0) */}
         {inboundSlices.map(({ bank, topY, botY }) => {
+          if (bank.externalInbound <= 0) return null; // Zero-volume guard!
           const midX = (leftX + nodeW + bank.x) / 2;
           const midY = (topY + bank.y + 4) / 2;
+          const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
           return (
             <path
               key={`in-${bank.id}`}
               d={sankeyLink(leftX + nodeW, topY, botY, bank.x, bank.y + 2, bank.y + Math.max(6, bank.height * 0.45))}
               fill={`url(#grad-in-${bank.id})`}
-              opacity="0.35"
+              opacity={isHighlighted ? '0.45' : '0.08'}
+              style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
               className="sankey-path hover-opacity"
-              onMouseEnter={() =>
+              onMouseEnter={() => {
+                setHoveredBankId(bank.id);
                 setHoveredFlow({
                   title: `External Inbound ⟶ ${bank.name}`,
                   amount: `+${money(bank.externalInbound)}`,
                   x: midX,
                   y: midY,
                   color: '#10b981',
-                })
-              }
-              onMouseLeave={() => setHoveredFlow(null)}
+                });
+              }}
+              onMouseLeave={() => {
+                setHoveredBankId(null);
+                setHoveredFlow(null);
+              }}
             >
               <title>{`External Inbound ⟶ ${bank.name}: +${money(bank.externalInbound)}`}</title>
             </path>
           );
         })}
 
-        {/* 2. Outbound Bezier Ribbons from Bank Nodes to Right Bar (Expenses) */}
+        {/* 2. Outbound Bezier Ribbons from Bank Nodes to Right Bar (Filtered for > 0) */}
         {outboundSlices.map(({ bank, topY, botY }) => {
+          if (bank.externalOutbound <= 0) return null; // Zero-volume guard!
           const midX = (bank.x + nodeW + rightX) / 2;
           const midY = (bank.y + Math.max(6, bank.height * 0.45) + topY) / 2;
+          const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
           return (
             <path
               key={`out-${bank.id}`}
               d={sankeyLink(bank.x + nodeW, bank.y + Math.max(6, bank.height * 0.45), bank.y + bank.height - 2, rightX, topY, botY)}
               fill={`url(#grad-out-${bank.id})`}
-              opacity="0.35"
+              opacity={isHighlighted ? '0.45' : '0.08'}
+              style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
               className="sankey-path hover-opacity"
-              onMouseEnter={() =>
+              onMouseEnter={() => {
+                setHoveredBankId(bank.id);
                 setHoveredFlow({
                   title: `${bank.name} ⟶ External Outbound`,
                   amount: `-${money(bank.externalOutbound)}`,
                   x: midX,
                   y: midY,
                   color: '#ef4444',
-                })
-              }
-              onMouseLeave={() => setHoveredFlow(null)}
+                });
+              }}
+              onMouseLeave={() => {
+                setHoveredBankId(null);
+                setHoveredFlow(null);
+              }}
             >
               <title>{`${bank.name} ⟶ External Outbound: -${money(bank.externalOutbound)}`}</title>
             </path>
           );
         })}
 
-        {/* 2b. Investment Bezier Ribbons from Bank Nodes to Mutual Funds & Investments */}
+        {/* 2b. Investment Bezier Ribbons from Bank Nodes to Mutual Funds & Investments (Filtered for > 0) */}
         {hasInvestments &&
           investmentSlices.map(({ bank, topY, botY }) => {
-            if (!bank.investments) return null;
+            if ((bank.investments || 0) <= 0) return null; // Zero-volume guard!
             const midX = (bank.x + nodeW + rightX) / 2;
             const midY = (bank.y + Math.max(6, bank.height * 0.45) + topY) / 2;
+            const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
             return (
               <path
                 key={`inv-${bank.id}`}
                 d={sankeyLink(bank.x + nodeW, bank.y + Math.max(6, bank.height * 0.3), bank.y + bank.height * 0.7, rightX, topY, botY)}
                 fill={`url(#grad-inv-${bank.id})`}
-                opacity="0.45"
+                opacity={isHighlighted ? '0.55' : '0.08'}
+                style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
                 className="sankey-path hover-opacity"
-                onMouseEnter={() =>
+                onMouseEnter={() => {
+                  setHoveredBankId(bank.id);
                   setHoveredFlow({
                     title: `${bank.name} ⟶ Mutual Funds & Investments`,
                     amount: `+${money(bank.investments || 0)}`,
                     x: midX,
                     y: midY,
                     color: '#8b5cf6',
-                  })
-                }
-                onMouseLeave={() => setHoveredFlow(null)}
+                  });
+                }}
+                onMouseLeave={() => {
+                  setHoveredBankId(null);
+                  setHoveredFlow(null);
+                }}
               >
                 <title>{`${bank.name} ⟶ Mutual Funds & Investments: +${money(bank.investments || 0)}`}</title>
               </path>
             );
           })}
 
-        {/* 3. Internal Transfer Bezier Curves & Badges */}
+        {/* 3. Internal Transfer Bezier Curves & Staggered Non-Overlapping Badges */}
         {internalTransfers.map((it, idx) => {
           const fromNode = bankNodes.find((b) => b.id === it.fromAccountId);
           const toNode = bankNodes.find((b) => b.id === it.toAccountId);
@@ -1740,21 +1753,52 @@ function MultiBankSankeyDiagram({
 
           const fromY = fromNode.y + fromNode.height / 2;
           const toY = toNode.y + toNode.height / 2;
-          const midY = (fromY + toY) / 2;
+          const baseMidY = (fromY + toY) / 2;
+
+          // Stagger multiple internal transfer badges vertically to avoid overlapping
+          const verticalShift = (idx - (internalTransfers.length - 1) / 2) * 32;
+          const badgeY = baseMidY + verticalShift;
+          const curveCpX = middleX - 110 - Math.abs(verticalShift) * 0.7;
+
+          const transferPath = `
+            M ${middleX} ${fromY}
+            C ${curveCpX} ${fromY}, ${curveCpX} ${toY}, ${middleX} ${toY}
+          `;
+
+          const labelText = `${it.fromAccountName.split(' ')[0]} ⟶ ${it.toAccountName.split(' ')[0]} (${money(it.amount)})`;
+          const badgeW = Math.max(160, labelText.length * 7);
+          const isHighlighted = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
 
           return (
-            <g key={`it-${idx}`}>
+            <g key={`it-${idx}`} style={{ transition: 'opacity 0.2s ease', opacity: isHighlighted ? 1 : 0.2 }}>
               <path
-                d={internalLoopPath(fromY, toY)}
+                d={transferPath}
                 fill="none"
                 stroke={fromNode.color}
                 strokeWidth="3"
                 strokeDasharray="6,4"
                 opacity="0.85"
               />
-              <rect x={middleX - 150} y={midY - 12} width="140" height="24" rx="6" fill="var(--background)" stroke={fromNode.color} strokeWidth="1" />
-              <text x={middleX - 80} y={midY + 4} fill={fromNode.color} fontSize="11" fontWeight="700" textAnchor="middle">
-                {it.fromAccountName.split(' ')[0]} ⟶ {it.toAccountName.split(' ')[0]} ({money(it.amount)})
+              <rect
+                x={middleX - badgeW / 2 - 35}
+                y={badgeY - 13}
+                width={badgeW}
+                height="26"
+                rx="8"
+                fill="var(--card)"
+                stroke={fromNode.color}
+                strokeWidth="1.5"
+                style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.15))' }}
+              />
+              <text
+                x={middleX - 35}
+                y={badgeY + 4}
+                fill={fromNode.color}
+                fontSize="11"
+                fontWeight="700"
+                textAnchor="middle"
+              >
+                {labelText}
               </text>
             </g>
           );
@@ -1770,18 +1814,36 @@ function MultiBankSankeyDiagram({
           +{money(overall.totalExternalInbound)}
         </text>
 
-        {/* Middle Nodes: Individual Bank Accounts (Proportional Heights) */}
-        {bankNodes.map((bank) => (
-          <g key={`node-${bank.id}`}>
-            <rect x={bank.x} y={bank.y} width={nodeW} height={bank.height} fill={bank.color} rx="4" />
-            <text x={bank.x + nodeW + 12} y={bank.y + Math.min(22, bank.height / 2)} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
-              {bank.name}
-            </text>
-            <text x={bank.x + nodeW + 12} y={bank.y + Math.min(38, bank.height / 2 + 16)} fill="var(--muted)" fontSize="11" fontWeight="500" textAnchor="start">
-              In: {money(bank.totalInbound)} · Out: {money(bank.totalOutbound)}
-            </text>
-          </g>
-        ))}
+        {/* Middle Nodes: Individual Bank Accounts (Proportional Heights & Hover Highlights) */}
+        {bankNodes.map((bank) => {
+          const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
+          return (
+            <g
+              key={`node-${bank.id}`}
+              style={{ cursor: 'pointer', transition: 'opacity 0.2s ease', opacity: isHighlighted ? 1 : 0.3 }}
+              onMouseEnter={() => setHoveredBankId(bank.id)}
+              onMouseLeave={() => setHoveredBankId(null)}
+            >
+              <rect
+                x={bank.x}
+                y={bank.y}
+                width={nodeW}
+                height={bank.height}
+                fill={bank.color}
+                rx="4"
+                style={{
+                  filter: hoveredBankId === bank.id ? `drop-shadow(0 0 10px ${bank.color})` : 'none',
+                }}
+              />
+              <text x={bank.x + nodeW + 12} y={bank.y + Math.min(22, bank.height / 2)} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+                {bank.name}
+              </text>
+              <text x={bank.x + nodeW + 12} y={bank.y + Math.min(38, bank.height / 2 + 16)} fill="var(--muted)" fontSize="11" fontWeight="500" textAnchor="start">
+                In: {money(bank.totalInbound)} · Out: {money(bank.totalOutbound)}
+              </text>
+            </g>
+          );
+        })}
 
         {/* Right Node 1: External Outbound */}
         <rect x={rightX} y={outboundRightY} width={nodeW} height={outboundNodeH} fill="#ef4444" rx="4" />
@@ -1792,11 +1854,11 @@ function MultiBankSankeyDiagram({
           -{money(overall.totalExternalOutbound)}
         </text>
 
-        {/* Right Node 2: Mutual Funds & Investments */}
+        {/* Right Node 2: Mutual Funds & Investments (if present) */}
         {hasInvestments && (
           <g>
             <rect x={rightX} y={investmentRightY} width={nodeW} height={investmentNodeH} fill="#8b5cf6" rx="4" />
-            <text x={rightX + nodeW + 14} y={investmentRightY + investmentNodeH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+            <text x={rightX + nodeW + 14} y={investmentRightY + investmentNodeH / 2 - 10} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
               Mutual Funds & Investments
             </text>
             <text x={rightX + nodeW + 14} y={investmentRightY + investmentNodeH / 2 + 12} fill="#8b5cf6" fontSize="13" fontWeight="600" textAnchor="start">
