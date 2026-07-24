@@ -553,13 +553,13 @@ function GlobalTransactionExplorer() {
     <section className="panel transactions">
       <div className="panel-title" style={{ flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
         <div>
-          <span className="eyebrow">Savings Accounts</span>
-          <h2>Recent Transactions</h2>
+          <span className="eyebrow">Full history</span>
+          <h2>Transactions</h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {data && data.pagination.total > 0 && (
             <span className="month-pill">
-              {data.pagination.total} transaction{data.pagination.total === 1 ? '' : 's'} ({money(data.totalAmount)})
+              {(data.pagination.page - 1) * data.pagination.pageSize + 1}–{Math.min(data.pagination.page * data.pagination.pageSize, data.pagination.total)} of {data.pagination.total}
             </span>
           )}
           <button
@@ -569,7 +569,7 @@ function GlobalTransactionExplorer() {
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             <Filter size={14} />
-            {showFilters ? 'Hide Filters' : 'Filter Transactions'}
+            {showFilters ? 'Hide Filters' : 'Filter Ledger'}
             {activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
           </button>
         </div>
@@ -802,55 +802,60 @@ function GlobalTransactionExplorer() {
         </div>
       ) : data?.transactions.length ? (
         <>
-          <div className="transaction-list">
+          <div className="account-transaction-table">
+            <header>
+              <span>Date</span>
+              <span>Description</span>
+              <span>Category</span>
+              <span>Amount</span>
+            </header>
             {data.transactions.map((item) => (
-              <div key={item.id}>
-                <span className="transaction-date">
-                  {new Date(item.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}
-                </span>
-                <div>
+              <article key={item.id} className="transaction-row">
+                <time className="transaction-time-cell">
+                  <span className="date-text">{new Date(item.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
+                  <span className="time-text">{new Date(item.transactionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })}</span>
+                </time>
+                <div className="transaction-description-cell">
                   <strong>{item.description}</strong>
-                  <small style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
-                    <span>{item.accountName}</span>
-                    <span>·</span>
-                    {item.isTransfer ? (
-                      <span className="category-pill transfer">Transfer</span>
-                    ) : (
-                      <select
-                        className="category-pill-select"
-                        value={item.categoryId ?? ''}
-                        onChange={(e) => void handleUpdateCategory(item.accountId, item.id, e.target.value)}
-                        title="Click to change category"
-                        style={{
-                          display: 'inline-block',
-                          width: 'auto',
-                          maxWidth: '160px',
-                          background: item.categoryId ? 'var(--theme-soft-start)' : 'var(--background-alt)',
-                          border: '1px solid var(--line)',
-                          borderRadius: '8px',
-                          padding: '2px 8px',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          color: item.categoryId ? 'var(--green)' : 'var(--muted)',
-                          cursor: 'pointer',
-                          outline: 'none',
-                        }}
-                      >
-                        <option value="">Uncategorised</option>
-                        {(data.categories || []).map((cat: any) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </small>
+                  <small>{item.accountName}{item.details ? ` · ${item.details}` : ''}</small>
                 </div>
-                <b className={item.amount > 0 ? 'positive' : ''}>
-                  {item.amount > 0 ? '+' : ''}
-                  {money(item.amount)}
+                <div className="transaction-category-cell">
+                  {item.isTransfer ? (
+                    <span className="category-pill transfer">Transfer</span>
+                  ) : (
+                    <select
+                      className="category-pill-select"
+                      value={item.categoryId ?? ''}
+                      onChange={(e) => void handleUpdateCategory(item.accountId, item.id, e.target.value)}
+                      title="Click to change category"
+                      style={{
+                        display: 'inline-block',
+                        width: 'auto',
+                        maxWidth: '160px',
+                        background: item.categoryId ? 'var(--theme-soft-start)' : 'var(--background-alt)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '8px',
+                        padding: '3px 8px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: item.categoryId ? 'var(--green)' : 'var(--muted)',
+                        cursor: 'pointer',
+                        outline: 'none',
+                      }}
+                    >
+                      <option value="">Uncategorised</option>
+                      {(data.categories || []).map((cat: any) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <b className={`transaction-amount-cell ${item.amount > 0 ? 'positive' : 'negative'}`}>
+                  {item.amount > 0 ? '+' : ''}{money(item.amount)}
                 </b>
-              </div>
+              </article>
             ))}
           </div>
 
