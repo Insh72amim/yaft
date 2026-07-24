@@ -11,6 +11,7 @@ import {
   Minimize,
   MoreVertical,
   Pencil,
+  RefreshCw,
   RotateCcw,
   Trash2,
   Upload,
@@ -219,9 +220,43 @@ export function AccountDocuments({
   const [renamingId, setRenamingId] = useState("");
   const [renameName, setRenameName] = useState("");
   const [savingRename, setSavingRename] = useState(false);
+  const [reuploadingId, setReuploadingId] = useState("");
+  const [reuploadTargetDoc, setReuploadTargetDoc] = useState<AccountDocument | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const reuploadInputRef = useRef<HTMLInputElement>(null);
+
+  const triggerReupload = (item: AccountDocument) => {
+    setReuploadTargetDoc(item);
+    reuploadInputRef.current?.click();
+  };
+
+  const handleReupload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !reuploadTargetDoc) return;
+    if (file.size > MAX_FILE_BYTES) {
+      setError("The replacement document must be 8 MB or smaller.");
+      return;
+    }
+    const form = new FormData();
+    form.append("document", file);
+    setReuploadingId(reuploadTargetDoc.id);
+    setError("");
+    try {
+      const updated = await api<AccountDocument>(
+        `/accounts/${accountId}/documents/${reuploadTargetDoc.id}/reupload`,
+        { method: "POST", body: form },
+      );
+      setDocuments((current) => current.map((d) => (d.id === updated.id ? updated : d)));
+    } catch (reason) {
+      setError(errorMessage(reason, "Could not reupload document file."));
+    } finally {
+      setReuploadingId("");
+      setReuploadTargetDoc(null);
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -353,6 +388,15 @@ export function AccountDocuments({
               onChange={(event) => void upload(event)}
               tabIndex={-1}
             />
+            <input
+              ref={reuploadInputRef}
+              className="account-document-input"
+              type="file"
+              accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
+              onChange={(event) => void handleReupload(event)}
+              tabIndex={-1}
+              style={{ display: "none" }}
+            />
           </div>
         </header>
         {error && <p className="error account-documents-error" role="alert">{error}</p>}
@@ -442,16 +486,6 @@ export function AccountDocuments({
                         <button
                           type="button"
                           className="ghost compact"
-                          onClick={() => {
-                            setMenuOpenId(null);
-                            startRename(item);
-                          }}
-                          style={{ justifyContent: "flex-start", padding: "8px 12px", fontSize: "12px", width: "100%", gap: "8px", color: "var(--ink)" }}>
-                          <Pencil size={14} /> Rename
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost compact"
                           disabled={downloadingId === item.id}
                           onClick={() => {
                             setMenuOpenId(null);
@@ -459,6 +493,27 @@ export function AccountDocuments({
                           }}
                           style={{ justifyContent: "flex-start", padding: "8px 12px", fontSize: "12px", width: "100%", gap: "8px", color: "var(--ink)" }}>
                           {downloadingId === item.id ? <Loader2 className="spin" size={14} /> : <Download size={14} />} Download
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost compact"
+                          onClick={() => {
+                            setMenuOpenId(null);
+                            startRename(item);
+                          }}
+                          style={{ justifyContent: "flex-start", padding: "8px 12px", fontSize: "12px", width: "100%", gap: "8px", color: "var(--ink)" }}>
+                          <Pencil size={14} /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost compact"
+                          disabled={reuploadingId === item.id}
+                          onClick={() => {
+                            setMenuOpenId(null);
+                            triggerReupload(item);
+                          }}
+                          style={{ justifyContent: "flex-start", padding: "8px 12px", fontSize: "12px", width: "100%", gap: "8px", color: "var(--ink)" }}>
+                          {reuploadingId === item.id ? <Loader2 className="spin" size={14} /> : <RefreshCw size={14} />} ReUpload
                         </button>
                         <div style={{ height: "1px", background: "var(--line)", margin: "3px 0" }} />
                         <button

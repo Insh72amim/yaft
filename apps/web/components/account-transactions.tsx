@@ -202,66 +202,145 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
 
   const content = (
     <div className={`account-detail-content ${embedded ? 'embedded' : ''}`}>
-      {!embedded && <header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link><span className="eyebrow">Account ledger</span><h1>{account.name}</h1><p>{typeLabel[account.type] ?? account.type}{account.institution ? ` · ${account.institution}` : ''}</p></div><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        {account.type === 'EPFO' && <button className="secondary" onClick={openAddEpfo}><Plus size={15}/>Add transaction</button>}
-        {account.type === 'CREDIT_CARD' && <button className="secondary" onClick={openEditCc}><Settings size={15}/>Edit card</button>}
-        {supportsDocuments && <button className={`secondary account-view-button ${!showDocuments ? 'active' : ''}`} aria-pressed={!showDocuments} onClick={() => setShowDocuments(false)}><ReceiptText size={15}/>Transactions</button>}
-        {supportsDocuments && <button className={`secondary account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={15}/>Documents</button>}
-        {supportsStatementImport && <Link className="secondary" href={statementImportHref}>Import statement</Link>}
-        {['STOCKS', 'INVESTMENT'].includes(account.type) && (
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              const el = document.getElementById('active-sips-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-          >
-            <TrendingUp size={15} color="#8b5cf6" /> SIPs
-          </button>
-        )}
-        <button className="secondary" onClick={() => setShowVault(true)}><Lock size={15}/>Credentials</button>
-        <button className="danger" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/>Delete or clear</button>
-      </div></header>}
-      {embedded && <header className={`embedded-header ${isCreditCard ? 'credit-card-embedded-header' : ''}`}><div><span className="eyebrow">{typeLabel[account.type] ?? account.type}</span><h2>{account.name}</h2>{isCreditCard && <p className="credit-card-embedded-number"><CreditCard size={14}/>{maskedCardNumber}{account.cardNetwork ? <em>{account.cardNetwork}</em> : null}</p>}</div><div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        {account.type === 'EPFO' && <button className="secondary compact" onClick={openAddEpfo}><Plus size={14}/>Add</button>}
-        {account.type === 'CREDIT_CARD' && <button className="secondary compact" onClick={openEditCc}><Settings size={14}/>Edit</button>}
-        {supportsDocuments && <button className={`secondary compact account-view-button ${!showDocuments ? 'active' : ''}`} aria-pressed={!showDocuments} onClick={() => setShowDocuments(false)}><ReceiptText size={14}/>Transactions</button>}
-        {supportsDocuments && <button className={`secondary compact account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={14}/>Documents</button>}
-        {supportsStatementImport && <Link className="secondary compact" href={statementImportHref}>Import statement</Link>}
-        {['STOCKS', 'INVESTMENT'].includes(account.type) && (
-          <button
-            type="button"
-            className="secondary compact"
-            onClick={() => {
-              const el = document.getElementById('active-sips-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-          >
-            <TrendingUp size={14} color="#8b5cf6" /> SIPs
-          </button>
-        )}
-        <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
-        <button className="danger compact" onClick={() => { setDeleteStep(1); setDeleteError(''); }}><Trash2/></button>
-      </div></header>}
-      {showDocuments ? (
-        <AccountDocuments accountId={account.id} />
-      ) : <>{isCreditCard ? <section className="summary-grid account-ledger-summary credit-card-ledger-summary">
-        <article className="credit-card-outstanding"><span className="summary-icon"><CreditCard/></span><div><small>Outstanding</small><strong>{money(cardOutstanding)}</strong><em>Based on reviewed transactions</em></div></article>
-        <article><span className="summary-icon saved"><Landmark/></span><div><small>Available credit</small><strong>{availableCredit === null ? 'Not set' : money(availableCredit)}</strong><em>{account.creditLimit == null ? 'Add a credit limit in card settings' : `${money(account.creditLimit)} total limit`}</em></div></article>
-        <article><span className="summary-icon expense"><CalendarDays/></span><div><small>Billing cycle</small><strong>{account.statementDay ? `Day ${account.statementDay}` : 'Not set'}</strong><em>{account.dueDay ? `Payment due on day ${account.dueDay}` : 'Payment due day not set'}</em></div></article>
-      </section> : <section className="summary-grid account-ledger-summary">
-        <article><span className="summary-icon income"><Landmark/></span><div><small>Current balance</small><strong>{money(account.balance)}</strong></div></article>
-        <article><span className="summary-icon saved"><CalendarDays/></span><div><small>Opening balance</small><strong>{money(account.openingBalance)}</strong></div></article>
-        <article><span className="summary-icon expense"><ReceiptText/></span><div><small>Transactions</small><strong>{pagination.total.toLocaleString('en-IN')}</strong><em>Reviewed ledger entries</em></div></article>
-      </section>}
-
-      {['STOCKS', 'INVESTMENT'].includes(account.type) && (
-        <ActiveSipsPanel accountId={account.id} />
+      {!embedded && (
+        <header className="page-header">
+          <div>
+            <Link className="back-link" href="/dashboard">
+              <ArrowLeft size={15} /> Overview
+            </Link>
+            <span className="eyebrow">Account ledger</span>
+            <h1>{account.name}</h1>
+            <p>
+              {typeLabel[account.type] ?? account.type}
+              {account.institution ? ` · ${account.institution}` : ''}
+            </p>
+          </div>
+        </header>
       )}
 
-      <section className="panel account-ledger-panel">
-        <div className="panel-title"><div><span className="eyebrow">Full history</span><h2>Transactions</h2></div>{pagination.total > 0 && <span className="month-pill">{(pagination.page - 1) * pagination.pageSize + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total}</span>}</div>
+      {/* 1. Summary Cards (Always Visible) */}
+      {isCreditCard ? (
+        <section className="summary-grid account-ledger-summary credit-card-ledger-summary">
+          <article className="credit-card-outstanding">
+            <span className="summary-icon"><CreditCard /></span>
+            <div>
+              <small>Outstanding</small>
+              <strong>{money(cardOutstanding)}</strong>
+              <em>Based on reviewed transactions</em>
+            </div>
+          </article>
+          <article>
+            <span className="summary-icon saved"><Landmark /></span>
+            <div>
+              <small>Available credit</small>
+              <strong>{availableCredit === null ? 'Not set' : money(availableCredit)}</strong>
+              <em>{account.creditLimit == null ? 'Add a credit limit in card settings' : `${money(account.creditLimit)} total limit`}</em>
+            </div>
+          </article>
+          <article>
+            <span className="summary-icon expense"><CalendarDays /></span>
+            <div>
+              <small>Billing cycle</small>
+              <strong>{account.statementDay ? `Day ${account.statementDay}` : 'Not set'}</strong>
+              <em>{account.dueDay ? `Payment due on day ${account.dueDay}` : 'Payment due day not set'}</em>
+            </div>
+          </article>
+        </section>
+      ) : (
+        <section className="summary-grid account-ledger-summary">
+          <article>
+            <span className="summary-icon income"><Landmark /></span>
+            <div>
+              <small>Current balance</small>
+              <strong>{money(account.balance)}</strong>
+            </div>
+          </article>
+          <article>
+            <span className="summary-icon saved"><CalendarDays /></span>
+            <div>
+              <small>Opening balance</small>
+              <strong>{money(account.openingBalance)}</strong>
+            </div>
+          </article>
+          <article>
+            <span className="summary-icon expense"><ReceiptText /></span>
+            <div>
+              <small>Transactions</small>
+              <strong>{pagination.total.toLocaleString('en-IN')}</strong>
+              <em>Reviewed ledger entries</em>
+            </div>
+          </article>
+        </section>
+      )}
+
+      {/* 2. Tab Navigation & Action Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '6px', background: 'var(--card)', padding: '4px', borderRadius: '12px', border: '1px solid var(--line)' }}>
+          <button
+            type="button"
+            className={`secondary compact ${!showDocuments ? 'active' : ''}`}
+            onClick={() => setShowDocuments(false)}
+          >
+            <ReceiptText size={14} /> Transactions
+          </button>
+          {supportsDocuments && (
+            <button
+              type="button"
+              className={`secondary compact ${showDocuments ? 'active' : ''}`}
+              onClick={() => setShowDocuments(true)}
+            >
+              <Files size={14} /> Documents
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {account.type === 'EPFO' && (
+            <button type="button" className="secondary compact" onClick={openAddEpfo}>
+              <Plus size={14} /> Add
+            </button>
+          )}
+          {account.type === 'CREDIT_CARD' && (
+            <button type="button" className="secondary compact" onClick={openEditCc}>
+              <Settings size={14} /> Edit
+            </button>
+          )}
+          {supportsStatementImport && (
+            <Link className="secondary compact" href={statementImportHref}>
+              Import statement
+            </Link>
+          )}
+          <button type="button" className="secondary compact" onClick={() => setShowVault(true)}>
+            <Lock size={14} /> Credentials
+          </button>
+          <button
+            type="button"
+            className="danger compact"
+            onClick={() => {
+              setDeleteStep(1);
+              setDeleteError('');
+            }}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Tab Content View */}
+      {showDocuments ? (
+        <AccountDocuments accountId={account.id} />
+      ) : (
+        <section className="panel account-ledger-panel">
+          <div className="panel-title">
+            <div>
+              <span className="eyebrow">Full history</span>
+              <h2>Transactions</h2>
+            </div>
+            {pagination.total > 0 && (
+              <span className="month-pill">
+                {(pagination.page - 1) * pagination.pageSize + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total}
+              </span>
+            )}
+          </div>
 
         {/* Redesigned Search & Filter Control Center */}
         {(() => {
@@ -499,7 +578,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>{account.type === 'EPFO' ? 'Add a manual transaction to populate the ledger.' : 'Import and approve a statement for this account to build its ledger.'}</p>{supportsStatementImport && <Link className="secondary" href={statementImportHref}>Import statement</Link>}</div>}
         {pagination.pages > 1 && <footer className="ledger-pagination"><button className="secondary" disabled={pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}><ArrowLeft/>Previous</button><span>Page {pagination.page} of {pagination.pages}</span><button className="secondary" disabled={pagination.page >= pagination.pages} onClick={() => goToPage(pagination.page + 1)}>Next<ArrowRight/></button></footer>}
       </section>
-      </>}
+      )}
       {deleteStep > 0 && <div className="modal-wrap"><button className="backdrop" onClick={closeDelete} aria-label="Close deletion confirmation"/><section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title"><div className="delete-warning"><ShieldAlert/><span><strong>{deleteStep === 1 ? 'Select Action' : 'Final confirmation'}</strong><small>This action cannot be undone.</small></span></div>{deleteStep === 1 ? <><div><span className="eyebrow">First confirmation</span><h2 id="delete-account-title">Delete or Clear {account.name}?</h2><p>Choose whether to wipe all transactions/import history, or permanently delete the account itself.</p></div><div className="modal-actions" style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '12px' }}><button className="danger wide" onClick={() => { setDeleteAction('CLEAR_TRANSACTIONS'); setDeleteStep(2); setDeleteError(''); }}>Clear all transactions ({pagination.total.toLocaleString('en-IN')})</button><button className="danger wide" onClick={() => { setDeleteAction('DELETE_ACCOUNT'); setDeleteStep(2); setDeleteError(''); }}>Delete entire account</button><button className="ghost wide" onClick={closeDelete}>Cancel</button></div></> : <><div><span className="eyebrow">Second confirmation</span><h2 id="delete-account-title">Type the account name</h2><p>Enter <strong>{account.name}</strong> exactly to confirm {deleteAction === 'CLEAR_TRANSACTIONS' ? 'clearing all transactions' : 'permanent account deletion'}.</p></div><label>Account name<input autoFocus autoComplete="off" value={confirmationName} onChange={(event) => { setConfirmationName(event.target.value); setDeleteError(''); }} /></label>{deleteError && <p className="error">{deleteError}</p>}<div className="modal-actions"><button className="ghost" disabled={deleting} onClick={() => { setDeleteStep(1); setConfirmationName(''); setDeleteError(''); }}>Back</button><button className="danger" disabled={deleting || confirmationName !== account.name} onClick={handleDeleteConfirm}>{deleting ? 'Processing…' : deleteAction === 'CLEAR_TRANSACTIONS' ? 'Clear transactions' : 'Permanently delete'}</button></div></>}</section></div>}
       {showVault && <VaultModal accountId={account.id} onClose={() => setShowVault(false)} onChanged={load} />}
 

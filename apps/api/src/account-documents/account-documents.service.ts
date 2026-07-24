@@ -162,6 +162,32 @@ export class AccountDocumentsService {
     return serialize(updated);
   }
 
+  async reupload(
+    userId: string,
+    accountId: string,
+    documentId: string,
+    file: Express.Multer.File | undefined,
+  ) {
+    if (!file) throw new BadRequestException('Choose a document file to upload.');
+    const validated = this.validateFile(file);
+    const document = await this.findOwnedDocument(userId, accountId, documentId);
+
+    const storageKey = `account-documents/${userId}/${accountId}/${document.id}.${validated.extension}`;
+    await this.s3.deleteFile(document.storageKey).catch(() => undefined);
+    await this.s3.uploadFile(storageKey, validated.buffer, validated.mimeType);
+
+    const updated = await this.prisma.accountDocument.update({
+      where: { id: document.id },
+      data: {
+        name: validated.name,
+        mimeType: validated.mimeType,
+        byteSize: validated.byteSize,
+        storageKey,
+      },
+    });
+    return serialize(updated);
+  }
+
   async purgeForAccount(userId: string, accountId: string) {
     const documents = await this.prisma.accountDocument.findMany({
       where: { accountId, account: { userId } },
