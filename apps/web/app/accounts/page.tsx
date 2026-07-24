@@ -641,10 +641,6 @@ function PortfolioContent() {
             <Plus size={17} />
             Add account
           </button>
-          <Link className="primary" href="/import">
-            <Upload size={17} />
-            Import statement
-          </Link>
         </div>
       </header>
       {error && (
