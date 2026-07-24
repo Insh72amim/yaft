@@ -102,8 +102,9 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
   };
 
   return (
-    <div className="modal-backdrop" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)' }}>
-      <div className="modal-card" style={{ background: 'var(--background)', borderRadius: '12px', padding: '24px', maxWidth: '500px', width: '100%', border: '1px solid var(--line)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+    <div className="modal-wrap">
+      <button className="backdrop" onClick={onClose} aria-label="Close modal" />
+      <div className="modal" style={{ background: 'var(--card, #ffffff)', borderRadius: '16px', padding: '24px', maxWidth: '520px', width: '100%', border: '1px solid var(--line)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)', opacity: 1, zIndex: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <TrendingUp size={20} color="#8b5cf6" />
@@ -125,7 +126,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+              style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)' }}
             />
           </div>
 
@@ -138,7 +139,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
-                style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)' }}
               />
             </div>
             <div>
@@ -150,7 +151,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
                 placeholder="10"
                 value={sipDay}
                 onChange={(e) => setSipDay(e.target.value)}
-                style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)' }}
               />
             </div>
           </div>
@@ -161,7 +162,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
               value={sourceAccountId}
               onChange={(e) => setSourceAccountId(e.target.value)}
               required
-              style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+              style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)' }}
             >
               <option value="">Select linked bank account (debit source)...</option>
               {bankAccounts.map((bank) => (
@@ -180,7 +181,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
               placeholder="e.g. Zerodha Broking / ICCL Mandate # 810293"
               value={destinationAccount}
               onChange={(e) => setDestinationAccount(e.target.value)}
-              style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+              style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)' }}
             />
             <small style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px', display: 'block' }}>Account or biller mandate number to which payment is made</small>
           </div>
@@ -193,7 +194,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
                 placeholder="e.g. 91029381/22"
                 value={folioNumber}
                 onChange={(e) => setFolioNumber(e.target.value)}
-                style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)' }}
               />
             </div>
             <div>
@@ -203,7 +204,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
                 placeholder="e.g. BSE MEMBERS, ZERODHA"
                 value={billerKeyword}
                 onChange={(e) => setBillerKeyword(e.target.value)}
-                style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                style={{ width: '100%', height: '36px', padding: '0 10px', fontSize: '13px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)' }}
               />
             </div>
           </div>
