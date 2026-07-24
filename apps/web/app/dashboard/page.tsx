@@ -22,7 +22,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Shell } from '@/components/shell';
 import { SpendRulesModal } from '@/components/spend-rules-modal';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
@@ -1501,6 +1501,41 @@ function MultiBankSankeyDiagram({
 }) {
   const { accounts, internalTransfers, overall } = accountFlow;
 
+  // Consolidate / aggregate internal transfers by (fromAccountId -> toAccountId) pair
+  const aggregatedTransfers = useMemo(() => {
+    const map = new Map<string, {
+      fromAccountId: string;
+      toAccountId: string;
+      fromAccountName: string;
+      toAccountName: string;
+      totalAmount: number;
+      count: number;
+      items: { id?: string; amount: number }[];
+    }>();
+
+    for (const it of internalTransfers) {
+      const key = `${it.fromAccountId}_${it.toAccountId}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.totalAmount += it.amount;
+        existing.count += 1;
+        existing.items.push({ id: (it as any).id, amount: it.amount });
+      } else {
+        map.set(key, {
+          fromAccountId: it.fromAccountId,
+          toAccountId: it.toAccountId,
+          fromAccountName: it.fromAccountName,
+          toAccountName: it.toAccountName,
+          totalAmount: it.amount,
+          count: 1,
+          items: [{ id: (it as any).id, amount: it.amount }],
+        });
+      }
+    }
+
+    return [...map.values()];
+  }, [internalTransfers]);
+
   const [hoveredBankId, setHoveredBankId] = useState<string | null>(null);
   const [hoveredFlow, setHoveredFlow] = useState<{
     title: string;
@@ -1751,8 +1786,8 @@ function MultiBankSankeyDiagram({
             );
           })}
 
-        {/* 3. Internal Transfer Bezier Curves & Staggered Non-Overlapping Badges */}
-        {internalTransfers.map((it, idx) => {
+        {/* 3. Aggregated Internal Transfer Bezier Flow Bands & Clean Badges */}
+        {aggregatedTransfers.map((it, idx) => {
           const fromNode = bankNodes.find((b) => b.id === it.fromAccountId);
           const toNode = bankNodes.find((b) => b.id === it.toAccountId);
           if (!fromNode || !toNode) return null;
@@ -1761,28 +1796,29 @@ function MultiBankSankeyDiagram({
           const toY = toNode.y + toNode.height / 2;
           const baseMidY = (fromY + toY) / 2;
 
-          // Stagger multiple internal transfer badges vertically and horizontally to open space (x = 360)
-          const verticalShift = (idx - (internalTransfers.length - 1) / 2) * 36;
+          // Stagger multiple aggregated transfer pairs vertically & horizontally (x = 360)
+          const verticalShift = (idx - (aggregatedTransfers.length - 1) / 2) * 36;
           const badgeY = baseMidY + verticalShift;
           const curveCpX = middleX - 170 - Math.abs(verticalShift) * 0.8;
-          const badgeCenterX = middleX - 165; // Position at x = 360 (away from middle bank nodes)
+          const badgeCenterX = middleX - 165; // Position at x = 360 (open space)
 
           const transferPath = `
             M ${middleX} ${fromY}
             C ${curveCpX} ${fromY}, ${curveCpX} ${toY}, ${middleX} ${toY}
           `;
 
-          const labelText = `${it.fromAccountName.split(' ')[0]} ⟶ ${it.toAccountName.split(' ')[0]} (${money(it.amount)})`;
-          const badgeW = Math.max(150, labelText.length * 7);
+          const bandWidth = Math.max(3, Math.min(14, Math.round(it.totalAmount / 10000)));
+          const labelText = `${it.fromAccountName.split(' ')[0]} ⟶ ${it.toAccountName.split(' ')[0]}: ${money(it.totalAmount)}${it.count > 1 ? ` (${it.count})` : ''}`;
+          const badgeW = Math.max(160, labelText.length * 7.2);
           const isHighlighted = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
 
           return (
-            <g key={`it-${idx}`} style={{ transition: 'opacity 0.2s ease', opacity: isHighlighted ? 1 : 0.2 }}>
+            <g key={`aggr-it-${idx}`} style={{ transition: 'opacity 0.2s ease', opacity: isHighlighted ? 1 : 0.2 }}>
               <path
                 d={transferPath}
                 fill="none"
                 stroke={fromNode.color}
-                strokeWidth="3"
+                strokeWidth={bandWidth}
                 strokeDasharray="6,4"
                 opacity="0.85"
               />
@@ -1795,7 +1831,21 @@ function MultiBankSankeyDiagram({
                 fill="var(--card)"
                 stroke={fromNode.color}
                 strokeWidth="1.5"
-                style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))' }}
+                style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))', cursor: 'pointer' }}
+                onMouseEnter={() => {
+                  setHoveredBankId(fromNode.id);
+                  setHoveredFlow({
+                    title: `Internal Transfer: ${it.fromAccountName} ⟶ ${it.toAccountName} (${it.count} transaction${it.count === 1 ? '' : 's'})`,
+                    amount: money(it.totalAmount),
+                    x: badgeCenterX,
+                    y: badgeY,
+                    color: fromNode.color,
+                  });
+                }}
+                onMouseLeave={() => {
+                  setHoveredBankId(null);
+                  setHoveredFlow(null);
+                }}
               />
               <text
                 x={badgeCenterX}
@@ -1804,6 +1854,7 @@ function MultiBankSankeyDiagram({
                 fontSize="11"
                 fontWeight="700"
                 textAnchor="middle"
+                style={{ pointerEvents: 'none' }}
               >
                 {labelText}
               </text>
