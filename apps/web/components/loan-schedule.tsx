@@ -125,22 +125,8 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
 
   return (
     <div className={`account-detail-content ${embedded ? 'embedded' : ''}`}>
-      <header className="embedded-header">
-        <div>
-          <span className="eyebrow">Loan Account</span>
-          <h2>{accountName}</h2>
-        </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button className={`secondary compact account-view-button ${!showDocuments ? 'active' : ''}`} aria-pressed={!showDocuments} onClick={() => setShowDocuments(false)}><ReceiptText size={14}/>Schedule</button>
-          <button className={`secondary compact account-view-button ${showDocuments ? 'active' : ''}`} aria-pressed={showDocuments} onClick={() => setShowDocuments(true)}><Files size={14}/>Documents</button>
-          <button className="secondary compact" onClick={() => setShowVault(true)}><Lock size={14}/>Credentials</button>
-          <button className="danger compact" onClick={() => setDeleteStep(1)}><Trash2/></button>
-        </div>
-      </header>
-
-      {showDocuments ? (
-        <AccountDocuments accountId={accountId} />
-      ) : <><section className="summary-grid account-ledger-summary">
+      {/* 1. Summary Cards Top Grid */}
+      <section className="summary-grid account-ledger-summary">
         <article>
           <span className="summary-icon expense"><Landmark/></span>
           <div>
@@ -175,42 +161,78 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
         </article>
       </section>
 
-      <section className="panel account-ledger-panel">
-        <div className="panel-title">
-          <div>
-            <span className="eyebrow">Amortisation Schedule</span>
-            <h2>Installments</h2>
-          </div>
-          <span className="month-pill">Total Interest: {money(summary.totalInterest)}</span>
+      {/* 2. Tab Navigation & Action Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '6px', background: 'var(--card)', padding: '4px', borderRadius: '12px', border: '1px solid var(--line)' }}>
+          <button
+            type="button"
+            className={`secondary compact ${!showDocuments ? 'active' : ''}`}
+            onClick={() => setShowDocuments(false)}
+          >
+            <ReceiptText size={14} /> Schedule
+          </button>
+          <button
+            type="button"
+            className={`secondary compact ${showDocuments ? 'active' : ''}`}
+            onClick={() => setShowDocuments(true)}
+          >
+            <Files size={14} /> Documents
+          </button>
         </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button type="button" className="secondary compact" onClick={() => setShowVault(true)}>
+            <Lock size={14} /> Credentials
+          </button>
+          <button
+            type="button"
+            className="danger compact"
+            onClick={() => setDeleteStep(1)}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
 
-        <div className="account-transaction-table loan-schedule-table">
-          <header>
-            <span>#</span>
-            <span>Due Date</span>
-            <span>EMI</span>
-            <span>Principal</span>
-            <span>Interest</span>
-            <span>Outstanding</span>
-            <span>Status</span>
-          </header>
-          {installments.map((inst) => (
-            <article 
-              key={inst.id} 
-              className={`loan-row ${inst.status.toLowerCase()}`}
-            >
-              <span>{inst.number}</span>
-              <time>{new Date(inst.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</time>
-              <b>{money(inst.emiAmount)}</b>
-              <span>{money(inst.principalAmount)}</span>
-              <span>{money(inst.interestAmount)}</span>
-              <b>{money(inst.balance)}</b>
-              <div>{getStatusBadge(inst)}</div>
-            </article>
-          ))}
-        </div>
-      </section>
-      </>}
+      {/* 3. Tab Content View */}
+      {showDocuments ? (
+        <AccountDocuments accountId={accountId} />
+      ) : (
+        <section className="panel account-ledger-panel">
+          <div className="panel-title">
+            <div>
+              <span className="eyebrow">Amortisation Schedule</span>
+              <h2>Installments</h2>
+            </div>
+            <span className="month-pill">Total Interest: {money(summary.totalInterest)}</span>
+          </div>
+
+          <div className="account-transaction-table loan-schedule-table">
+            <header>
+              <span>#</span>
+              <span>Due Date</span>
+              <span>EMI</span>
+              <span>Principal</span>
+              <span>Interest</span>
+              <span>Outstanding</span>
+              <span>Status</span>
+            </header>
+            {installments.map((inst) => (
+              <article 
+                key={inst.id} 
+                className={`loan-row ${inst.status.toLowerCase()}`}
+              >
+                <span>{inst.number}</span>
+                <time>{new Date(inst.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</time>
+                <b>{money(inst.emiAmount)}</b>
+                <span>{money(inst.principalAmount)}</span>
+                <span>{money(inst.interestAmount)}</span>
+                <b>{money(inst.balance)}</b>
+                <div>{getStatusBadge(inst)}</div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {deleteStep > 0 && (
         <div className="modal-wrap">
