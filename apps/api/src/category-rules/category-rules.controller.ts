@@ -29,6 +29,19 @@ export class CategoryRulesController {
     return this.categoryRules.update(user.id, id, dto);
   }
 
+  @Get('categories')
+  getCategories(@CurrentUser() user: { id: string }) {
+    return this.categoryRules.listCategories(user.id);
+  }
+
+  @Post('batch-update')
+  batchUpdate(
+    @CurrentUser() user: { id: string },
+    @Body() body: { transactionIds: string[]; categoryId: string | null },
+  ) {
+    return this.categoryRules.batchUpdate(user.id, body.transactionIds, body.categoryId);
+  }
+
   @Delete(':id')
   @HttpCode(204)
   delete(@CurrentUser() user: { id: string }, @Param('id') id: string) {

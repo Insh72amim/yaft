@@ -8,6 +8,7 @@ import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 import { VaultModal } from '@/components/vault-modal';
 import { AccountDocuments } from '@/components/account-documents';
 import { SipModal, type Sip } from '@/components/sip-modal';
+import { SpendRulesModal } from '@/components/spend-rules-modal';
 
 type CategoryOption = { id: string; name: string; color: string };
 
@@ -61,6 +62,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   const load = useCallback(() => {
     setError('');
@@ -348,6 +350,15 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                         {(pagination.page - 1) * pagination.pageSize + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total}
                       </span>
                     )}
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      onClick={() => setShowRulesModal(true)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <SlidersHorizontal size={14} color="var(--green)" />
+                      Category Rules
+                    </button>
                     <button
                       type="button"
                       className={`secondary compact ${showFilters || activeFilterCount > 0 ? 'active' : ''}`}
@@ -655,6 +666,13 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
             </form>
           </section>
         </div>
+      )}
+
+      {showRulesModal && (
+        <SpendRulesModal
+          onClose={() => setShowRulesModal(false)}
+          onRulesApplied={() => load()}
+        />
       )}
     </div>
   );

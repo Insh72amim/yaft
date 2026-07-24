@@ -165,4 +165,39 @@ export class CategoryRulesService {
 
     return { updatedCount };
   }
+
+  async listCategories(userId: string) {
+    return this.prisma.category.findMany({
+      where: { userId },
+      select: { id: true, name: true, color: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async batchUpdate(userId: string, transactionIds: string[], categoryId: string | null) {
+    if (!transactionIds || transactionIds.length === 0) {
+      return { updatedCount: 0 };
+    }
+
+    if (categoryId) {
+      const category = await this.prisma.category.findFirst({
+        where: { id: categoryId, userId },
+      });
+      if (!category) {
+        throw new BadRequestException('Category not found.');
+      }
+    }
+
+    const result = await this.prisma.transaction.updateMany({
+      where: {
+        id: { in: transactionIds },
+        account: { userId },
+      },
+      data: {
+        categoryId: categoryId || null,
+      },
+    });
+
+    return { updatedCount: result.count };
+  }
 }
