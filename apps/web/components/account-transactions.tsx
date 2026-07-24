@@ -114,7 +114,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   };
 
   const openEditCc = () => {
-    setCcLimit(account.creditLimit ? String(account.creditLimit) : '');
+    setCcLimit(account.creditLimit ? String(account.creditLimit / 100) : '');
     setCcStatementDay(account.statementDay ? String(account.statementDay) : '');
     setCcDueDay(account.dueDay ? String(account.dueDay) : '');
     setSaveCcError('');
@@ -127,7 +127,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
     setSaveCcError('');
     try {
       const body = {
-        creditLimit: ccLimit ? Number(ccLimit) : null,
+        creditLimit: ccLimit ? Math.round(Number(ccLimit) * 100) : null,
         statementDay: ccStatementDay ? Number(ccStatementDay) : null,
         dueDay: ccDueDay ? Number(ccDueDay) : null,
       };
@@ -156,7 +156,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
     setSavingEpfo(true);
     setSaveEpfoError('');
     try {
-      const amt = Number(epfoAmount);
+      const amt = Math.round(Number(epfoAmount) * 100);
       const body = {
         description: epfoDesc,
         amount: epfoIsCredit ? amt : -amt,

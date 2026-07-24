@@ -31,7 +31,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
   const [bankAccounts, setBankAccounts] = useState<{ id: string; name: string; institution: string | null }[]>([]);
   const [name, setName] = useState(sip?.name ?? '');
   const [folioNumber, setFolioNumber] = useState(sip?.folioNumber ?? '');
-  const [amount, setAmount] = useState(sip ? String(sip.amount) : '');
+  const [amount, setAmount] = useState(sip ? String(sip.amount / 100) : '');
   const [frequency, setFrequency] = useState(sip?.frequency ?? 'MONTHLY');
   const [sipDay, setSipDay] = useState(sip ? String(sip.sipDay) : '10');
   const [sourceAccountId, setSourceAccountId] = useState(sip?.sourceAccountId ?? '');
@@ -55,6 +55,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
     if (!name.trim()) return setError('Mutual fund / SIP name is required.');
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) return setError('Please enter a valid monthly amount.');
+    const minorAmount = Math.round(parsedAmount * 100);
     if (!sourceAccountId) return setError('Payment source bank account is required.');
 
     setSaving(true);
@@ -67,7 +68,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
           body: JSON.stringify({
             name,
             folioNumber,
-            amount: parsedAmount,
+            amount: minorAmount,
             frequency,
             sipDay: parseInt(sipDay, 10) || 10,
             sourceAccountId: sourceAccountId || null,
@@ -83,7 +84,7 @@ export function SipModal({ accountId, sip, onClose, onSaved }: SipModalProps) {
             accountId,
             name,
             folioNumber,
-            amount: parsedAmount,
+            amount: minorAmount,
             frequency,
             sipDay: parseInt(sipDay, 10) || 10,
             sourceAccountId: sourceAccountId || null,
