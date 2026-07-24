@@ -639,9 +639,8 @@ html[data-theme='dark'] .holdings-table .warning{color:#e5ae67}
 .portfolio-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px;text-align:center;color:var(--text-dim);background:var(--bg-panel);border:1px dashed var(--line);border-radius:16px}
 .portfolio-empty svg{margin-bottom:16px;color:var(--line);stroke-width:1.5}
 .portfolio-empty strong{display:block;margin-bottom:4px;font-size:1rem;color:var(--text)}
-.account-detail-content.embedded{background:var(--bg-panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
-.account-detail-content.embedded > .account-ledger-panel{border:none;border-radius:0;box-shadow:none;border-top:1px solid var(--line)}
-.account-detail-content.embedded > .account-ledger-summary{padding:24px}
+.account-detail-content.embedded{background:transparent;border:none;border-radius:0;overflow:visible}
+.account-detail-content.embedded > .account-ledger-summary{padding:0;margin-bottom:20px}
 .embedded-header{display:flex;align-items:flex-start;justify-content:space-between;padding:24px 24px 0}
 .embedded-header h2{font-size:1.25rem;font-weight:700;letter-spacing:-0.01em;margin-bottom:4px}
 .embedded-header p{font-size:0.875rem;color:var(--text-dim)}
