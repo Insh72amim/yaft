@@ -270,7 +270,27 @@ export default function DashboardPage() {
         </article>
       </section>
 
-      <section className="dashboard-grid" style={{ gridTemplateColumns: '1fr', marginBottom: '24px' }}>
+      <section className="panel monthly-flow-panel" style={{ marginBottom: '24px' }}>
+        <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <span className="eyebrow">Cash Flow</span>
+            <h2>Savings Accounts Cash Flow & Transfers</h2>
+          </div>
+          <button type="button" className="secondary compact" onClick={() => setShowTransfersModal(true)}>
+            <RefreshCw size={14} className={reconciling ? 'spin' : ''} />
+            View Transfer Matching Candidates
+          </button>
+        </div>
+
+        <MonthlyFlow
+          income={data.income}
+          expenses={data.expenses}
+          savings={data.savings}
+          accountFlow={data.accountFlow}
+        />
+      </section>
+
+      <section className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px', marginBottom: '24px' }}>
         <article className="panel spending-panel">
           <div className="panel-title">
             <div>
@@ -305,26 +325,44 @@ export default function DashboardPage() {
             <Empty text="Import a statement to see your spending pattern." />
           )}
         </article>
-      </section>
 
-      <section className="panel monthly-flow-panel">
-        <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <span className="eyebrow">Cash Flow</span>
-            <h2>Savings Accounts Cash Flow & Transfers</h2>
+        <article className="panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column' }}>
+          <div className="panel-title" style={{ marginBottom: '16px' }}>
+            <div>
+              <span className="eyebrow">Payees & Merchants</span>
+              <h2>Top Outbound Beneficiaries</h2>
+            </div>
+            <span className="month-pill">
+              <Send size={14} color="#f59e0b" />
+              P2P & Vendors
+            </span>
           </div>
-          <button type="button" className="secondary compact" onClick={() => setShowTransfersModal(true)}>
-            <RefreshCw size={14} className={reconciling ? 'spin' : ''} />
-            View Transfer Matching Candidates
-          </button>
-        </div>
 
-        <MonthlyFlow
-          income={data.income}
-          expenses={data.expenses}
-          savings={data.savings}
-          accountFlow={data.accountFlow}
-        />
+          {data.topOutboundRecipients && data.topOutboundRecipients.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, justifyContent: 'center' }}>
+              {data.topOutboundRecipients.slice(0, 5).map((rec) => {
+                const pct = data.expenses > 0 ? Math.min(100, Math.round((rec.amount / data.expenses) * 100)) : 0;
+                return (
+                  <div key={rec.name} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '12px' }}>
+                      <strong style={{ color: 'var(--ink)', fontWeight: 700 }}>{rec.name}</strong>
+                      <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                        <strong style={{ color: 'var(--ink)' }}>{money(rec.amount)}</strong> ({rec.count} txn{rec.count === 1 ? '' : 's'})
+                      </span>
+                    </div>
+                    <div style={{ height: '6px', width: '100%', background: 'var(--background-alt)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: '#f59e0b', borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ padding: '20px', textAlign: 'center', background: 'var(--background-alt)', borderRadius: '10px', color: 'var(--muted)', fontSize: '12px', marginTop: 'auto', marginBottom: 'auto' }}>
+              No major merchant or P2P outbound transactions recorded for {monthLabel}.
+            </div>
+          )}
+        </article>
       </section>
 
       <GlobalTransactionExplorer />
