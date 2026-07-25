@@ -86,12 +86,16 @@ export default function BudgetsPage() {
       setLoading(true);
       setError("");
       const [catRes, budgetRes, ruleRes] = await Promise.all([
-        api<{ categories: CategoryOption[] }>("/categories").catch(() => ({ categories: [] })),
+        api<any>("/categories").catch(() => []),
         api<{ summary: any; budgets: CategoryBudgetItem[] }>("/budgets").catch(() => ({ summary: { totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0 }, budgets: [] })),
         api<CategoryRuleItem[]>("/categories/rules").catch(() => []),
       ]);
 
-      const catList = catRes.categories || [];
+      const catList: CategoryOption[] = Array.isArray(catRes)
+        ? catRes
+        : catRes && Array.isArray(catRes.categories)
+        ? catRes.categories
+        : [];
       setCategories(catList);
       setBudgets(budgetRes.budgets || []);
       if (budgetRes.summary) setSummary(budgetRes.summary);
