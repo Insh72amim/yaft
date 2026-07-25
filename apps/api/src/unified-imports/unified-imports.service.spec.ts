@@ -122,7 +122,7 @@ describe('UnifiedImportsService fail-closed validation', () => {
     await expect(empty.service.upload('user-1', { ...salaryFile, buffer: Buffer.alloc(0) },
       { kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS' })).rejects.toThrow('empty');
     const missing = setup();
-    await expect(missing.service.upload('user-1', bankFile, { kind: 'BANK_STATEMENT', source: 'SBI' })).rejects.toThrow('eligible destination');
+    await expect(missing.service.upload('user-1', holdingsFile, { kind: 'BROKER_HOLDINGS', source: 'ZERODHA_KITE' })).rejects.toThrow('eligible destination');
     const unavailable = setup();
     unavailable.prisma.account.findFirst.mockResolvedValue(null);
     await expect(unavailable.service.upload('user-1', bankFile,

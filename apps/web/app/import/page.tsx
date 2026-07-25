@@ -179,7 +179,7 @@ function ImportWorkspace() {
         }
         const payload = new FormData();
         payload.set('kind', kind); payload.set('source', sourceOption.source); payload.set('file', fileItem);
-        if (sourceOption.accountRequired) payload.set('accountId', accountId);
+        if (accountId) payload.set('accountId', accountId);
         if (sourceOption.pdfPasswordSupported && fileItem.name.toLowerCase().endsWith('.pdf') && pdfPassword) {
           payload.set('pdfPassword', pdfPassword);
         }
@@ -284,9 +284,11 @@ function ImportWorkspace() {
       <div className="unified-fields"><label>2. Source<select value={sourceOption.source} onChange={(event) => chooseSource(event.target.value)}>
         {kindOption?.sources.map((option) => <option key={option.source} value={option.source}>{option.label}</option>)}</select>
         <small>{sourceOption.description} <a href={SOURCE_URLS[sourceOption.source] ?? '#'} target="_blank" rel="noreferrer">Download from portal</a></small></label>
-        {sourceOption.accountRequired && <label>3. Destination account<select required value={accountId} onChange={(event) => { setAccountId(event.target.value); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}>
-          <option value="" disabled>Choose an eligible account</option>{eligibleAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.institution ? ` · ${account.institution}` : ''}</option>)}</select>
-          <small>Only accounts matching this type and source are offered.</small></label>}</div>
+        <label>3. Destination account<select value={accountId} onChange={(event) => { setAccountId(event.target.value); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}>
+          <option value="">✨ Auto-detect account from statement (Recommended)</option>
+          {eligibleAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.institution ? ` · ${account.institution}` : ''}</option>)}
+        </select>
+        <small>{accountId ? 'Selected destination account.' : 'YAFT will automatically match or create the destination account.'}</small></label></div>
       <label className={`dropzone unified-dropzone ${files.length ? 'has-file' : ''}`}><input key={fileKey} type="file" accept={accept} multiple={kind === 'SALARY_PAYSLIP'} required onChange={(event) => { setFiles(Array.from(event.target.files || [])); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}/>
         {files.length ? (
           files.length === 1 ? (

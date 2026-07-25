@@ -74,9 +74,18 @@ export async function loadPdfStatementDocument(buffer: Buffer, pdfPassword?: str
   }
 }
 
+export function extractAccountDigitsFromDocument(document: PdfStatementDocument): string | undefined {
+  const fullText = document.textPages.map((p) => p.text).join(' ');
+  const match = fullText.match(/card\s*(?:no\.?|number|ending|#)?\s*[:\s]*[xX*\s\d-]{4,20}(\d{4})/i)
+    || fullText.match(/(?:account|a\/c)\s*(?:no\.?|number|#)?\s*[:\s]*[xX*\s]*(\d{4,18})/i)
+    || fullText.match(/\b[xX*]{4,12}[-\s]*(\d{4})\b/);
+  return match ? match[1] : undefined;
+}
+
 export async function parseBankPdf(buffer: Buffer, options: ParseStatementOptions = {}) {
   const document = await loadPdfStatementDocument(buffer, options.pdfPassword);
   const parser = selectBankPdfParser(document, options.institution);
   const { rows, closingBalanceMinor } = parser.parse(document);
-  return { rows, closingBalanceMinor, parserId: parser.id };
+  const extractedAccountDigits = extractAccountDigitsFromDocument(document);
+  return { rows, closingBalanceMinor, parserId: parser.id, extractedAccountDigits };
 }
