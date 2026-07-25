@@ -37,6 +37,33 @@ export function CategoryBudgetsModal({
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // New Category states
+  const [showNewCatInput, setShowNewCatInput] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#3b82f6');
+  const [creatingCat, setCreatingCat] = useState(false);
+
+  const handleCreateCategory = async () => {
+    if (!newCatName.trim()) return;
+    setCreatingCat(true);
+    setError('');
+    try {
+      const created = await api<{ id: string; name: string; color: string }>('/categories', {
+        method: 'POST',
+        body: JSON.stringify({ name: newCatName.trim(), color: newCatColor }),
+      });
+      setCategories((prev) => [...prev.filter((c) => c.id !== created.id), created]);
+      setSelectedCategoryId(created.id);
+      setNewCatName('');
+      setShowNewCatInput(false);
+      setSuccessMsg(`Created category "${created.name}"!`);
+    } catch (err: any) {
+      setError(errorMessage(err));
+    } finally {
+      setCreatingCat(false);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -238,21 +265,59 @@ export function CategoryBudgetsModal({
             <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', fontWeight: 600 }}>Set Monthly Envelope Budget</h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.35rem' }}>
-                  Category
-                </label>
-                <select
-                  value={selectedCategoryId}
-                  onChange={(e) => setSelectedCategoryId(e.target.value)}
-                  className="input-field"
-                  style={{ width: '100%' }}
-                >
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
+                    Category
+                  </label>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    onClick={() => setShowNewCatInput(!showNewCatInput)}
+                    style={{ fontSize: '11px', color: 'var(--green)', padding: '0 4px', fontWeight: 600 }}
+                  >
+                    {showNewCatInput ? 'Cancel' : '+ Custom Category'}
+                  </button>
+                </div>
+                {showNewCatInput ? (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      type="text"
+                      placeholder="Category name..."
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      className="input-field"
+                      style={{ flex: 1, height: '36px', fontSize: '12px' }}
+                    />
+                    <input
+                      type="color"
+                      value={newCatColor}
+                      onChange={(e) => setNewCatColor(e.target.value)}
+                      style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer', background: 'var(--background)' }}
+                    />
+                    <button
+                      type="button"
+                      className="primary compact"
+                      disabled={creatingCat || !newCatName.trim()}
+                      onClick={handleCreateCategory}
+                      style={{ height: '36px', padding: '0 10px', fontSize: '12px' }}
+                    >
+                      {creatingCat ? <Loader2 className="spin" size={13} /> : 'Save'}
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedCategoryId}
+                    onChange={(e) => setSelectedCategoryId(e.target.value)}
+                    className="input-field"
+                    style={{ width: '100%' }}
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>

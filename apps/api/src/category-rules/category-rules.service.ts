@@ -174,6 +174,26 @@ export class CategoryRulesService {
     });
   }
 
+  async createCategory(userId: string, name: string, color?: string) {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new BadRequestException('Category name cannot be empty.');
+    }
+    const existing = await this.prisma.category.findFirst({
+      where: { userId, name: { equals: trimmed, mode: 'insensitive' } },
+    });
+    if (existing) {
+      return existing;
+    }
+    return this.prisma.category.create({
+      data: {
+        userId,
+        name: trimmed,
+        color: color || '#3b82f6',
+      },
+    });
+  }
+
   async batchUpdate(userId: string, transactionIds: string[], categoryId: string | null) {
     if (!transactionIds || transactionIds.length === 0) {
       return { updatedCount: 0 };
