@@ -34,8 +34,8 @@ export class ImportsService {
       candidates.push(explicitPassword);
     }
 
-    const autoCandidates = await this.getAxisPasswordCandidates(userId, targetAccountId);
-    for (const cand of autoCandidates) {
+    const { targetedCandidates, namePrefixes } = await this.getAxisPasswordCandidates(userId, targetAccountId, file.originalname);
+    for (const cand of targetedCandidates) {
       if (!candidates.includes(cand)) {
         candidates.push(cand);
       }
@@ -62,31 +62,67 @@ export class ImportsService {
       }
     }
 
+    if (namePrefixes.length > 0) {
+      const topPrefixes = namePrefixes.slice(0, 4);
+      for (let i = 0; i <= 9999; i++) {
+        const code = String(i).padStart(4, '0');
+        for (const prefix of topPrefixes) {
+          const cand = `${prefix}${code}`;
+          if (candidates.includes(cand)) continue;
+          try {
+            return await parseStatementWithMetadata(file, {
+              institution,
+              pdfPassword: cand,
+            });
+          } catch (err) {
+            const msg = String((err as any)?.message || '').toLowerCase();
+            if (msg.includes('password') || msg.includes('protected') || msg.includes('incorrect')) {
+              continue;
+            }
+            throw err;
+          }
+        }
+      }
+    }
+
     throw lastError || new BadRequestException('This PDF is password-protected. Enter its document-opening password and try again.');
   }
 
-  private async getAxisPasswordCandidates(userId: string, targetAccountId: string): Promise<string[]> {
+  private async getAxisPasswordCandidates(
+    userId: string,
+    targetAccountId: string,
+    filename: string,
+  ): Promise<{ targetedCandidates: string[]; namePrefixes: string[] }> {
     const user = this.prisma.user ? await this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }) : null;
-    if (!user?.name) return [];
 
-    const lettersOnly = user.name.replace(/[^a-zA-Z]/g, '');
-    if (lettersOnly.length < 4) return [];
-
-    const prefix = lettersOnly.slice(0, 4);
-    const prefixes = [
-      prefix.toUpperCase(),
-      prefix.toLowerCase(),
-      prefix.charAt(0).toUpperCase() + prefix.slice(1).toLowerCase(),
-    ];
-
-    const firstNameLetters = (user.name.split(' ')[0] || '').replace(/[^a-zA-Z]/g, '');
-    if (firstNameLetters.length >= 4) {
-      const fnPrefix = firstNameLetters.slice(0, 4);
-      prefixes.push(fnPrefix.toUpperCase());
-      prefixes.push(fnPrefix.toLowerCase());
+    const prefixes = new Set<string>();
+    if (user?.name) {
+      const fullLetters = user.name.replace(/[^a-zA-Z]/g, '');
+      if (fullLetters.length >= 4) {
+        const p = fullLetters.slice(0, 4);
+        prefixes.add(p.toUpperCase());
+        prefixes.add(p.toLowerCase());
+        prefixes.add(p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+      }
+      const words = user.name.split(/\s+/).map((w) => w.replace(/[^a-zA-Z]/g, '')).filter(Boolean);
+      if (words[0] && words[0].length >= 4) {
+        const p = words[0].slice(0, 4);
+        prefixes.add(p.toUpperCase());
+        prefixes.add(p.toLowerCase());
+      }
+      if (words.length > 1 && words[words.length - 1].length >= 4) {
+        const p = words[words.length - 1].slice(0, 4);
+        prefixes.add(p.toUpperCase());
+        prefixes.add(p.toLowerCase());
+      }
+      if (words.length >= 2 && words[0].length >= 2 && words[1].length >= 2) {
+        const p = words[0].slice(0, 2) + words[1].slice(0, 2);
+        prefixes.add(p.toUpperCase());
+        prefixes.add(p.toLowerCase());
+      }
     }
 
-    const accounts = this.prisma.account
+    const accounts = this.prisma.account?.findMany
       ? await this.prisma.account.findMany({
           where: { userId, archived: false },
           select: { id: true, name: true, type: true, institution: true },
@@ -101,16 +137,21 @@ export class ImportsService {
       }
     }
 
-    const candidates = new Set<string>();
-    const uniquePrefixes = Array.from(new Set(prefixes));
+    const fnMatches = filename.match(/\b\d{4}\b/g) || filename.match(/\d{4}/g);
+    if (fnMatches) {
+      for (const m of fnMatches) fourDigitCodes.add(m);
+    }
 
-    for (const p of uniquePrefixes) {
+    const namePrefixes = Array.from(prefixes);
+    const targetedCandidates = new Set<string>();
+
+    for (const p of namePrefixes) {
       for (const code of fourDigitCodes) {
-        candidates.add(`${p}${code}`);
+        targetedCandidates.add(`${p}${code}`);
       }
     }
 
-    return Array.from(candidates);
+    return { targetedCandidates: Array.from(targetedCandidates), namePrefixes };
   }
 
   async create(userId: string, accountId: string, file: Express.Multer.File, dto: UploadStatementDto = {},
