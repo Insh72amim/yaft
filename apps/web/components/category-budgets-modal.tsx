@@ -140,42 +140,34 @@ export function CategoryBudgetsModal({
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        backdropFilter: 'blur(6px)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
-    >
-      <div
-        className="card-dark"
+    <div className="modal-wrap" style={{ zIndex: 99999 }}>
+      <button className="backdrop" onClick={onClose} aria-label="Close budgets modal" />
+      <section
+        className="modal"
+        role="dialog"
+        aria-modal="true"
         style={{
-          width: '100%',
-          maxWidth: '680px',
+          width: 'min(680px, 95vw)',
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-          border: '1px solid var(--border)',
-          borderRadius: '16px',
+          padding: '0',
           overflow: 'hidden',
+          borderRadius: '16px',
+          background: 'var(--card)',
+          border: '1px solid var(--line)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
         }}
       >
         {/* Header */}
-        <div
+        <header
           style={{
-            padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid var(--border)',
+            padding: '20px 24px',
+            borderBottom: '1px solid var(--line)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: 'var(--surface-hover)',
+            background: 'var(--card)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -194,23 +186,24 @@ export function CategoryBudgetsModal({
               <Target size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Category Envelopes & Monthly Budgets</h3>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--ink)' }}>Category Envelopes & Monthly Budgets</h3>
               <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
                 Set monthly spending targets and monitor envelope thresholds in real time
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="btn-ghost"
+            className="ghost compact"
             style={{ padding: '0.4rem', borderRadius: '8px' }}
           >
             <X size={18} />
           </button>
-        </div>
+        </header>
 
         {/* Content Body */}
-        <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1 }}>
+        <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, background: 'var(--card)' }}>
           {error && (
             <div
               style={{
@@ -256,13 +249,13 @@ export function CategoryBudgetsModal({
             onSubmit={handleSaveBudget}
             style={{
               padding: '1.25rem',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid var(--border)',
+              background: 'var(--background-alt)',
+              border: '1px solid var(--line)',
               borderRadius: '12px',
               marginBottom: '1.5rem',
             }}
           >
-            <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', fontWeight: 600 }}>Set Monthly Envelope Budget</h4>
+            <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', fontWeight: 600, color: 'var(--ink)' }}>Set Monthly Envelope Budget</h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
@@ -292,7 +285,7 @@ export function CategoryBudgetsModal({
                       type="color"
                       value={newCatColor}
                       onChange={(e) => setNewCatColor(e.target.value)}
-                      style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer', background: 'var(--background)' }}
+                      style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '8px', border: '1px solid var(--line)', cursor: 'pointer', background: 'var(--background)' }}
                     />
                     <button
                       type="button"
@@ -338,8 +331,8 @@ export function CategoryBudgetsModal({
               <button
                 type="submit"
                 disabled={saving}
-                className="btn-primary"
-                style={{ height: '42px', padding: '0 1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                className="secondary compact"
+                style={{ height: '38px', padding: '0 1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--green)', color: '#ffffff', border: 'none', fontWeight: 600 }}
               >
                 {saving ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
                 <span>Save</span>
@@ -349,7 +342,7 @@ export function CategoryBudgetsModal({
 
           {/* Active Budgets Envelope List */}
           <div>
-            <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', fontWeight: 600 }}>
+            <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', fontWeight: 600, color: 'var(--ink)' }}>
               Active Category Envelopes ({budgets.length})
             </h4>
 
@@ -363,13 +356,13 @@ export function CategoryBudgetsModal({
                 style={{
                   padding: '2rem',
                   textAlign: 'center',
-                  background: 'rgba(0,0,0,0.2)',
+                  background: 'var(--background-alt)',
                   borderRadius: '12px',
-                  border: '1px border-dashed var(--border)',
+                  border: '1px dashed var(--line)',
                 }}
               >
-                <Target size={28} style={{ opacity: 0.4, marginBottom: '0.5rem' }} />
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--muted)' }}>No category budgets created yet.</p>
+                <Target size={28} style={{ opacity: 0.4, marginBottom: '0.5rem', color: 'var(--muted)' }} />
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--ink)', fontWeight: 600 }}>No category budgets created yet.</p>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--muted)' }}>
                   Use the form above to assign target monthly spending limits.
                 </p>
@@ -383,8 +376,8 @@ export function CategoryBudgetsModal({
                       key={b.id}
                       style={{
                         padding: '1rem 1.25rem',
-                        background: 'rgba(255,255,255,0.02)',
-                        border: `1px solid ${b.status === 'EXCEEDED' ? 'rgba(239,68,68,0.4)' : 'var(--border)'}`,
+                        background: 'var(--background-alt)',
+                        border: `1px solid ${b.status === 'EXCEEDED' ? 'rgba(239,68,68,0.4)' : 'var(--line)'}`,
                         borderRadius: '12px',
                       }}
                     >
@@ -398,7 +391,7 @@ export function CategoryBudgetsModal({
                               backgroundColor: b.categoryColor || '#3b82f6',
                             }}
                           />
-                          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{b.categoryName}</span>
+                          <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--ink)' }}>{b.categoryName}</span>
                           <span
                             style={{
                               fontSize: '0.7rem',
@@ -415,12 +408,13 @@ export function CategoryBudgetsModal({
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                           <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-                            <strong>{money(b.spentAmount)}</strong> of {money(b.monthlyLimit)}
+                            <strong style={{ color: 'var(--ink)' }}>{money(b.spentAmount)}</strong> of {money(b.monthlyLimit)}
                           </span>
                           <button
+                            type="button"
                             onClick={() => handleDeleteBudget(b.id)}
                             disabled={deletingId === b.id}
-                            className="btn-ghost"
+                            className="ghost compact"
                             style={{ padding: '4px 8px', color: '#ef4444' }}
                             title="Delete Budget"
                           >
@@ -434,7 +428,7 @@ export function CategoryBudgetsModal({
                         style={{
                           height: '8px',
                           width: '100%',
-                          backgroundColor: 'rgba(255,255,255,0.06)',
+                          backgroundColor: 'var(--line)',
                           borderRadius: '4px',
                           overflow: 'hidden',
                           position: 'relative',
@@ -457,7 +451,7 @@ export function CategoryBudgetsModal({
             )}
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
