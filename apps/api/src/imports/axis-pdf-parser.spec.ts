@@ -92,4 +92,39 @@ describe('Axis Bank PDF parser', () => {
     unexplained.tablePages[2].tables[0].push(['', '', 'CONTINUATION', '1.00', '', '1,169.00', '001']);
     expect(() => parseAxisDocument(unexplained)).toThrow('could not be interpreted safely');
   });
+
+  it('parses Axis Credit Card PDF statements', () => {
+    const ccDocument: PdfStatementDocument = {
+      total: 2,
+      textPages: [
+        { num: 1, text: 'AXIS BANK Credit Card Number: 5000XXXXXXXX0001 Payment Summary Minimum Payment Due ₹ 5,000.00' },
+        { num: 2, text: 'End of Statement' },
+      ],
+      tablePages: [
+        {
+          num: 1,
+          tables: [[
+            ['Date', 'Transaction Details', 'Amount (INR)', 'Debit/Credit'],
+            ["30 Jun '26", 'EMI Interest - 2/9, Ref# 10000001', '₹ 124.00', 'Debit'],
+            ["21 Jun '26", 'GOOGLECLOUD,MUMBAI', '₹ 200.00', 'Credit'],
+          ]],
+        },
+      ],
+    };
+
+    expect(axisPdfParser.matches(ccDocument)).toBe(true);
+    const { rows } = parseAxisDocument(ccDocument);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      date: new Date(Date.UTC(2026, 5, 30)),
+      description: 'EMI Interest - 2/9, Ref# 10000001',
+      amountMinor: -12400,
+      reference: '10000001',
+    });
+    expect(rows[1]).toMatchObject({
+      date: new Date(Date.UTC(2026, 5, 21)),
+      description: 'GOOGLECLOUD,MUMBAI',
+      amountMinor: 20000,
+    });
+  });
 });
