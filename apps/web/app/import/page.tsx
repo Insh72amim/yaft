@@ -16,7 +16,7 @@ type Catalog = { accounts: Account[]; options: KindOption[] };
 type Category = { id: string; name: string; color: string };
 type BankRow = { id: string; rowNumber: number; transactionDate: string; postedDate: string | null; descriptionRaw: string; merchant: string | null;
   amount: number; reference: string | null; categoryId: string | null; isDuplicate: boolean; include: boolean; confidence: number };
-type BankReview = { id: string; filename: string; status: string; rowCount: number; createdAt: string; account: { id: string; name: string };
+type BankReview = { id: string; filename: string; status: string; rowCount: number; createdAt: string; account: { id: string; name: string; institution?: string | null; last4?: string | null };
   categories: Category[]; staged: BankRow[]; statementBalance: number | null };
 type SalaryItem = { id: string; type: 'EARNING' | 'DEDUCTION' | 'EMPLOYER_CONTRIBUTION'; description: string; currentAmount: number; ytdAmount: number | null };
 type SalaryReview = { id: string; filename: string; payPeriod: string; employer: string; employeeName?: string; employeeNumberLast4?: string;
@@ -355,7 +355,7 @@ function ImportWorkspace() {
     <section className="pending-workspace"><div className="panel-title"><div><span className="eyebrow">Review queue</span><h2>{pending.length} pending import{pending.length === 1 ? '' : 's'}</h2></div></div>
       {pending.length ? <><nav className="pending-tabs" aria-label="Pending imports">{pending.map((item) => <button type="button" key={item.review.id}
         className={item.review.id === selectedReviewId ? 'selected' : ''} aria-pressed={item.review.id === selectedReviewId} onClick={() => setSelectedReviewId(item.review.id)}>
-        <span>{item.kind === 'BANK_STATEMENT' ? 'Bank statement' : item.kind === 'CREDIT_CARD_STATEMENT' ? 'Credit card statement' : 'Salary payslip'}</span><strong>{item.kind === 'BANK_STATEMENT' || item.kind === 'CREDIT_CARD_STATEMENT' ? item.review.account.name : item.review.employer}</strong><small>{new Date(item.createdAt).toLocaleString('en-IN')}</small></button>)}</nav>
+        <span>{item.kind === 'BANK_STATEMENT' ? 'Bank statement' : item.kind === 'CREDIT_CARD_STATEMENT' ? 'Credit card statement' : 'Salary payslip'}</span><strong>{item.kind === 'BANK_STATEMENT' || item.kind === 'CREDIT_CARD_STATEMENT' ? `${item.review.account.name}${item.review.account.last4 ? ` (••••${item.review.account.last4})` : ''}` : item.review.employer}</strong><small>{new Date(item.createdAt).toLocaleString('en-IN')}</small></button>)}</nav>
         {selectedPending?.kind === 'BANK_STATEMENT' || selectedPending?.kind === 'CREDIT_CARD_STATEMENT' ? <BankReviewPanel item={selectedPending as BankPending} busy={busy} update={updateBank} finish={finishReview}/>
           : selectedPending?.kind === 'SALARY_PAYSLIP' ? <SalaryReviewPanel item={selectedPending} busy={busy} finish={finishReview} download={downloadReview}/> : null}</>
         : <div className="unified-empty panel"><ShieldCheck/><strong>No reviews waiting</strong><p>Validated bank statements and payslips will appear here before they are committed.</p></div>}
@@ -368,7 +368,8 @@ function BankReviewPanel({ item, busy, update, finish }: { item: BankPending; bu
   finish: (item: PendingImport, action: 'commit' | 'discard') => void }) {
   const included = item.review.staged.filter((row) => row.include && !row.isDuplicate);
   const duplicates = item.review.staged.filter((row) => row.isDuplicate).length;
-  return <><section className="review-summary"><div><FileSpreadsheet/><span><strong>{item.review.filename}</strong><small>{item.review.account.name} · {item.source}</small></span></div>
+  const accountDetails = `${item.review.account.name}${item.review.account.last4 ? ` (••••${item.review.account.last4})` : ''}`;
+  return <><section className="review-summary"><div><FileSpreadsheet/><span><strong>{item.review.filename}</strong><small>{accountDetails} · {item.source}</small></span></div>
     <div><span><strong>{item.review.staged.length}</strong><small>rows found</small></span><span><strong>{duplicates}</strong><small>duplicates</small></span>
       <span><strong>{money(included.reduce((sum, row) => sum + row.amount, 0))}</strong><small>net movement</small></span>
       {item.review.statementBalance != null && <span><strong>{money(item.review.statementBalance)}</strong><small>predicted closing balance</small></span>}
