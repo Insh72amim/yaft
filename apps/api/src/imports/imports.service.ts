@@ -102,7 +102,7 @@ export class ImportsService {
     const accounts = this.prisma.account?.findMany
       ? await this.prisma.account.findMany({
           where: { userId, archived: false },
-          select: { id: true, name: true, type: true, institution: true },
+          select: { id: true, name: true, type: true, institution: true, vaultEntry: { select: { last4: true } } },
         })
       : [];
 
@@ -111,6 +111,9 @@ export class ImportsService {
       const matches = acc.name.match(/\b\d{4}\b/g) || acc.name.match(/\d{4}/g);
       if (matches) {
         for (const m of matches) fourDigitCodes.add(m);
+      }
+      if (acc.vaultEntry?.last4 && /^\d{4}$/.test(acc.vaultEntry.last4)) {
+        fourDigitCodes.add(acc.vaultEntry.last4);
       }
     }
 

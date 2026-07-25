@@ -326,6 +326,7 @@ export class UnifiedImportsService {
     const targetType: 'CREDIT_CARD' | 'SAVINGS' = spec.kind === 'CREDIT_CARD_STATEMENT' ? 'CREDIT_CARD' : 'SAVINGS';
     const accounts = await this.prisma.account.findMany({
       where: { userId, archived: false, type: targetType },
+      include: { vaultEntry: { select: { last4: true } } },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -334,7 +335,10 @@ export class UnifiedImportsService {
 
     if (extractedDigits) {
       const matched = accounts.find(
-        (a) => a.name.includes(extractedDigits) || (a.institution && a.institution.includes(extractedDigits)),
+        (a) =>
+          a.name.includes(extractedDigits) ||
+          (a.institution && a.institution.includes(extractedDigits)) ||
+          a.vaultEntry?.last4 === extractedDigits,
       );
       if (matched) return matched;
     }
