@@ -331,7 +331,9 @@ export class UnifiedImportsService {
     });
 
     const fileDigitsMatch = file.originalname.match(/\b\d{4}\b/) || file.originalname.match(/\d{4}/);
-    const extractedDigits = fileDigitsMatch ? fileDigitsMatch[0] : undefined;
+    const rawDigits = fileDigitsMatch ? fileDigitsMatch[0] : undefined;
+    const isYear = rawDigits && Number(rawDigits) >= 2020 && Number(rawDigits) <= 2035;
+    const extractedDigits = rawDigits && !isYear ? rawDigits : undefined;
 
     if (extractedDigits) {
       const matched = accounts.find(
