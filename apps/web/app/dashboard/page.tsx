@@ -270,81 +270,7 @@ export default function DashboardPage() {
         </article>
       </section>
 
-      {/* Spend Analyser Breakdown Bar */}
-      {data.spendAnalysis && (
-        <section className="panel" style={{ marginBottom: '24px', padding: '20px' }}>
-          <div className="panel-title" style={{ marginBottom: '16px' }}>
-            <div>
-              <span className="eyebrow">Spend Analyser</span>
-              <h2>Money Movement Classification</h2>
-            </div>
-            <button type="button" className="secondary compact" onClick={() => setShowTransfersModal(true)}>
-              View Transfer Matching Candidates
-            </button>
-          </div>
-          <div className="summary-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
-            <div style={{ background: 'var(--background-alt)', padding: '16px', borderRadius: '12px', border: '1px solid var(--line)' }}>
-              <small style={{ color: 'var(--muted)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <PieChart size={14} color="#ef4444" /> Direct Consumption
-              </small>
-              <strong style={{ display: 'block', fontSize: '20px', margin: '4px 0', fontFamily: 'var(--font-manrope)' }}>
-                {money(data.spendAnalysis.consumption)}
-              </strong>
-              <em style={{ fontSize: '10px', color: 'var(--muted)', fontStyle: 'normal' }}>Dining, bills, shopping & retail</em>
-            </div>
-            <div style={{ background: 'var(--background-alt)', padding: '16px', borderRadius: '12px', border: '1px solid var(--line)' }}>
-              <small style={{ color: 'var(--muted)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Send size={14} color="#f59e0b" /> External Outbound Transfers
-              </small>
-              <strong style={{ display: 'block', fontSize: '20px', margin: '4px 0', fontFamily: 'var(--font-manrope)' }}>
-                {money(data.spendAnalysis.outboundTransfers)}
-              </strong>
-              <em style={{ fontSize: '10px', color: 'var(--muted)', fontStyle: 'normal' }}>UPI & NEFT transfers to individuals</em>
-            </div>
-            <div style={{ background: 'var(--background-alt)', padding: '16px', borderRadius: '12px', border: '1px solid var(--line)' }}>
-              <small style={{ color: 'var(--muted)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Building2 size={14} color="#10b981" /> Mutual Funds & Investments
-              </small>
-              <strong style={{ display: 'block', fontSize: '20px', margin: '4px 0', fontFamily: 'var(--font-manrope)' }}>
-                {money(data.spendAnalysis.investments)}
-              </strong>
-              <em style={{ fontSize: '10px', color: 'var(--muted)', fontStyle: 'normal' }}>SIPs, broker deposits & EPFO</em>
-            </div>
-          </div>
-
-          {data.topOutboundRecipients && data.topOutboundRecipients.length > 0 && (
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--line)' }}>
-              <span className="eyebrow" style={{ fontSize: '10px' }}>
-                Top External Recipients (P2P / Outbound)
-              </span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '8px' }}>
-                {data.topOutboundRecipients.map((rec) => (
-                  <div
-                    key={rec.name}
-                    style={{
-                      background: 'var(--background)',
-                      border: '1px solid var(--line)',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <strong>{rec.name}</strong>
-                    <span style={{ color: 'var(--muted)', fontSize: '11px' }}>
-                      {money(rec.amount)} ({rec.count} txn{rec.count === 1 ? '' : 's'})
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      <section className="dashboard-grid" style={{ gridTemplateColumns: '1fr' }}>
+      <section className="dashboard-grid" style={{ gridTemplateColumns: '1fr', marginBottom: '24px' }}>
         <article className="panel spending-panel">
           <div className="panel-title">
             <div>
@@ -382,11 +308,15 @@ export default function DashboardPage() {
       </section>
 
       <section className="panel monthly-flow-panel">
-        <div className="panel-title">
+        <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <span className="eyebrow">Cash Flow</span>
             <h2>Savings Accounts Cash Flow & Transfers</h2>
           </div>
+          <button type="button" className="secondary compact" onClick={() => setShowTransfersModal(true)}>
+            <RefreshCw size={14} className={reconciling ? 'spin' : ''} />
+            View Transfer Matching Candidates
+          </button>
         </div>
 
         <MonthlyFlow
