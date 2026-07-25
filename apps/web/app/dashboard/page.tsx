@@ -1378,7 +1378,7 @@ function MonthlyFlow({
       </div>
 
       {/* Per Savings Account Flow Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(280px, 1fr))`, gap: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(310px, 1fr))`, gap: '16px' }}>
         {accounts.map((acc) => (
           <div
             key={acc.id}
@@ -1401,38 +1401,40 @@ function MonthlyFlow({
               </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', fontSize: '12px' }}>
-              <div style={{ background: 'var(--background)', padding: '10px', borderRadius: '8px', border: '1px solid var(--line)' }}>
-                <small style={{ color: '#10b981', display: 'block', fontSize: '10px', fontWeight: 600 }}>Inbound</small>
-                <strong style={{ fontSize: '14px', color: '#10b981' }}>+{money(acc.externalInbound)}</strong>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
+              <div style={{ background: 'var(--background)', padding: '10px 8px', borderRadius: '8px', border: '1px solid var(--line)', overflow: 'hidden' }}>
+                <small style={{ color: '#10b981', display: 'block', fontSize: '10px', fontWeight: 600, marginBottom: '2px' }}>Inbound</small>
+                <strong style={{ fontSize: '13px', color: '#10b981', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  +{money(acc.externalInbound)}
+                </strong>
                 {acc.internalInbound > 0 && (
-                  <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '4px' }}>
+                  <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     + {money(acc.internalInbound)} internal
                   </div>
                 )}
               </div>
 
-              <div style={{ background: 'var(--background)', padding: '10px', borderRadius: '8px', border: '1px solid var(--line)' }}>
-                <small style={{ color: '#ef4444', display: 'block', fontSize: '10px', fontWeight: 600 }}>Outbound</small>
-                <strong style={{ fontSize: '14px', color: '#ef4444' }}>-{money(acc.externalOutbound)}</strong>
+              <div style={{ background: 'var(--background)', padding: '10px 8px', borderRadius: '8px', border: '1px solid var(--line)', overflow: 'hidden' }}>
+                <small style={{ color: '#ef4444', display: 'block', fontSize: '10px', fontWeight: 600, marginBottom: '2px' }}>Outbound</small>
+                <strong style={{ fontSize: '13px', color: '#ef4444', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  -{money(acc.externalOutbound)}
+                </strong>
                 {acc.internalOutbound > 0 && (
-                  <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '4px' }}>
+                  <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     - {money(acc.internalOutbound)} internal
                   </div>
                 )}
               </div>
 
-              <div style={{ background: 'var(--background)', padding: '10px', borderRadius: '8px', border: (acc.investments ?? 0) > 0 ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid var(--line)' }}>
-                <small style={{ color: '#8b5cf6', display: 'block', fontSize: '10px', fontWeight: 600 }}>Investments</small>
-                <strong style={{ fontSize: '14px', color: (acc.investments ?? 0) > 0 ? '#8b5cf6' : 'var(--muted)' }}>{money(acc.investments ?? 0)}</strong>
-                <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>
+              <div style={{ background: 'var(--background)', padding: '10px 8px', borderRadius: '8px', border: (acc.investments ?? 0) > 0 ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid var(--line)', overflow: 'hidden' }}>
+                <small style={{ color: '#8b5cf6', display: 'block', fontSize: '10px', fontWeight: 600, marginBottom: '2px' }}>Investments</small>
+                <strong style={{ fontSize: '13px', color: (acc.investments ?? 0) > 0 ? '#8b5cf6' : 'var(--muted)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {money(acc.investments ?? 0)}
+                </strong>
+                <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   SIP & MF debits
                 </div>
               </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', paddingTop: '4px' }}>
-              <span>Total Inbound: <strong>{money(acc.totalInbound)}</strong></span>
-              <span>Total Outbound: <strong>{money(acc.totalOutbound)}</strong></span>
             </div>
           </div>
         ))}
