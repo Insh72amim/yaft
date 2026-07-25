@@ -139,11 +139,18 @@ model AccountDocument {
   @@index([accountId, createdAt])
 }
 
+enum CategoryType {
+  EXPENSE
+  INCOME
+  INVESTMENT
+}
+
 model Category {
   id           String        @id @default(cuid())
   userId       String
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String
+  type         CategoryType  @default(EXPENSE)
   color        String        @default("#64748b")
   transactions Transaction[]
   staged       StagedTransaction[]
