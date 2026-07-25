@@ -126,7 +126,7 @@ export class BudgetsService {
     const year = dto.year || 0;
     const limitMinor = BigInt(Math.round(dto.monthlyLimit * 100));
 
-    return (this.prisma as any).categoryBudget.upsert({
+    const b = await (this.prisma as any).categoryBudget.upsert({
       where: {
         userId_categoryId_month_year: {
           userId,
@@ -151,6 +151,16 @@ export class BudgetsService {
         },
       },
     });
+
+    return {
+      id: b.id,
+      categoryId: b.categoryId,
+      categoryName: b.category?.name,
+      categoryColor: b.category?.color,
+      monthlyLimit: Number(b.monthlyLimit) / 100,
+      month: b.month,
+      year: b.year,
+    };
   }
 
   async deleteBudget(userId: string, id: string) {

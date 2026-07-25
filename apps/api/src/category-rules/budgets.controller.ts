@@ -10,28 +10,28 @@ export class BudgetsController {
 
   @Get()
   async getBudgets(
-    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: { id: string },
     @Query('year') year?: string,
     @Query('month') month?: string,
   ) {
     const targetYear = year ? parseInt(year, 10) : undefined;
     const targetMonth = month !== undefined && month !== null && month !== '' ? parseInt(month, 10) : undefined;
-    return this.budgetsService.listBudgets(userId, targetYear, targetMonth);
+    return this.budgetsService.listBudgets(user.id, targetYear, targetMonth);
   }
 
   @Post()
   async setBudget(
-    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: { id: string },
     @Body() dto: SetCategoryBudgetDto,
   ) {
-    return this.budgetsService.setBudget(userId, dto);
+    return this.budgetsService.setBudget(user.id, dto);
   }
 
   @Delete(':id')
   async deleteBudget(
-    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: { id: string },
     @Param('id') id: string,
   ) {
-    return this.budgetsService.deleteBudget(userId, id);
+    return this.budgetsService.deleteBudget(user.id, id);
   }
 }
