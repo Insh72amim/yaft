@@ -862,10 +862,6 @@ function AccountFlowDiagram({
   account: AccountLedger['account'];
   transactions: AccountLedger['transactions'];
 }) {
-  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
-  const [flowMode, setFlowMode] = useState<'TRANSACTIONS' | 'CATEGORIES'>('TRANSACTIONS');
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-
   // Extract available months from transaction dates (format: YYYY-MM)
   const availableMonths = Array.from(
     new Set(
@@ -875,17 +871,24 @@ function AccountFlowDiagram({
     )
   ).sort().reverse();
 
+  const currentMonthKey = new Date().toISOString().slice(0, 7);
+  const initialMonth = availableMonths.includes(currentMonthKey)
+    ? currentMonthKey
+    : (availableMonths[0] || currentMonthKey);
+
+  const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
+  const [flowMode, setFlowMode] = useState<'TRANSACTIONS' | 'CATEGORIES'>('TRANSACTIONS');
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+
   const formatMonthLabel = (monthKey: string) => {
-    if (monthKey === 'ALL') return 'All Time (All Months)';
+    if (!monthKey) return '';
     const [year, month] = monthKey.split('-');
     const date = new Date(Date.UTC(Number(year), Number(month) - 1, 1));
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
   // Filter transactions by selected month
-  const filteredTxns = selectedMonth === 'ALL'
-    ? transactions
-    : transactions.filter((t) => t.transactionDate && t.transactionDate.startsWith(selectedMonth));
+  const filteredTxns = transactions.filter((t) => t.transactionDate && t.transactionDate.startsWith(selectedMonth));
 
   // Inbound (> 0) and Outbound (< 0)
   const inboundTxns = filteredTxns.filter((t) => t.amount > 0);
@@ -1062,8 +1065,7 @@ function AccountFlowDiagram({
                 cursor: 'pointer',
               }}
             >
-              <option value="ALL">All Time (All Months)</option>
-              {availableMonths.map((mKey) => (
+              {(availableMonths.length > 0 ? availableMonths : [currentMonthKey]).map((mKey) => (
                 <option key={mKey} value={mKey}>
                   {formatMonthLabel(mKey)}
                 </option>
