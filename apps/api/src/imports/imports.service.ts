@@ -199,14 +199,14 @@ export class ImportsService {
 
   async get(userId: string, batchId: string) {
     const batch = await this.prisma.importBatch.findFirst({ where: { id: batchId, userId },
-      include: { account: { select: { id: true, name: true } }, staged: { orderBy: { rowNumber: 'asc' }, include: { category: true } } } });
+      include: { account: { select: { id: true, name: true, institution: true, vaultEntry: { select: { last4: true } } } }, staged: { orderBy: { rowNumber: 'asc' }, include: { category: true } } } });
     if (!batch) throw new NotFoundException('Import not found.');
     const categories = await this.prisma.category.findMany({ where: { userId }, orderBy: { name: 'asc' } });
     return {
       id: batch.id, filename: batch.filename, status: batch.status, rowCount: batch.rowCount,
       statementBalance: batch.statementBalance !== null ? Number(batch.statementBalance) : null,
       createdAt: batch.createdAt, committedAt: batch.committedAt,
-      account: { id: batch.account.id, name: batch.account.name },
+      account: { id: batch.account.id, name: batch.account.name, institution: batch.account.institution, last4: batch.account.vaultEntry?.last4 ?? null },
       staged: batch.staged.map((row) => ({
         id: row.id, rowNumber: row.rowNumber, transactionDate: row.transactionDate, postedDate: row.postedDate,
         descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: Number(row.amount), reference: row.reference,

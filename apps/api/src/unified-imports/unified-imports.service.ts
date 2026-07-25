@@ -276,7 +276,7 @@ export class UnifiedImportsService {
     return {
       id: review.id, filename: review.filename, status: review.status, rowCount: review.rowCount,
       createdAt: review.createdAt, committedAt: review.committedAt,
-      account: { id: review.account.id, name: review.account.name },
+      account: { id: review.account.id, name: review.account.name, institution: (review.account as any).institution ?? null, last4: (review.account as any).last4 ?? null },
       categories: review.categories.map((category) => ({ id: category.id, name: category.name, color: category.color })),
       staged: review.staged.map((row) => ({
         id: row.id, rowNumber: row.rowNumber, transactionDate: row.transactionDate, postedDate: row.postedDate,
