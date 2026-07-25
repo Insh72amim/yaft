@@ -22,7 +22,7 @@ type SalaryItem = { id: string; type: 'EARNING' | 'DEDUCTION' | 'EMPLOYER_CONTRI
 type SalaryReview = { id: string; filename: string; payPeriod: string; employer: string; employeeName?: string; employeeNumberLast4?: string;
   department?: string; designation?: string; bankName?: string; bankAccountLast4?: string; uanLast4?: string; currency: string;
   grossEarnings: number; grossDeductions: number; directPayment: number; netPay: number; status: string; createdAt: string; lineItems: SalaryItem[] };
-type BankPending = { kind: 'BANK_STATEMENT'; source: string; mode: 'REVIEW_REQUIRED'; createdAt: string; review: BankReview;
+type BankPending = { kind: 'BANK_STATEMENT' | 'CREDIT_CARD_STATEMENT'; source: string; mode: 'REVIEW_REQUIRED'; createdAt: string; review: BankReview;
   actions: { commit: string; discard: string; updateRow: string } };
 type SalaryPending = { kind: 'SALARY_PAYSLIP'; source: 'GOLDMAN_SACHS'; mode: 'REVIEW_REQUIRED'; createdAt: string; review: SalaryReview;
   actions: { commit: string; discard: string } };
@@ -255,7 +255,7 @@ function ImportWorkspace() {
       const remaining = pending.filter((candidate) => candidate.review.id !== item.review.id);
       setPending(remaining);
       setSelectedReviewId((current) => current === item.review.id ? remaining[0]?.review.id ?? '' : current);
-      setNotice(action === 'commit' ? (item.kind === 'BANK_STATEMENT' ? 'Transactions added to the ledger.' : 'Salary month saved.') : 'Pending review discarded.');
+      setNotice(action === 'commit' ? (item.kind === 'BANK_STATEMENT' || item.kind === 'CREDIT_CARD_STATEMENT' ? 'Transactions added to the ledger.' : 'Salary month saved.') : 'Pending review discarded.');
       try { await refreshPending(); }
       catch (reason) {
         if (isUnauthorized(reason)) router.replace('/login');
@@ -351,8 +351,8 @@ function ImportWorkspace() {
     <section className="pending-workspace"><div className="panel-title"><div><span className="eyebrow">Review queue</span><h2>{pending.length} pending import{pending.length === 1 ? '' : 's'}</h2></div></div>
       {pending.length ? <><nav className="pending-tabs" aria-label="Pending imports">{pending.map((item) => <button type="button" key={item.review.id}
         className={item.review.id === selectedReviewId ? 'selected' : ''} aria-pressed={item.review.id === selectedReviewId} onClick={() => setSelectedReviewId(item.review.id)}>
-        <span>{item.kind === 'BANK_STATEMENT' ? 'Bank statement' : 'Salary payslip'}</span><strong>{item.kind === 'BANK_STATEMENT' ? item.review.account.name : item.review.employer}</strong><small>{new Date(item.createdAt).toLocaleString('en-IN')}</small></button>)}</nav>
-        {selectedPending?.kind === 'BANK_STATEMENT' ? <BankReviewPanel item={selectedPending} busy={busy} update={updateBank} finish={finishReview}/>
+        <span>{item.kind === 'BANK_STATEMENT' ? 'Bank statement' : item.kind === 'CREDIT_CARD_STATEMENT' ? 'Credit card statement' : 'Salary payslip'}</span><strong>{item.kind === 'BANK_STATEMENT' || item.kind === 'CREDIT_CARD_STATEMENT' ? item.review.account.name : item.review.employer}</strong><small>{new Date(item.createdAt).toLocaleString('en-IN')}</small></button>)}</nav>
+        {selectedPending?.kind === 'BANK_STATEMENT' || selectedPending?.kind === 'CREDIT_CARD_STATEMENT' ? <BankReviewPanel item={selectedPending as BankPending} busy={busy} update={updateBank} finish={finishReview}/>
           : selectedPending?.kind === 'SALARY_PAYSLIP' ? <SalaryReviewPanel item={selectedPending} busy={busy} finish={finishReview} download={downloadReview}/> : null}</>
         : <div className="unified-empty panel"><ShieldCheck/><strong>No reviews waiting</strong><p>Validated bank statements and payslips will appear here before they are committed.</p></div>}
     </section>
