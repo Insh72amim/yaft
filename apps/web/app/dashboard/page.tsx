@@ -1372,6 +1372,7 @@ function TransferReconcilerModal({ onClose, onUpdate }: { onClose: () => void; o
 }
 
 function CategoryBudgetsWidget({ refreshTrigger, onManage }: { refreshTrigger: number; onManage: () => void }) {
+  const router = useRouter();
   const [data, setData] = useState<{
     summary: { totalBudgeted: number; totalSpent: number; totalRemaining: number; overallPercentage: number };
     budgets: Array<{
@@ -1419,8 +1420,8 @@ function CategoryBudgetsWidget({ refreshTrigger, onManage }: { refreshTrigger: n
           </span>
           <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Category Envelopes & Target Limits</h2>
         </div>
-        <button type="button" className="secondary compact" onClick={onManage} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Target size={14} /> Set / Manage Budgets
+        <button type="button" className="secondary compact" onClick={() => router.push('/budgets')} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Target size={14} color="var(--green)" /> Manage Envelopes & Rules →
         </button>
       </div>
 

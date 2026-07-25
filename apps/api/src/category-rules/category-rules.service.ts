@@ -167,11 +167,40 @@ export class CategoryRulesService {
   }
 
   async listCategories(userId: string) {
-    return this.prisma.category.findMany({
+    let list = await this.prisma.category.findMany({
       where: { userId },
       select: { id: true, name: true, color: true },
       orderBy: { name: 'asc' },
     });
+
+    if (list.length === 0) {
+      const defaults = [
+        { name: 'Food & Dining', color: '#ef4444' },
+        { name: 'Groceries', color: '#10b981' },
+        { name: 'Shopping', color: '#ec4899' },
+        { name: 'Bills & Utilities', color: '#f59e0b' },
+        { name: 'Housing & Rent', color: '#8b5cf6' },
+        { name: 'Transport & Fuel', color: '#0ea5e9' },
+        { name: 'Entertainment & OTT', color: '#6366f1' },
+        { name: 'Medical & Health', color: '#14b8a6' },
+        { name: 'Investment & SIP', color: '#3b82f6' },
+        { name: 'Salary & Income', color: '#22c55e' },
+        { name: 'Miscellaneous', color: '#64748b' },
+      ];
+
+      await this.prisma.category.createMany({
+        data: defaults.map((d) => ({ ...d, userId })),
+        skipDuplicates: true,
+      });
+
+      list = await this.prisma.category.findMany({
+        where: { userId },
+        select: { id: true, name: true, color: true },
+        orderBy: { name: 'asc' },
+      });
+    }
+
+    return list;
   }
 
   async createCategory(userId: string, name: string, color?: string) {
@@ -192,6 +221,46 @@ export class CategoryRulesService {
         color: color || '#3b82f6',
       },
     });
+  }
+
+  async updateCategory(userId: string, id: string, name?: string, color?: string) {
+    const existing = await this.prisma.category.findFirst({
+      where: { id, userId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Category not found.');
+    }
+
+    const trimmed = name ? name.trim() : existing.name;
+    if (!trimmed) {
+      throw new BadRequestException('Category name cannot be empty.');
+    }
+
+    return this.prisma.category.update({
+      where: { id },
+      data: {
+        name: trimmed,
+        color: color || existing.color,
+      },
+    });
+  }
+
+  async deleteCategory(userId: string, id: string) {
+    const existing = await this.prisma.category.findFirst({
+      where: { id, userId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Category not found.');
+    }
+
+    // Unlink transactions associated with this category
+    await this.prisma.transaction.updateMany({
+      where: { categoryId: id },
+      data: { categoryId: null },
+    });
+
+    await this.prisma.category.delete({ where: { id } });
+    return { success: true, message: 'Category deleted.' };
   }
 
   async batchUpdate(userId: string, transactionIds: string[], categoryId: string | null) {
