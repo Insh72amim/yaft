@@ -65,7 +65,7 @@ export class ImportsService {
     throw lastError || new BadRequestException('This PDF is password-protected. Enter its document-opening password (e.g. FIRST4LETTERS + LAST4CARDDIGITS) in the password field and try again.');
   }
 
-  private async getAxisPasswordCandidates(
+  async getAxisPasswordCandidates(
     userId: string,
     targetAccountId: string,
     filename: string,
