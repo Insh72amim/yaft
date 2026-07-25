@@ -224,60 +224,48 @@ export default function DashboardPage() {
         </p>
       )}
 
-      <section className="hero-card">
-        <div>
-          <span>Monthly Cash Flow</span>
-          <strong>{money(data.savings)}</strong>
-          <small>
-            <TrendingUp size={15} />
-            {data.savings >= 0 ? 'Net Surplus' : 'Net Deficit'} in {monthLabel}
-          </small>
-        </div>
-        <div className="hero-orbit">
-          <span>{data.savingsRate}%</span>
-          <small>savings rate</small>
-        </div>
-      </section>
-
-      <section className="summary-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <section className="summary-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginBottom: '24px' }}>
         <article>
           <span className="summary-icon income">
             <ArrowUpRight />
           </span>
           <div>
             <small>Savings Net Inbound</small>
-            <strong>{money(data.savingsNetInbound ?? data.income)}</strong>
+            <strong style={{ fontSize: '1.4rem' }}>{money(data.savingsNetInbound ?? data.income)}</strong>
             <em>Excl. internal transfers</em>
           </div>
         </article>
+
         <article>
           <span className="summary-icon expense">
             <ArrowDownRight />
           </span>
           <div>
             <small>Savings Net Outbound</small>
-            <strong>{money(data.savingsNetOutbound ?? data.expenses)}</strong>
+            <strong style={{ fontSize: '1.4rem' }}>{money(data.savingsNetOutbound ?? data.expenses)}</strong>
             <em>Excl. internal transfers</em>
           </div>
         </article>
+
         <article>
-          <span className="summary-icon income">
+          <span className={`summary-icon ${data.savings >= 0 ? 'income' : 'expense'}`}>
             <TrendingUp />
           </span>
           <div>
-            <small>Total Income</small>
-            <strong>{money(data.income)}</strong>
-            <em>{monthLabel}</em>
+            <small>Net Cash Flow</small>
+            <strong style={{ fontSize: '1.4rem', color: data.savings >= 0 ? 'var(--green)' : '#ef4444' }}>{money(data.savings)}</strong>
+            <em>{data.savings >= 0 ? '🟢 Net Surplus' : '🔴 Net Deficit'} in {monthLabel}</em>
           </div>
         </article>
+
         <article>
           <span className="summary-icon saved">
             <WalletCards />
           </span>
           <div>
-            <small>Saved</small>
-            <strong>{money(data.savings)}</strong>
-            <em>{data.savingsRate}% of income</em>
+            <small>Savings Rate</small>
+            <strong style={{ fontSize: '1.4rem', color: 'var(--ink)' }}>{data.savingsRate}%</strong>
+            <em>Of inbound income saved</em>
           </div>
         </article>
       </section>
