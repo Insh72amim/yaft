@@ -368,7 +368,7 @@ export default function BudgetsPage() {
                 <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Overall Envelope Usage</span>
                 <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{summary.overallPercentage}%</strong>
                 <div style={{ height: "6px", width: "100%", background: "var(--background-alt)", borderRadius: "3px", overflow: "hidden", marginTop: "6px" }}>
-                  <div style={{ height: "100%", width: `${Math.min(100, summary.overallPercentage)}%`, background: summary.overallPercentage >= 100 ? "#ef4444" : summary.overallPercentage >= 80 ? "#f59e0b" : "var(--green)" }} />
+                  <div style={{ height: "100%", width: `${Math.min(100, summary.overallPercentage)}%`, background: summary.overallPercentage > 100 ? "#ef4444" : summary.overallPercentage >= 80 ? "#f59e0b" : "var(--green)" }} />
                 </div>
               </div>
             </div>
@@ -593,7 +593,7 @@ export default function BudgetsPage() {
                               style={{
                                 height: "100%",
                                 width: `${Math.min(100, existingBudget.percentage)}%`,
-                                background: existingBudget.percentage >= 100 ? "#ef4444" : existingBudget.percentage >= 80 ? "#f59e0b" : "#10b981",
+                                background: existingBudget.percentage > 100 ? "#ef4444" : existingBudget.percentage >= 80 ? "#f59e0b" : "#10b981",
                               }}
                             />
                           </div>
