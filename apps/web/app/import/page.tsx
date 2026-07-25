@@ -311,10 +311,15 @@ function ImportWorkspace() {
         </section>
       )}
       {sourceOption.pdfPasswordSupported && isPdf && <section className="password-panel"><div className="password-status"><KeyRound/><span><strong>PDF document password</strong>
-        <small>{selectedAccount?.hasStatementPassword ? 'A saved password can unlock this account’s SBI PDF.' : 'Optional; use only when this PDF is protected.'}</small></span>
+        <small>{selectedAccount?.hasStatementPassword ? 'A saved password can unlock this account’s SBI PDF.' : 'Protected PDFs require a password.'}</small></span>
         {selectedAccount?.hasStatementPassword && <button type="button" className="ghost compact" disabled={busy} onClick={() => void forgetPassword()}><Trash2/>Forget</button>}</div>
         <label>One-time document-opening password<input type="password" maxLength={128} autoComplete="off" value={pdfPassword}
-          placeholder={selectedAccount?.hasStatementPassword ? 'Leave blank to use the saved password' : 'Optional'} onChange={(event) => { setPdfPassword(event.target.value); if (!event.target.value) setRememberPassword(false); }}/></label>
+          placeholder={source === 'AXIS_CC' ? 'e.g. FIRST4LETTERS + LAST4CARDDIGITS (JOHN4321)' : selectedAccount?.hasStatementPassword ? 'Leave blank to use saved password' : 'Enter PDF password'} onChange={(event) => { setPdfPassword(event.target.value); if (!event.target.value) setRememberPassword(false); }}/></label>
+        {source === 'AXIS_CC' && (
+          <p className="notice" style={{ marginTop: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <KeyRound size={15}/> <span><strong>Axis Credit Card Password:</strong> First 4 letters of your name in UPPERCASE + Last 4 digits of your card (e.g. <code>JOHN4321</code>).</span>
+          </p>
+        )}
         {sourceOption.rememberPasswordSupported && <label className="remember-choice"><input type="checkbox" checked={rememberPassword} disabled={!pdfPassword}
           onChange={(event) => setRememberPassword(event.target.checked)}/><span><Check/></span><div><strong>Remember securely for this SBI account</strong><small>Saved only after this SBI PDF unlocks and verifies successfully.</small></div></label>}</section>}
       {!eligibleAccounts.length && sourceOption.accountRequired && <p className="notice"><AlertTriangle/>No eligible {sourceOption.label} account exists. <Link href="/dashboard">Add the matching account</Link> first.</p>}
