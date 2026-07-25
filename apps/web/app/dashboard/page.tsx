@@ -230,11 +230,11 @@ export default function DashboardPage() {
 
       <section className="hero-card">
         <div>
-          <span>Net worth</span>
-          <strong>{money(data.netWorth)}</strong>
+          <span>Monthly Cash Flow</span>
+          <strong>{money(data.savings)}</strong>
           <small>
             <TrendingUp size={15} />
-            Across {data.accounts.length} account{data.accounts.length === 1 ? '' : 's'}
+            {data.savings >= 0 ? 'Net Surplus' : 'Net Deficit'} in {monthLabel}
           </small>
         </div>
         <div className="hero-orbit">
@@ -360,12 +360,12 @@ export default function DashboardPage() {
         </section>
       )}
 
-      <section className="dashboard-grid">
+      <section className="dashboard-grid" style={{ gridTemplateColumns: '1fr' }}>
         <article className="panel spending-panel">
           <div className="panel-title">
             <div>
               <span className="eyebrow">Spending</span>
-              <h2>Where it went</h2>
+              <h2>Where it went in {monthLabel}</h2>
             </div>
             <span className="month-pill">
               <CalendarDays size={14} />
@@ -381,7 +381,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="legend">
-                {data.categories.slice(0, 5).map((category) => (
+                {data.categories.slice(0, 8).map((category) => (
                   <div key={category.name}>
                     <i style={{ background: category.color }} />
                     <span>{category.name}</span>
@@ -393,37 +393,6 @@ export default function DashboardPage() {
             </div>
           ) : (
             <Empty text="Import a statement to see your spending pattern." />
-          )}
-        </article>
-
-        <article className="panel spending-panel">
-          <div className="panel-title">
-            <div>
-              <span className="eyebrow">Assets</span>
-              <h2>Asset Allocation</h2>
-            </div>
-          </div>
-          {assetData.length ? (
-            <div className="spending-body">
-              <div className="donut" style={{ background: `conic-gradient(${assetGradient})` }}>
-                <div>
-                  <strong>{money(totalAssets, true)}</strong>
-                  <span>total</span>
-                </div>
-              </div>
-              <div className="legend">
-                {assetData.map((category) => (
-                  <div key={category.name}>
-                    <i style={{ background: category.color }} />
-                    <span>{category.name}</span>
-                    <strong>{money(category.value)}</strong>
-                    <small>{totalAssets ? Math.round((category.value / totalAssets) * 100) : 0}%</small>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <Empty text="No positive asset balances found." />
           )}
         </article>
       </section>
