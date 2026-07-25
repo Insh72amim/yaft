@@ -733,7 +733,7 @@ function PortfolioContent() {
                             />
                           </span>
                         </header>
-                        <div className="account-cards-grid">
+                        <div className={`account-cards-grid ${sub.types.includes('CREDIT_CARD') ? 'credit-cards-grid' : ''}`}>
                           {subAccounts.map((account) => (
                             <AccountCard
                               key={account.id}
@@ -782,7 +782,7 @@ function PortfolioContent() {
                     />
                   </span>
                 </header>
-                <div className="account-cards-grid">
+                <div className={`account-cards-grid ${section.types.includes('CREDIT_CARD') ? 'credit-cards-grid' : ''}`}>
                   {sectionAccounts.map((account) => (
                     <AccountCard
                       key={account.id}

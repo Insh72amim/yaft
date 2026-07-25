@@ -729,28 +729,29 @@ html[data-theme='dark'] .account-amount-toggle.visible{background:linear-gradien
 @media(max-width:760px){.accounts-page-header{flex-direction:column}.accounts-page-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.account-amount-toggle{padding:7px}.account-amount-toggle-label{display:none}}
 
 /* Credit cards intentionally read as payment cards, not generic accounts. */
-.credit-account-card{position:relative;isolation:isolate;overflow:hidden;min-height:130px;padding:12px 14px;color:#fff;border-color:transparent;gap:6px;box-shadow:0 8px 20px rgba(18,31,48,.15);border-radius:14px}
+.credit-cards-grid{grid-template-columns:repeat(auto-fill,minmax(190px,220px));gap:12px}
+.credit-account-card{position:relative;isolation:isolate;overflow:hidden;max-width:220px;min-height:108px;padding:9px 11px;color:#fff;border-color:transparent;gap:4px;box-shadow:0 6px 16px rgba(18,31,48,.14);border-radius:12px}
 .credit-account-card::before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.2),transparent 45%,rgba(0,0,0,.18))}
-.credit-account-card::after{content:"";position:absolute;z-index:-1;width:150px;height:150px;border-radius:50%;right:-65px;top:-75px;border:1px solid rgba(255,255,255,.16);box-shadow:0 0 0 20px rgba(255,255,255,.04)}
+.credit-account-card::after{content:"";position:absolute;z-index:-1;width:120px;height:120px;border-radius:50%;right:-50px;top:-60px;border:1px solid rgba(255,255,255,.16);box-shadow:0 0 0 16px rgba(255,255,255,.04)}
 .credit-account-card.credit-network-visa{background:linear-gradient(135deg,#293b8f,#11194f)}
 .credit-account-card.credit-network-mastercard{background:linear-gradient(135deg,#a42335,#e37232)}
 .credit-account-card.credit-network-amex{background:linear-gradient(135deg,#226cad,#173b66)}
 .credit-account-card.credit-network-rupay{background:linear-gradient(135deg,#de6724,#127b57)}
 .credit-account-card.credit-network-default{background:linear-gradient(135deg,#263b49,#111d26)}
-.credit-account-card:hover{border-color:rgba(255,255,255,.5);box-shadow:0 12px 28px rgba(18,31,48,.22);transform:translateY(-2px)}
-.credit-account-card-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.credit-account-card-header>span{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.9}
-.credit-account-card-logo{width:28px;height:28px;border-radius:7px;background:#fff;display:grid;place-items:center;overflow:hidden;color:#263b49;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.credit-account-card:hover{border-color:rgba(255,255,255,.5);box-shadow:0 10px 24px rgba(18,31,48,.2);transform:translateY(-2px)}
+.credit-account-card-header{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.credit-account-card-header>span{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.9}
+.credit-account-card-logo{width:24px;height:24px;border-radius:6px;background:#fff;display:grid;place-items:center;overflow:hidden;color:#263b49;box-shadow:0 2px 6px rgba(0,0,0,.12)}
 .credit-account-card-logo img{width:100%;height:100%;object-fit:contain}
-.credit-account-card-number{font-family:'SF Mono',ui-monospace,monospace;font-size:13.5px;letter-spacing:1px;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.24);margin:1px 0}
-.credit-account-card-identity{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
-.credit-account-card-identity>span{min-width:0;display:grid;gap:1px}
+.credit-account-card-number{font-family:'SF Mono',ui-monospace,monospace;font-size:11.5px;letter-spacing:0.8px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.24);margin:0}
+.credit-account-card-identity{display:flex;align-items:flex-end;justify-content:space-between;gap:6px}
+.credit-account-card-identity>span{min-width:0;display:grid;gap:0px}
 .credit-account-card-identity>span:last-child{text-align:right}
-.credit-account-card-identity small,.credit-account-card-metrics small{font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.7}
-.credit-account-card-identity strong{font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.credit-account-card-metrics{display:flex;align-items:center;padding-top:5px;border-top:1px solid rgba(255,255,255,.15)}
-.credit-account-card-metrics>span{width:100%;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px}
-.credit-account-card-metrics strong{font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.credit-account-card-identity small,.credit-account-card-metrics small{font-size:7px;letter-spacing:.05em;text-transform:uppercase;opacity:.7}
+.credit-account-card-identity strong{font-size:9.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.credit-account-card-metrics{display:flex;align-items:center;padding-top:4px;border-top:1px solid rgba(255,255,255,.15)}
+.credit-account-card-metrics>span{width:100%;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.credit-account-card-metrics strong{font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html[data-theme='dark'] .credit-account-card{color:#fff}
 
 .credit-card-embedded-header{position:relative;overflow:hidden;padding:22px 24px;border-radius:17px;background:linear-gradient(135deg,#263b49,#111d26);color:#fff;box-shadow:0 10px 25px rgba(18,31,48,.14)}
