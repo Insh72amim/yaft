@@ -59,6 +59,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'EXPENSE' | 'INCOME'>('ALL');
+  const [selectedCategoryFilterId, setSelectedCategoryFilterId] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -70,6 +71,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
     const params = new URLSearchParams();
     params.set('page', String(requestedPage));
     if (searchQuery.trim()) params.set('search', searchQuery.trim());
+    if (selectedCategoryFilterId !== 'all') params.set('categoryId', selectedCategoryFilterId);
     if (minAmount.trim()) params.set('minAmount', minAmount.trim());
     if (maxAmount.trim()) params.set('maxAmount', maxAmount.trim());
     if (typeFilter !== 'ALL') params.set('type', typeFilter);
@@ -80,7 +82,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
       if (isUnauthorized(reason)) router.replace('/login');
       else setError(errorMessage(reason, 'Could not load this account.'));
     });
-  }, [accountId, requestedPage, searchQuery, minAmount, maxAmount, typeFilter, startDate, endDate, router]);
+  }, [accountId, requestedPage, searchQuery, selectedCategoryFilterId, minAmount, maxAmount, typeFilter, startDate, endDate, router]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setShowDocuments(false); }, [accountId]);
 
@@ -331,7 +333,8 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         <section className="panel account-ledger-panel">
           {/* Redesigned Search & Filter Control Center */}
           {(() => {
-            const activeFilterCount = (searchQuery.trim() ? 1 : 0) +
+            const activeFilterCount = (selectedCategoryFilterId !== 'all' ? 1 : 0) +
+              (searchQuery.trim() ? 1 : 0) +
               (startDate ? 1 : 0) +
               (endDate ? 1 : 0) +
               (minAmount ? 1 : 0) +
@@ -384,10 +387,38 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
 
                 {(showFilters || activeFilterCount > 0) && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '0 24px 24px 24px', padding: '16px', background: 'var(--background-alt)', borderRadius: '14px', border: '1px solid var(--line)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                    {/* Top Row: Search & Type Toggle & Reset */}
+                    {/* Top Row: Category Select & Search & Type Toggle & Reset */}
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                      {/* Category Filter Dropdown */}
+                      <div style={{ flex: '1 1 180px', minWidth: '160px' }}>
+                        <select
+                          value={selectedCategoryFilterId}
+                          onChange={(e) => setSelectedCategoryFilterId(e.target.value)}
+                          style={{
+                            width: '100%',
+                            height: '38px',
+                            fontSize: '13px',
+                            padding: '0 10px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--line)',
+                            background: 'var(--background)',
+                            color: 'var(--ink)',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <option value="all">All Categories</option>
+                          <option value="uncategorised">Uncategorised</option>
+                          <option value="transfers">Internal Transfers</option>
+                          {(data?.categories || []).map((cat: any) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
                       {/* Search Bar */}
-                      <div style={{ position: 'relative', flex: '1 1 260px', minWidth: '220px' }}>
+                      <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '200px' }}>
                         <Search size={16} color="var(--muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
                         <input
                           type="text"
@@ -452,6 +483,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                           type="button"
                           className="ghost compact"
                           onClick={() => {
+                            setSelectedCategoryFilterId('all');
                             setSearchQuery('');
                             setMinAmount('');
                             setMaxAmount('');

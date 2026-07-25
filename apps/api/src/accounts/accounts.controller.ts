@@ -209,6 +209,7 @@ export class AccountsController {
     @Query('type') type?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('categoryId') categoryId?: string,
   ) {
     const page = Math.max(1, requestedPage);
     const pageSize = requestedPageSize ? Math.min(100, Math.max(1, Number(requestedPageSize))) : 50;
@@ -216,7 +217,7 @@ export class AccountsController {
     const minAmount = minAmountStr !== undefined && minAmountStr !== '' ? Number(minAmountStr) : undefined;
     const maxAmount = maxAmountStr !== undefined && maxAmountStr !== '' ? Number(maxAmountStr) : undefined;
 
-    const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate);
+    const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate, categoryId);
 
     const [total, amountSum, transactions, userCategories] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),
@@ -268,6 +269,7 @@ export class AccountsController {
     @Query('type') type?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('categoryId') categoryId?: string,
   ) {
     const account = await this.prisma.account.findFirst({
       where: { id: accountId, userId: user.id, archived: false },
@@ -283,7 +285,7 @@ export class AccountsController {
     const minAmount = minAmountStr !== undefined && minAmountStr !== '' ? Number(minAmountStr) : undefined;
     const maxAmount = maxAmountStr !== undefined && maxAmountStr !== '' ? Number(maxAmountStr) : undefined;
 
-    const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate);
+    const transactionWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate, categoryId);
 
     const [total, amount, transactions, userCategories] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),
@@ -594,11 +596,23 @@ export function buildTransactionWhere(
   type?: string,
   startDateStr?: string,
   endDateStr?: string,
+  categoryId?: string,
 ) {
   const where: any = { account: { userId, archived: false } };
 
   if (accountId && accountId !== 'all') {
     where.accountId = accountId;
+  }
+
+  if (categoryId && categoryId !== 'all') {
+    if (categoryId === 'uncategorised') {
+      where.categoryId = null;
+      where.transferGroupId = null;
+    } else if (categoryId === 'transfers') {
+      where.transferGroupId = { not: null };
+    } else {
+      where.categoryId = categoryId;
+    }
   }
 
   if (search && search.trim()) {
