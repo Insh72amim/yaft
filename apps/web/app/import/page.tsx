@@ -170,12 +170,16 @@ function ImportWorkspace() {
     setBusy(true); setError(''); setNotice(''); setSyncWarning('');
     const filesToUpload = [...files];
     const isBulk = filesToUpload.length > 1;
+    const skippedFiles: string[] = [];
+    const successfulFiles: string[] = [];
+    let lastReviewResult: ReviewUploadResult | null = null;
+    let fatalError: string | null = null;
+
     try {
-      let lastReviewResult: ReviewUploadResult | null = null;
       for (let i = 0; i < filesToUpload.length; i++) {
         const fileItem = filesToUpload[i];
         if (isBulk) {
-          setNotice(`Validating and uploading payslip ${i + 1} of ${filesToUpload.length} (${fileItem.name})…`);
+          setNotice(`Validating and uploading statement ${i + 1} of ${filesToUpload.length} (${fileItem.name})…`);
         }
         const payload = new FormData();
         payload.set('kind', kind); payload.set('source', sourceOption.source); payload.set('file', fileItem);
@@ -189,35 +193,57 @@ function ImportWorkspace() {
         if (kind === 'SALARY_PAYSLIP') {
           payload.set('salaryType', salaryType);
         }
-        const result = await api<ReviewUploadResult | HoldingsUploadResult>('/imports/unified/upload', { method: 'POST', body: payload });
-        if (result.mode === 'REVIEW_REQUIRED') {
-          lastReviewResult = result as ReviewUploadResult;
+        try {
+          const result = await api<ReviewUploadResult | HoldingsUploadResult>('/imports/unified/upload', { method: 'POST', body: payload });
+          if (result.mode === 'REVIEW_REQUIRED') {
+            lastReviewResult = result as ReviewUploadResult;
+            successfulFiles.push(fileItem.name);
+          } else {
+            successfulFiles.push(fileItem.name);
+          }
+        } catch (reason) {
+          if (isUnauthorized(reason)) {
+            router.replace('/login');
+            return;
+          }
+          const msg = errorMessage(reason, '');
+          if (msg.includes('already uploaded')) {
+            skippedFiles.push(fileItem.name);
+          } else {
+            fatalError = errorMessage(reason, 'The import could not be completed.');
+            break;
+          }
         }
       }
+
       setFiles([]); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false);
-      if (isBulk) {
-        setNotice(`All ${filesToUpload.length} files reconciled successfully and are ready for your approval below.`);
-        try { await refreshPending(); }
-        catch (reason) {
+
+      if (fatalError && !successfulFiles.length && !skippedFiles.length) {
+        setError(fatalError);
+      } else if (successfulFiles.length > 0) {
+        let msg = isBulk
+          ? `All ${successfulFiles.length} new statement files reconciled successfully and are ready for approval below.`
+          : 'The file reconciled successfully and is ready for your approval below.';
+        if (skippedFiles.length > 0) {
+          msg += ` Skipped ${skippedFiles.length} already uploaded file${skippedFiles.length === 1 ? '' : 's'} (${skippedFiles.join(', ')}).`;
+        }
+        if (fatalError) {
+          setError(`Partial upload complete. Warning: ${fatalError}`);
+        }
+        setNotice(msg);
+        try {
+          if (lastReviewResult) await refreshPending(lastReviewResult.review.id);
+          else await refreshPending();
+        } catch (reason) {
           if (isUnauthorized(reason)) router.replace('/login');
           setSyncWarning('The reviews were created successfully, but the queue could not be refreshed. Try refreshing the page.');
         }
-      } else {
-        const result = lastReviewResult;
-        if (!result) {
-          setNotice('Holdings were imported.');
-        } else {
-          const reviewResult = result as ReviewUploadResult;
-          const localReview = { ...reviewResult, createdAt: reviewResult.review.createdAt } as PendingImport;
-          setPending((items) => [localReview, ...items.filter((item) => item.review.id !== reviewResult.review.id)]);
-          setSelectedReviewId(reviewResult.review.id);
-          setNotice('The file reconciled successfully and is ready for your approval below.');
-          try { await refreshPending(reviewResult.review.id); }
-          catch (reason) {
-            if (isUnauthorized(reason)) router.replace('/login');
-            setSyncWarning('The review was created successfully, but the queue could not be refreshed. The new review shown below is ready to use.');
-          }
-        }
+      } else if (skippedFiles.length > 0) {
+        setNotice(`Skipped ${skippedFiles.length} statement file${skippedFiles.length === 1 ? '' : 's'} (${skippedFiles.join(', ')}) because ${skippedFiles.length === 1 ? 'it was' : 'they were'} already uploaded.`);
+        if (fatalError) setError(fatalError);
+        try { await refreshPending(); } catch {}
+      } else if (fatalError) {
+        setError(fatalError);
       }
     } catch (reason) {
       if (isUnauthorized(reason)) router.replace('/login');
