@@ -548,7 +548,7 @@ export default function BudgetsPage() {
                 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                   {(["ALL", "EXPENSE", "INCOME", "INVESTMENT"] as const).map((t) => {
                     const count = t === "ALL" ? categories.length : categories.filter((c) => (c.type || "EXPENSE") === t).length;
-                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `💸 Expenses (${count})` : t === "INCOME" ? `💵 Income (${count})` : `📈 Investments (${count})`;
+                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `Expenses (${count})` : t === "INCOME" ? `Income (${count})` : `Investments (${count})`;
                     return (
                       <button
                         key={t}
@@ -572,7 +572,7 @@ export default function BudgetsPage() {
                     const catType = cat.type || "EXPENSE";
                     const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : "rgba(239, 68, 68, 0.12)";
                     const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : "#991b1b";
-                    const badgeLabel = catType === "INCOME" ? "💵 INCOME" : catType === "INVESTMENT" ? "📈 INVESTMENT" : "💸 EXPENSE";
+                    const badgeLabel = catType === "INCOME" ? "INCOME" : catType === "INVESTMENT" ? "INVESTMENT" : "EXPENSE";
 
                     return (
                       <div
@@ -593,7 +593,7 @@ export default function BudgetsPage() {
                             <strong style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>{cat.name}</strong>
                           </div>
 
-                          <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "8px", background: badgeBg, color: badgeColor, fontWeight: 800 }}>
+                          <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "8px", background: badgeBg, color: badgeColor, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                             {badgeLabel}
                           </span>
                         </div>
@@ -673,9 +673,9 @@ export default function BudgetsPage() {
                     onChange={(e: any) => setNewCatType(e.target.value)}
                     style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}
                   >
-                    <option value="EXPENSE">💸 Expense</option>
-                    <option value="INCOME">💵 Income</option>
-                    <option value="INVESTMENT">📈 Investment & Wealth</option>
+                    <option value="EXPENSE">Expense</option>
+                    <option value="INCOME">Income</option>
+                    <option value="INVESTMENT">Investment & Wealth</option>
                   </select>
                 </div>
 
@@ -712,7 +712,7 @@ export default function BudgetsPage() {
                 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                   {(["ALL", "EXPENSE", "INCOME", "INVESTMENT"] as const).map((t) => {
                     const count = t === "ALL" ? categories.length : categories.filter((c) => (c.type || "EXPENSE") === t).length;
-                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `💸 Expenses (${count})` : t === "INCOME" ? `💵 Income (${count})` : `📈 Investments (${count})`;
+                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `Expenses (${count})` : t === "INCOME" ? `Income (${count})` : `Investments (${count})`;
                     return (
                       <button
                         key={t}
@@ -735,7 +735,7 @@ export default function BudgetsPage() {
                     const catType = c.type || "EXPENSE";
                     const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : "rgba(239, 68, 68, 0.12)";
                     const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : "#991b1b";
-                    const badgeLabel = catType === "INCOME" ? "💵 INCOME" : catType === "INVESTMENT" ? "📈 INVESTMENT" : "💸 EXPENSE";
+                    const badgeLabel = catType === "INCOME" ? "INCOME" : catType === "INVESTMENT" ? "INVESTMENT" : "EXPENSE";
 
                     return (
                       <div
@@ -754,7 +754,7 @@ export default function BudgetsPage() {
                           <span style={{ width: "14px", height: "14px", borderRadius: "50%", background: c.color, flexShrink: 0 }} />
                           <div>
                             <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", display: "block" }}>{c.name}</span>
-                            <span style={{ fontSize: "9px", padding: "1px 6px", borderRadius: "6px", background: badgeBg, color: badgeColor, fontWeight: 800 }}>
+                            <span style={{ fontSize: "9px", padding: "1px 6px", borderRadius: "6px", background: badgeBg, color: badgeColor, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px" }}>
                               {badgeLabel}
                             </span>
                           </div>
@@ -980,9 +980,9 @@ export default function BudgetsPage() {
                   onChange={(e: any) => setEditCatType(e.target.value)}
                   style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}
                 >
-                  <option value="EXPENSE">💸 Expense</option>
-                  <option value="INCOME">💵 Income</option>
-                  <option value="INVESTMENT">📈 Investment & Wealth</option>
+                  <option value="EXPENSE">Expense</option>
+                  <option value="INCOME">Income</option>
+                  <option value="INVESTMENT">Investment & Wealth</option>
                 </select>
               </div>
 
