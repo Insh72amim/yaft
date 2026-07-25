@@ -74,7 +74,7 @@ export class BudgetsService {
       const percentage = limitNum > 0 ? Math.round((spentNum / limitNum) * 100) : 0;
 
       let status: 'OK' | 'WARNING' | 'EXCEEDED' = 'OK';
-      if (percentage >= 100) status = 'EXCEEDED';
+      if (spentMinor > limitMinor) status = 'EXCEEDED';
       else if (percentage >= 80) status = 'WARNING';
 
       return {

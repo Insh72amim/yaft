@@ -348,19 +348,19 @@ export default function BudgetsPage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
               <div style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
                 <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Total Monthly Budget</span>
-                <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{money(summary.totalBudgeted)}</strong>
+                <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{money(summary.totalBudgeted * 100)}</strong>
                 <small style={{ color: "var(--muted)", fontSize: "11px" }}>Combined target envelope limits</small>
               </div>
 
               <div style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
                 <span style={{ fontSize: "11px", fontWeight: 700, color: "#3b82f6", textTransform: "uppercase" }}>Month-To-Date Spent</span>
-                <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{money(summary.totalSpent)}</strong>
+                <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{money(summary.totalSpent * 100)}</strong>
                 <small style={{ color: "var(--muted)", fontSize: "11px" }}>Across budgeted categories</small>
               </div>
 
               <div style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
                 <span style={{ fontSize: "11px", fontWeight: 700, color: summary.totalRemaining > 0 ? "var(--green)" : "#ef4444", textTransform: "uppercase" }}>Remaining Capacity</span>
-                <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: summary.totalRemaining > 0 ? "var(--green)" : "#ef4444", marginTop: "4px" }}>{money(summary.totalRemaining)}</strong>
+                <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: summary.totalRemaining > 0 ? "var(--green)" : "#ef4444", marginTop: "4px" }}>{money(summary.totalRemaining * 100)}</strong>
                 <small style={{ color: "var(--muted)", fontSize: "11px" }}>Available envelope allowance</small>
               </div>
 
@@ -477,13 +477,13 @@ export default function BudgetsPage() {
                               color: statusColor,
                             }}
                           >
-                            {b.status === "EXCEEDED" ? "🚨 OVER BUDGET" : b.status === "WARNING" ? "⚠️ 80%+ REACHED" : "🟢 ON TRACK"}
+                            {b.status === "EXCEEDED" ? "🚨 OVER BUDGET" : b.status === "WARNING" ? (b.percentage >= 100 ? "⚠️ 100% TARGET REACHED" : "⚠️ 80%+ REACHED") : "🟢 ON TRACK"}
                           </span>
                         </div>
 
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                           <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-                            Spent <strong style={{ color: "var(--ink)", fontWeight: 700 }}>{money(b.spentAmount)}</strong> of {money(b.monthlyLimit)}
+                            Spent <strong style={{ color: "var(--ink)", fontWeight: 700 }}>{money(b.spentAmount * 100)}</strong> of {money(b.monthlyLimit * 100)}
                           </span>
                           <span style={{ fontSize: "13px", fontWeight: 800, color: statusColor }}>{b.percentage}%</span>
                         </div>
@@ -504,9 +504,11 @@ export default function BudgetsPage() {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "2px", paddingTop: "10px", borderTop: "1px solid var(--line)", fontSize: "12px" }}>
                           <span style={{ color: "var(--muted)" }}>
                             {b.remainingAmount > 0 ? (
-                              <>Remaining: <strong style={{ color: "var(--green)", fontWeight: 700 }}>{money(b.remainingAmount)}</strong></>
+                              <>Remaining: <strong style={{ color: "var(--green)", fontWeight: 700 }}>{money(b.remainingAmount * 100)}</strong></>
+                            ) : b.spentAmount > b.monthlyLimit ? (
+                              <>Over budget by: <strong style={{ color: "#ef4444", fontWeight: 700 }}>{money((b.spentAmount - b.monthlyLimit) * 100)}</strong></>
                             ) : (
-                              <>Over budget by: <strong style={{ color: "#ef4444", fontWeight: 700 }}>{money(Math.abs(b.monthlyLimit - b.spentAmount))}</strong></>
+                              <>Status: <strong style={{ color: "#f59e0b", fontWeight: 700 }}>Target Met (₹0 left)</strong></>
                             )}
                           </span>
                           <button
@@ -583,8 +585,8 @@ export default function BudgetsPage() {
                       {existingBudget ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)" }}>
-                            <span>Target: <strong style={{ color: "var(--ink)" }}>{money(existingBudget.monthlyLimit)}/mo</strong></span>
-                            <span>Spent: <strong>{money(existingBudget.spentAmount)}</strong> ({existingBudget.percentage}%)</span>
+                            <span>Target: <strong style={{ color: "var(--ink)" }}>{money(existingBudget.monthlyLimit * 100)}/mo</strong></span>
+                            <span>Spent: <strong>{money(existingBudget.spentAmount * 100)}</strong> ({existingBudget.percentage}%)</span>
                           </div>
                           <div style={{ height: "5px", width: "100%", background: "var(--background)", borderRadius: "3px", overflow: "hidden", border: "1px solid var(--line)" }}>
                             <div
