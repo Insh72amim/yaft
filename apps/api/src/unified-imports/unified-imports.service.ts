@@ -334,17 +334,32 @@ export class UnifiedImportsService {
     let extractedDigits: string | undefined;
 
     if (file.originalname.toLowerCase().endsWith('.pdf')) {
+      const candidates: (string | undefined)[] = [];
+      if (pdfPassword) candidates.push(pdfPassword);
       try {
-        const doc = await loadPdfStatementDocument(file.buffer, pdfPassword);
-        const fullText = doc.textPages.map((p) => p.text).join('\n');
-        const last4Match = fullText.match(/Credit Card Number:[^\n\r]*?(\d{4})\b/i)
-          || fullText.match(/Card Number:[^\n\r]*?(\d{4})\b/i)
-          || fullText.match(/\b\d{4}X+(\d{4})\b/i);
-        if (last4Match) {
-          extractedDigits = last4Match[1];
+        const auto = await this.imports.getAxisPasswordCandidates(userId, 'temp', file.originalname);
+        for (const c of auto) {
+          if (!candidates.includes(c)) candidates.push(c);
         }
       } catch {
-        // password fallback handled downstream
+        // ignore
+      }
+      if (candidates.length === 0) candidates.push(undefined);
+
+      for (const pwd of candidates) {
+        try {
+          const doc = await loadPdfStatementDocument(file.buffer, pwd);
+          const fullText = doc.textPages.map((p) => p.text).join('\n');
+          const last4Match = fullText.match(/Credit Card Number:[^\n\r]*?(\d{4})\b/i)
+            || fullText.match(/Card Number:[^\n\r]*?(\d{4})\b/i)
+            || fullText.match(/\b\d{4}X+(\d{4})\b/i);
+          if (last4Match) {
+            extractedDigits = last4Match[1];
+            break;
+          }
+        } catch {
+          // try next password candidate
+        }
       }
     }
 
