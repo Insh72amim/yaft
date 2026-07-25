@@ -365,15 +365,6 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                     </button>
                     <button
                       type="button"
-                      className="secondary compact"
-                      onClick={() => setShowRulesModal(true)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <SlidersHorizontal size={14} color="var(--green)" />
-                      Category Rules
-                    </button>
-                    <button
-                      type="button"
                       className={`secondary compact ${showFilters || activeFilterCount > 0 ? 'active' : ''}`}
                       onClick={() => setShowFilters(!showFilters)}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
@@ -714,12 +705,6 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
         </div>
       )}
 
-      {showRulesModal && (
-        <SpendRulesModal
-          onClose={() => setShowRulesModal(false)}
-          onRulesApplied={() => load()}
-        />
-      )}
     </div>
   );
 

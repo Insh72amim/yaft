@@ -367,9 +367,6 @@ export default function DashboardPage() {
 
       <GlobalTransactionExplorer />
 
-      {/* Category Rules Modal */}
-      {showRulesModal && <CategoryRulesModal onClose={() => setShowRulesModal(false)} onUpdate={() => void load()} />}
-
       {/* Category Budgets Modal */}
       {showBudgetsModal && (
         <CategoryBudgetsModal
@@ -575,19 +572,6 @@ function GlobalTransactionExplorer() {
           >
             <Tag size={14} color="var(--green)" />
             {showCategoryEdit ? 'Done Categorising' : 'Categorise'}
-          </button>
-          <button
-            type="button"
-            className="secondary compact"
-            onClick={() => {
-              setRuleInitialPattern('');
-              setRuleInitialCategoryId('');
-              setShowRulesModal(true);
-            }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <SlidersHorizontal size={14} color="var(--green)" />
-            Category Rules
           </button>
           <button
             type="button"
