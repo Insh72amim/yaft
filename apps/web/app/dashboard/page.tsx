@@ -200,10 +200,6 @@ export default function DashboardPage() {
           <p>Here’s how your money moved in {monthLabel}.</p>
         </div>
         <div className="dashboard-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button type="button" className="secondary compact" onClick={() => setShowRulesModal(true)}>
-            <SlidersHorizontal size={14} />
-            Categorization Rules
-          </button>
           <button type="button" className="secondary compact" onClick={handleReconcileTransfers} disabled={reconciling}>
             <RefreshCw size={14} className={reconciling ? 'spin' : ''} />
             {reconciling ? 'Matching…' : 'Match Transfers'}
