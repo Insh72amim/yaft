@@ -45,6 +45,7 @@ model User {
   accounts     Account[]
   categories   Category[]
   categoryRules CategoryRule[]
+  categoryBudgets CategoryBudget[]
   imports      ImportBatch[]
   salaryStatements SalaryStatement[]
   activeSips   ActiveSip[]
@@ -147,6 +148,7 @@ model Category {
   transactions Transaction[]
   staged       StagedTransaction[]
   rules        CategoryRule[]
+  budgets      CategoryBudget[]
 
   @@unique([userId, name])
 }
@@ -384,4 +386,20 @@ model ActiveSip {
   updatedAt          DateTime @updatedAt
 
   @@index([userId, accountId])
+}
+
+model CategoryBudget {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId   String
+  category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  monthlyLimit BigInt
+  month        Int      @default(0) // 0 for default monthly budget, or 1-12
+  year         Int      @default(0) // 0 for default monthly budget, or YYYY
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, categoryId, month, year])
+  @@index([userId, month, year])
 }
