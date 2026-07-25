@@ -169,23 +169,38 @@ export class CategoryRulesService {
   async listCategories(userId: string) {
     let list = await this.prisma.category.findMany({
       where: { userId },
-      select: { id: true, name: true, color: true },
-      orderBy: { name: 'asc' },
+      select: { id: true, name: true, type: true, color: true },
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
     });
 
     if (list.length === 0) {
       const defaults = [
-        { name: 'Food & Dining', color: '#ef4444' },
-        { name: 'Groceries', color: '#10b981' },
-        { name: 'Shopping', color: '#ec4899' },
-        { name: 'Bills & Utilities', color: '#f59e0b' },
-        { name: 'Housing & Rent', color: '#8b5cf6' },
-        { name: 'Transport & Fuel', color: '#0ea5e9' },
-        { name: 'Entertainment & OTT', color: '#6366f1' },
-        { name: 'Medical & Health', color: '#14b8a6' },
-        { name: 'Investment & SIP', color: '#3b82f6' },
-        { name: 'Salary & Income', color: '#22c55e' },
-        { name: 'Miscellaneous', color: '#64748b' },
+        // INCOME Categories
+        { name: 'Salary & Wages', type: 'INCOME' as const, color: '#22c55e' },
+        { name: 'Dividends & Yield', type: 'INCOME' as const, color: '#10b981' },
+        { name: 'Stock Sell Profits & Gains', type: 'INCOME' as const, color: '#059669' },
+        { name: 'Freelance & Consulting', type: 'INCOME' as const, color: '#34d399' },
+        { name: 'Interest & Cashback', type: 'INCOME' as const, color: '#14b8a6' },
+        { name: 'Other Income', type: 'INCOME' as const, color: '#065f46' },
+
+        // INVESTMENT Categories
+        { name: 'Mutual Fund SIP', type: 'INVESTMENT' as const, color: '#3b82f6' },
+        { name: 'Share Market & Equities', type: 'INVESTMENT' as const, color: '#6366f1' },
+        { name: 'Fixed Deposits & RD', type: 'INVESTMENT' as const, color: '#8b5cf6' },
+        { name: 'EPFO & PF Contribution', type: 'INVESTMENT' as const, color: '#a855f7' },
+        { name: 'Gold & Commodities', type: 'INVESTMENT' as const, color: '#eab308' },
+        { name: 'Crypto & Assets', type: 'INVESTMENT' as const, color: '#d946ef' },
+
+        // EXPENSE Categories
+        { name: 'Food & Dining', type: 'EXPENSE' as const, color: '#ef4444' },
+        { name: 'Groceries', type: 'EXPENSE' as const, color: '#f97316' },
+        { name: 'Shopping & Clothing', type: 'EXPENSE' as const, color: '#ec4899' },
+        { name: 'Bills & Utilities', type: 'EXPENSE' as const, color: '#f59e0b' },
+        { name: 'Housing & Rent', type: 'EXPENSE' as const, color: '#d97706' },
+        { name: 'Transport & Fuel', type: 'EXPENSE' as const, color: '#0ea5e9' },
+        { name: 'Entertainment & OTT', type: 'EXPENSE' as const, color: '#84cc16' },
+        { name: 'Medical & Health', type: 'EXPENSE' as const, color: '#06b6d4' },
+        { name: 'Miscellaneous', type: 'EXPENSE' as const, color: '#64748b' },
       ];
 
       await this.prisma.category.createMany({
@@ -195,15 +210,15 @@ export class CategoryRulesService {
 
       list = await this.prisma.category.findMany({
         where: { userId },
-        select: { id: true, name: true, color: true },
-        orderBy: { name: 'asc' },
+        select: { id: true, name: true, type: true, color: true },
+        orderBy: [{ type: 'asc' }, { name: 'asc' }],
       });
     }
 
     return list;
   }
 
-  async createCategory(userId: string, name: string, color?: string) {
+  async createCategory(userId: string, name: string, color?: string, type?: any) {
     const trimmed = name.trim();
     if (!trimmed) {
       throw new BadRequestException('Category name cannot be empty.');
@@ -219,11 +234,12 @@ export class CategoryRulesService {
         userId,
         name: trimmed,
         color: color || '#3b82f6',
+        type: type || 'EXPENSE',
       },
     });
   }
 
-  async updateCategory(userId: string, id: string, name?: string, color?: string) {
+  async updateCategory(userId: string, id: string, name?: string, color?: string, type?: any) {
     const existing = await this.prisma.category.findFirst({
       where: { id, userId },
     });
@@ -241,6 +257,7 @@ export class CategoryRulesService {
       data: {
         name: trimmed,
         color: color || existing.color,
+        type: type || existing.type,
       },
     });
   }

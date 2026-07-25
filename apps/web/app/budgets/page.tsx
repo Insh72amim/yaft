@@ -19,7 +19,7 @@ import {
 import { Shell } from "@/components/shell";
 import { api, errorMessage, money } from "@/lib/api";
 
-type CategoryOption = { id: string; name: string; color: string };
+type CategoryOption = { id: string; name: string; type?: "EXPENSE" | "INCOME" | "INVESTMENT"; color: string };
 
 type CategoryBudgetItem = {
   id: string;
@@ -55,6 +55,10 @@ export default function BudgetsPage() {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Category Filter States
+  const [manageCatFilter, setManageCatFilter] = useState<"ALL" | "EXPENSE" | "INCOME" | "INVESTMENT">("ALL");
+  const [directoryCatFilter, setDirectoryCatFilter] = useState<"ALL" | "EXPENSE" | "INCOME" | "INVESTMENT">("ALL");
+
   // Envelope Form States
   const [selectedCatId, setSelectedCatId] = useState("");
   const [limitInput, setLimitInput] = useState("");
@@ -63,12 +67,14 @@ export default function BudgetsPage() {
 
   // Category Management States
   const [newCatName, setNewCatName] = useState("");
+  const [newCatType, setNewCatType] = useState<"EXPENSE" | "INCOME" | "INVESTMENT">("EXPENSE");
   const [newCatColor, setNewCatColor] = useState("#3b82f6");
   const [creatingCat, setCreatingCat] = useState(false);
 
   // Edit Category Modal States
   const [editingCategory, setEditingCategory] = useState<CategoryOption | null>(null);
   const [editCatName, setEditCatName] = useState("");
+  const [editCatType, setEditCatType] = useState<"EXPENSE" | "INCOME" | "INVESTMENT">("EXPENSE");
   const [editCatColor, setEditCatColor] = useState("");
   const [updatingCat, setUpdatingCat] = useState(false);
 
@@ -170,7 +176,7 @@ export default function BudgetsPage() {
     try {
       const created = await api<CategoryOption>("/categories", {
         method: "POST",
-        body: JSON.stringify({ name: newCatName.trim(), color: newCatColor }),
+        body: JSON.stringify({ name: newCatName.trim(), color: newCatColor, type: newCatType }),
       });
       setSuccessMsg(`Created new category "${created.name}"!`);
       setNewCatName("");
@@ -185,6 +191,7 @@ export default function BudgetsPage() {
   const handleOpenEditCategory = (cat: CategoryOption) => {
     setEditingCategory(cat);
     setEditCatName(cat.name);
+    setEditCatType(cat.type || "EXPENSE");
     setEditCatColor(cat.color);
   };
 
@@ -196,7 +203,7 @@ export default function BudgetsPage() {
     try {
       await api(`/categories/${editingCategory.id}`, {
         method: "PUT",
-        body: JSON.stringify({ name: editCatName.trim(), color: editCatColor }),
+        body: JSON.stringify({ name: editCatName.trim(), color: editCatColor, type: editCatType }),
       });
       setSuccessMsg(`Updated category "${editCatName.trim()}"!`);
       setEditingCategory(null);
@@ -537,90 +544,99 @@ export default function BudgetsPage() {
                   <span className="eyebrow" style={{ color: "var(--green)" }}>Category Directory</span>
                   <h2>All System Categories ({categories.length})</h2>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("CATEGORIES")}
-                  className="secondary compact"
-                  style={{ fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "6px" }}
-                >
-                  <Tag size={14} color="var(--green)" />
-                  <span>Manage & Add Categories →</span>
-                </button>
+
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                  {(["ALL", "EXPENSE", "INCOME", "INVESTMENT"] as const).map((t) => {
+                    const count = t === "ALL" ? categories.length : categories.filter((c) => (c.type || "EXPENSE") === t).length;
+                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `💸 Expenses (${count})` : t === "INCOME" ? `💵 Income (${count})` : `📈 Investments (${count})`;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        className={`secondary compact ${directoryCatFilter === t ? "active" : ""}`}
+                        onClick={() => setDirectoryCatFilter(t)}
+                        style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "8px", fontWeight: 600 }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "14px" }}>
-                {categories.map((cat) => {
-                  const existingBudget = budgets.find((b) => b.categoryId === cat.id);
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "14px" }}>
+                {categories
+                  .filter((cat) => directoryCatFilter === "ALL" || (cat.type || "EXPENSE") === directoryCatFilter)
+                  .map((cat) => {
+                    const existingBudget = budgets.find((b) => b.categoryId === cat.id);
+                    const catType = cat.type || "EXPENSE";
+                    const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : "rgba(239, 68, 68, 0.12)";
+                    const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : "#991b1b";
+                    const badgeLabel = catType === "INCOME" ? "💵 INCOME" : catType === "INVESTMENT" ? "📈 INVESTMENT" : "💸 EXPENSE";
 
-                  return (
-                    <div
-                      key={cat.id}
-                      style={{
-                        background: "var(--background-alt)",
-                        border: "1px solid var(--line)",
-                        borderRadius: "12px",
-                        padding: "14px 16px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "10px",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
-                          <strong style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>{cat.name}</strong>
+                    return (
+                      <div
+                        key={cat.id}
+                        style={{
+                          background: "var(--background-alt)",
+                          border: "1px solid var(--line)",
+                          borderRadius: "12px",
+                          padding: "14px 16px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
+                            <strong style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>{cat.name}</strong>
+                          </div>
+
+                          <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "8px", background: badgeBg, color: badgeColor, fontWeight: 800 }}>
+                            {badgeLabel}
+                          </span>
                         </div>
 
                         {existingBudget ? (
-                          <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px", background: "rgba(16,185,129,0.12)", color: "#10b981", fontWeight: 700 }}>
-                            Target Set
-                          </span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)" }}>
+                              <span>Target: <strong style={{ color: "var(--ink)" }}>{money(existingBudget.monthlyLimit * 100)}/mo</strong></span>
+                              <span>Spent: <strong>{money(existingBudget.spentAmount * 100)}</strong> ({existingBudget.percentage}%)</span>
+                            </div>
+                            <div style={{ height: "5px", width: "100%", background: "var(--background)", borderRadius: "3px", overflow: "hidden", border: "1px solid var(--line)" }}>
+                              <div
+                                style={{
+                                  height: "100%",
+                                  width: `${Math.min(100, existingBudget.percentage)}%`,
+                                  background: existingBudget.percentage > 100 ? "#ef4444" : existingBudget.percentage >= 80 ? "#f59e0b" : "#10b981",
+                                }}
+                              />
+                            </div>
+                          </div>
                         ) : (
-                          <span style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px", background: "var(--line)", color: "var(--muted)", fontWeight: 600 }}>
-                            No Budget
-                          </span>
+                          <div style={{ fontSize: "11px", color: "var(--muted)" }}>
+                            No monthly limit assigned yet.
+                          </div>
                         )}
-                      </div>
 
-                      {existingBudget ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)" }}>
-                            <span>Target: <strong style={{ color: "var(--ink)" }}>{money(existingBudget.monthlyLimit * 100)}/mo</strong></span>
-                            <span>Spent: <strong>{money(existingBudget.spentAmount * 100)}</strong> ({existingBudget.percentage}%)</span>
-                          </div>
-                          <div style={{ height: "5px", width: "100%", background: "var(--background)", borderRadius: "3px", overflow: "hidden", border: "1px solid var(--line)" }}>
-                            <div
-                              style={{
-                                height: "100%",
-                                width: `${Math.min(100, existingBudget.percentage)}%`,
-                                background: existingBudget.percentage > 100 ? "#ef4444" : existingBudget.percentage >= 80 ? "#f59e0b" : "#10b981",
-                              }}
-                            />
-                          </div>
+                        <div style={{ paddingTop: "8px", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "flex-end" }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCatId(cat.id);
+                              if (existingBudget) setLimitInput(String(existingBudget.monthlyLimit));
+                              window.scrollTo({ top: 0, behavior: "smooth" });
+                            }}
+                            className="secondary compact"
+                            style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "6px" }}
+                          >
+                            {existingBudget ? "Edit Envelope Target" : "+ Set Envelope Target"}
+                          </button>
                         </div>
-                      ) : (
-                        <div style={{ fontSize: "11px", color: "var(--muted)" }}>
-                          No monthly limit assigned yet.
-                        </div>
-                      )}
-
-                      <div style={{ paddingTop: "8px", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "flex-end" }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedCatId(cat.id);
-                            if (existingBudget) setLimitInput(String(existingBudget.monthlyLimit));
-                            window.scrollTo({ top: 0, behavior: "smooth" });
-                          }}
-                          className="secondary compact"
-                          style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "6px" }}
-                        >
-                          {existingBudget ? "Edit Envelope Target" : "+ Set Envelope Target"}
-                        </button>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </section>
           </div>
@@ -639,18 +655,32 @@ export default function BudgetsPage() {
               </div>
 
               <form onSubmit={handleCreateCategory} style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
-                <div style={{ flex: "1 1 240px" }}>
+                <div style={{ flex: "1 1 220px" }}>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Category Name</label>
                   <input
                     type="text"
-                    placeholder="Enter category name (e.g. Subscriptions, Travel, Pets)..."
+                    placeholder="e.g. Stock Dividends, Pet Care..."
                     value={newCatName}
                     onChange={(e) => setNewCatName(e.target.value)}
                     style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
                   />
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <label style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>Badge Color:</label>
+                <div style={{ flex: "1 1 180px" }}>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Category Group / Type</label>
+                  <select
+                    value={newCatType}
+                    onChange={(e: any) => setNewCatType(e.target.value)}
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}
+                  >
+                    <option value="EXPENSE">💸 Expense</option>
+                    <option value="INCOME">💵 Income</option>
+                    <option value="INVESTMENT">📈 Investment & Wealth</option>
+                  </select>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Badge Color</label>
                   <input
                     type="color"
                     value={newCatColor}
@@ -663,7 +693,7 @@ export default function BudgetsPage() {
                   type="submit"
                   disabled={creatingCat || !newCatName.trim()}
                   className="secondary compact"
-                  style={{ height: "40px", padding: "0 20px", display: "inline-flex", alignItems: "center", gap: "8px", background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700, borderRadius: "8px" }}
+                  style={{ height: "40px", padding: "0 20px", marginTop: "18px", display: "inline-flex", alignItems: "center", gap: "8px", background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700, borderRadius: "8px" }}
                 >
                   {creatingCat ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
                   <span>Create Category</span>
@@ -673,54 +703,86 @@ export default function BudgetsPage() {
 
             {/* List of Existing Categories Grid */}
             <section className="panel" style={{ padding: "20px" }}>
-              <div className="panel-title" style={{ marginBottom: "16px" }}>
+              <div className="panel-title" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                 <div>
                   <span className="eyebrow" style={{ color: "var(--green)" }}>Available Categories</span>
-                  <h2>Your Expense & Income Categories ({categories.length})</h2>
+                  <h2>Your Expense, Income & Investment Categories ({categories.length})</h2>
+                </div>
+
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                  {(["ALL", "EXPENSE", "INCOME", "INVESTMENT"] as const).map((t) => {
+                    const count = t === "ALL" ? categories.length : categories.filter((c) => (c.type || "EXPENSE") === t).length;
+                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `💸 Expenses (${count})` : t === "INCOME" ? `💵 Income (${count})` : `📈 Investments (${count})`;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        className={`secondary compact ${manageCatFilter === t ? "active" : ""}`}
+                        onClick={() => setManageCatFilter(t)}
+                        style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "8px", fontWeight: 600 }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "12px" }}>
-                {categories.map((c) => (
-                  <div
-                    key={c.id}
-                    style={{
-                      background: "var(--background-alt)",
-                      border: "1px solid var(--line)",
-                      borderRadius: "12px",
-                      padding: "12px 14px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      <span style={{ width: "14px", height: "14px", borderRadius: "50%", background: c.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>{c.name}</span>
-                    </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "12px" }}>
+                {categories
+                  .filter((cat) => manageCatFilter === "ALL" || (cat.type || "EXPENSE") === manageCatFilter)
+                  .map((c) => {
+                    const catType = c.type || "EXPENSE";
+                    const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : "rgba(239, 68, 68, 0.12)";
+                    const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : "#991b1b";
+                    const badgeLabel = catType === "INCOME" ? "💵 INCOME" : catType === "INVESTMENT" ? "📈 INVESTMENT" : "💸 EXPENSE";
 
-                    <div style={{ display: "flex", gap: "4px" }}>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditCategory(c)}
-                        className="ghost compact"
-                        style={{ padding: "4px", color: "var(--muted)" }}
-                        title="Edit category"
+                    return (
+                      <div
+                        key={c.id}
+                        style={{
+                          background: "var(--background-alt)",
+                          border: "1px solid var(--line)",
+                          borderRadius: "12px",
+                          padding: "12px 14px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
                       >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteCategory(c.id, c.name)}
-                        className="ghost compact"
-                        style={{ padding: "4px", color: "#ef4444" }}
-                        title="Delete category"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span style={{ width: "14px", height: "14px", borderRadius: "50%", background: c.color, flexShrink: 0 }} />
+                          <div>
+                            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", display: "block" }}>{c.name}</span>
+                            <span style={{ fontSize: "9px", padding: "1px 6px", borderRadius: "6px", background: badgeBg, color: badgeColor, fontWeight: 800 }}>
+                              {badgeLabel}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "4px" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditCategory(c)}
+                            className="ghost compact"
+                            style={{ padding: "4px", color: "var(--muted)" }}
+                            title="Edit category"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCategory(c.id, c.name)}
+                            className="ghost compact"
+                            style={{ padding: "4px", color: "#ef4444" }}
+                            title="Delete category"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             </section>
           </div>
@@ -909,6 +971,19 @@ export default function BudgetsPage() {
                   onChange={(e) => setEditCatName(e.target.value)}
                   style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
                 />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Category Group / Type</label>
+                <select
+                  value={editCatType}
+                  onChange={(e: any) => setEditCatType(e.target.value)}
+                  style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}
+                >
+                  <option value="EXPENSE">💸 Expense</option>
+                  <option value="INCOME">💵 Income</option>
+                  <option value="INVESTMENT">📈 Investment & Wealth</option>
+                </select>
               </div>
 
               <div>
