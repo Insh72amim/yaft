@@ -73,12 +73,12 @@ This file maintains the running inventory of completed, verified features inside
 ## 9. Upcoming Roadmap & TODOs
 
 ### 9.1 Overview Page
-- [ ] **Internal Transfer Matching Engine**:
-  - [ ] Compare internal transfers across bank statements to detect matching legs.
-  - [ ] Support tracking and reconciliation of transfers to Mutual Funds.
-- [ ] **Spend Analyser**:
-  - [ ] Implement custom rules for spend analyser auto-categorization.
-  - [ ] Extract and analyse external/outbound transfers specifically.
+- [x] **Internal Transfer Matching Engine**:
+  - [x] Compare internal transfers across bank statements to detect matching legs.
+  - [x] Support tracking and reconciliation of transfers to Mutual Funds & Investments.
+- [x] **Spend Analyser**:
+  - [x] Implement custom rules for spend analyser auto-categorization.
+  - [x] Extract and analyse external/outbound transfers specifically in multi-bank Sankey flow diagram.
 
 ### 9.2 Import Page
 - [ ] **Credit Card Parsers**:
@@ -100,10 +100,10 @@ This file maintains the running inventory of completed, verified features inside
   - [ ] Schema-driven statement parser layout builder for dynamic onboarding of new bank and credit card statement formats.
 
 ### 9.6 Categorization & Bulk Operations
-- [ ] **Batch Category & Bulk Apply**:
-  - [ ] Select multiple transactions by recipient, keyword, or account and apply category changes in bulk across ledger records.
-- [ ] **Custom Category Rules & Automated Engine**:
-  - [ ] Rule builder with conditions (merchant/description patterns) for auto-categorization and tax-deductible tagging (80C, 80D, HRA).
+- [x] **Batch Category & Bulk Apply**:
+  - [x] Select multiple transactions by recipient, keyword, or account and apply category changes in bulk across ledger records.
+- [x] **Custom Category Rules & Automated Engine**:
+  - [x] Rule builder with conditions (merchant/description patterns) for auto-categorization and tax-deductible tagging (80C, 80D, HRA).
 
 ### 9.7 Budgeting & Analytics
 - [ ] **Category Envelopes & Monthly Budget Tracker**:
