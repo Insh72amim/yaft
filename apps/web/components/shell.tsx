@@ -8,6 +8,7 @@ import {
   LogOut,
   Menu,
   ShieldCheck,
+  TrendingUp,
   Upload,
   X,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import { ThemeColorSelector } from "@/components/theme-color-selector";
 
 const links = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/assets", label: "Assets", icon: TrendingUp },
   { href: "/accounts", label: "Accounts", icon: BriefcaseBusiness },
   { href: "/salary", label: "Salary", icon: BadgeIndianRupee },
   { href: "/import", label: "Import", icon: Upload },
