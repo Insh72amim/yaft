@@ -348,6 +348,110 @@ export class AccountsController {
     });
   }
 
+  @Get('transactions/all')
+  async getAllTransactions(
+    @CurrentUser() user: { id: string },
+    @Query('mode') mode?: 'CREDIT_CARD' | 'UPI' | 'ALL',
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) requestedPage = 1,
+    @Query('search') search?: string,
+    @Query('type') type?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('accountId') accountId?: string,
+  ) {
+    const page = Math.max(1, requestedPage);
+    const pageSize = 50;
+
+    const baseWhere = buildTransactionWhere(user.id, accountId, search, undefined, undefined, type, startDate, endDate, categoryId);
+
+    if (mode === 'CREDIT_CARD') {
+      baseWhere.account = { ...baseWhere.account, type: AccountType.CREDIT_CARD };
+    } else if (mode === 'UPI') {
+      const upiConditions = [
+        { merchant: { contains: 'UPI', mode: 'insensitive' } },
+        { merchant: { contains: 'GPAY', mode: 'insensitive' } },
+        { merchant: { contains: 'PHONEPE', mode: 'insensitive' } },
+        { merchant: { contains: 'PAYTM', mode: 'insensitive' } },
+        { descriptionRaw: { contains: 'UPI', mode: 'insensitive' } },
+        { descriptionRaw: { contains: 'GPAY', mode: 'insensitive' } },
+        { descriptionRaw: { contains: 'PHONEPE', mode: 'insensitive' } },
+        { descriptionRaw: { contains: 'PAYTM', mode: 'insensitive' } },
+        { descriptionRaw: { contains: '@', mode: 'insensitive' } },
+      ];
+      if (baseWhere.OR) {
+        baseWhere.AND = [{ OR: baseWhere.OR }, { OR: upiConditions }];
+        delete baseWhere.OR;
+      } else {
+        baseWhere.OR = upiConditions;
+      }
+    }
+
+    const [total, aggregate, transactions, userCategories, userAccounts] = await Promise.all([
+      this.prisma.transaction.count({ where: baseWhere }),
+      this.prisma.transaction.aggregate({
+        where: baseWhere,
+        _sum: { amount: true },
+      }),
+      this.prisma.transaction.findMany({
+        where: baseWhere,
+        include: {
+          account: {
+            select: { id: true, name: true, type: true, institution: true, vaultEntry: { select: { last4: true } } }
+          },
+          category: { select: { id: true, name: true, color: true } }
+        },
+        orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.category.findMany({ where: { userId: user.id }, orderBy: { name: 'asc' } }),
+      this.prisma.account.findMany({ where: { userId: user.id, archived: false }, select: { id: true, name: true, type: true, institution: true, vaultEntry: { select: { last4: true } } } }),
+    ]);
+
+    const debitsWhere = { ...baseWhere, amount: { lt: 0n } };
+    const creditsWhere = { ...baseWhere, amount: { gt: 0n } };
+    const [debitsAgg, creditsAgg] = await Promise.all([
+      this.prisma.transaction.aggregate({ where: debitsWhere, _sum: { amount: true } }),
+      this.prisma.transaction.aggregate({ where: creditsWhere, _sum: { amount: true } }),
+    ]);
+
+    return {
+      summary: {
+        totalSpent: Math.abs(Number(debitsAgg._sum.amount ?? 0n)),
+        totalReceived: Number(creditsAgg._sum.amount ?? 0n),
+        netTotal: Number(aggregate._sum.amount ?? 0n),
+        totalCount: total,
+      },
+      transactions: transactions.map((item) => ({
+        id: item.id,
+        accountId: item.accountId,
+        accountName: item.account.name,
+        accountType: item.account.type,
+        accountInstitution: item.account.institution,
+        cardLast4: item.account.vaultEntry?.last4 ?? null,
+        transactionDate: item.transactionDate,
+        postedDate: item.postedDate,
+        description: item.merchant || item.descriptionRaw,
+        details: item.merchant ? item.descriptionRaw : null,
+        amount: Number(item.amount),
+        categoryId: item.categoryId,
+        category: item.category?.name ?? 'Uncategorised',
+        categoryColor: item.category?.color ?? '#94a3b8',
+        isTransfer: Boolean(item.transferGroupId),
+      })),
+      categories: userCategories.map((c) => ({ id: c.id, name: c.name, color: c.color })),
+      accounts: userAccounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        institution: a.institution,
+        cardLast4: a.vaultEntry?.last4 ?? null,
+      })),
+      pagination: { page, pageSize, total, pages: Math.ceil(total / pageSize) },
+    };
+  }
+
   @Get(':accountId/loan')
   async getLoanDetails(@CurrentUser() user: { id: string }, @Param('accountId') accountId: string) {
     const account = await this.prisma.account.findFirst({
