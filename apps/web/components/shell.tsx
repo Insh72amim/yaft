@@ -8,6 +8,7 @@ import {
   LogOut,
   Menu,
   ShieldCheck,
+  Target,
   TrendingUp,
   Upload,
   X,
@@ -22,6 +23,7 @@ import { ThemeColorSelector } from "@/components/theme-color-selector";
 const links = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/assets", label: "Assets", icon: TrendingUp },
+  { href: "/budgets", label: "Budgets", icon: Target },
   { href: "/accounts", label: "Accounts", icon: BriefcaseBusiness },
   { href: "/salary", label: "Salary", icon: BadgeIndianRupee },
   { href: "/import", label: "Import", icon: Upload },

@@ -22,6 +22,23 @@ export class CategoriesController {
     return this.categoryRules.createCategory(user.id, body.name, body.color);
   }
 
+  @Put(':id')
+  updateCategory(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() body: { name?: string; color?: string },
+  ) {
+    return this.categoryRules.updateCategory(user.id, id, body.name, body.color);
+  }
+
+  @Delete(':id')
+  deleteCategory(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+  ) {
+    return this.categoryRules.deleteCategory(user.id, id);
+  }
+
   @Get('rules')
   listRules(@CurrentUser() user: { id: string }) {
     return this.categoryRules.list(user.id);
