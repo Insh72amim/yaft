@@ -61,7 +61,12 @@ function normalize(rows: RawRow[]): ParsedRow[] {
   return parsed;
 }
 
-export type ParsedStatement = { rows: ParsedRow[]; parserId?: 'PNB' | 'AXIS' | 'SBI' | 'EPFO'; closingBalanceMinor?: number };
+export type ParsedStatement = {
+  rows: ParsedRow[];
+  parserId?: 'PNB' | 'AXIS' | 'SBI' | 'EPFO';
+  closingBalanceMinor?: number;
+  extractedAccountDigits?: string;
+};
 
 export async function parseStatementWithMetadata(file: Express.Multer.File, _options: ParseStatementOptions = {}): Promise<ParsedStatement> {
   if (file.originalname.toLowerCase().endsWith('.pdf')) return parseBankPdf(file.buffer, _options);

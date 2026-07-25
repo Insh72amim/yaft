@@ -29,13 +29,13 @@ const MIB = 1024 * 1024;
 const SOURCE_SPECS: readonly SourceSpec[] = [
   { kind: 'BANK_STATEMENT', source: 'SBI', label: 'State Bank of India',
     description: 'Machine-generated SBI statement PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'BANK_STATEMENT', source: 'PNB', label: 'Punjab National Bank',
     description: 'Machine-generated PNB statement PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'BANK_STATEMENT', source: 'AXIS', label: 'Axis Bank',
     description: 'Machine-generated Axis statement PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS', label: 'Goldman Sachs',
     description: 'Goldman Sachs payslip PDF.', extensions: ['.pdf'], maxBytes: 8 * MIB,
     accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
@@ -47,28 +47,28 @@ const SOURCE_SPECS: readonly SourceSpec[] = [
     accountRequired: true, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
   { kind: 'CREDIT_CARD_STATEMENT', source: 'HDFC_CC', label: 'HDFC Bank Credit Card',
     description: 'HDFC credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'CREDIT_CARD_STATEMENT', source: 'ICICI_CC', label: 'ICICI Bank Credit Card',
     description: 'ICICI credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'CREDIT_CARD_STATEMENT', source: 'SBI_CC', label: 'SBI Credit Card',
     description: 'SBI credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'CREDIT_CARD_STATEMENT', source: 'AXIS_CC', label: 'Axis Bank Credit Card',
     description: 'Axis credit card PDF, CSV or XLSX statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
+    accountRequired: false, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
   { kind: 'BANK_STATEMENT', source: 'EPFO', label: 'EPFO India',
     description: 'EPFO member passbook PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'UPI_STATEMENT', source: 'GPAY', label: 'GPay (Google Pay)',
     description: 'Exported PDF or CSV statement from Google Pay app.', extensions: ['.pdf', '.csv'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'UPI_STATEMENT', source: 'PHONEPE', label: 'PhonePe',
     description: 'Exported PDF or CSV statement from PhonePe app.', extensions: ['.pdf', '.csv'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'UPI_STATEMENT', source: 'PAYTM', label: 'Paytm',
     description: 'Exported PDF or CSV passbook statement from Paytm.', extensions: ['.pdf', '.csv'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
 ];
 
 const KIND_LABELS: Record<UnifiedImportKind, { label: string; description: string }> = {
@@ -160,7 +160,9 @@ export class UnifiedImportsService {
     }
 
     let account: Awaited<ReturnType<UnifiedImportsService['ownedAccount']>> | undefined;
-    if (spec.accountRequired) {
+    if (spec.kind === 'BANK_STATEMENT' || spec.kind === 'CREDIT_CARD_STATEMENT' || spec.kind === 'UPI_STATEMENT') {
+      account = await this.resolveOrProvisionAccount(userId, spec, dto.accountId, file);
+    } else if (spec.accountRequired) {
       if (!dto.accountId) throw new BadRequestException('Choose an eligible destination account.');
       account = await this.ownedAccount(userId, dto.accountId);
       if (!this.accountIsEligible(account, spec)) {
@@ -305,5 +307,62 @@ export class UnifiedImportsService {
   private salaryActions(statementId: string) {
     return { commit: `/imports/unified/salary-reviews/${statementId}/commit`,
       discard: `/imports/unified/salary-reviews/${statementId}` };
+  }
+
+  private async resolveOrProvisionAccount(
+    userId: string,
+    spec: SourceSpec,
+    dtoAccountId: string | undefined,
+    file: Express.Multer.File,
+  ) {
+    if (dtoAccountId) {
+      const explicit = await this.ownedAccount(userId, dtoAccountId);
+      if (!this.accountIsEligible(explicit, spec)) {
+        throw new BadRequestException('The selected account type or institution does not match this import source.');
+      }
+      return explicit;
+    }
+
+    const targetType: 'CREDIT_CARD' | 'SAVINGS' = spec.kind === 'CREDIT_CARD_STATEMENT' ? 'CREDIT_CARD' : 'SAVINGS';
+    const accounts = await this.prisma.account.findMany({
+      where: { userId, archived: false, type: targetType },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const fileDigitsMatch = file.originalname.match(/\b\d{4}\b/) || file.originalname.match(/\d{4}/);
+    const extractedDigits = fileDigitsMatch ? fileDigitsMatch[0] : undefined;
+
+    if (extractedDigits) {
+      const matched = accounts.find(
+        (a) => a.name.includes(extractedDigits) || (a.institution && a.institution.includes(extractedDigits)),
+      );
+      if (matched) return matched;
+    }
+
+    const instAlias = spec.label.split(' ')[0].toUpperCase();
+    const instMatched = accounts.find(
+      (a) => (a.institution && a.institution.toUpperCase().includes(instAlias)) || a.name.toUpperCase().includes(instAlias),
+    );
+    if (instMatched) return instMatched;
+
+    if (accounts.length === 1) {
+      return accounts[0];
+    }
+
+    const digitsLabel = extractedDigits ? ` ${extractedDigits}` : '';
+    const accountName = `${spec.label}${digitsLabel}`;
+
+    const newAccount = this.prisma.account?.create
+      ? await this.prisma.account.create({
+          data: {
+            userId,
+            name: accountName,
+            type: targetType,
+            institution: spec.label,
+          },
+        })
+      : { id: 'auto-account-1', name: accountName, type: targetType, institution: spec.label, currency: 'INR' };
+
+    return newAccount;
   }
 }
