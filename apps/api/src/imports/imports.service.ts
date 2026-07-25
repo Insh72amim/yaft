@@ -34,8 +34,8 @@ export class ImportsService {
       candidates.push(explicitPassword);
     }
 
-    const { targetedCandidates, namePrefixes } = await this.getAxisPasswordCandidates(userId, targetAccountId, file.originalname);
-    for (const cand of targetedCandidates) {
+    const autoCandidates = await this.getAxisPasswordCandidates(userId, targetAccountId, file.originalname);
+    for (const cand of autoCandidates) {
       if (!candidates.includes(cand)) {
         candidates.push(cand);
       }
@@ -62,37 +62,14 @@ export class ImportsService {
       }
     }
 
-    if (namePrefixes.length > 0) {
-      const topPrefixes = namePrefixes.slice(0, 4);
-      for (let i = 0; i <= 9999; i++) {
-        const code = String(i).padStart(4, '0');
-        for (const prefix of topPrefixes) {
-          const cand = `${prefix}${code}`;
-          if (candidates.includes(cand)) continue;
-          try {
-            return await parseStatementWithMetadata(file, {
-              institution,
-              pdfPassword: cand,
-            });
-          } catch (err) {
-            const msg = String((err as any)?.message || '').toLowerCase();
-            if (msg.includes('password') || msg.includes('protected') || msg.includes('incorrect')) {
-              continue;
-            }
-            throw err;
-          }
-        }
-      }
-    }
-
-    throw lastError || new BadRequestException('This PDF is password-protected. Enter its document-opening password and try again.');
+    throw lastError || new BadRequestException('This PDF is password-protected. Enter its document-opening password (e.g. FIRST4LETTERS + LAST4CARDDIGITS) in the password field and try again.');
   }
 
   private async getAxisPasswordCandidates(
     userId: string,
     targetAccountId: string,
     filename: string,
-  ): Promise<{ targetedCandidates: string[]; namePrefixes: string[] }> {
+  ): Promise<string[]> {
     const user = this.prisma.user ? await this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }) : null;
 
     const prefixes = new Set<string>();
@@ -151,7 +128,7 @@ export class ImportsService {
       }
     }
 
-    return { targetedCandidates: Array.from(targetedCandidates), namePrefixes };
+    return Array.from(targetedCandidates);
   }
 
   async create(userId: string, accountId: string, file: Express.Multer.File, dto: UploadStatementDto = {},
