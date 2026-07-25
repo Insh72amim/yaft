@@ -196,7 +196,7 @@ function ImportWorkspace() {
       }
       setFiles([]); setFileKey((value) => value + 1); setPdfPassword(''); setRememberPassword(false);
       if (isBulk) {
-        setNotice(`All ${filesToUpload.length} payslips reconciled successfully and are ready for your approval below.`);
+        setNotice(`All ${filesToUpload.length} files reconciled successfully and are ready for your approval below.`);
         try { await refreshPending(); }
         catch (reason) {
           if (isUnauthorized(reason)) router.replace('/login');
@@ -293,15 +293,15 @@ function ImportWorkspace() {
           {eligibleAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}{account.institution ? ` · ${account.institution}` : ''}</option>)}
         </select>
         <small>{accountId ? 'Selected destination account.' : 'YAFT will automatically match or create the destination account.'}</small></label></div>
-      <label className={`dropzone unified-dropzone ${files.length ? 'has-file' : ''}`}><input key={fileKey} type="file" accept={accept} multiple={kind === 'SALARY_PAYSLIP'} required onChange={(event) => { setFiles(Array.from(event.target.files || [])); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}/>
+      <label className={`dropzone unified-dropzone ${files.length ? 'has-file' : ''}`}><input key={fileKey} type="file" accept={accept} multiple={kind !== 'BROKER_HOLDINGS'} required onChange={(event) => { setFiles(Array.from(event.target.files || [])); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}/>
         {files.length ? (
           files.length === 1 ? (
             <><FileSpreadsheet size={38}/><strong>{files[0].name}</strong><span>{(files[0].size / 1024).toFixed(0)} KB · ready for {sourceOption.label} validation</span></>
           ) : (
-            <><FileSpreadsheet size={38}/><strong>{files.length} payslips selected</strong><span>{files.map((f) => f.name).join(', ')}</span></>
+            <><FileSpreadsheet size={38}/><strong>{files.length} {fileLabel}s selected</strong><span>{files.map((f) => f.name).join(', ')}</span></>
           )
         ) : (
-          <><UploadCloud size={42}/><strong>Choose the {fileLabel}{kind === 'SALARY_PAYSLIP' ? 's' : ''}</strong><span>{sourceOption.extensions.map((item) => item.slice(1).toUpperCase()).join(', ')} · up to {sourceOption.maxBytes / 1024 / 1024} MB</span></>
+          <><UploadCloud size={42}/><strong>Choose the {fileLabel}{kind !== 'BROKER_HOLDINGS' ? 's' : ''}</strong><span>{sourceOption.extensions.map((item) => item.slice(1).toUpperCase()).join(', ')} · up to {sourceOption.maxBytes / 1024 / 1024} MB</span></>
         )}</label>
       {kind === 'SALARY_PAYSLIP' && (
         <section className="password-panel" style={{ marginTop: '14px', marginBottom: '14px' }}>
