@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { PrismaService } from '../common/prisma.service';
 import { ImportsService } from '../imports/imports.service';
 import { UpdateStagedDto } from '../imports/imports.dto';
-import { bankInstitutionMatchesSource, bankSourceForInstitution } from '../imports/pdf-statement-registry';
+import { bankInstitutionMatchesSource, bankSourceForInstitution, loadPdfStatementDocument } from '../imports/pdf-statement-registry';
 import { InvestmentsService } from '../investments/investments.service';
 import { SalaryService } from '../salary/salary.service';
 import { UnifiedImportUploadDto } from './unified-imports.dto';
@@ -161,7 +161,7 @@ export class UnifiedImportsService {
 
     let account: Awaited<ReturnType<UnifiedImportsService['ownedAccount']>> | undefined;
     if (spec.kind === 'BANK_STATEMENT' || spec.kind === 'CREDIT_CARD_STATEMENT' || spec.kind === 'UPI_STATEMENT') {
-      account = await this.resolveOrProvisionAccount(userId, spec, dto.accountId, file);
+      account = await this.resolveOrProvisionAccount(userId, spec, dto.accountId, file, dto.pdfPassword);
     } else if (spec.accountRequired) {
       if (!dto.accountId) throw new BadRequestException('Choose an eligible destination account.');
       account = await this.ownedAccount(userId, dto.accountId);
@@ -314,6 +314,7 @@ export class UnifiedImportsService {
     spec: SourceSpec,
     dtoAccountId: string | undefined,
     file: Express.Multer.File,
+    pdfPassword?: string,
   ) {
     if (dtoAccountId) {
       const explicit = await this.ownedAccount(userId, dtoAccountId);
@@ -330,16 +331,35 @@ export class UnifiedImportsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const fileDigitsMatch = file.originalname.match(/\b\d{4}\b/) || file.originalname.match(/\d{4}/);
-    const rawDigits = fileDigitsMatch ? fileDigitsMatch[0] : undefined;
-    const isYear = rawDigits && Number(rawDigits) >= 2020 && Number(rawDigits) <= 2035;
-    const extractedDigits = rawDigits && !isYear ? rawDigits : undefined;
+    let extractedDigits: string | undefined;
+
+    if (file.originalname.toLowerCase().endsWith('.pdf')) {
+      try {
+        const doc = await loadPdfStatementDocument(file.buffer, pdfPassword);
+        const fullText = doc.textPages.map((p) => p.text).join('\n');
+        const last4Match = fullText.match(/Credit Card Number:[^\n\r]*?(\d{4})\b/i)
+          || fullText.match(/Card Number:[^\n\r]*?(\d{4})\b/i)
+          || fullText.match(/\b\d{4}X+(\d{4})\b/i);
+        if (last4Match) {
+          extractedDigits = last4Match[1];
+        }
+      } catch {
+        // password fallback handled downstream
+      }
+    }
+
+    if (!extractedDigits) {
+      const fileDigitsMatch = file.originalname.match(/\b\d{4}\b/) || file.originalname.match(/\d{4}/);
+      const rawDigits = fileDigitsMatch ? fileDigitsMatch[0] : undefined;
+      const isYear = rawDigits && Number(rawDigits) >= 2020 && Number(rawDigits) <= 2035;
+      extractedDigits = rawDigits && !isYear ? rawDigits : undefined;
+    }
 
     if (extractedDigits) {
       const matched = accounts.find(
         (a) =>
-          a.name.includes(extractedDigits) ||
-          (a.institution && a.institution.includes(extractedDigits)) ||
+          a.name.includes(extractedDigits!) ||
+          (a.institution && a.institution.includes(extractedDigits!)) ||
           a.vaultEntry?.last4 === extractedDigits,
       );
       if (matched) return matched;
