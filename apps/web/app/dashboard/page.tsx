@@ -946,7 +946,7 @@ function GlobalTransactionExplorer() {
                 <div className="transaction-category-cell">
                   {item.isTransfer ? (
                     <span className="category-pill transfer">Transfer</span>
-                  ) : showCategoryEdit ? (
+                  ) : (
                     <select
                       className="category-pill-select"
                       value={item.categoryId ?? ''}
@@ -974,10 +974,6 @@ function GlobalTransactionExplorer() {
                         </option>
                       ))}
                     </select>
-                  ) : (
-                    <span className={`category-pill ${!item.categoryId ? 'uncategorised' : ''}`}>
-                      {item.category || 'Uncategorised'}
-                    </span>
                   )}
                 </div>
                 <b className={`transaction-amount-cell ${item.amount > 0 ? 'positive' : 'negative'}`}>
