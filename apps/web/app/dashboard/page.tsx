@@ -21,6 +21,7 @@ import {
   Filter,
   Sparkles,
   Target,
+  Tag,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, useMemo } from 'react';
@@ -483,6 +484,7 @@ function GlobalTransactionExplorer() {
   const [endDate, setEndDate] = useState('');
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [showCategoryEdit, setShowCategoryEdit] = useState(false);
 
   // Spend Rules & Batch Categorization states
   const [showRulesModal, setShowRulesModal] = useState(false);
@@ -639,6 +641,18 @@ function GlobalTransactionExplorer() {
               {(data.pagination.page - 1) * data.pagination.pageSize + 1}–{Math.min(data.pagination.page * data.pagination.pageSize, data.pagination.total)} of {data.pagination.total}
             </span>
           )}
+          <button
+            type="button"
+            className={`secondary compact ${showCategoryEdit ? 'active' : ''}`}
+            onClick={() => {
+              setShowCategoryEdit(!showCategoryEdit);
+              if (showCategoryEdit) setSelectedTxIds([]);
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Tag size={14} color="var(--green)" />
+            {showCategoryEdit ? 'Done Categorising' : 'Categorise'}
+          </button>
           <button
             type="button"
             className="secondary compact"
@@ -892,31 +906,35 @@ function GlobalTransactionExplorer() {
         </div>
       ) : data?.transactions.length ? (
         <>
-          <div className="account-transaction-table" style={{ gridTemplateColumns: '36px 140px minmax(0, 1fr) 160px 120px' }}>
+          <div className={`account-transaction-table ${showCategoryEdit ? 'has-checkboxes' : ''}`}>
             <header>
-              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(data?.transactions.length && selectedTxIds.length === data.transactions.length)}
-                  onChange={toggleSelectAll}
-                  style={{ cursor: 'pointer', width: '15px', height: '15px' }}
-                />
-              </span>
+              {showCategoryEdit && (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(data?.transactions.length && selectedTxIds.length === data.transactions.length)}
+                    onChange={toggleSelectAll}
+                    style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                  />
+                </span>
+              )}
               <span>Date</span>
               <span>Description</span>
               <span>Category</span>
-              <span>Amount</span>
+              <span style={{ textAlign: 'right' }}>Amount</span>
             </header>
             {data.transactions.map((item) => (
               <article key={item.id} className="transaction-row">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedTxIds.includes(item.id)}
-                    onChange={() => toggleSelectTx(item.id)}
-                    style={{ cursor: 'pointer', width: '15px', height: '15px' }}
-                  />
-                </div>
+                {showCategoryEdit && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedTxIds.includes(item.id)}
+                      onChange={() => toggleSelectTx(item.id)}
+                      style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                    />
+                  </div>
+                )}
                 <time className="transaction-time-cell">
                   <span className="date-text">{new Date(item.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
                   <span className="time-text">{new Date(item.transactionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })}</span>
@@ -928,7 +946,7 @@ function GlobalTransactionExplorer() {
                 <div className="transaction-category-cell">
                   {item.isTransfer ? (
                     <span className="category-pill transfer">Transfer</span>
-                  ) : (
+                  ) : showCategoryEdit ? (
                     <select
                       className="category-pill-select"
                       value={item.categoryId ?? ''}
@@ -956,6 +974,10 @@ function GlobalTransactionExplorer() {
                         </option>
                       ))}
                     </select>
+                  ) : (
+                    <span className={`category-pill ${!item.categoryId ? 'uncategorised' : ''}`}>
+                      {item.category || 'Uncategorised'}
+                    </span>
                   )}
                 </div>
                 <b className={`transaction-amount-cell ${item.amount > 0 ? 'positive' : 'negative'}`}>

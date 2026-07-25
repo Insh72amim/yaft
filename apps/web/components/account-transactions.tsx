@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files, Pencil, Trash, TrendingUp, Search, Filter, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files, Pencil, Trash, TrendingUp, Search, Filter, RotateCcw, SlidersHorizontal, X, Tag } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -62,6 +62,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showCategoryEdit, setShowCategoryEdit] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
 
   const load = useCallback(() => {
@@ -352,6 +353,15 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                     )}
                     <button
                       type="button"
+                      className={`secondary compact ${showCategoryEdit ? 'active' : ''}`}
+                      onClick={() => setShowCategoryEdit(!showCategoryEdit)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Tag size={14} color="var(--green)" />
+                      {showCategoryEdit ? 'Done Categorising' : 'Categorise'}
+                    </button>
+                    <button
+                      type="button"
                       className="secondary compact"
                       onClick={() => setShowRulesModal(true)}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
@@ -542,7 +552,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
             <span>Date</span>
             <span>Description</span>
             <span>Category</span>
-            <span>Amount</span>
+            <span style={{ textAlign: 'right' }}>Amount</span>
             {account.type === 'EPFO' && <span style={{ textAlign: 'center' }}>Action</span>}
           </header>
           {transactions.map((transaction) => (
@@ -558,7 +568,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
               <div className="transaction-category-cell">
                 {transaction.isTransfer ? (
                   <span className="category-pill transfer">Transfer</span>
-                ) : (
+                ) : showCategoryEdit ? (
                   <select
                     className="category-pill-select"
                     value={transaction.categoryId ?? ''}
@@ -586,6 +596,10 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                       </option>
                     ))}
                   </select>
+                ) : (
+                  <span className={`category-pill ${!transaction.categoryId ? 'uncategorised' : ''}`}>
+                    {transaction.category || 'Uncategorised'}
+                  </span>
                 )}
               </div>
               <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
