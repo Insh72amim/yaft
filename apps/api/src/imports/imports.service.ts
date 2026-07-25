@@ -17,6 +17,102 @@ const categoryRules: Array<[RegExp, string]> = [
 export class ImportsService {
   constructor(private readonly prisma: PrismaService, private readonly credentials: StatementCredentialsService) {}
 
+  private async parseWithPasswordFallback(
+    file: Express.Multer.File,
+    institution: string | undefined,
+    explicitPassword: string | undefined,
+    userId: string,
+    targetAccountId: string,
+  ) {
+    const isPdf = file.originalname.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+      return parseStatementWithMetadata(file, { institution });
+    }
+
+    const candidates: (string | undefined)[] = [];
+    if (explicitPassword) {
+      candidates.push(explicitPassword);
+    }
+
+    const autoCandidates = await this.getAxisPasswordCandidates(userId, targetAccountId);
+    for (const cand of autoCandidates) {
+      if (!candidates.includes(cand)) {
+        candidates.push(cand);
+      }
+    }
+
+    if (candidates.length === 0) {
+      candidates.push(undefined);
+    }
+
+    let lastError: any = null;
+    for (const pwd of candidates) {
+      try {
+        return await parseStatementWithMetadata(file, {
+          institution,
+          pdfPassword: pwd,
+        });
+      } catch (err) {
+        lastError = err;
+        const msg = String((err as any)?.message || '').toLowerCase();
+        if (msg.includes('password') || msg.includes('protected') || msg.includes('incorrect')) {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw lastError || new BadRequestException('This PDF is password-protected. Enter its document-opening password and try again.');
+  }
+
+  private async getAxisPasswordCandidates(userId: string, targetAccountId: string): Promise<string[]> {
+    const user = this.prisma.user ? await this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }) : null;
+    if (!user?.name) return [];
+
+    const lettersOnly = user.name.replace(/[^a-zA-Z]/g, '');
+    if (lettersOnly.length < 4) return [];
+
+    const prefix = lettersOnly.slice(0, 4);
+    const prefixes = [
+      prefix.toUpperCase(),
+      prefix.toLowerCase(),
+      prefix.charAt(0).toUpperCase() + prefix.slice(1).toLowerCase(),
+    ];
+
+    const firstNameLetters = (user.name.split(' ')[0] || '').replace(/[^a-zA-Z]/g, '');
+    if (firstNameLetters.length >= 4) {
+      const fnPrefix = firstNameLetters.slice(0, 4);
+      prefixes.push(fnPrefix.toUpperCase());
+      prefixes.push(fnPrefix.toLowerCase());
+    }
+
+    const accounts = this.prisma.account
+      ? await this.prisma.account.findMany({
+          where: { userId, archived: false },
+          select: { id: true, name: true, type: true, institution: true },
+        })
+      : [];
+
+    const fourDigitCodes = new Set<string>();
+    for (const acc of accounts) {
+      const matches = acc.name.match(/\b\d{4}\b/g) || acc.name.match(/\d{4}/g);
+      if (matches) {
+        for (const m of matches) fourDigitCodes.add(m);
+      }
+    }
+
+    const candidates = new Set<string>();
+    const uniquePrefixes = Array.from(new Set(prefixes));
+
+    for (const p of uniquePrefixes) {
+      for (const code of fourDigitCodes) {
+        candidates.add(`${p}${code}`);
+      }
+    }
+
+    return Array.from(candidates);
+  }
+
   async create(userId: string, accountId: string, file: Express.Multer.File, dto: UploadStatementDto = {},
     expectedParserId?: BankPdfParser['id']) {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId, archived: false,
@@ -28,7 +124,7 @@ export class ImportsService {
     const isPdf = file.originalname.toLowerCase().endsWith('.pdf');
     const explicitPassword = isPdf && dto.pdfPassword?.length ? dto.pdfPassword : undefined;
     const savedPassword = isPdf && !explicitPassword ? await this.credentials.getPassword(userId, accountId) : undefined;
-    const parsed = await parseStatementWithMetadata(file, { institution: account.institution ?? undefined, pdfPassword: explicitPassword ?? savedPassword });
+    const parsed = await this.parseWithPasswordFallback(file, account.institution ?? undefined, explicitPassword ?? savedPassword, userId, accountId);
     if (isPdf && expectedParserId && parsed.parserId !== expectedParserId) {
       throw new BadRequestException(`The uploaded PDF does not match the selected ${expectedParserId} statement source.`);
     }
@@ -60,7 +156,7 @@ export class ImportsService {
     if (existing) throw new BadRequestException('This exact statement was already uploaded.');
     const isPdf = file.originalname.toLowerCase().endsWith('.pdf');
     const explicitPassword = isPdf && dto.pdfPassword?.length ? dto.pdfPassword : undefined;
-    const parsed = await parseStatementWithMetadata(file, { institution: account.institution ?? undefined, pdfPassword: explicitPassword });
+    const parsed = await this.parseWithPasswordFallback(file, account.institution ?? undefined, explicitPassword, userId, accountId);
     const categories = await this.prisma.category.findMany({ where: { userId } });
     const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
     const staged = parsed.rows.map((row) => this.enrich(accountId, row, categories, existingFingerprints));
