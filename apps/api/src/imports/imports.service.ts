@@ -178,10 +178,27 @@ export class ImportsService {
     const isPdf = file.originalname.toLowerCase().endsWith('.pdf');
     const explicitPassword = isPdf && dto.pdfPassword?.length ? dto.pdfPassword : undefined;
     const parsed = await this.parseWithPasswordFallback(file, account.institution ?? undefined, explicitPassword, userId, accountId);
+    let targetAccountId = account.id;
+    if (parsed.extractedAccountDigits && /^\d{4}$/.test(parsed.extractedAccountDigits)) {
+      const matchingAccount = await this.prisma.account.findFirst({
+        where: {
+          userId,
+          archived: false,
+          type: 'CREDIT_CARD',
+          OR: [
+            { vaultEntry: { last4: parsed.extractedAccountDigits } },
+            { name: { contains: parsed.extractedAccountDigits } },
+          ],
+        },
+      });
+      if (matchingAccount) {
+        targetAccountId = matchingAccount.id;
+      }
+    }
     const categories = await this.prisma.category.findMany({ where: { userId } });
-    const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
-    const staged = parsed.rows.map((row) => this.enrich(accountId, row, categories, existingFingerprints));
-    const batch = await this.prisma.importBatch.create({ data: { userId, accountId, filename: file.originalname.slice(0, 200),
+    const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId: targetAccountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
+    const staged = parsed.rows.map((row) => this.enrich(targetAccountId, row, categories, existingFingerprints));
+    const batch = await this.prisma.importBatch.create({ data: { userId, accountId: targetAccountId, filename: file.originalname.slice(0, 200),
       fileHash: hash, rowCount: staged.length, statementBalance: parsed.closingBalanceMinor, staged: { create: staged } } });
     return this.get(userId, batch.id);
   }
