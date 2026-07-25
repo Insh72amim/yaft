@@ -476,6 +476,7 @@ function Empty({ text }: { text: string }) {
 function GlobalTransactionExplorer() {
   const [accounts, setAccounts] = useState<{ id: string; name: string }[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState('all');
+  const [selectedCategoryFilterId, setSelectedCategoryFilterId] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
@@ -525,6 +526,7 @@ function GlobalTransactionExplorer() {
     params.set('page', String(page));
     params.set('pageSize', '20');
     if (selectedAccountId !== 'all') params.set('accountId', selectedAccountId);
+    if (selectedCategoryFilterId !== 'all') params.set('categoryId', selectedCategoryFilterId);
     if (searchQuery.trim()) params.set('search', searchQuery.trim());
     if (minAmount.trim()) params.set('minAmount', minAmount.trim());
     if (maxAmount.trim()) params.set('maxAmount', maxAmount.trim());
@@ -548,7 +550,7 @@ function GlobalTransactionExplorer() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [page, selectedAccountId, searchQuery, minAmount, maxAmount, typeFilter, startDate, endDate]);
+  }, [page, selectedAccountId, selectedCategoryFilterId, searchQuery, minAmount, maxAmount, typeFilter, startDate, endDate]);
 
   const handleUpdateCategory = async (accountId: string, transactionId: string, categoryId: string) => {
     try {
@@ -621,6 +623,7 @@ function GlobalTransactionExplorer() {
   }, [fetchTransactions]);
 
   const activeFilterCount = (selectedAccountId !== 'all' ? 1 : 0) +
+    (selectedCategoryFilterId !== 'all' ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0) +
     (startDate ? 1 : 0) +
     (endDate ? 1 : 0) +
@@ -682,10 +685,10 @@ function GlobalTransactionExplorer() {
       {/* Redesigned Toggleable Search & Filter Control Center */}
       {(showFilters || activeFilterCount > 0) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '0 0 20px 0', padding: '16px', background: 'var(--background-alt)', borderRadius: '14px', border: '1px solid var(--line)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-          {/* Top Row: Account Select & Search & Type Toggle & Reset */}
+          {/* Top Row: Account Select & Category Select & Search & Type Toggle & Reset */}
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
             {/* Account Dropdown */}
-            <div style={{ flex: '1 1 180px', minWidth: '160px' }}>
+            <div style={{ flex: '1 1 160px', minWidth: '150px' }}>
               <select
                 value={selectedAccountId}
                 onChange={(e) => {
@@ -713,8 +716,39 @@ function GlobalTransactionExplorer() {
               </select>
             </div>
 
+            {/* Category Filter Dropdown */}
+            <div style={{ flex: '1 1 160px', minWidth: '150px' }}>
+              <select
+                value={selectedCategoryFilterId}
+                onChange={(e) => {
+                  setSelectedCategoryFilterId(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  fontSize: '13px',
+                  padding: '0 10px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--background)',
+                  color: 'var(--ink)',
+                  fontWeight: 600,
+                }}
+              >
+                <option value="all">All Categories</option>
+                <option value="uncategorised">Uncategorised</option>
+                <option value="transfers">Internal Transfers</option>
+                {(data?.categories || []).map((cat: any) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Search Bar */}
-            <div style={{ position: 'relative', flex: '1 1 240px', minWidth: '200px' }}>
+            <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '180px' }}>
               <Search size={16} color="var(--muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
               <input
                 type="text"
@@ -794,6 +828,7 @@ function GlobalTransactionExplorer() {
                 className="ghost compact"
                 onClick={() => {
                   setSelectedAccountId('all');
+                  setSelectedCategoryFilterId('all');
                   setSearchQuery('');
                   setMinAmount('');
                   setMaxAmount('');
@@ -1556,39 +1591,6 @@ function MonthlyFlow({
         </span>
         <MultiBankSankeyDiagram accountFlow={accountFlow} income={income} expenses={expenses} savings={savings} />
       </div>
-
-      {/* Internal Transfers Diagram List if present */}
-      {internalTransfers.length > 0 && (
-        <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', borderRadius: '12px', padding: '14px 18px' }}>
-          <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)' }}>
-            Internal Account-to-Account Transfer Movements
-          </span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '10px' }}>
-            {internalTransfers.map((it, idx) => (
-              <div
-                key={idx}
-                style={{
-                  background: 'var(--background)',
-                  border: '1px solid var(--line)',
-                  padding: '8px 14px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <strong>{it.fromAccountName}</strong>
-                <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>⟶</span>
-                <strong>{it.toAccountName}</strong>
-                <span style={{ color: 'var(--muted)', fontSize: '11px', fontWeight: 600 }}>
-                  ({money(it.amount)})
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Per Savings Account Flow Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(280px, 1fr))`, gap: '16px' }}>
