@@ -14,6 +14,14 @@ export class CategoriesController {
     return this.categoryRules.listCategories(user.id);
   }
 
+  @Post()
+  createCategory(
+    @CurrentUser() user: { id: string },
+    @Body() body: { name: string; color?: string },
+  ) {
+    return this.categoryRules.createCategory(user.id, body.name, body.color);
+  }
+
   @Get('rules')
   listRules(@CurrentUser() user: { id: string }) {
     return this.categoryRules.list(user.id);

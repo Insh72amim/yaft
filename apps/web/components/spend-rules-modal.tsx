@@ -42,6 +42,33 @@ export function SpendRulesModal({
   const [applying, setApplying] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // New Category states
+  const [showNewCatInput, setShowNewCatInput] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#3b82f6');
+  const [creatingCat, setCreatingCat] = useState(false);
+
+  const handleCreateCategory = async () => {
+    if (!newCatName.trim()) return;
+    setCreatingCat(true);
+    setError('');
+    try {
+      const created = await api<{ id: string; name: string; color: string }>('/categories', {
+        method: 'POST',
+        body: JSON.stringify({ name: newCatName.trim(), color: newCatColor }),
+      });
+      setCategories((prev) => [...prev.filter((c) => c.id !== created.id), created]);
+      setSelectedCategoryId(created.id);
+      setNewCatName('');
+      setShowNewCatInput(false);
+      setSuccessMsg(`Created category "${created.name}"!`);
+    } catch (reason) {
+      setError(errorMessage(reason, 'Could not create category.'));
+    } finally {
+      setCreatingCat(false);
+    }
+  };
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -230,20 +257,57 @@ export function SpendRulesModal({
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
-                  Assign Category
-                </label>
-                <select
-                  value={selectedCategoryId}
-                  onChange={(e) => setSelectedCategoryId(e.target.value)}
-                  style={{ width: '100%', height: '36px', fontSize: '13px', padding: '0 10px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)', fontWeight: 600 }}
-                >
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                    Assign Category
+                  </label>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    onClick={() => setShowNewCatInput(!showNewCatInput)}
+                    style={{ fontSize: '11px', color: 'var(--green)', padding: '2px 6px', fontWeight: 600 }}
+                  >
+                    {showNewCatInput ? 'Cancel' : '+ Custom Category'}
+                  </button>
+                </div>
+                {showNewCatInput ? (
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      type="text"
+                      placeholder="Category name (e.g. Subscriptions)..."
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      style={{ flex: 1, height: '36px', fontSize: '12px', padding: '0 8px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--background)' }}
+                    />
+                    <input
+                      type="color"
+                      value={newCatColor}
+                      onChange={(e) => setNewCatColor(e.target.value)}
+                      style={{ width: '36px', height: '36px', padding: '2px', borderRadius: '8px', border: '1px solid var(--line)', cursor: 'pointer', background: 'var(--background)' }}
+                    />
+                    <button
+                      type="button"
+                      className="primary compact"
+                      disabled={creatingCat || !newCatName.trim()}
+                      onClick={handleCreateCategory}
+                      style={{ height: '36px', padding: '0 12px', fontSize: '12px' }}
+                    >
+                      {creatingCat ? <Loader2 className="spin" size={13} /> : 'Save'}
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedCategoryId}
+                    onChange={(e) => setSelectedCategoryId(e.target.value)}
+                    style={{ width: '100%', height: '36px', fontSize: '13px', padding: '0 10px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--background)', color: 'var(--ink)', fontWeight: 600 }}
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 
