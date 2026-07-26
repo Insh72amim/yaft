@@ -457,7 +457,7 @@ export default function DashboardPage() {
           <div className="panel-title">
             <div>
               <span className="eyebrow">Spending</span>
-              <h2>Where it went in {monthLabel}</h2>
+              <h2>Where it went</h2>
             </div>
             <span className="month-pill">
               <CalendarDays size={14} />
