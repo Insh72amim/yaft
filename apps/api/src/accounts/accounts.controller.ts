@@ -373,8 +373,9 @@ export class AccountsController {
     if (mode === 'CREDIT_CARD') {
       baseWhere.account = { ...baseWhere.account, type: AccountType.CREDIT_CARD };
     } else if (mode === 'BANK') {
-      baseWhere.account = { ...baseWhere.account, type: { in: [AccountType.BANK, AccountType.SAVINGS, AccountType.FIXED_DEPOSIT] } };
+      baseWhere.account = { ...baseWhere.account, type: { in: [AccountType.BANK, AccountType.SAVINGS] } };
     } else if (mode === 'UPI') {
+      baseWhere.account = { ...baseWhere.account, type: { in: [AccountType.BANK, AccountType.SAVINGS, AccountType.CREDIT_CARD] } };
       const upiConditions = [
         { merchant: { contains: 'UPI', mode: 'insensitive' } },
         { merchant: { contains: 'GPAY', mode: 'insensitive' } },
@@ -392,6 +393,9 @@ export class AccountsController {
       } else {
         baseWhere.OR = upiConditions;
       }
+    } else {
+      // Full History (ALL): Union of Credit Cards and Bank Accounts only
+      baseWhere.account = { ...baseWhere.account, type: { in: [AccountType.BANK, AccountType.SAVINGS, AccountType.CREDIT_CARD] } };
     }
 
     const [total, aggregate, transactions, userCategories, userAccounts] = await Promise.all([
@@ -413,7 +417,14 @@ export class AccountsController {
         take: pageSize,
       }),
       this.prisma.category.findMany({ where: { userId: user.id }, orderBy: { name: 'asc' } }),
-      this.prisma.account.findMany({ where: { userId: user.id, archived: false }, select: { id: true, name: true, type: true, institution: true, vaultEntry: { select: { last4: true } } } }),
+      this.prisma.account.findMany({
+        where: {
+          userId: user.id,
+          archived: false,
+          type: { in: [AccountType.BANK, AccountType.SAVINGS, AccountType.CREDIT_CARD] },
+        },
+        select: { id: true, name: true, type: true, institution: true, vaultEntry: { select: { last4: true } } },
+      }),
     ]);
 
     const debitsWhere = { ...baseWhere, amount: { lt: 0n } };

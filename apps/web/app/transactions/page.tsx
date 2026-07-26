@@ -294,8 +294,8 @@ export default function TransactionsPage() {
 
   const filteredAccounts = data?.accounts.filter((acc) => {
     if (mode === "CREDIT_CARD") return acc.type === "CREDIT_CARD";
-    if (mode === "BANK") return ["BANK", "SAVINGS", "FIXED_DEPOSIT"].includes(acc.type);
-    return true;
+    if (mode === "BANK") return ["BANK", "SAVINGS"].includes(acc.type);
+    return ["BANK", "SAVINGS", "CREDIT_CARD"].includes(acc.type);
   }) ?? [];
 
   return (
