@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   Files,
+  ArrowUpRight,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -707,17 +708,40 @@ function PortfolioContent() {
                             alignItems: "flex-end",
                             marginBottom: "12px",
                           }}>
-                          <h3
-                            style={{
-                              margin: 0,
-                              fontSize: "13px",
-                              fontWeight: 600,
-                              color: "var(--muted)",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.5px",
-                            }}>
-                            {sub.label}
-                          </h3>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <h3
+                              style={{
+                                margin: 0,
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                color: "var(--muted)",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.5px",
+                              }}>
+                              {sub.label}
+                            </h3>
+                            {sub.types.includes("CREDIT_CARD") && (
+                              <Link
+                                href="/credit-cards"
+                                style={{
+                                  fontSize: "11px",
+                                  fontWeight: 600,
+                                  color: "var(--accent)",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  padding: "2px 8px",
+                                  borderRadius: "4px",
+                                  background: "rgba(255, 255, 255, 0.05)",
+                                  textTransform: "none",
+                                  letterSpacing: "normal",
+                                }}
+                                title="View Credit Cards Analytics & Utilization Hub">
+                                <span>Analytics Hub</span>
+                                <ArrowUpRight size={12} />
+                              </Link>
+                            )}
+                          </div>
                           <span
                             style={{
                               fontSize: "13px",

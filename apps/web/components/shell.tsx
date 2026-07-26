@@ -2,7 +2,6 @@
 import {
   BadgeIndianRupee,
   BriefcaseBusiness,
-  CreditCard,
   Landmark,
   LayoutDashboard,
   Lock,
@@ -26,7 +25,6 @@ const links = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: Receipt },
   { href: "/accounts", label: "Accounts", icon: BriefcaseBusiness },
-  { href: "/credit-cards", label: "Credit Cards", icon: CreditCard },
   { href: "/assets", label: "Assets", icon: TrendingUp },
   { href: "/budgets", label: "Budgets", icon: Target },
   { href: "/salary", label: "Salary", icon: BadgeIndianRupee },
