@@ -389,8 +389,12 @@ export class DashboardController {
       };
     });
 
+    const savingsMonthTransactions = monthTransactions.filter((item) =>
+      ['SAVINGS', 'BANK'].includes(item.account.type),
+    );
+
     const categoryMap = new Map<string, { name: string; color: string; amount: number }>();
-    nonTransfers
+    savingsMonthTransactions
       .filter((item) => item.amount < 0)
       .forEach((item) => {
         const name = item.category?.name ?? 'Uncategorised';
@@ -400,15 +404,9 @@ export class DashboardController {
           color: item.category?.color ?? '#94a3b8',
           amount: (current?.amount ?? 0) + Math.abs(Number(item.amount)),
         });
-      });
-
     const topOutboundRecipients = [...recipientMap.values()]
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
-
-    const savingsMonthTransactions = monthTransactions.filter((item) =>
-      ['SAVINGS', 'BANK'].includes(item.account.type),
-    );
 
     return {
       month: labelMonth,
