@@ -716,7 +716,8 @@ html[data-theme='dark'] .portfolio-sidebar-item.active{box-shadow:inset 3px 0 0 
 .account-amount-toggle.visible .account-amount-toggle-track{background:var(--green)}
 .account-amount-toggle.visible .account-amount-toggle-track>span{transform:translateX(16px)}
 .account-masked-amount{display:inline-block;color:inherit;font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.11em;white-space:nowrap}
-.accounts-section-header { margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.accounts-section-header { margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px; transition: opacity 0.2s ease; }
+.accounts-section-header:hover { opacity: 0.85; }
 .accounts-section-header h2 { font-size: 16px; margin: 0; color: var(--muted); }
 .account-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 .account-card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 20px; text-align: left; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 20px; }
