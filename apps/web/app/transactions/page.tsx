@@ -1123,7 +1123,7 @@ export default function TransactionsPage() {
           </div>
         ) : (
           <>
-            <div className={`account-transaction-table ${showCategoryEdit ? "has-checkboxes" : ""}`}>
+            <div className={`account-transaction-table has-account ${showCategoryEdit ? "has-checkboxes" : ""}`}>
               <header>
                 {showCategoryEdit && (
                   <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1179,8 +1179,9 @@ export default function TransactionsPage() {
                       </span>
                     </time>
 
-                    <div className="transaction-account-cell" style={{ whiteSpace: "nowrap" }}>
+                    <div className="transaction-account-cell" style={{ overflow: "hidden", minWidth: 0 }}>
                       <span
+                        title={tx.accountName}
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -1191,15 +1192,21 @@ export default function TransactionsPage() {
                           fontWeight: 600,
                           background: "var(--card-hover)",
                           border: "1px solid var(--line)",
+                          maxWidth: "100%",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
                         }}>
                         {tx.accountType === "CREDIT_CARD" ? (
-                          <CreditCard size={13} color="var(--accent)" />
+                          <CreditCard size={13} color="var(--accent)" style={{ flexShrink: 0 }} />
                         ) : (
-                          <Landmark size={13} color="#0ea5e9" />
+                          <Landmark size={13} color="#0ea5e9" style={{ flexShrink: 0 }} />
                         )}
-                        <span>{tx.accountName}</span>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {tx.accountName}
+                        </span>
                         {tx.cardLast4 && (
-                          <span style={{ opacity: 0.7, fontFamily: "monospace" }}>
+                          <span style={{ opacity: 0.7, fontFamily: "monospace", flexShrink: 0 }}>
                             ••••{tx.cardLast4}
                           </span>
                         )}
