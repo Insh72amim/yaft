@@ -22,13 +22,29 @@ export class DashboardController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  async overview(@CurrentUser() user: { id: string }, @Query('month') month?: string) {
-    const match = month?.match(/^(\d{4})-(\d{2})$/);
+  async overview(
+    @CurrentUser() user: { id: string },
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('month') month?: string,
+  ) {
     const now = new Date();
-    const year = match ? Number(match[1]) : now.getUTCFullYear();
-    const monthIndex = match ? Number(match[2]) - 1 : now.getUTCMonth();
-    const start = new Date(Date.UTC(year, monthIndex, 1));
-    const end = new Date(Date.UTC(year, monthIndex + 1, 1));
+    let start: Date;
+    let end: Date;
+    let labelMonth = '';
+
+    if (startDate && endDate) {
+      start = new Date(`${startDate}T00:00:00.000Z`);
+      end = new Date(`${endDate}T23:59:59.999Z`);
+      labelMonth = `${startDate} to ${endDate}`;
+    } else {
+      const match = month?.match(/^(\d{4})-(\d{2})$/);
+      const year = match ? Number(match[1]) : now.getUTCFullYear();
+      const monthIndex = match ? Number(match[2]) - 1 : now.getUTCMonth();
+      start = new Date(Date.UTC(year, monthIndex, 1));
+      end = new Date(Date.UTC(year, monthIndex + 1, 1));
+      labelMonth = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+    }
 
     const accounts = await this.prisma.account.findMany({
       where: { userId: user.id, archived: false },
@@ -279,7 +295,7 @@ export class DashboardController {
     );
 
     return {
-      month: `${year}-${String(monthIndex + 1).padStart(2, '0')}`,
+      month: labelMonth,
       income,
       expenses: totalExpenses,
       savings: income - totalExpenses,

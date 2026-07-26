@@ -97,12 +97,38 @@ type Dashboard = {
   recent: { id: string; date: string; description: string; amount: number; category: string; account: string; isTransfer: boolean }[];
 };
 
+function getLastDayOfWeekInMonth(year: number, month: number, targetDayOfWeek: number): string {
+  const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0));
+  const day = lastDayOfMonth.getUTCDay();
+  const diff = (day - targetDayOfWeek + 7) % 7;
+  lastDayOfMonth.setUTCDate(lastDayOfMonth.getUTCDate() - diff);
+  return lastDayOfMonth.toISOString().slice(0, 10);
+}
+
+function getDefaultOverviewDateRange(referenceDate = new Date()): { startDate: string; endDate: string } {
+  const year = referenceDate.getUTCFullYear();
+  const month = referenceDate.getUTCMonth();
+
+  const prevYear = month === 0 ? year - 1 : year;
+  const prevMonth = month === 0 ? 11 : month - 1;
+
+  const startDate = getLastDayOfWeekInMonth(prevYear, prevMonth, 5); // 5 = Friday
+  const endDate = getLastDayOfWeekInMonth(year, month, 4); // 4 = Thursday
+
+  return { startDate, endDate };
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<Dashboard>();
   const [owner, setOwner] = useState<Owner>();
   const [error, setError] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
+
+  const [dateRange, setDateRange] = useState(() => getDefaultOverviewDateRange());
+  const [startDate, setStartDate] = useState(() => dateRange.startDate);
+  const [endDate, setEndDate] = useState(() => dateRange.endDate);
+  const [presetKey, setPresetKey] = useState('DEFAULT');
+
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showTransfersModal, setShowTransfersModal] = useState(false);
   const [showBudgetsModal, setShowBudgetsModal] = useState(false);
@@ -112,8 +138,12 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     setError('');
     try {
+      const query = new URLSearchParams({
+        startDate,
+        endDate,
+      });
       const [overview, profile] = await Promise.all([
-        api<Dashboard>(`/dashboard?month=${encodeURIComponent(selectedMonth)}`),
+        api<Dashboard>(`/dashboard?${query.toString()}`),
         api<Owner>('/auth/me'),
       ]);
       setData(overview);
@@ -122,11 +152,47 @@ export default function DashboardPage() {
       if (isUnauthorized(reason)) router.replace('/login');
       else setError(errorMessage(reason, 'Could not load your overview.'));
     }
-  }, [router, selectedMonth]);
+  }, [router, startDate, endDate]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const handlePresetChange = (preset: string) => {
+    setPresetKey(preset);
+    const now = new Date();
+    if (preset === 'DEFAULT') {
+      const def = getDefaultOverviewDateRange(now);
+      setStartDate(def.startDate);
+      setEndDate(def.endDate);
+    } else if (preset === 'THIS_MONTH') {
+      const y = now.getUTCFullYear();
+      const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+      setStartDate(`${y}-${m}-01`);
+      setEndDate(now.toISOString().slice(0, 10));
+    } else if (preset === 'LAST_MONTH') {
+      let y = now.getUTCFullYear();
+      let m = now.getUTCMonth();
+      if (m === 0) {
+        m = 12;
+        y -= 1;
+      }
+      const mStr = String(m).padStart(2, '0');
+      setStartDate(`${y}-${mStr}-01`);
+      setEndDate(`${y}-${mStr}-31`);
+    } else if (preset === 'LAST_6_MONTHS') {
+      const today = now.toISOString().slice(0, 10);
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 6);
+      setStartDate(d.toISOString().slice(0, 10));
+      setEndDate(today);
+    } else if (preset === 'THIS_FY') {
+      const y = now.getUTCFullYear();
+      const startYr = now.getUTCMonth() >= 3 ? y : y - 1;
+      setStartDate(`${startYr}-04-01`);
+      setEndDate(`${startYr + 1}-03-31`);
+    }
+  };
 
   const handleReconcileTransfers = async () => {
     setReconciling(true);
@@ -151,9 +217,13 @@ export default function DashboardPage() {
       </Shell>
     );
 
-  const totalSpend = data.categories.reduce((sum, category) => sum + category.amount, 0);
-  const monthLabel = new Date(`${data.month}-02T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const dateRangeLabel = startDate && endDate
+    ? `${new Date(startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })} – ${new Date(endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}`
+    : data.month;
 
+  const monthLabel = dateRangeLabel;
+
+  const totalSpend = data.categories.reduce((sum, category) => sum + category.amount, 0);
   let angle = 0;
   const gradient = data.categories.length
     ? data.categories
@@ -197,24 +267,78 @@ export default function DashboardPage() {
         <div>
           <span className="eyebrow">Financial home</span>
           <h1>Good to see you{owner?.name ? `, ${owner.name.trim().split(/\s+/)[0]}` : ''}.</h1>
-          <p>Here’s how your money moved in {monthLabel}.</p>
+          <p>Overview of {dateRangeLabel}.</p>
         </div>
-        <div className="dashboard-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div className="dashboard-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button type="button" className="secondary compact" onClick={handleReconcileTransfers} disabled={reconciling}>
             <RefreshCw size={14} className={reconciling ? 'spin' : ''} />
             {reconciling ? 'Matching…' : 'Match Transfers'}
           </button>
-          <label className="month-control">
-            <CalendarDays />
+
+          {/* Date Range Selector */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '3px 10px',
+              borderRadius: '10px',
+              border: '1px solid var(--line)',
+              background: 'var(--card)',
+              fontSize: '12px',
+            }}
+          >
+            <CalendarDays size={15} color="var(--muted)" />
             <input
-              aria-label="Dashboard month"
-              type="month"
-              value={selectedMonth}
-              onChange={(event) => {
-                if (event.target.value) setSelectedMonth(event.target.value);
+              type="date"
+              aria-label="Start Date"
+              value={startDate}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setStartDate(e.target.value);
+                  setPresetKey('CUSTOM');
+                }
               }}
+              style={{ border: 0, padding: '4px 0', fontSize: '12px', width: 'auto', background: 'transparent', color: 'var(--ink)', margin: 0 }}
             />
-          </label>
+            <span style={{ color: 'var(--muted)', fontWeight: 600 }}>to</span>
+            <input
+              type="date"
+              aria-label="End Date"
+              value={endDate}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setEndDate(e.target.value);
+                  setPresetKey('CUSTOM');
+                }
+              }}
+              style={{ border: 0, padding: '4px 0', fontSize: '12px', width: 'auto', background: 'transparent', color: 'var(--ink)', margin: 0 }}
+            />
+          </div>
+
+          {/* Preset Selector */}
+          <select
+            value={presetKey}
+            onChange={(e) => handlePresetChange(e.target.value)}
+            style={{
+              height: '34px',
+              fontSize: '12px',
+              fontWeight: 600,
+              borderRadius: '10px',
+              border: '1px solid var(--line)',
+              background: 'var(--card)',
+              color: 'var(--ink)',
+              margin: 0,
+              width: 'auto',
+            }}
+          >
+            <option value="DEFAULT">Last Fri – Last Thu (Default)</option>
+            <option value="THIS_MONTH">This Month</option>
+            <option value="LAST_MONTH">Last Month</option>
+            <option value="LAST_6_MONTHS">Last 6 Months</option>
+            <option value="THIS_FY">This FY</option>
+            <option value="CUSTOM">Custom Range</option>
+          </select>
         </div>
       </header>
 
