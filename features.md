@@ -14,6 +14,7 @@ This file maintains the running inventory of completed, verified features inside
 * **Double-Confirmation Deletion**: Protects data by requiring the user to type the exact account name to delete.
 * **Clear Ledger Option**: Clicking the trash icon provides a choice to either delete the account or **clear all transactions** (wipes transaction/import history, resets opening balance to zero, but preserves credentials and settings).
 * **Enhanced Transactions List**: Clean visual layout displaying dates, exact transaction times, category pill tags, hover animations, and color-coded transaction amounts (+/-).
+* **Category Group Filtering**: Allows filtering transactions by Category Group (All Groups, Expense, Income, Investment, Transfer) via interactive pill buttons and select dropdown, dynamically filtering specific categories.
 
 ---
 
