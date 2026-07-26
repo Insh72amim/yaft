@@ -173,7 +173,7 @@ export class DashboardController {
         }
 
         const destAcc = destAccountId ? accounts.find((a) => a.id === destAccountId) : undefined;
-        const isCCCategory = tx.category?.name && /CC TRANSFER|CREDIT CARD|CC PAYMENT|CARD BILL|CC BILL/i.test(tx.category.name);
+        const isCCCategory = tx.category?.type === 'TRANSFER' || (tx.category?.name && /CC TRANSFER|CREDIT CARD|CC PAYMENT|CARD BILL|CC BILL/i.test(tx.category.name));
 
         if (destAcc?.type === 'CREDIT_CARD' || isCCCategory) {
           accFlow.creditCardPayments += amt;
@@ -269,7 +269,7 @@ export class DashboardController {
         }
 
         const destAcc = destAccountId ? accounts.find((a) => a.id === destAccountId) : undefined;
-        const isCCCategory = t.category?.name && /CC TRANSFER|CREDIT CARD|CC PAYMENT|CARD BILL|CC BILL/i.test(t.category.name);
+        const isCCCategory = t.category?.type === 'TRANSFER' || (t.category?.name && /CC TRANSFER|CREDIT CARD|CC PAYMENT|CARD BILL|CC BILL/i.test(t.category.name));
         const internal = isInternalTransfer(t);
 
         const isInternalFlow = destAcc !== undefined || isCCCategory || internal;
