@@ -58,6 +58,7 @@ type Category = {
   id: string;
   name: string;
   color: string;
+  type?: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER";
 };
 
 type AccountOption = {
@@ -91,6 +92,9 @@ export default function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState<"ALL" | "EXPENSE" | "INCOME">(
     "ALL",
   );
+  const [categoryGroup, setCategoryGroup] = useState<
+    "ALL" | "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER"
+  >("ALL");
   const [categoryId, setCategoryId] = useState("all");
   const [accountId, setAccountId] = useState("all");
   const [minAmount, setMinAmount] = useState("");
@@ -123,6 +127,7 @@ export default function TransactionsPage() {
       });
       if (search.trim()) query.set("search", search.trim());
       if (typeFilter !== "ALL") query.set("type", typeFilter);
+      if (categoryGroup !== "ALL") query.set("categoryGroup", categoryGroup);
       if (categoryId !== "all") query.set("categoryId", categoryId);
       if (accountId !== "all") query.set("accountId", accountId);
       if (minAmount.trim()) query.set("minAmount", minAmount.trim());
@@ -148,6 +153,7 @@ export default function TransactionsPage() {
     page,
     search,
     typeFilter,
+    categoryGroup,
     categoryId,
     accountId,
     minAmount,
@@ -277,6 +283,7 @@ export default function TransactionsPage() {
   };
 
   const activeFilterCount =
+    (categoryGroup !== "ALL" ? 1 : 0) +
     (categoryId !== "all" ? 1 : 0) +
     (typeFilter !== "ALL" ? 1 : 0) +
     (search.trim() ? 1 : 0) +
@@ -287,6 +294,7 @@ export default function TransactionsPage() {
     (accountId !== "all" ? 1 : 0);
 
   const resetFilters = () => {
+    setCategoryGroup("ALL");
     setCategoryId("all");
     setSearch("");
     setMinAmount("");
@@ -640,7 +648,34 @@ export default function TransactionsPage() {
               border: "1px solid var(--line)",
               boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
             }}>
-            {/* Top Row: Account Select & Category Select & Search & Type Toggle & Reset */}
+            {/* Category Group Filter Pills */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Group:
+              </span>
+              {[
+                { id: "ALL", label: "All Groups" },
+                { id: "EXPENSE", label: "Expense" },
+                { id: "INCOME", label: "Income" },
+                { id: "INVESTMENT", label: "Investment" },
+                { id: "TRANSFER", label: "Transfer" },
+              ].map((grp) => (
+                <button
+                  key={grp.id}
+                  type="button"
+                  className={`secondary compact ${categoryGroup === grp.id ? "active" : ""}`}
+                  onClick={() => {
+                    setCategoryGroup(grp.id as any);
+                    setCategoryId("all");
+                    setPage(1);
+                  }}
+                  style={{ fontSize: "11px", padding: "3px 9px", borderRadius: "6px", fontWeight: 600 }}>
+                  {grp.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Top Row: Account Select & Category Group & Category Select & Search & Type Toggle & Reset */}
             <div
               style={{
                 display: "flex",
@@ -650,7 +685,7 @@ export default function TransactionsPage() {
                 justifyContent: "space-between",
               }}>
               {/* Account Dropdown */}
-              <div style={{ flex: "1 1 160px", minWidth: "150px" }}>
+              <div style={{ flex: "1 1 150px", minWidth: "140px" }}>
                 <select
                   value={accountId}
                   onChange={(e) => {
@@ -688,8 +723,36 @@ export default function TransactionsPage() {
                 </select>
               </div>
 
+              {/* Category Group Dropdown */}
+              <div style={{ flex: "1 1 150px", minWidth: "140px" }}>
+                <select
+                  value={categoryGroup}
+                  onChange={(e) => {
+                    setCategoryGroup(e.target.value as any);
+                    setCategoryId("all");
+                    setPage(1);
+                  }}
+                  style={{
+                    width: "100%",
+                    height: "38px",
+                    fontSize: "13px",
+                    padding: "0 10px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--line)",
+                    background: "var(--background)",
+                    color: "var(--ink)",
+                    fontWeight: 600,
+                  }}>
+                  <option value="ALL">All Category Groups</option>
+                  <option value="EXPENSE">Expense Group</option>
+                  <option value="INCOME">Income Group</option>
+                  <option value="INVESTMENT">Investment Group</option>
+                  <option value="TRANSFER">Transfer Group</option>
+                </select>
+              </div>
+
               {/* Category Filter Dropdown */}
-              <div style={{ flex: "1 1 160px", minWidth: "150px" }}>
+              <div style={{ flex: "1 1 150px", minWidth: "140px" }}>
                 <select
                   value={categoryId}
                   onChange={(e) => {
@@ -710,11 +773,17 @@ export default function TransactionsPage() {
                   <option value="all">All Categories</option>
                   <option value="uncategorised">Uncategorised</option>
                   <option value="transfers">Internal Transfers</option>
-                  {(data?.categories || []).map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
+                  {(data?.categories || [])
+                    .filter(
+                      (cat) =>
+                        categoryGroup === "ALL" ||
+                        (cat.type || "EXPENSE") === categoryGroup,
+                    )
+                    .map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
                 </select>
               </div>
 

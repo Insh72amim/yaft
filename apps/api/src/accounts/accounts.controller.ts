@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, DefaultValuePipe, Delete, Get, HttpCode, NotFoundException, Param, ParseIntPipe, Post, Patch, Query, UseGuards } from '@nestjs/common';
-import { AccountType, InstallmentStatus } from '@prisma/client';
+import { AccountType, CategoryType, InstallmentStatus } from '@prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { PrismaService } from '../common/prisma.service';
@@ -358,6 +358,7 @@ export class AccountsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('categoryId') categoryId?: string,
+    @Query('categoryGroup') categoryGroup?: string,
     @Query('accountId') accountId?: string,
     @Query('minAmount') minAmountStr?: string,
     @Query('maxAmount') maxAmountStr?: string,
@@ -368,7 +369,7 @@ export class AccountsController {
     const minAmount = minAmountStr !== undefined && minAmountStr.trim() !== '' ? Number(minAmountStr) : undefined;
     const maxAmount = maxAmountStr !== undefined && maxAmountStr.trim() !== '' ? Number(maxAmountStr) : undefined;
 
-    const baseWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate, categoryId);
+    const baseWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate, categoryId, categoryGroup);
 
     if (mode === 'CREDIT_CARD') {
       baseWhere.account = { ...baseWhere.account, type: AccountType.CREDIT_CARD };
@@ -458,7 +459,7 @@ export class AccountsController {
         categoryColor: item.category?.color ?? '#94a3b8',
         isTransfer: Boolean(item.transferGroupId),
       })),
-      categories: userCategories.map((c) => ({ id: c.id, name: c.name, color: c.color })),
+      categories: userCategories.map((c) => ({ id: c.id, name: c.name, color: c.color, type: c.type })),
       accounts: userAccounts.map((a) => ({
         id: a.id,
         name: a.name,
@@ -719,6 +720,7 @@ export function buildTransactionWhere(
   startDateStr?: string,
   endDateStr?: string,
   categoryId?: string,
+  categoryGroup?: string,
 ) {
   const where: any = { account: { userId, archived: false } };
 
@@ -734,6 +736,23 @@ export function buildTransactionWhere(
       where.transferGroupId = { not: null };
     } else {
       where.categoryId = categoryId;
+    }
+  }
+
+  if (categoryGroup && categoryGroup !== 'ALL') {
+    if (categoryGroup === 'TRANSFER') {
+      const transferCond = [
+        { category: { type: CategoryType.TRANSFER } },
+        { transferGroupId: { not: null } },
+      ];
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: transferCond }];
+        delete where.OR;
+      } else {
+        where.OR = transferCond;
+      }
+    } else {
+      where.category = { type: categoryGroup as CategoryType };
     }
   }
 
