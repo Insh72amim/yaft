@@ -98,6 +98,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
+        <div className="privacy-note">
+          <ShieldCheck size={18} />
+          <div>
+            <strong>Private by design</strong>
+          </div>
+        </div>
         <ThemeToggle />
         <Link
           className={path === "/me" ? "active" : ""}
