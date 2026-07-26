@@ -226,3 +226,53 @@ describe('AccountsController account deletion', () => {
     expect(runTransaction).not.toHaveBeenCalled();
   });
 });
+
+describe('AccountsController getCreditCardsSummary', () => {
+  it('returns aggregated credit utilization, card stack, and monthly cash flow', async () => {
+    const cardAccounts = [
+      {
+        id: 'card-1',
+        name: 'Axis Bank Credit Card',
+        type: 'CREDIT_CARD',
+        institution: 'Axis Bank',
+        openingBalance: 0n,
+        creditLimit: 100000n,
+        statementDay: 15,
+        dueDay: 5,
+        vaultEntry: { last4: '0001', cardNetwork: 'VISA' },
+      },
+    ];
+
+    const aggregate = jest.fn().mockResolvedValue({ _sum: { amount: -25000n } });
+    const findManyAccounts = jest.fn().mockResolvedValue(cardAccounts);
+    const findManyTx = jest.fn().mockResolvedValue([
+      {
+        id: 'tx-1',
+        accountId: 'card-1',
+        amount: -25000n,
+        transactionDate: new Date('2026-07-20T10:00:00Z'),
+        descriptionRaw: 'SHOPPING STORE',
+        merchant: 'SHOPPING STORE',
+        categoryId: 'cat-1',
+        category: { id: 'cat-1', name: 'Shopping', color: '#10b981' },
+        account: { id: 'card-1', name: 'Axis Bank Credit Card' },
+      },
+    ]);
+
+    const prisma = {
+      account: { findMany: findManyAccounts },
+      transaction: { aggregate, findMany: findManyTx },
+    } as unknown as PrismaService;
+
+    const controller = new AccountsController(prisma, {} as StatementCredentialsService, accountDocuments());
+    const res = await controller.getCreditCardsSummary({ id: 'user-a' });
+
+    expect(res.summary.totalLimit).toBe(100000);
+    expect(res.summary.totalOutstanding).toBe(25000);
+    expect(res.summary.totalAvailable).toBe(75000);
+    expect(res.summary.utilizationRate).toBe(25);
+    expect(res.cards).toHaveLength(1);
+    expect(res.cards[0].cardLast4).toBe('0001');
+    expect(res.recentTransactions).toHaveLength(1);
+  });
+});

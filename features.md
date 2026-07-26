@@ -113,3 +113,13 @@ This file maintains the running inventory of completed, verified features inside
 - [x] **Net Worth & Asset Allocation History**:
   - [x] Monthly historical net worth tracking with visual asset allocation breakdowns (Liquid Cash, Equities, EPFO, Debt/Loans).
 
+---
+
+## 10. Dedicated Credit Cards Hub (`/credit-cards`)
+* **Credit Utilization Command Center**: Aggregated credit utilization rate gauge, color-coded health indicators (healthy/moderate/high), total outstanding balance, and available credit tracking.
+* **Digital Card Gallery**: Interactive visual credit card stack showing bank institution logos, card networks (Visa, Mastercard, Amex, RuPay), last 4 digits, and used vs available limit progress bars.
+* **Quick Action Shortcuts**: Direct 1-click triggers for **⚡ Import Statement**, **🔐 Vault Credentials**, and **📋 Card Activity**.
+* **Monthly Spends vs Bill Payments Trend**: 6-month cash flow chart tracking credit card expenses against bill payments made.
+* **Top Credit Card Spend Categories**: Category distribution breakdown of credit card purchases.
+* **Recent Credit Card Activity Feed**: Real-time table of recent credit card transactions.
+
