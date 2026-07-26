@@ -113,7 +113,7 @@ export default function AssetsPage() {
 
   // Filter accounts by category
   const filteredAccounts = accounts.filter((acc) => {
-    if (selectedAssetCategory === "CASH") return ["SAVINGS", "BANK", "CASH", "FD"].includes(acc.type);
+    if (selectedAssetCategory === "CASH") return ["SAVINGS", "BANK", "CASH", "FD", "FIXED_DEPOSIT"].includes(acc.type);
     if (selectedAssetCategory === "EQUITIES") return ["INVESTMENT", "STOCKS", "MUTUAL_FUND"].includes(acc.type);
     if (selectedAssetCategory === "EPFO") return acc.type === "EPFO";
     if (selectedAssetCategory === "DEBT") return ["LOAN", "CREDIT_CARD"].includes(acc.type);
@@ -132,7 +132,7 @@ export default function AssetsPage() {
   const worthDiff = maxWorth - minWorth || 1;
 
   // Category counts
-  const countCash = accounts.filter((acc) => ["SAVINGS", "BANK", "CASH", "FD"].includes(acc.type)).length;
+  const countCash = accounts.filter((acc) => ["SAVINGS", "BANK", "CASH", "FD", "FIXED_DEPOSIT"].includes(acc.type)).length;
   const countEquities = accounts.filter((acc) => ["INVESTMENT", "STOCKS", "MUTUAL_FUND"].includes(acc.type)).length;
   const countEpfo = accounts.filter((acc) => acc.type === "EPFO").length;
   const countDebt = accounts.filter((acc) => ["LOAN", "CREDIT_CARD"].includes(acc.type)).length;

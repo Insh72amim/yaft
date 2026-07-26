@@ -350,7 +350,7 @@ export class DashboardController {
         ? holdingsList.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0)
         : ledgerBalance;
 
-      if (['SAVINGS', 'BANK', 'CASH', 'FD'].includes(account.type)) {
+      if (['SAVINGS', 'BANK', 'CASH', 'FD', 'FIXED_DEPOSIT'].includes(account.type)) {
         if (balance > 0) liquidCashTotal += balance;
       } else if (['INVESTMENT', 'STOCKS', 'MUTUAL_FUND'].includes(account.type)) {
         if (balance > 0) equitiesTotal += balance;
@@ -395,7 +395,7 @@ export class DashboardController {
           ? holdingsList.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0)
           : cumLedger;
 
-        if (['SAVINGS', 'BANK', 'CASH', 'FD'].includes(account.type)) {
+        if (['SAVINGS', 'BANK', 'CASH', 'FD', 'FIXED_DEPOSIT'].includes(account.type)) {
           if (bal > 0) liquid += bal;
         } else if (['INVESTMENT', 'STOCKS', 'MUTUAL_FUND'].includes(account.type)) {
           if (bal > 0) equities += bal;
