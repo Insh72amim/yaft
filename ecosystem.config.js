@@ -7,18 +7,14 @@ module.exports = {
       cwd: path.resolve(__dirname),
       script: "npm",
       args: "run start:dev --workspace @yaft/api",
-      env: {
-        NODE_ENV: "development",
-      },
+      interpreter: "none",
     },
     {
       name: "yaft-web",
       cwd: path.resolve(__dirname),
       script: "npm",
       args: "run dev --workspace @yaft/web",
-      env: {
-        NODE_ENV: "development",
-      },
+      interpreter: "none",
     },
   ],
 };
