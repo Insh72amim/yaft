@@ -21,13 +21,14 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shell } from "@/components/shell";
 import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
 
-type Mode = "CREDIT_CARD" | "BANK" | "UPI" | "ALL";
+type Mode = "CREDIT_CARD" | "BANK" | "UPI" | "UPI_LITE" | "ALL";
 
 type Summary = {
   totalSpent: number;
@@ -435,6 +436,22 @@ export default function TransactionsPage() {
           onClick={() => handleModeChange("UPI")}>
           <QrCode size={18} />
           <span>UPI Payments</span>
+        </button>
+
+        <button
+          type="button"
+          className={`secondary ${mode === "UPI_LITE" ? "active" : ""}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "8px 16px",
+            borderRadius: "10px",
+            fontWeight: 600,
+          }}
+          onClick={() => handleModeChange("UPI_LITE")}>
+          <Zap size={18} color="#f59e0b" />
+          <span>UPI Lite</span>
         </button>
       </div>
 

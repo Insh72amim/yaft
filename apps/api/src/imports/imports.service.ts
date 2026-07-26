@@ -137,8 +137,8 @@ export class ImportsService {
   async create(userId: string, accountId: string, file: Express.Multer.File, dto: UploadStatementDto = {},
     expectedParserId?: BankPdfParser['id']) {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId, archived: false,
-      type: { in: ['BANK', 'SAVINGS', 'EPFO'] } } });
-    if (!account) throw new ForbiddenException('Eligible bank or EPFO account not found.');
+      type: { in: ['BANK', 'SAVINGS', 'EPFO', 'UPI_LITE'] } } });
+    if (!account) throw new ForbiddenException('Eligible account not found.');
     const hash = createHash('sha256').update(file.buffer).digest('hex');
     const existing = await this.prisma.importBatch.findFirst({ where: { userId, accountId, fileHash: hash, status: { not: 'CANCELLED' } } });
     if (existing) throw new BadRequestException('This exact statement was already uploaded.');
@@ -257,6 +257,34 @@ export class ImportsService {
     let imported = 0;
     await this.prisma.$transaction(async (tx) => {
       for (const row of included) {
+        // If this is a GPay / UPI App statement import, check if row is a non-UPI-Lite transaction (from Bank/CC)
+        // If so, update exact transaction timestamp on matching existing bank/CC transaction instead of duplicating
+        const isUpiLiteRow = /UPI\s+Lite/i.test(row.descriptionRaw) || (row.reference && /UPI\s+Lite/i.test(row.reference));
+        const isGpayStatement = batch.account.type === 'UPI_LITE' || batch.filename.toLowerCase().includes('gpay');
+
+        if (isGpayStatement && !isUpiLiteRow && row.reference) {
+          const refClean = row.reference.trim();
+          const existingBankTx = await tx.transaction.findFirst({
+            where: {
+              account: { userId, type: { in: ['BANK', 'SAVINGS', 'CREDIT_CARD'] } },
+              OR: [
+                { reference: refClean },
+                { descriptionRaw: { contains: refClean } },
+                { merchant: { contains: refClean } },
+              ],
+            },
+          });
+
+          if (existingBankTx) {
+            await tx.transaction.update({
+              where: { id: existingBankTx.id },
+              data: { transactionDate: row.transactionDate },
+            });
+            imported += 1;
+            continue;
+          }
+        }
+
         const alreadyCommitted = await tx.transaction.findUnique({ where: { accountId_fingerprint: { accountId: batch.accountId, fingerprint: row.fingerprint } } });
         if (alreadyCommitted) continue;
 

@@ -8,6 +8,8 @@ export type ParsedRow = {
   reference?: string;
   dedupeKey?: string;
   rowNumber: number;
+  paymentMethod?: string;
+  isUpiLite?: boolean;
 };
 
 export type ParseStatementOptions = {
@@ -22,7 +24,7 @@ export type PdfStatementDocument = {
 };
 
 export type BankPdfParser = {
-  id: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'ICICI' | 'HDFC' | 'SBI_CC';
+  id: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'ICICI' | 'HDFC' | 'SBI_CC' | 'GPAY';
   institutionAliases: readonly string[];
   matches(document: PdfStatementDocument): boolean;
   parse(document: PdfStatementDocument): { rows: ParsedRow[]; closingBalanceMinor?: number };

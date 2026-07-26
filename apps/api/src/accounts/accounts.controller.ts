@@ -551,7 +551,7 @@ export class AccountsController {
   @Get('transactions/all')
   async getAllTransactions(
     @CurrentUser() user: { id: string },
-    @Query('mode') mode?: 'CREDIT_CARD' | 'BANK' | 'UPI' | 'ALL',
+    @Query('mode') mode?: 'CREDIT_CARD' | 'BANK' | 'UPI' | 'UPI_LITE' | 'ALL',
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) requestedPage = 1,
     @Query('search') search?: string,
     @Query('type') type?: string,
@@ -575,6 +575,8 @@ export class AccountsController {
       baseWhere.account = { ...baseWhere.account, type: AccountType.CREDIT_CARD };
     } else if (mode === 'BANK') {
       baseWhere.account = { ...baseWhere.account, type: { in: [AccountType.BANK, AccountType.SAVINGS] } };
+    } else if (mode === 'UPI_LITE') {
+      baseWhere.account = { ...baseWhere.account, type: AccountType.UPI_LITE };
     } else if (mode === 'UPI') {
       baseWhere.account = { ...baseWhere.account, type: { in: [AccountType.BANK, AccountType.SAVINGS, AccountType.CREDIT_CARD] } };
       const upiConditions = [

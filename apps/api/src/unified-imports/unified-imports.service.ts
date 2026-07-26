@@ -190,7 +190,10 @@ export class UnifiedImportsService {
         review: this.safeSalaryReview(review as SalaryReview), actions: this.salaryActions(review.id) };
     }
     if (spec.kind === 'UPI_STATEMENT') {
-      throw new BadRequestException(`UPI statement parser for ${spec.label} is in preview mode. Statement parsing support will be enabled soon.`);
+      const review = await this.imports.create(userId, account!.id, file,
+        { pdfPassword: dto.pdfPassword }, spec.source as any);
+      return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
+        review: this.safeBankReview(review), actions: this.bankActions(review.id) };
     }
 
 
@@ -243,7 +246,7 @@ export class UnifiedImportsService {
       return account.type === 'CREDIT_CARD';
     }
     if (spec.kind === 'UPI_STATEMENT') {
-      return ['BANK', 'SAVINGS'].includes(account.type);
+      return ['BANK', 'SAVINGS', 'UPI_LITE'].includes(account.type);
     }
     if (spec.kind === 'BROKER_HOLDINGS') {
       const matchInstitution = (account.institution ?? '');
@@ -322,6 +325,25 @@ export class UnifiedImportsService {
         throw new BadRequestException('The selected account type or institution does not match this import source.');
       }
       return explicit;
+    }
+
+    if (spec.kind === 'UPI_STATEMENT') {
+      let upiAccount = await this.prisma.account.findFirst({
+        where: { userId, archived: false, type: 'UPI_LITE' },
+        select: { id: true, name: true, type: true, institution: true, currency: true },
+      });
+      if (!upiAccount) {
+        upiAccount = await this.prisma.account.create({
+          data: {
+            userId,
+            name: 'UPI Lite',
+            type: 'UPI_LITE',
+            institution: 'Google Pay',
+          },
+          select: { id: true, name: true, type: true, institution: true, currency: true },
+        });
+      }
+      return upiAccount;
     }
 
     const targetType: 'CREDIT_CARD' | 'SAVINGS' = spec.kind === 'CREDIT_CARD_STATEMENT' ? 'CREDIT_CARD' : 'SAVINGS';
