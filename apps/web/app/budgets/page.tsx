@@ -6,6 +6,7 @@ import {
   Plus,
   Trash2,
   Edit2,
+  Pencil,
   SlidersHorizontal,
   Tag,
   CheckCircle2,
