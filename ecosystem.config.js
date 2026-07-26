@@ -2,14 +2,14 @@ module.exports = {
   apps: [
     {
       name: "yaft-api",
-      script: "bash",
-      args: '-c "npm run start:dev --workspace @yaft/api"',
+      script: "npm",
+      args: "run start:dev --workspace @yaft/api",
       cwd: "./",
     },
     {
       name: "yaft-web",
-      script: "bash",
-      args: '-c "npm run build && npx next dev"',
+      script: "npm",
+      args: "run dev --workspace @yaft/web",
       cwd: "./",
     },
   ],
