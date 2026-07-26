@@ -227,12 +227,79 @@ export class DashboardController {
     const totalCreditCardPayments = [...savingsMap.values()].reduce((sum, acc) => sum + acc.creditCardPayments, 0);
     const totalInvestments = [...savingsMap.values()].reduce((sum, acc) => sum + acc.investments, 0);
 
-    const accountFlowData = {
-      accounts: [...savingsMap.values()].map((acc) => ({
+    const accountDetailedFlows = [...savingsMap.values()].map((acc) => {
+      const accountTxs = monthTransactions.filter((t) => t.accountId === acc.id && t.amount < 0);
+      const totalOutboundAmt = acc.externalOutbound + acc.creditCardPayments + acc.investments + acc.internalOutbound;
+
+      const categoryMapAcc = new Map<string, { name: string; color: string; amount: number }>();
+      accountTxs.forEach((t) => {
+        const name = t.category?.name ?? 'Uncategorised';
+        const color = t.category?.color ?? '#94a3b8';
+        const amt = Math.abs(Number(t.amount));
+        const current = categoryMapAcc.get(name) || { name, color, amount: 0 };
+        categoryMapAcc.set(name, { name, color, amount: current.amount + amt });
+      });
+
+      const categories = [...categoryMapAcc.values()]
+        .map((c) => ({
+          ...c,
+          percentage: totalOutboundAmt > 0 ? Math.round((c.amount / totalOutboundAmt) * 100) : 0,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      const recipientMapAcc = new Map<string, { name: string; amount: number; count: number; isInternal: boolean }>();
+      accountTxs.forEach((t) => {
+        const amt = Math.abs(Number(t.amount));
+        let name = '';
+        let isInternal = false;
+
+        let destAccountId: string | undefined;
+        if (t.transferGroupId) {
+          const opposite = monthTransactions.find(
+            (other) => other.transferGroupId === t.transferGroupId && other.id !== t.id,
+          );
+          if (opposite) destAccountId = opposite.accountId;
+        } else {
+          for (const v of activeVaults) {
+            if (v.last4 && v.accountId !== t.accountId && t.descriptionRaw.includes(v.last4)) {
+              destAccountId = v.accountId;
+              break;
+            }
+          }
+        }
+
+        if (destAccountId) {
+          const destAcc = accounts.find((a) => a.id === destAccountId);
+          if (destAcc) {
+            name = destAcc.name;
+            isInternal = true;
+          }
+        }
+
+        if (!name) {
+          name = extractBeneficiaryName(t.descriptionRaw) || t.merchant || t.descriptionRaw;
+        }
+
+        const key = `${name}_${isInternal}`;
+        const current = recipientMapAcc.get(key) || { name, amount: 0, count: 0, isInternal };
+        recipientMapAcc.set(key, { name, amount: current.amount + amt, count: current.count + 1, isInternal });
+      });
+
+      const topRecipients = [...recipientMapAcc.values()]
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5);
+
+      return {
         ...acc,
         totalInbound: acc.externalInbound + acc.internalInbound,
-        totalOutbound: acc.externalOutbound + acc.creditCardPayments + acc.investments + acc.internalOutbound,
-      })),
+        totalOutbound: totalOutboundAmt,
+        categories,
+        topRecipients,
+      };
+    });
+
+    const accountFlowData = {
+      accounts: accountDetailedFlows,
       internalTransfers: internalTransfersList,
       overall: {
         totalExternalInbound: savingsNetInbound,

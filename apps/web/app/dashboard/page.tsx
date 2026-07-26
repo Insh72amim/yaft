@@ -22,6 +22,7 @@ import {
   Sparkles,
   Target,
   Tag,
+  Landmark,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, useMemo } from 'react';
@@ -61,6 +62,8 @@ type AccountFlow = {
     internalOutbound: number;
     totalInbound: number;
     totalOutbound: number;
+    categories?: Array<{ name: string; color: string; amount: number; percentage: number }>;
+    topRecipients?: Array<{ name: string; amount: number; count: number; isInternal?: boolean }>;
   }>;
   internalTransfers: Array<{
     fromAccountId: string;
@@ -881,70 +884,268 @@ function MonthlyFlow({
         <MultiBankSankeyDiagram accountFlow={accountFlow} income={income} expenses={expenses} savings={savings} />
       </div>
 
-      {/* Per Savings Account Flow Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(230px, 1fr))`, gap: '14px' }}>
-        {accounts.map((acc) => (
-          <div
-            key={acc.id}
-            style={{
-              background: 'var(--background-alt)',
-              border: '1px solid var(--line)',
-              borderRadius: '12px',
-              padding: '14px 12px',
-              display: 'grid',
-              gap: '10px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
-              <div>
-                <strong style={{ fontSize: '13px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{acc.name}</strong>
-                {acc.institution && <small style={{ fontSize: '10px', color: 'var(--muted)', display: 'block' }}>{acc.institution}</small>}
-              </div>
-              <span style={{ fontSize: '9px', background: 'var(--line)', padding: '2px 6px', borderRadius: '10px', fontWeight: 600, flexShrink: 0 }}>
-                {acc.type}
+      {/* Per Account Spending & Top Outbound Beneficiaries Section */}
+      <AccountSpendingAndBeneficiariesSection accounts={accounts} />
+    </div>
+  );
+}
+
+function AccountSpendingAndBeneficiariesSection({
+  accounts,
+}: {
+  accounts: AccountFlow['accounts'];
+}) {
+  const [selectedAccId, setSelectedAccId] = useState<string>(accounts[0]?.id || '');
+
+  const activeAcc = accounts.find((a) => a.id === selectedAccId) || accounts[0];
+
+  if (!activeAcc) return null;
+
+  const categories = activeAcc.categories || [];
+  const topRecipients = activeAcc.topRecipients || [];
+  const totalSpent = activeAcc.totalOutbound || 0;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Account Selector Tabs */}
+      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+        {accounts.map((acc) => {
+          const isSelected = acc.id === activeAcc.id;
+          return (
+            <button
+              key={acc.id}
+              onClick={() => setSelectedAccId(acc.id)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 14px',
+                borderRadius: '20px',
+                border: isSelected ? '1px solid var(--accent)' : '1px solid var(--line)',
+                background: isSelected ? 'rgba(16, 185, 129, 0.1)' : 'var(--background-alt)',
+                color: isSelected ? 'var(--accent)' : 'var(--ink)',
+                fontWeight: isSelected ? 700 : 500,
+                fontSize: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              <Landmark size={14} color={isSelected ? 'var(--accent)' : 'var(--muted)'} />
+              <span>{acc.name}</span>
+              <span
+                style={{
+                  fontSize: '10px',
+                  background: isSelected ? 'var(--accent)' : 'var(--line)',
+                  color: isSelected ? '#fff' : 'var(--muted)',
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  fontWeight: 600,
+                }}
+              >
+                {money(acc.totalOutbound, true)} out
               </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Account Quick Metrics Bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+        <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', padding: '12px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <small style={{ color: '#10b981', display: 'block', fontSize: '10px', fontWeight: 600 }}>Total Inbound</small>
+            <strong style={{ fontSize: '14px', color: '#10b981' }}>+{money(activeAcc.totalInbound)}</strong>
+          </div>
+          {activeAcc.internalInbound > 0 && (
+            <span style={{ fontSize: '10px', color: '#3b82f6', background: 'rgba(59,130,246,0.1)', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>
+              +{money(activeAcc.internalInbound)} int.
+            </span>
+          )}
+        </div>
+
+        <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', padding: '12px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <small style={{ color: '#ef4444', display: 'block', fontSize: '10px', fontWeight: 600 }}>Total Outbound</small>
+            <strong style={{ fontSize: '14px', color: '#ef4444' }}>-{money(activeAcc.totalOutbound)}</strong>
+          </div>
+          {activeAcc.internalOutbound > 0 && (
+            <span style={{ fontSize: '10px', color: '#3b82f6', background: 'rgba(59,130,246,0.1)', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>
+              -{money(activeAcc.internalOutbound)} int.
+            </span>
+          )}
+        </div>
+
+        <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', padding: '12px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <small style={{ color: '#8b5cf6', display: 'block', fontSize: '10px', fontWeight: 600 }}>Investments & SIPs</small>
+            <strong style={{ fontSize: '14px', color: '#8b5cf6' }}>{money(activeAcc.investments ?? 0)}</strong>
+          </div>
+          <span style={{ fontSize: '10px', color: 'var(--muted)', background: 'var(--line)', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>
+            Portfolio
+          </span>
+        </div>
+      </div>
+
+      {/* 2-Card Layout: Spending (Doughnut Chart) & Top Outbound Beneficiaries */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+        {/* Card 1: SPENDING / Where it went */}
+        <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                SPENDING
+              </span>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink)' }}>Where it went</h3>
             </div>
+            <span className="month-pill" style={{ fontSize: '11px' }}>{activeAcc.name}</span>
+          </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', fontSize: '11px' }}>
-              <div style={{ background: 'var(--background)', padding: '8px 5px', borderRadius: '6px', border: '1px solid var(--line)', overflow: 'hidden' }}>
-                <small style={{ color: '#10b981', display: 'block', fontSize: '9.5px', fontWeight: 600, marginBottom: '2px' }}>Inbound</small>
-                <strong style={{ fontSize: '12px', color: '#10b981', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  +{money(acc.externalInbound)}
-                </strong>
-                {acc.internalInbound > 0 && (
-                  <div style={{ fontSize: '9.5px', color: '#3b82f6', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    + {money(acc.internalInbound)} int.
+          <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Doughnut SVG Chart */}
+            <AccountDoughnutChart categories={categories} total={totalSpent} />
+
+            {/* Category Breakdown List */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center', minWidth: '160px' }}>
+              {categories.length === 0 ? (
+                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>No category data available</span>
+              ) : (
+                categories.slice(0, 7).map((cat, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: cat.color || '#94a3b8', flexShrink: 0 }} />
+                      <span style={{ color: 'var(--ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {cat.name}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                      <strong style={{ fontSize: '12px', color: 'var(--ink)' }}>{money(cat.amount)}</strong>
+                      <span style={{ fontSize: '11px', color: 'var(--muted)', width: '30px', textAlign: 'right' }}>{cat.percentage}%</span>
+                    </div>
                   </div>
-                )}
-              </div>
-
-              <div style={{ background: 'var(--background)', padding: '8px 5px', borderRadius: '6px', border: '1px solid var(--line)', overflow: 'hidden' }}>
-                <small style={{ color: '#ef4444', display: 'block', fontSize: '9.5px', fontWeight: 600, marginBottom: '2px' }}>Outbound</small>
-                <strong style={{ fontSize: '12px', color: '#ef4444', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  -{money(acc.externalOutbound)}
-                </strong>
-                {acc.internalOutbound > 0 && (
-                  <div style={{ fontSize: '9.5px', color: '#3b82f6', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    - {money(acc.internalOutbound)} int.
-                  </div>
-                )}
-              </div>
-
-              <div style={{ background: 'var(--background)', padding: '8px 5px', borderRadius: '6px', border: (acc.investments ?? 0) > 0 ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid var(--line)', overflow: 'hidden' }}>
-                <small style={{ color: '#8b5cf6', display: 'block', fontSize: '9.5px', fontWeight: 600, marginBottom: '2px' }}>Investments</small>
-                <strong style={{ fontSize: '12px', color: (acc.investments ?? 0) > 0 ? '#8b5cf6' : 'var(--muted)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {money(acc.investments ?? 0)}
-                </strong>
-                <div style={{ fontSize: '9.5px', color: 'var(--muted)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  SIP & MF
-                </div>
-              </div>
+                ))
+              )}
             </div>
           </div>
-        ))}
+        </div>
+
+        {/* Card 2: PAYEES & MERCHANTS / Top Outbound Beneficiaries */}
+        <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                PAYEES & MERCHANTS
+              </span>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink)' }}>Top Outbound Beneficiaries</h3>
+            </div>
+            <span className="month-pill" style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <Send size={11} color="var(--accent)" /> Outbound & Internal
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
+            {topRecipients.length === 0 ? (
+              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>No outbound beneficiaries recorded for this account</span>
+            ) : (
+              topRecipients.slice(0, 5).map((rec, idx) => {
+                const maxAmt = topRecipients[0]?.amount || 1;
+                const barWidthPct = Math.min(100, Math.max(8, Math.round((rec.amount / maxAmt) * 100)));
+                return (
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', minWidth: 0 }}>
+                        <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: '12.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {rec.name}
+                        </span>
+                        {rec.isInternal && (
+                          <span style={{ fontSize: '9px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', padding: '1px 5px', borderRadius: '4px', fontWeight: 600, flexShrink: 0 }}>
+                            Internal
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                        <strong style={{ fontSize: '12.5px', color: 'var(--ink)' }}>{money(rec.amount)}</strong>
+                        <small style={{ color: 'var(--muted)', fontSize: '10.5px' }}>({rec.count} txn{rec.count === 1 ? '' : 's'})</small>
+                      </div>
+                    </div>
+                    <div style={{ width: '100%', height: '5px', background: 'var(--line)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${barWidthPct}%`, background: rec.isInternal ? '#3b82f6' : '#f59e0b', borderRadius: '3px' }} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
+}
+
+function AccountDoughnutChart({
+  categories,
+  total,
+}: {
+  categories: Array<{ name: string; color: string; amount: number; percentage: number }>;
+  total: number;
+}) {
+  const r = 38;
+  const cx = 50;
+  const cy = 50;
+  const circumference = 2 * Math.PI * r;
+
+  let currentOffset = 0;
+  const filtered = categories.filter((c) => c.amount > 0);
+
+  if (total <= 0 || filtered.length === 0) {
+    return (
+      <div style={{ position: 'relative', width: '130px', height: '130px', flexShrink: 0 }}>
+        <svg viewBox="0 0 100 100" width="130" height="130">
+          <circle cx={cx} cy={cy} r={r} fill="transparent" stroke="var(--line)" strokeWidth="12" />
+        </svg>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <strong style={{ fontSize: '14px', color: 'var(--muted)' }}>₹0</strong>
+          <span style={{ fontSize: '9px', color: 'var(--muted)' }}>total</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative', width: '130px', height: '130px', flexShrink: 0 }}>
+      <svg viewBox="0 0 100 100" width="130" height="130" style={{ transform: 'rotate(-90deg)' }}>
+        {filtered.map((cat, idx) => {
+          const sliceLength = (cat.amount / total) * circumference;
+          const strokeDasharray = `${sliceLength} ${circumference - sliceLength}`;
+          const strokeDashoffset = -currentOffset;
+          currentOffset += sliceLength;
+
+          return (
+            <circle
+              key={idx}
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="transparent"
+              stroke={cat.color || '#3b82f6'}
+              strokeWidth="12"
+              strokeDasharray={strokeDasharray}
+              strokeDashoffset={strokeDashoffset}
+              style={{ transition: 'stroke-dasharray 0.3s ease' }}
+            />
+          );
+        })}
+      </svg>
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+        <strong style={{ fontSize: '14px', fontWeight: 800, color: 'var(--ink)', lineHeight: 1.1 }}>
+          {money(total, true)}
+        </strong>
+        <span style={{ fontSize: '9px', color: 'var(--muted)', fontWeight: 600 }}>total</span>
+      </div>
+    </div>
+  );
+}
 }
 
 function MultiBankSankeyDiagram({
