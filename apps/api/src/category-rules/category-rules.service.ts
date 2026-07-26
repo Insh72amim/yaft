@@ -252,14 +252,27 @@ export class CategoryRulesService {
       throw new BadRequestException('Category name cannot be empty.');
     }
 
-    return this.prisma.category.update({
-      where: { id },
-      data: {
-        name: trimmed,
-        color: color !== undefined ? color : existing.color,
-        type: type !== undefined ? type : existing.type,
-      },
-    });
+    if (trimmed.toLowerCase() !== existing.name.toLowerCase()) {
+      const duplicate = await this.prisma.category.findFirst({
+        where: { userId, name: { equals: trimmed, mode: 'insensitive' }, id: { not: id } },
+      });
+      if (duplicate) {
+        throw new BadRequestException(`Category with name "${trimmed}" already exists.`);
+      }
+    }
+
+    try {
+      return await this.prisma.category.update({
+        where: { id },
+        data: {
+          name: trimmed,
+          color: color !== undefined ? color : existing.color,
+          type: type !== undefined ? type : existing.type,
+        },
+      });
+    } catch (err: any) {
+      throw new BadRequestException(err?.message || 'Could not update category.');
+    }
   }
 
   async deleteCategory(userId: string, id: string) {
