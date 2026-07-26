@@ -187,8 +187,8 @@ export class DashboardController {
               });
             }
           } else {
-            const isCC = /CREDIT CARD|CC PAYMENT|CARD PAYMENT|AUTOPAY CC|CARD BILL/i.test(tx.descriptionRaw);
-            if (isCC) {
+            const isCCCategory = tx.category?.name && /CREDIT CARD|CC PAYMENT|CARD BILL/i.test(tx.category.name);
+            if (isCCCategory) {
               accFlow.creditCardPayments += amt;
             } else {
               accFlow.internalOutbound += amt;
