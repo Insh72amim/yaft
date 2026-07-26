@@ -266,9 +266,10 @@ export default function AssetsPage() {
               <span className="eyebrow" style={{ color: "var(--green)" }}>6-Month Historical Progression</span>
               <h2>Net Worth Growth & Asset Allocation</h2>
             </div>
+            {/* Range & Historical Net Worth Progression Header */}
             <div style={{ display: "flex", gap: "12px", alignItems: "center", fontSize: "12px" }}>
               <span style={{ color: "var(--muted)" }}>
-                Range: <strong>{money(minWorth)}</strong> – <strong>{money(maxWorth)}</strong>
+                Range: <strong>{formatAmount(minWorth)}</strong> – <strong>{formatAmount(maxWorth)}</strong>
               </span>
             </div>
           </div>
@@ -282,10 +283,10 @@ export default function AssetsPage() {
                 return (
                   <div key={idx} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", height: "100%", justifyContent: "flex-end" }}>
                     <span style={{ fontSize: "10px", color: isLatest ? "var(--green)" : "var(--muted)", fontWeight: isLatest ? 700 : 500 }}>
-                      {hidePrivacy ? "•••" : `₹${(h.netWorth / 100 / 100000).toFixed(1)}L`}
+                      {hidePrivacy ? "••••••" : money(h.netWorth)}
                     </span>
                     <div
-                      title={`${h.month}: Net Worth ${money(h.netWorth)}`}
+                      title={`${h.month}: Net Worth ${formatAmount(h.netWorth)}`}
                       style={{
                         width: "100%",
                         maxWidth: "32px",
@@ -348,7 +349,7 @@ export default function AssetsPage() {
               <h2>Account Assets Breakdown</h2>
             </div>
 
-            {/* Asset Category Filter Pills */}
+            {/* Asset Category Filter Pills (No Circle Badges) */}
             <div className="asset-filter-bar">
               <button
                 type="button"
@@ -357,7 +358,6 @@ export default function AssetsPage() {
               >
                 <Layers size={14} />
                 All
-                <span className="asset-filter-count">{accounts.length}</span>
               </button>
               <button
                 type="button"
@@ -366,7 +366,6 @@ export default function AssetsPage() {
               >
                 <Wallet size={14} />
                 Cash & FDs
-                <span className="asset-filter-count">{countCash}</span>
               </button>
               <button
                 type="button"
@@ -375,7 +374,6 @@ export default function AssetsPage() {
               >
                 <PieChart size={14} />
                 Equities
-                <span className="asset-filter-count">{countEquities}</span>
               </button>
               <button
                 type="button"
@@ -384,7 +382,6 @@ export default function AssetsPage() {
               >
                 <Building2 size={14} />
                 EPFO
-                <span className="asset-filter-count">{countEpfo}</span>
               </button>
               <button
                 type="button"
@@ -393,7 +390,6 @@ export default function AssetsPage() {
               >
                 <ShieldAlert size={14} />
                 Loans & Debt
-                <span className="asset-filter-count">{countDebt}</span>
               </button>
             </div>
           </div>
@@ -412,7 +408,7 @@ export default function AssetsPage() {
                     <div className="account-asset-header">
                       <div className="account-asset-title-group">
                         <div className="account-asset-icon">
-                          {acc.institution ? acc.institution[0].toUpperCase() : <Landmark size={20} />}
+                          <Landmark size={18} />
                         </div>
                         <div>
                           <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px" }}>
@@ -452,7 +448,7 @@ export default function AssetsPage() {
                             <span key={hIdx} className="holding-chip">
                               <strong style={{ color: "var(--ink)" }}>{h.symbol}</strong>
                               <span style={{ color: "var(--muted)" }}>
-                                {h.currentValue !== null ? money(h.currentValue) : `${h.quantity} units`}
+                                {h.currentValue !== null ? formatAmount(h.currentValue) : `${h.quantity} units`}
                               </span>
                             </span>
                           ))}

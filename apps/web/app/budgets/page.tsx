@@ -432,26 +432,30 @@ export default function BudgetsPage() {
               </form>
             </section>
 
-            {/* Active Envelopes List */}
+            {/* Single Consolidated Expense Categories & Real-Time Envelope Budgets Grid */}
             <section className="panel" style={{ padding: "20px" }}>
-              <div className="panel-title" style={{ marginBottom: "16px" }}>
+              <div className="panel-title" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                 <div>
-                  <span className="eyebrow" style={{ color: "var(--green)" }}>Real-Time Envelopes</span>
-                  <h2>Active Category Envelope Budgets ({budgets.length})</h2>
+                  <span className="eyebrow" style={{ color: "var(--green)" }}>Real-Time Envelopes & Directory</span>
+                  <h2>Expense Categories & Budget Envelopes ({categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE").length})</h2>
+                </div>
+
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <span className="month-pill" style={{ fontSize: "11px" }}>
+                    {budgets.length} Active Envelopes
+                  </span>
                 </div>
               </div>
 
-              {budgets.length === 0 ? (
-                <div style={{ padding: "40px", textAlign: "center", background: "var(--background-alt)", borderRadius: "12px", border: "1px dashed var(--line)", color: "var(--muted)" }}>
-                  <Target size={32} style={{ opacity: 0.4, margin: "0 auto 8px auto", display: "block" }} />
-                  <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "var(--ink)" }}>No category budgets created yet.</p>
-                  <span style={{ fontSize: "12px" }}>Use the form above or pick from the category list below to assign target monthly limits.</span>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))", gap: "16px" }}>
-                  {budgets.map((b) => {
-                    const statusColor = b.status === "EXCEEDED" ? "#ef4444" : b.status === "WARNING" ? "#f59e0b" : "#10b981";
-                    const progressGradient = b.status === "EXCEEDED"
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))", gap: "16px" }}>
+                {categories
+                  .filter((cat) => (cat.type || "EXPENSE") === "EXPENSE")
+                  .map((cat) => {
+                    const b = budgets.find((item) => item.categoryId === cat.id);
+                    const statusColor = !b ? "var(--muted)" : b.status === "EXCEEDED" ? "#ef4444" : b.status === "WARNING" ? "#f59e0b" : "#10b981";
+                    const progressGradient = !b
+                      ? "var(--line)"
+                      : b.status === "EXCEEDED"
                       ? "linear-gradient(90deg, #ef4444 0%, #f87171 100%)"
                       : b.status === "WARNING"
                       ? "linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%)"
@@ -459,180 +463,138 @@ export default function BudgetsPage() {
 
                     return (
                       <div
-                        key={b.id}
+                        key={cat.id}
                         style={{
                           background: "var(--background-alt)",
-                          border: `1px solid ${b.status === "EXCEEDED" ? "rgba(239,68,68,0.4)" : b.status === "WARNING" ? "rgba(245,158,11,0.4)" : "var(--line)"}`,
+                          border: `1px solid ${b ? (b.status === "EXCEEDED" ? "rgba(239,68,68,0.4)" : b.status === "WARNING" ? "rgba(245,158,11,0.4)" : "var(--line)") : "var(--line)"}`,
                           borderRadius: "14px",
                           padding: "18px 20px",
                           display: "flex",
                           flexDirection: "column",
-                          gap: "14px",
-                          boxShadow: b.status === "EXCEEDED" ? "0 4px 12px rgba(239,68,68,0.08)" : "none",
+                          gap: "12px",
+                          boxShadow: b && b.status === "EXCEEDED" ? "0 4px 12px rgba(239,68,68,0.08)" : "none",
                         }}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                            <span style={{ width: "14px", height: "14px", borderRadius: "50%", background: b.categoryColor || "#3b82f6", flexShrink: 0 }} />
-                            <strong style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--ink)" }}>{b.categoryName}</strong>
+                            <span style={{ width: "14px", height: "14px", borderRadius: "50%", background: cat.color || "#3b82f6", flexShrink: 0 }} />
+                            <strong style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--ink)" }}>{cat.name}</strong>
                           </div>
 
-                          <span
-                            style={{
-                              fontSize: "11px",
-                              padding: "3px 10px",
-                              borderRadius: "12px",
-                              fontWeight: 800,
-                              background: b.status === "EXCEEDED" ? "rgba(239,68,68,0.15)" : b.status === "WARNING" ? "rgba(245,158,11,0.15)" : "rgba(16,185,129,0.15)",
-                              color: statusColor,
-                            }}
-                          >
-                            {b.status === "EXCEEDED" ? "🚨 OVER BUDGET" : b.status === "WARNING" ? (b.percentage >= 100 ? "⚠️ 100% TARGET REACHED" : "⚠️ 80%+ REACHED") : "🟢 ON TRACK"}
-                          </span>
-                        </div>
-
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                          <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-                            Spent <strong style={{ color: "var(--ink)", fontWeight: 700 }}>{money(b.spentAmount * 100)}</strong> of {money(b.monthlyLimit * 100)}
-                          </span>
-                          <span style={{ fontSize: "13px", fontWeight: 800, color: statusColor }}>{b.percentage}%</span>
-                        </div>
-
-                        {/* Enhanced Visual Progress Bar */}
-                        <div style={{ height: "10px", width: "100%", background: "var(--background)", borderRadius: "5px", border: "1px solid var(--line)", overflow: "hidden" }}>
-                          <div
-                            style={{
-                              height: "100%",
-                              width: `${Math.min(100, b.percentage)}%`,
-                              background: progressGradient,
-                              transition: "width 0.4s ease-in-out",
-                              borderRadius: "5px",
-                            }}
-                          />
-                        </div>
-
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "2px", paddingTop: "10px", borderTop: "1px solid var(--line)", fontSize: "12px" }}>
-                          <span style={{ color: "var(--muted)" }}>
-                            {b.remainingAmount > 0 ? (
-                              <>Remaining: <strong style={{ color: "var(--green)", fontWeight: 700 }}>{money(b.remainingAmount * 100)}</strong></>
-                            ) : b.spentAmount > b.monthlyLimit ? (
-                              <>Over budget by: <strong style={{ color: "#ef4444", fontWeight: 700 }}>{money((b.spentAmount - b.monthlyLimit) * 100)}</strong></>
-                            ) : (
-                              <>Status: <strong style={{ color: "#f59e0b", fontWeight: 700 }}>Target Met (₹0 left)</strong></>
-                            )}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteBudget(b.id)}
-                            disabled={deletingBudgetId === b.id}
-                            className="ghost compact"
-                            style={{ color: "#ef4444", padding: "4px 8px", fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
-                            title="Remove envelope target"
-                          >
-                            {deletingBudgetId === b.id ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
-                            <span>Remove</span>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            {/* List of All Available System Categories */}
-            <section className="panel" style={{ padding: "20px" }}>
-              <div className="panel-title" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-                <div>
-                  <span className="eyebrow" style={{ color: "var(--green)" }}>Category Directory</span>
-                  <h2>Expense Categories ({categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE").length})</h2>
-                </div>
-
-                <span className="month-pill" style={{ fontSize: "11px" }}>
-                  {categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE").length} Expense Envelopes
-                </span>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "14px" }}>
-                {categories
-                  .filter((cat) => (cat.type || "EXPENSE") === "EXPENSE")
-                  .map((cat) => {
-                    const existingBudget = budgets.find((b) => b.categoryId === cat.id);
-                    const catType = (cat.type || "EXPENSE") as string;
-                    const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : catType === "TRANSFER" ? "rgba(168, 85, 247, 0.12)" : "rgba(239, 68, 68, 0.12)";
-                    const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : catType === "TRANSFER" ? "#6b21a8" : "#991b1b";
-                    const badgeLabel = catType === "INCOME" ? "INCOME" : catType === "INVESTMENT" ? "INVESTMENT" : catType === "TRANSFER" ? "TRANSFER" : "EXPENSE";
-
-                    return (
-                      <div
-                        key={cat.id}
-                        style={{
-                          background: "var(--background-alt)",
-                          border: "1px solid var(--line)",
-                          borderRadius: "12px",
-                          padding: "14px 16px",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "10px",
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                            <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
-                            <strong style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>{cat.name}</strong>
-                          </div>
-
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "8px", background: badgeBg, color: badgeColor, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                              {badgeLabel}
-                            </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             <button
                               type="button"
-                              title="Edit Category & Group"
+                              title="Edit Category & Color"
                               onClick={() => handleOpenEditCategory(cat)}
                               style={{ background: "transparent", border: "none", cursor: "pointer", padding: "2px", color: "var(--muted)", display: "flex", alignItems: "center" }}
                             >
                               <Pencil size={13} />
                             </button>
+
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                padding: "3px 9px",
+                                borderRadius: "12px",
+                                fontWeight: 800,
+                                background: !b ? "var(--background)" : b.status === "EXCEEDED" ? "rgba(239,68,68,0.15)" : b.status === "WARNING" ? "rgba(245,158,11,0.15)" : "rgba(16,185,129,0.15)",
+                                color: statusColor,
+                                border: `1px solid ${statusColor}33`,
+                              }}
+                            >
+                              {!b
+                                ? "⚪ NO TARGET"
+                                : b.status === "EXCEEDED"
+                                ? "🚨 OVER BUDGET"
+                                : b.status === "WARNING"
+                                ? (b.percentage >= 100 ? "⚠️ 100% REACHED" : "⚠️ 80%+ REACHED")
+                                : "🟢 ON TRACK"}
+                            </span>
                           </div>
                         </div>
 
-                        {existingBudget ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)" }}>
-                              <span>Target: <strong style={{ color: "var(--ink)" }}>{money(existingBudget.monthlyLimit * 100)}/mo</strong></span>
-                              <span>Spent: <strong>{money(existingBudget.spentAmount * 100)}</strong> ({existingBudget.percentage}%)</span>
+                        {b ? (
+                          <>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                              <span style={{ fontSize: "13px", color: "var(--muted)" }}>
+                                Spent <strong style={{ color: "var(--ink)", fontWeight: 700 }}>{money(b.spentAmount * 100)}</strong> of {money(b.monthlyLimit * 100)}
+                              </span>
+                              <span style={{ fontSize: "13px", fontWeight: 800, color: statusColor }}>{b.percentage}%</span>
                             </div>
-                            <div style={{ height: "5px", width: "100%", background: "var(--background)", borderRadius: "3px", overflow: "hidden", border: "1px solid var(--line)" }}>
+
+                            {/* Enhanced Visual Progress Bar */}
+                            <div style={{ height: "8px", width: "100%", background: "var(--background)", borderRadius: "4px", border: "1px solid var(--line)", overflow: "hidden" }}>
                               <div
                                 style={{
                                   height: "100%",
-                                  width: `${Math.min(100, existingBudget.percentage)}%`,
-                                  background: existingBudget.percentage > 100 ? "#ef4444" : existingBudget.percentage >= 80 ? "#f59e0b" : "#10b981",
+                                  width: `${Math.min(100, b.percentage)}%`,
+                                  background: progressGradient,
+                                  transition: "width 0.4s ease-in-out",
+                                  borderRadius: "4px",
                                 }}
                               />
                             </div>
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: "11px", color: "var(--muted)" }}>
-                            No monthly limit assigned yet.
-                          </div>
-                        )}
 
-                        <div style={{ paddingTop: "8px", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "flex-end" }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedCatId(cat.id);
-                              if (existingBudget) setLimitInput(String(existingBudget.monthlyLimit));
-                              window.scrollTo({ top: 0, behavior: "smooth" });
-                            }}
-                            className="secondary compact"
-                            style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "6px" }}
-                          >
-                            {existingBudget ? "Edit Envelope Target" : "+ Set Envelope Target"}
-                          </button>
-                        </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "2px", paddingTop: "8px", borderTop: "1px solid var(--line)", fontSize: "12px" }}>
+                              <span style={{ color: "var(--muted)" }}>
+                                {b.remainingAmount > 0 ? (
+                                  <>Remaining: <strong style={{ color: "var(--green)", fontWeight: 700 }}>{money(b.remainingAmount * 100)}</strong></>
+                                ) : b.spentAmount > b.monthlyLimit ? (
+                                  <>Over budget by: <strong style={{ color: "#ef4444", fontWeight: 700 }}>{money((b.spentAmount - b.monthlyLimit) * 100)}</strong></>
+                                ) : (
+                                  <>Status: <strong style={{ color: "#f59e0b", fontWeight: 700 }}>Target Met (₹0 left)</strong></>
+                                )}
+                              </span>
+
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCatId(cat.id);
+                                    setLimitInput(String(b.monthlyLimit));
+                                    window.scrollTo({ top: 0, behavior: "smooth" });
+                                  }}
+                                  className="secondary compact"
+                                  style={{ fontSize: "11px", padding: "3px 8px" }}
+                                >
+                                  Edit Target
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteBudget(b.id)}
+                                  disabled={deletingBudgetId === b.id}
+                                  className="ghost compact"
+                                  style={{ color: "#ef4444", padding: "3px 6px", fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                                  title="Remove envelope target"
+                                >
+                                  {deletingBudgetId === b.id ? <Loader2 size={12} className="spin" /> : <Trash2 size={12} />}
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", margin: "4px 0" }}>
+                              No monthly target limit assigned for this expense category yet.
+                            </div>
+
+                            <div style={{ paddingTop: "8px", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "flex-end" }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCatId(cat.id);
+                                  setLimitInput("");
+                                  window.scrollTo({ top: 0, behavior: "smooth" });
+                                }}
+                                className="secondary compact"
+                                style={{ fontSize: "11px", padding: "4px 12px", borderRadius: "6px" }}
+                              >
+                                + Set Envelope Target
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}

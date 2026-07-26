@@ -793,24 +793,10 @@ export default function CreditCardsPage() {
 
                       <div style={{ display: "flex", gap: "8px" }}>
                         <Link
-                          href={`/import?accountId=${card.id}`}
+                          href={`/accounts?account=${card.id}`}
                           className="button secondary compact"
-                          style={{ flex: 1, justifyContent: "center", fontSize: "11px" }}>
-                          <Upload size={12} /> Import
-                        </Link>
-                        <button
-                          type="button"
-                          className="button secondary compact"
-                          style={{ flex: 1, justifyContent: "center", fontSize: "11px" }}
-                          onClick={() => setVaultAccount({ id: card.id, name: card.name })}>
-                          <Lock size={12} /> Vault
-                        </button>
-                        <Link
-                          href={`/transactions?mode=CREDIT_CARD&accountId=${card.id}`}
-                          className="button ghost compact"
-                          style={{ padding: "6px 8px" }}
-                          title="View Transactions">
-                          <Receipt size={14} />
+                          style={{ width: "100%", justifyContent: "center", fontSize: "12px", fontWeight: 700 }}>
+                          View Card Details &amp; Ledger →
                         </Link>
                       </div>
                     </div>
