@@ -4,7 +4,15 @@ import '@fontsource/manrope/600.css';
 import '@fontsource/manrope/700.css';
 import './globals.css';
 
-export const metadata = { title: 'YAFT', description: 'Yet Another Financial Tool — your private financial home' };
+export const metadata = {
+  title: 'YAFT',
+  description: 'Yet Another Financial Tool — your private financial home',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
+};
 
 const themeScript = `
   (() => {
