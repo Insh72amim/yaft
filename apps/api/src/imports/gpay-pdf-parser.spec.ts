@@ -35,7 +35,7 @@ Paid by Axis Bank 6785
 function createMockDoc(text: string): PdfStatementDocument {
   return {
     total: 1,
-    textPages: [{ page: 1, text }],
+    textPages: [{ pageNumber: 1, text } as any],
     tablePages: [],
   };
 }
