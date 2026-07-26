@@ -1049,62 +1049,62 @@ function AccountSpendingAndBeneficiariesSection({
 
         {/* Card 2: PAYEES & MERCHANTS / Top Outbound Beneficiaries */}
         <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 PAYEES & MERCHANTS
               </span>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink)' }}>
-                {outboundTab === 'EXTERNAL' ? 'Top External Payments' : outboundTab === 'INTERNAL' ? 'Top Internal Transfers' : 'Top Outbound Beneficiaries'}
+                Top Outbound Beneficiaries
               </h3>
             </div>
 
-            {/* Sub-Tabs for External / Internal / All */}
-            <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', padding: '3px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+            {/* Segmented Filter Pills */}
+            <div style={{ display: 'inline-flex', gap: '3px', background: 'var(--background)', padding: '3px', borderRadius: '8px', border: '1px solid var(--line)', flexShrink: 0 }}>
               <button
                 type="button"
                 onClick={() => setOutboundTab('EXTERNAL')}
                 style={{
-                  padding: '3px 8px',
+                  padding: '4px 10px',
                   borderRadius: '6px',
                   border: 'none',
                   background: outboundTab === 'EXTERNAL' ? 'var(--accent)' : 'transparent',
                   color: outboundTab === 'EXTERNAL' ? '#fff' : 'var(--muted)',
-                  fontSize: '10.5px',
+                  fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
               >
-                External (Top 5)
+                External
               </button>
               <button
                 type="button"
                 onClick={() => setOutboundTab('INTERNAL')}
                 style={{
-                  padding: '3px 8px',
+                  padding: '4px 10px',
                   borderRadius: '6px',
                   border: 'none',
                   background: outboundTab === 'INTERNAL' ? '#3b82f6' : 'transparent',
                   color: outboundTab === 'INTERNAL' ? '#fff' : 'var(--muted)',
-                  fontSize: '10.5px',
+                  fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                 }}
               >
-                Internal (Top 5)
+                Internal
               </button>
               <button
                 type="button"
                 onClick={() => setOutboundTab('ALL')}
                 style={{
-                  padding: '3px 8px',
+                  padding: '4px 10px',
                   borderRadius: '6px',
                   border: 'none',
                   background: outboundTab === 'ALL' ? 'var(--line)' : 'transparent',
                   color: outboundTab === 'ALL' ? 'var(--ink)' : 'var(--muted)',
-                  fontSize: '10.5px',
+                  fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
