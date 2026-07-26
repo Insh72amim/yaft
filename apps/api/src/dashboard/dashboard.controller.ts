@@ -150,54 +150,55 @@ export class DashboardController {
       const amt = Math.abs(Number(tx.amount));
       const internal = isInternalTransfer(tx);
 
-      if (internal) {
-        if (tx.amount > 0) {
+      if (tx.amount > 0) {
+        if (internal) {
           accFlow.internalInbound += amt;
         } else {
-          let destAccountId: string | undefined;
-          if (tx.transferGroupId) {
-            const opposite = monthTransactions.find(
-              (other) => other.transferGroupId === tx.transferGroupId && other.id !== tx.id,
-            );
-            if (opposite) destAccountId = opposite.accountId;
-          } else {
-            for (const v of activeVaults) {
-              if (v.last4 && v.accountId !== tx.accountId && tx.descriptionRaw.includes(v.last4)) {
-                destAccountId = v.accountId;
-                break;
-              }
-            }
-          }
-
-          if (destAccountId) {
-            const destAcc = accounts.find((a) => a.id === destAccountId);
-            if (destAcc) {
-              if (destAcc.type === 'CREDIT_CARD') {
-                accFlow.creditCardPayments += amt;
-              } else {
-                accFlow.internalOutbound += amt;
-              }
-              internalTransfersList.push({
-                fromAccountId: tx.accountId,
-                fromAccountName: accFlow.name,
-                toAccountId: destAcc.id,
-                toAccountName: destAcc.name,
-                toAccountType: destAcc.type,
-                amount: amt,
-              });
-            }
-          } else {
-            const isCCCategory = tx.category?.name && /CREDIT CARD|CC PAYMENT|CARD BILL/i.test(tx.category.name);
-            if (isCCCategory) {
-              accFlow.creditCardPayments += amt;
-            } else {
-              accFlow.internalOutbound += amt;
+          accFlow.externalInbound += amt;
+        }
+      } else {
+        let destAccountId: string | undefined;
+        if (tx.transferGroupId) {
+          const opposite = monthTransactions.find(
+            (other) => other.transferGroupId === tx.transferGroupId && other.id !== tx.id,
+          );
+          if (opposite) destAccountId = opposite.accountId;
+        } else {
+          for (const v of activeVaults) {
+            if (v.last4 && v.accountId !== tx.accountId && tx.descriptionRaw.includes(v.last4)) {
+              destAccountId = v.accountId;
+              break;
             }
           }
         }
-      } else {
-        if (tx.amount > 0) {
-          accFlow.externalInbound += amt;
+
+        const destAcc = destAccountId ? accounts.find((a) => a.id === destAccountId) : undefined;
+        const isCCCategory = tx.category?.name && /CC TRANSFER|CREDIT CARD|CC PAYMENT|CARD BILL|CC BILL/i.test(tx.category.name);
+
+        if (destAcc?.type === 'CREDIT_CARD' || isCCCategory) {
+          accFlow.creditCardPayments += amt;
+          if (destAcc) {
+            internalTransfersList.push({
+              fromAccountId: tx.accountId,
+              fromAccountName: accFlow.name,
+              toAccountId: destAcc.id,
+              toAccountName: destAcc.name,
+              toAccountType: destAcc.type,
+              amount: amt,
+            });
+          }
+        } else if (internal) {
+          accFlow.internalOutbound += amt;
+          if (destAcc) {
+            internalTransfersList.push({
+              fromAccountId: tx.accountId,
+              fromAccountName: accFlow.name,
+              toAccountId: destAcc.id,
+              toAccountName: destAcc.name,
+              toAccountType: destAcc.type,
+              amount: amt,
+            });
+          }
         } else {
           const matchesSip = activeSips.some((sip: any) => {
             const accountMatch = !sip.sourceAccountId || sip.sourceAccountId === tx.accountId;
