@@ -20,6 +20,9 @@ import {
   Filter,
   ArrowLeft,
   ArrowRight,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -103,6 +106,8 @@ export default function TransactionsPage() {
   const [ruleInitialCategoryId, setRuleInitialCategoryId] = useState("");
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [batchUpdating, setBatchUpdating] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileMsg, setReconcileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TransactionsApiResponse | null>(null);
@@ -150,6 +155,25 @@ export default function TransactionsPage() {
     setPage(1);
     setAccountId("all");
     setSelectedTxIds([]);
+  };
+
+  const handleReconcileTransfers = async () => {
+    setReconciling(true);
+    setReconcileMsg(null);
+    try {
+      const res = await api<{ matchedPairsCount: number }>('/transfers/reconcile', { method: 'POST' });
+      await fetchTransactions();
+      setReconcileMsg({
+        type: 'success',
+        text: `Transfer matching finished — linked ${res.matchedPairsCount} new internal transfer pair${res.matchedPairsCount === 1 ? '' : 's'}.`,
+      });
+    } catch (err) {
+      setReconcileMsg({ type: 'error', text: errorMessage(err, 'Failed to reconcile transfers.') });
+    } finally {
+      setReconciling(false);
+      // auto-dismiss after 6 s
+      setTimeout(() => setReconcileMsg(null), 6000);
+    }
   };
 
   const handleUpdateCategory = async (
@@ -284,7 +308,48 @@ export default function TransactionsPage() {
             Filter, categorize, and track complete transaction history across Credit Cards, Bank Accounts, and UPI payments.
           </p>
         </div>
+        <button
+          type="button"
+          className="secondary compact"
+          onClick={handleReconcileTransfers}
+          disabled={reconciling}
+          style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+        >
+          <RefreshCw size={14} className={reconciling ? 'spin' : ''} />
+          {reconciling ? 'Matching…' : 'Match Transfers'}
+        </button>
       </header>
+
+      {/* Reconcile result toast */}
+      {reconcileMsg && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '12px 16px',
+            borderRadius: '12px',
+            marginBottom: '8px',
+            fontSize: '13px',
+            fontWeight: 500,
+            background: reconcileMsg.type === 'success' ? 'rgba(29,117,79,0.08)' : 'rgba(201,75,69,0.08)',
+            border: `1px solid ${reconcileMsg.type === 'success' ? 'rgba(29,117,79,0.2)' : 'rgba(201,75,69,0.2)'}`,
+            color: reconcileMsg.type === 'success' ? 'var(--green)' : 'var(--red)',
+          }}
+        >
+          {reconcileMsg.type === 'success'
+            ? <CheckCircle2 size={16} />
+            : <AlertCircle size={16} />}
+          <span>{reconcileMsg.text}</span>
+          <button
+            type="button"
+            onClick={() => setReconcileMsg(null)}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 2px', lineHeight: 1 }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Mode Sub-Tabs */}
       <div

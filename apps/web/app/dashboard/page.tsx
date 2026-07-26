@@ -155,7 +155,7 @@ export default function DashboardPage() {
   const [showTransfersModal, setShowTransfersModal] = useState(false);
   const [showBudgetsModal, setShowBudgetsModal] = useState(false);
   const [budgetRefreshTrigger, setBudgetRefreshTrigger] = useState(0);
-  const [reconciling, setReconciling] = useState(false);
+
 
   const load = useCallback(async () => {
     setError('');
@@ -224,18 +224,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleReconcileTransfers = async () => {
-    setReconciling(true);
-    try {
-      const res = await api<{ matchedPairsCount: number }>('/transfers/reconcile', { method: 'POST' });
-      await load();
-      alert(`Transfer Matching Engine finished: linked ${res.matchedPairsCount} new internal transfer pair(s).`);
-    } catch (err) {
-      alert(errorMessage(err, 'Failed to reconcile transfers.'));
-    } finally {
-      setReconciling(false);
-    }
-  };
+
 
   if (!data)
     return (
@@ -300,10 +289,7 @@ export default function DashboardPage() {
           <p>Overview of {dateRangeLabel}.</p>
         </div>
         <div className="dashboard-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button type="button" className="secondary compact" onClick={handleReconcileTransfers} disabled={reconciling}>
-            <RefreshCw size={14} className={reconciling ? 'spin' : ''} />
-            {reconciling ? 'Matching…' : 'Match Transfers'}
-          </button>
+
 
           {/* Unified Sleek Date Control Pill with Prev/Next Period Navigation */}
           <div
@@ -501,7 +487,7 @@ export default function DashboardPage() {
             <h2>Savings Accounts Cash Flow & Transfers</h2>
           </div>
           <button type="button" className="secondary compact" onClick={() => setShowTransfersModal(true)}>
-            <RefreshCw size={14} className={reconciling ? 'spin' : ''} />
+            <RefreshCw size={14} />
             View Transfer Matching Candidates
           </button>
         </div>
