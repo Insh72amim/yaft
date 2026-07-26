@@ -1,11 +1,10 @@
 "use client";
 
 import {
-  ArrowUpRight,
   Building2,
-  CalendarDays,
   CreditCard,
   Gauge,
+  Landmark,
   Lock,
   PieChart,
   Plus,
@@ -21,6 +20,19 @@ import { Shell } from "@/components/shell";
 import { VaultModal } from "@/components/vault-modal";
 import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
 
+type CategoryItem = {
+  name: string;
+  color: string;
+  amount: number;
+  percentage: number;
+};
+
+type RecipientItem = {
+  name: string;
+  amount: number;
+  count: number;
+};
+
 type CardSummary = {
   id: string;
   name: string;
@@ -34,30 +46,17 @@ type CardSummary = {
   utilizationPercent: number;
   statementDate: number | null;
   dueDate: number | null;
+  totalInbound: number;
+  totalOutbound: number;
+  categories: CategoryItem[];
+  topRecipients: RecipientItem[];
+  otherOutbound: { amount: number; count: number };
 };
 
 type MonthlyFlow = {
   month: string;
   spends: number;
   payments: number;
-};
-
-type TopCategory = {
-  categoryId: string;
-  categoryName: string;
-  color: string;
-  totalAmount: number;
-  percentage: number;
-};
-
-type TopOutbound = {
-  id: string;
-  date: string;
-  description: string;
-  amount: number;
-  category: string;
-  categoryColor: string;
-  accountName: string;
 };
 
 type RecentTx = {
@@ -77,11 +76,16 @@ type CreditCardsApiResponse = {
     totalAvailable: number;
     utilizationRate: number;
     activeCardCount: number;
+    totalInbound: number;
+    totalOutbound: number;
+  };
+  overallFlow: {
+    categories: CategoryItem[];
+    topRecipients: RecipientItem[];
+    otherOutbound: { amount: number; count: number };
   };
   cards: CardSummary[];
   monthlySpendsAndPayments: MonthlyFlow[];
-  topCategories: TopCategory[];
-  topOutbound?: TopOutbound[];
   recentTransactions: RecentTx[];
 };
 
@@ -89,7 +93,7 @@ function CreditCardDoughnutChart({
   categories,
   total,
 }: {
-  categories: Array<{ categoryName: string; color: string; totalAmount: number; percentage: number }>;
+  categories: CategoryItem[];
   total: number;
 }) {
   const r = 38;
@@ -98,7 +102,7 @@ function CreditCardDoughnutChart({
   const circumference = 2 * Math.PI * r;
 
   let currentOffset = 0;
-  const filtered = categories.filter((c) => c.totalAmount > 0);
+  const filtered = categories.filter((c) => c.amount > 0);
 
   if (total <= 0 || filtered.length === 0) {
     return (
@@ -129,7 +133,7 @@ function CreditCardDoughnutChart({
     <div style={{ position: "relative", width: "130px", height: "130px", flexShrink: 0 }}>
       <svg viewBox="0 0 100 100" width="130" height="130" style={{ transform: "rotate(-90deg)" }}>
         {filtered.map((cat, idx) => {
-          const sliceLength = (cat.totalAmount / total) * circumference;
+          const sliceLength = (cat.amount / total) * circumference;
           const strokeDasharray = `${sliceLength} ${circumference - sliceLength}`;
           const strokeDashoffset = -currentOffset;
           currentOffset += sliceLength;
@@ -177,6 +181,7 @@ export default function CreditCardsPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<CreditCardsApiResponse | null>(null);
   const [error, setError] = useState("");
+  const [selectedCardId, setSelectedCardId] = useState<string>("ALL");
   const [vaultAccount, setVaultAccount] = useState<{ id: string; name: string } | null>(null);
 
   const loadData = async () => {
@@ -206,7 +211,15 @@ export default function CreditCardsPage() {
     return { label: "High Utilization (>50%)", className: "expense", color: "#ef4444" };
   };
 
-  const totalCategorySpend = data?.topCategories.reduce((sum, cat) => sum + cat.totalAmount, 0) ?? 0;
+  const activeCard = selectedCardId === "ALL" ? null : data?.cards.find((c) => c.id === selectedCardId);
+
+  const categories = activeCard ? activeCard.categories : (data?.overallFlow.categories || []);
+  const topRecipients = activeCard ? activeCard.topRecipients : (data?.overallFlow.topRecipients || []);
+  const otherOutbound = activeCard ? activeCard.otherOutbound : (data?.overallFlow.otherOutbound || { amount: 0, count: 0 });
+
+  const totalInbound = activeCard ? activeCard.totalInbound : (data?.summary.totalInbound || 0);
+  const totalOutbound = activeCard ? activeCard.totalOutbound : (data?.summary.totalOutbound || 0);
+  const totalSpend = categories.reduce((sum, c) => sum + c.amount, 0);
 
   return (
     <Shell>
@@ -215,7 +228,7 @@ export default function CreditCardsPage() {
           <span className="eyebrow">Financial Command Center</span>
           <h1>Credit Cards Analysis</h1>
           <p>
-            Aggregated card utilization, category spending breakdown, top outbound transactions, and cash flow.
+            Aggregated credit utilization, category spending breakdown, top outbound payees, and cash flow.
           </p>
         </div>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
@@ -242,13 +255,13 @@ export default function CreditCardsPage() {
 
       {data && (
         <>
-          {/* Top KPI Summary Cards */}
+          {/* Top Overall KPI Summary Cards */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: "16px",
-              marginBottom: "28px",
+              marginBottom: "24px",
             }}>
             <div className="panel" style={{ display: "flex", alignItems: "center", gap: "16px" }}>
               <span className={`summary-icon ${getUtilizationBadge(data.summary.utilizationRate).className}`}>
@@ -319,7 +332,352 @@ export default function CreditCardsPage() {
             </div>
           </div>
 
-          {/* Card Utilization & Limits Breakdown */}
+          {/* Section: Per-Card Flow & Beneficiaries Analysis */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "28px" }}>
+            {/* Card Selector Filter Pills */}
+            <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "4px" }}>
+              <button
+                type="button"
+                onClick={() => setSelectedCardId("ALL")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "8px 14px",
+                  borderRadius: "20px",
+                  border: selectedCardId === "ALL" ? "1px solid var(--accent)" : "1px solid var(--line)",
+                  background: selectedCardId === "ALL" ? "rgba(16, 185, 129, 0.1)" : "var(--background-alt)",
+                  color: selectedCardId === "ALL" ? "var(--accent)" : "var(--ink)",
+                  fontWeight: selectedCardId === "ALL" ? 700 : 500,
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}>
+                <CreditCard size={14} color={selectedCardId === "ALL" ? "var(--accent)" : "var(--muted)"} />
+                <span>All Credit Cards</span>
+                <span
+                  style={{
+                    fontSize: "10px",
+                    background: selectedCardId === "ALL" ? "var(--accent)" : "var(--line)",
+                    color: selectedCardId === "ALL" ? "#fff" : "var(--muted)",
+                    padding: "1px 6px",
+                    borderRadius: "10px",
+                    fontWeight: 600,
+                  }}>
+                  {money(data.summary.totalOutbound, true)} out
+                </span>
+              </button>
+
+              {data.cards.map((card) => {
+                const isSelected = card.id === selectedCardId;
+                return (
+                  <button
+                    key={card.id}
+                    type="button"
+                    onClick={() => setSelectedCardId(card.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "8px 14px",
+                      borderRadius: "20px",
+                      border: isSelected ? "1px solid var(--accent)" : "1px solid var(--line)",
+                      background: isSelected ? "rgba(16, 185, 129, 0.1)" : "var(--background-alt)",
+                      color: isSelected ? "var(--accent)" : "var(--ink)",
+                      fontWeight: isSelected ? 700 : 500,
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}>
+                    <Landmark size={14} color={isSelected ? "var(--accent)" : "var(--muted)"} />
+                    <span>{card.name}</span>
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        background: isSelected ? "var(--accent)" : "var(--line)",
+                        color: isSelected ? "#fff" : "var(--muted)",
+                        padding: "1px 6px",
+                        borderRadius: "10px",
+                        fontWeight: 600,
+                      }}>
+                      {money(card.totalOutbound, true)} out
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick Metrics Bar for Selected Card/View */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+              <div
+                style={{
+                  background: "var(--background-alt)",
+                  border: "1px solid var(--line)",
+                  padding: "12px 16px",
+                  borderRadius: "10px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}>
+                <div>
+                  <small style={{ color: "#10b981", display: "block", fontSize: "11px", fontWeight: 600 }}>
+                    Total Inbound (Payments)
+                  </small>
+                  <strong style={{ fontSize: "15px", color: "#10b981" }}>+{money(totalInbound)}</strong>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "var(--background-alt)",
+                  border: "1px solid var(--line)",
+                  padding: "12px 16px",
+                  borderRadius: "10px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}>
+                <div>
+                  <small style={{ color: "#ef4444", display: "block", fontSize: "11px", fontWeight: 600 }}>
+                    Total Outbound (Spends)
+                  </small>
+                  <strong style={{ fontSize: "15px", color: "#ef4444" }}>-{money(totalOutbound)}</strong>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "var(--background-alt)",
+                  border: "1px solid var(--line)",
+                  padding: "12px 16px",
+                  borderRadius: "10px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}>
+                <div>
+                  <small style={{ color: "var(--muted)", display: "block", fontSize: "11px", fontWeight: 600 }}>
+                    {activeCard ? `${activeCard.name} Limit` : "Combined Credit Limit"}
+                  </small>
+                  <strong style={{ fontSize: "15px", color: "var(--ink)" }}>
+                    {activeCard ? money(activeCard.creditLimit) : money(data.summary.totalLimit)}
+                  </strong>
+                </div>
+                <span
+                  style={{
+                    fontSize: "10px",
+                    color: getUtilizationBadge(activeCard ? activeCard.utilizationPercent : data.summary.utilizationRate).color,
+                    background: "rgba(255,255,255,0.06)",
+                    padding: "3px 8px",
+                    borderRadius: "6px",
+                    fontWeight: 700,
+                  }}>
+                  {activeCard ? activeCard.utilizationPercent : data.summary.utilizationRate}% Used
+                </span>
+              </div>
+            </div>
+
+            {/* 2-Card Layout: SPENDING (Where it went) & PAYEES & MERCHANTS (Top Outbound Beneficiaries) */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
+              {/* Card 1: SPENDING / Where it went */}
+              <div
+                style={{
+                  background: "var(--background-alt)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "14px",
+                  padding: "20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "16px",
+                }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <span
+                      className="eyebrow"
+                      style={{
+                        fontSize: "10px",
+                        color: "var(--muted)",
+                        display: "block",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                      }}>
+                      SPENDING
+                    </span>
+                    <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--ink)" }}>Where it went</h3>
+                  </div>
+                  <span className="month-pill" style={{ fontSize: "11px" }}>
+                    {activeCard ? activeCard.name : "All Credit Cards"}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", gap: "20px", alignItems: "center", flexWrap: "wrap" }}>
+                  <CreditCardDoughnutChart categories={categories} total={totalSpend} />
+
+                  <div
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      justifyContent: "center",
+                      minWidth: "160px",
+                    }}>
+                    {categories.length === 0 ? (
+                      <span style={{ fontSize: "12px", color: "var(--muted)" }}>No category spend recorded</span>
+                    ) : (
+                      categories.slice(0, 7).map((cat, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            fontSize: "12px",
+                            gap: "8px",
+                          }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, overflow: "hidden" }}>
+                            <span
+                              style={{
+                                width: "8px",
+                                height: "8px",
+                                borderRadius: "50%",
+                                background: cat.color || "#94a3b8",
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span
+                              style={{
+                                color: "var(--ink)",
+                                fontWeight: 600,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}>
+                              {cat.name}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+                            <strong style={{ fontSize: "12px", color: "var(--ink)" }}>{money(cat.amount)}</strong>
+                            <span style={{ fontSize: "11px", color: "var(--muted)", width: "30px", textAlign: "right" }}>
+                              {cat.percentage}%
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: PAYEES & MERCHANTS / Top Outbound Beneficiaries */}
+              <div
+                style={{
+                  background: "var(--background-alt)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "14px",
+                  padding: "20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "14px",
+                }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <span
+                      className="eyebrow"
+                      style={{
+                        fontSize: "10px",
+                        color: "var(--muted)",
+                        display: "block",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                      }}>
+                      PAYEES &amp; MERCHANTS
+                    </span>
+                    <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--ink)" }}>
+                      Top Outbound Beneficiaries
+                    </h3>
+                  </div>
+                  <span className="month-pill" style={{ fontSize: "11px" }}>
+                    Top Payees
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
+                  {topRecipients.length === 0 ? (
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>No outbound beneficiaries recorded</span>
+                  ) : (
+                    topRecipients.map((rec, idx) => {
+                      const maxAmt = topRecipients[0]?.amount || 1;
+                      const barWidthPct = Math.min(100, Math.max(8, Math.round((rec.amount / maxAmt) * 100)));
+                      return (
+                        <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px" }}>
+                            <span
+                              style={{
+                                fontWeight: 700,
+                                color: "var(--ink)",
+                                fontSize: "12.5px",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}>
+                              {rec.name}
+                            </span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+                              <strong style={{ fontSize: "12.5px", color: "var(--ink)" }}>{money(rec.amount)}</strong>
+                              <small style={{ color: "var(--muted)", fontSize: "10.5px" }}>
+                                ({rec.count} txn{rec.count === 1 ? "" : "s"})
+                              </small>
+                            </div>
+                          </div>
+                          <div style={{ width: "100%", height: "5px", background: "var(--line)", borderRadius: "3px", overflow: "hidden" }}>
+                            <div
+                              style={{
+                                height: "100%",
+                                width: `${barWidthPct}%`,
+                                background: "#f59e0b",
+                                borderRadius: "3px",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+
+                  {/* Other / Remaining Outbound Summary Item */}
+                  {otherOutbound && otherOutbound.amount > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: "12px",
+                        padding: "8px 10px",
+                        borderRadius: "8px",
+                        border: "1px dashed var(--line)",
+                        background: "var(--background)",
+                        marginTop: "4px",
+                      }}>
+                      <span style={{ color: "var(--muted)", fontWeight: 600 }}>Other External Outbounds</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <strong style={{ color: "var(--ink)" }}>{money(otherOutbound.amount)}</strong>
+                        <small style={{ color: "var(--muted)", fontSize: "10.5px" }}>
+                          ({otherOutbound.count} txn{otherOutbound.count === 1 ? "" : "s"})
+                        </small>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card Utilization & Limits Breakdown Grid */}
           <div style={{ marginBottom: "28px" }}>
             <div
               style={{
@@ -329,7 +687,7 @@ export default function CreditCardsPage() {
                 marginBottom: "16px",
               }}>
               <div>
-                <span className="eyebrow">Card Limits &amp; Health</span>
+                <span className="eyebrow">Card Health</span>
                 <h2 style={{ fontSize: "1.25rem", margin: 0 }}>Card Utilization Breakdown</h2>
               </div>
               <Link href="/accounts" style={{ fontSize: "13px", fontWeight: 600, color: "var(--accent)" }}>
@@ -460,147 +818,6 @@ export default function CreditCardsPage() {
                 })}
               </div>
             )}
-          </div>
-
-          {/* Spending Details Donut & Top Outbound Section (Overview-style 2 Column) */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-              gap: "24px",
-              marginBottom: "28px",
-            }}>
-            {/* Column 1: Category Spending Details Pie/Donut Chart */}
-            <div className="panel">
-              <div className="panel-title">
-                <div>
-                  <span className="eyebrow">Category Breakdown</span>
-                  <h2>Credit Card Spending Details</h2>
-                </div>
-                <PieChart size={18} style={{ color: "var(--muted)" }} />
-              </div>
-
-              {data.topCategories.length === 0 ? (
-                <p style={{ color: "var(--muted)", fontSize: "13px", padding: "20px 0" }}>
-                  No categorised credit card spending recorded.
-                </p>
-              ) : (
-                <div style={{ display: "flex", gap: "20px", alignItems: "center", marginTop: "16px" }}>
-                  <CreditCardDoughnutChart categories={data.topCategories} total={totalCategorySpend} />
-
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "10px" }}>
-                    {data.topCategories.map((cat) => (
-                      <div key={cat.categoryId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "13px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span
-                            style={{
-                              width: "10px",
-                              height: "10px",
-                              borderRadius: "50%",
-                              background: cat.color,
-                              flexShrink: 0,
-                            }}
-                          />
-                          <span style={{ fontWeight: 600, color: "var(--ink)" }}>{cat.categoryName}</span>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <strong style={{ display: "block", fontSize: "13px", color: "var(--ink)" }}>
-                            {money(cat.totalAmount)}
-                          </strong>
-                          <span style={{ fontSize: "11px", color: "var(--muted)" }}>{cat.percentage}%</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Column 2: Top 5 Outbound Transactions */}
-            <div className="panel">
-              <div className="panel-title">
-                <div>
-                  <span className="eyebrow">Highest Expenses</span>
-                  <h2>Top 5 Outbound Transactions</h2>
-                </div>
-                <TrendingDown size={18} style={{ color: "#ef4444" }} />
-              </div>
-
-              {!data.topOutbound || data.topOutbound.length === 0 ? (
-                <p style={{ color: "var(--muted)", fontSize: "13px", padding: "20px 0" }}>
-                  No outbound credit card expenses found.
-                </p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px" }}>
-                  {data.topOutbound.map((tx, idx) => (
-                    <div
-                      key={tx.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "10px 12px",
-                        background: "rgba(255,255,255,0.03)",
-                        border: "1px solid var(--line)",
-                        borderRadius: "10px",
-                      }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
-                        <span
-                          style={{
-                            width: "24px",
-                            height: "24px",
-                            borderRadius: "50%",
-                            background: "rgba(239, 68, 68, 0.12)",
-                            color: "#ef4444",
-                            display: "grid",
-                            placeItems: "center",
-                            fontSize: "12px",
-                            fontWeight: 700,
-                            flexShrink: 0,
-                          }}>
-                          {idx + 1}
-                        </span>
-                        <div style={{ minWidth: 0 }}>
-                          <strong
-                            style={{
-                              display: "block",
-                              fontSize: "13px",
-                              color: "var(--ink)",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}>
-                            {tx.description}
-                          </strong>
-                          <span style={{ fontSize: "11px", color: "var(--muted)" }}>
-                            {tx.accountName} •{" "}
-                            {new Date(tx.date).toLocaleDateString("en-IN", {
-                              day: "2-digit",
-                              month: "short",
-                            })}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div style={{ textAlign: "right", flexShrink: 0, marginLeft: "12px" }}>
-                        <strong style={{ fontSize: "14px", color: "#ef4444", fontWeight: 700 }}>
-                          -{money(tx.amount)}
-                        </strong>
-                        <span
-                          style={{
-                            display: "block",
-                            fontSize: "10px",
-                            fontWeight: 600,
-                            color: tx.categoryColor,
-                          }}>
-                          {tx.category}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Monthly Flow Chart Panel */}

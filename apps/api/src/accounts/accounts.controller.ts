@@ -348,6 +348,19 @@ export class AccountsController {
     });
   }
 
+function extractBeneficiaryName(description: string): string | null {
+  if (!description) return null;
+  const upiMatch = description.match(/UPI\/(?:[^\/]+\/){2,3}([^/]+)(?:\/|$)/i);
+  if (upiMatch && upiMatch[1] && !/^[0-9]+$/.test(upiMatch[1].trim())) {
+    return upiMatch[1].trim();
+  }
+  const neftMatch = description.match(/NEFT-[^-]+-([A-Z\s]+)/i);
+  if (neftMatch && neftMatch[1] && !/^[0-9]+$/.test(neftMatch[1].trim())) {
+    return neftMatch[1].trim();
+  }
+  return null;
+}
+
   @Get('credit-cards/summary')
   async getCreditCardsSummary(@CurrentUser() user: { id: string }) {
     const cardAccounts = await this.prisma.account.findMany({
@@ -358,44 +371,6 @@ export class AccountsController {
       orderBy: { name: 'asc' },
     });
 
-    let totalLimit = 0;
-    let totalOutstanding = 0;
-
-    const cards = await Promise.all(
-      cardAccounts.map(async (acc) => {
-        const creditLimit = Number(acc.creditLimit ?? 0n);
-        const agg = await this.prisma.transaction.aggregate({
-          where: { accountId: acc.id },
-          _sum: { amount: true },
-        });
-        const balance = Number(acc.openingBalance) + Number(agg._sum.amount ?? 0n);
-        const outstanding = Math.max(0, -balance);
-        const available = Math.max(0, creditLimit - outstanding);
-        const utilizationPercent = creditLimit > 0 ? Math.min(100, Math.round((outstanding / creditLimit) * 100)) : 0;
-
-        totalLimit += creditLimit;
-        totalOutstanding += outstanding;
-
-        return {
-          id: acc.id,
-          name: acc.name,
-          institution: acc.institution,
-          cardLast4: acc.vaultEntry?.last4 ?? null,
-          cardNetwork: acc.vaultEntry?.cardNetwork ?? null,
-          creditLimit,
-          currentBalance: balance,
-          outstanding,
-          availableCredit: available,
-          utilizationPercent,
-          statementDate: acc.statementDay ?? null,
-          dueDate: acc.dueDay ?? null,
-        };
-      })
-    );
-
-    const totalAvailable = Math.max(0, totalLimit - totalOutstanding);
-    const utilizationRate = totalLimit > 0 ? Math.min(100, Math.round((totalOutstanding / totalLimit) * 100)) : 0;
-
     const allCcTx = await this.prisma.transaction.findMany({
       where: {
         account: { userId: user.id, type: AccountType.CREDIT_CARD },
@@ -404,8 +379,91 @@ export class AccountsController {
       orderBy: { transactionDate: 'asc' },
     });
 
+    let totalLimit = 0;
+    let totalOutstanding = 0;
+
+    const cards = cardAccounts.map((acc) => {
+      const creditLimit = Number(acc.creditLimit ?? 0n);
+      const accTx = allCcTx.filter((t) => t.accountId === acc.id);
+      const aggSum = accTx.reduce((sum, t) => sum + Number(t.amount), 0);
+      const balance = Number(acc.openingBalance) + aggSum;
+      const outstanding = Math.max(0, -balance);
+      const available = Math.max(0, creditLimit - outstanding);
+      const utilizationPercent = creditLimit > 0 ? Math.min(100, Math.round((outstanding / creditLimit) * 100)) : 0;
+
+      totalLimit += creditLimit;
+      totalOutstanding += outstanding;
+
+      let cardInbound = 0;
+      let cardOutbound = 0;
+      const catMap = new Map<string, { name: string; color: string; amount: number }>();
+      const recipientMap = new Map<string, { name: string; amount: number; count: number }>();
+
+      accTx.forEach((tx) => {
+        const val = Number(tx.amount);
+        if (val < 0) {
+          const amt = Math.abs(val);
+          cardOutbound += amt;
+
+          const catName = tx.category?.name ?? 'Uncategorised';
+          const catColor = tx.category?.color ?? '#94a3b8';
+          const catKey = tx.categoryId ?? 'uncategorised';
+
+          const curCat = catMap.get(catKey) || { name: catName, color: catColor, amount: 0 };
+          catMap.set(catKey, { ...curCat, amount: curCat.amount + amt });
+
+          const name = tx.merchant || extractBeneficiaryName(tx.descriptionRaw) || tx.descriptionRaw || 'Unknown Merchant';
+          const curRec = recipientMap.get(name) || { name, amount: 0, count: 0 };
+          recipientMap.set(name, { ...curRec, amount: curRec.amount + amt, count: curRec.count + 1 });
+        } else {
+          cardInbound += val;
+        }
+      });
+
+      const categories = Array.from(catMap.values())
+        .map((c) => ({
+          ...c,
+          percentage: cardOutbound > 0 ? Math.round((c.amount / cardOutbound) * 100) : 0,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      const sortedRecipients = Array.from(recipientMap.values()).sort((a, b) => b.amount - a.amount);
+      const topRecipients = sortedRecipients.slice(0, 5);
+      const remainingRecipients = sortedRecipients.slice(5);
+      const otherOutbound = {
+        amount: remainingRecipients.reduce((sum, r) => sum + r.amount, 0),
+        count: remainingRecipients.reduce((sum, r) => sum + r.count, 0),
+      };
+
+      return {
+        id: acc.id,
+        name: acc.name,
+        institution: acc.institution,
+        cardLast4: acc.vaultEntry?.last4 ?? null,
+        cardNetwork: acc.vaultEntry?.cardNetwork ?? null,
+        creditLimit,
+        currentBalance: balance,
+        outstanding,
+        availableCredit: available,
+        utilizationPercent,
+        statementDate: acc.statementDay ?? null,
+        dueDate: acc.dueDay ?? null,
+        totalInbound: cardInbound,
+        totalOutbound: cardOutbound,
+        categories,
+        topRecipients,
+        otherOutbound,
+      };
+    });
+
+    const totalAvailable = Math.max(0, totalLimit - totalOutstanding);
+    const utilizationRate = totalLimit > 0 ? Math.min(100, Math.round((totalOutstanding / totalLimit) * 100)) : 0;
+
     const monthMap = new Map<string, { month: string; spends: number; payments: number }>();
-    const categoryMap = new Map<string, { categoryId: string; categoryName: string; color: string; totalAmount: number }>();
+    const overallCatMap = new Map<string, { name: string; color: string; amount: number }>();
+    const overallRecipientMap = new Map<string, { name: string; amount: number; count: number }>();
+    let overallInbound = 0;
+    let overallOutbound = 0;
 
     allCcTx.forEach((tx) => {
       const d = new Date(tx.transactionDate);
@@ -418,44 +476,42 @@ export class AccountsController {
       const entry = monthMap.get(monthKey)!;
 
       if (val < 0) {
-        entry.spends += Math.abs(val);
+        const amt = Math.abs(val);
+        entry.spends += amt;
+        overallOutbound += amt;
+
         const catName = tx.category?.name ?? 'Uncategorised';
         const catColor = tx.category?.color ?? '#94a3b8';
-        const catId = tx.categoryId ?? 'uncategorised';
+        const catKey = tx.categoryId ?? 'uncategorised';
 
-        if (!categoryMap.has(catId)) {
-          categoryMap.set(catId, { categoryId: catId, categoryName: catName, color: catColor, totalAmount: 0 });
-        }
-        categoryMap.get(catId)!.totalAmount += Math.abs(val);
+        const curCat = overallCatMap.get(catKey) || { name: catName, color: catColor, amount: 0 };
+        overallCatMap.set(catKey, { ...curCat, amount: curCat.amount + amt });
+
+        const name = tx.merchant || extractBeneficiaryName(tx.descriptionRaw) || tx.descriptionRaw || 'Unknown Merchant';
+        const curRec = overallRecipientMap.get(name) || { name, amount: 0, count: 0 };
+        overallRecipientMap.set(name, { ...curRec, amount: curRec.amount + amt, count: curRec.count + 1 });
       } else {
         entry.payments += val;
+        overallInbound += val;
       }
     });
 
     const monthlySpendsAndPayments = Array.from(monthMap.values()).slice(-6);
 
-    const totalSpendAll = Array.from(categoryMap.values()).reduce((sum, c) => sum + c.totalAmount, 0);
-    const topCategories = Array.from(categoryMap.values())
+    const overallCategories = Array.from(overallCatMap.values())
       .map((c) => ({
         ...c,
-        percentage: totalSpendAll > 0 ? Math.round((c.totalAmount / totalSpendAll) * 100) : 0,
+        percentage: overallOutbound > 0 ? Math.round((c.amount / overallOutbound) * 100) : 0,
       }))
-      .sort((a, b) => b.totalAmount - a.totalAmount)
-      .slice(0, 5);
+      .sort((a, b) => b.amount - a.amount);
 
-    const topOutbound = allCcTx
-      .filter((tx) => Number(tx.amount) < 0)
-      .sort((a, b) => Number(a.amount) - Number(b.amount))
-      .slice(0, 5)
-      .map((tx) => ({
-        id: tx.id,
-        date: tx.transactionDate,
-        description: tx.merchant || tx.descriptionRaw,
-        amount: Math.abs(Number(tx.amount)),
-        category: tx.category?.name ?? 'Uncategorised',
-        categoryColor: tx.category?.color ?? '#94a3b8',
-        accountName: tx.account.name,
-      }));
+    const overallSortedRecipients = Array.from(overallRecipientMap.values()).sort((a, b) => b.amount - a.amount);
+    const overallTopRecipients = overallSortedRecipients.slice(0, 5);
+    const overallRemainingRecipients = overallSortedRecipients.slice(5);
+    const overallOtherOutbound = {
+      amount: overallRemainingRecipients.reduce((sum, r) => sum + r.amount, 0),
+      count: overallRemainingRecipients.reduce((sum, r) => sum + r.count, 0),
+    };
 
     const recentTransactions = allCcTx
       .slice(-10)
@@ -477,11 +533,17 @@ export class AccountsController {
         totalAvailable,
         utilizationRate,
         activeCardCount: cardAccounts.length,
+        totalInbound: overallInbound,
+        totalOutbound: overallOutbound,
+      },
+      overallFlow: {
+        categories: overallCategories,
+        topRecipients: overallTopRecipients,
+        otherOutbound: overallOtherOutbound,
       },
       cards,
       monthlySpendsAndPayments,
-      topCategories,
-      topOutbound,
+      topCategories: overallCategories.slice(0, 5),
       recentTransactions,
     };
   }
