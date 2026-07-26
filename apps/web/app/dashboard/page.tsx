@@ -269,76 +269,104 @@ export default function DashboardPage() {
           <h1>Good to see you{owner?.name ? `, ${owner.name.trim().split(/\s+/)[0]}` : ''}.</h1>
           <p>Overview of {dateRangeLabel}.</p>
         </div>
-        <div className="dashboard-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="dashboard-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button type="button" className="secondary compact" onClick={handleReconcileTransfers} disabled={reconciling}>
             <RefreshCw size={14} className={reconciling ? 'spin' : ''} />
             {reconciling ? 'Matching…' : 'Match Transfers'}
           </button>
 
-          {/* Date Range Selector */}
+          {/* Unified Sleek Date Control Pill */}
           <div
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '3px 10px',
-              borderRadius: '10px',
-              border: '1px solid var(--line)',
               background: 'var(--card)',
-              fontSize: '12px',
+              border: '1px solid var(--line)',
+              borderRadius: '12px',
+              padding: '4px 8px',
+              gap: '8px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             }}
           >
-            <CalendarDays size={15} color="var(--muted)" />
-            <input
-              type="date"
-              aria-label="Start Date"
-              value={startDate}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setStartDate(e.target.value);
-                  setPresetKey('CUSTOM');
-                }
+            {/* Preset Selector */}
+            <select
+              value={presetKey}
+              aria-label="Overview Time Range Preset"
+              onChange={(e) => handlePresetChange(e.target.value)}
+              style={{
+                height: '30px',
+                fontSize: '12px',
+                fontWeight: 600,
+                borderRadius: '8px',
+                border: '1px solid var(--line)',
+                background: 'var(--card-hover)',
+                color: 'var(--ink)',
+                padding: '0 8px',
+                cursor: 'pointer',
+                outline: 'none',
+                maxWidth: '170px',
               }}
-              style={{ border: 0, padding: '4px 0', fontSize: '12px', width: 'auto', background: 'transparent', color: 'var(--ink)', margin: 0 }}
-            />
-            <span style={{ color: 'var(--muted)', fontWeight: 600 }}>to</span>
-            <input
-              type="date"
-              aria-label="End Date"
-              value={endDate}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setEndDate(e.target.value);
-                  setPresetKey('CUSTOM');
-                }
-              }}
-              style={{ border: 0, padding: '4px 0', fontSize: '12px', width: 'auto', background: 'transparent', color: 'var(--ink)', margin: 0 }}
-            />
-          </div>
+            >
+              <option value="DEFAULT">Last Fri – Last Thu</option>
+              <option value="THIS_MONTH">This Month</option>
+              <option value="LAST_MONTH">Last Month</option>
+              <option value="LAST_6_MONTHS">Last 6 Months</option>
+              <option value="THIS_FY">This FY</option>
+              <option value="CUSTOM">Custom Range</option>
+            </select>
 
-          {/* Preset Selector */}
-          <select
-            value={presetKey}
-            onChange={(e) => handlePresetChange(e.target.value)}
-            style={{
-              height: '34px',
-              fontSize: '12px',
-              fontWeight: 600,
-              borderRadius: '10px',
-              border: '1px solid var(--line)',
-              background: 'var(--card)',
-              color: 'var(--ink)',
-              margin: 0,
-              width: 'auto',
-            }}
-          >
-            <option value="DEFAULT">Last Fri – Last Thu (Default)</option>
-            <option value="THIS_MONTH">This Month</option>
-            <option value="LAST_MONTH">Last Month</option>
-            <option value="LAST_6_MONTHS">Last 6 Months</option>
-            <option value="THIS_FY">This FY</option>
-            <option value="CUSTOM">Custom Range</option>
-          </select>
+            <span style={{ height: '18px', width: '1px', background: 'var(--line)' }} />
+
+            {/* Date Range Controls */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <CalendarDays size={14} color="var(--muted)" style={{ flexShrink: 0 }} />
+              <input
+                type="date"
+                aria-label="Start Date"
+                value={startDate}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setStartDate(e.target.value);
+                    setPresetKey('CUSTOM');
+                  }
+                }}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  padding: '2px 0',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'var(--ink)',
+                  outline: 'none',
+                  width: '110px',
+                  cursor: 'pointer',
+                }}
+              />
+              <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600 }}>–</span>
+              <input
+                type="date"
+                aria-label="End Date"
+                value={endDate}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setEndDate(e.target.value);
+                    setPresetKey('CUSTOM');
+                  }
+                }}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  padding: '2px 0',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'var(--ink)',
+                  outline: 'none',
+                  width: '110px',
+                  cursor: 'pointer',
+                }}
+              />
+            </div>
+          </div>
         </div>
       </header>
 
