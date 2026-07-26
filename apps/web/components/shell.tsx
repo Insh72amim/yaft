@@ -20,7 +20,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ThemeColorSelector } from "@/components/theme-color-selector";
 
 const links = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -99,15 +98,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
-        <ThemeColorSelector />
         <ThemeToggle />
-        <div className="privacy-note">
-          <ShieldCheck size={18} />
-          <div>
-            <strong>Private by design</strong>
-            <span>Your data stays on your server.</span>
-          </div>
-        </div>
         <Link
           className={path === "/me" ? "active" : ""}
           href="/me"
