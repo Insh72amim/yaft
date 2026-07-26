@@ -155,6 +155,13 @@ export default function DashboardPage() {
   }, [router, startDate, endDate]);
 
   useEffect(() => {
+    const savedPreset = localStorage.getItem("yaft_default_date_preset");
+    if (savedPreset && savedPreset !== "DEFAULT") {
+      handlePresetChange(savedPreset);
+    }
+  }, []);
+
+  useEffect(() => {
     load();
   }, [load]);
 

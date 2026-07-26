@@ -12,6 +12,7 @@ import {
   Target,
   TrendingUp,
   Upload,
+  User,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -107,6 +108,26 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <span>Your data stays on your server.</span>
           </div>
         </div>
+        <Link
+          className={path === "/me" ? "active" : ""}
+          href="/me"
+          onClick={() => setOpen(false)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            padding: "11px 13px",
+            borderRadius: "11px",
+            color: path === "/me" ? "var(--green)" : "#68756e",
+            background: path === "/me" ? "var(--theme-soft-end)" : "transparent",
+            fontSize: "14px",
+            fontWeight: 500,
+            marginTop: "12px",
+            marginBottom: "4px",
+          }}>
+          <User size={18} />
+          <span>Me</span>
+        </Link>
         <button className="logout" onClick={logout}>
           <LogOut size={17} />
           Sign out
