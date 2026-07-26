@@ -358,7 +358,7 @@ export class DashboardController {
     const now = new Date();
     const months: { label: string; year: number; month: number; start: Date; end: Date }[] = [];
 
-    for (let i = 11; i >= 0; i--) {
+    for (let i = 5; i >= 0; i--) {
       const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
       const year = d.getUTCFullYear();
       const month = d.getUTCMonth();
