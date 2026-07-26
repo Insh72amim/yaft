@@ -960,604 +960,364 @@ function MultiBankSankeyDiagram({
 }) {
   const { accounts, internalTransfers, overall } = accountFlow;
 
-  // Aggregate bank-to-bank internal transfers by (fromAccountId -> toAccountId) pair
+  // Aggregate bank-to-bank internal transfers (exclude credit-card payments)
   const aggregatedBankTransfers = useMemo(() => {
     const map = new Map<
       string,
-      {
-        fromAccountId: string;
-        toAccountId: string;
-        fromAccountName: string;
-        toAccountName: string;
-        totalAmount: number;
-        count: number;
-      }
+      { fromAccountId: string; toAccountId: string; fromAccountName: string; toAccountName: string; totalAmount: number; count: number }
     >();
-
     for (const it of internalTransfers) {
-      if (it.toAccountType === 'CREDIT_CARD') continue; // Credit card payments go to CC Destination Node
+      if (it.toAccountType === 'CREDIT_CARD') continue;
       const key = `${it.fromAccountId}_${it.toAccountId}`;
-      const existing = map.get(key);
-      if (existing) {
-        existing.totalAmount += it.amount;
-        existing.count += 1;
-      } else {
-        map.set(key, {
-          fromAccountId: it.fromAccountId,
-          toAccountId: it.toAccountId,
-          fromAccountName: it.fromAccountName,
-          toAccountName: it.toAccountName,
-          totalAmount: it.amount,
-          count: 1,
-        });
-      }
+      const ex = map.get(key);
+      if (ex) { ex.totalAmount += it.amount; ex.count += 1; }
+      else map.set(key, { fromAccountId: it.fromAccountId, toAccountId: it.toAccountId, fromAccountName: it.fromAccountName, toAccountName: it.toAccountName, totalAmount: it.amount, count: 1 });
     }
-
     return [...map.values()];
   }, [internalTransfers]);
 
   const [hoveredBankId, setHoveredBankId] = useState<string | null>(null);
-  const [hoveredFlow, setHoveredFlow] = useState<{
-    title: string;
-    amount: string;
-    x: number;
-    y: number;
-    color: string;
-  } | null>(null);
+  const [hoveredFlow, setHoveredFlow] = useState<{ title: string; amount: string; color: string } | null>(null);
 
-  const BANK_COLOR_PALETTE = ['#3b82f6', '#06b6d4', '#ec4899', '#f59e0b', '#8b5cf6', '#10b981', '#6366f1'];
   const getBankColor = (index: number, name: string): string => {
-    const lower = name.toLowerCase();
-    if (lower.includes('hdfc')) return '#3b82f6';
-    if (lower.includes('sbi')) return '#06b6d4';
-    if (lower.includes('axis')) return '#ec4899';
-    if (lower.includes('pnb')) return '#f59e0b';
-    if (lower.includes('icici')) return '#8b5cf6';
-    return BANK_COLOR_PALETTE[index % BANK_COLOR_PALETTE.length];
+    const lc = name.toLowerCase();
+    if (lc.includes('hdfc')) return '#3b82f6';
+    if (lc.includes('sbi'))  return '#06b6d4';
+    if (lc.includes('axis')) return '#ec4899';
+    if (lc.includes('pnb'))  return '#f59e0b';
+    if (lc.includes('icici')) return '#8b5cf6';
+    const p = ['#3b82f6', '#06b6d4', '#ec4899', '#f59e0b', '#8b5cf6', '#10b981', '#6366f1'];
+    return p[index % p.length];
   };
 
-  const BANK_NODE_GAP = 28;
-  const startY = 40;
+  // ── Layout ─────────────────────────────────────────────────────
+  const SVG_W   = 1080;
+  const PAD_V   = 48;
+  const NODE_W  = 16;
+  const NODE_GAP = 30;
+  const MIN_H   = 54;
+  const LEFT_X  = 138;   // right edge of External Inbound bar
+  const MID_X   = 450;   // left edge of bank bars
+  const RIGHT_X = 790;   // left edge of destination bars
+  const ARC_X   = MID_X + NODE_W + 56; // peak x for internal-transfer arcs
 
-  // Compute exact volume for each bank account
+  // Volume per bank
   const bankVolumes = accounts.map((a) => {
-    // Inbound transfers received from other bank accounts
-    const bankTransfersIn = aggregatedBankTransfers
-      .filter((t) => t.toAccountId === a.id)
-      .reduce((sum, t) => sum + t.totalAmount, 0);
-    // Outbound transfers sent to other bank accounts
-    const bankTransfersOut = aggregatedBankTransfers
-      .filter((t) => t.fromAccountId === a.id)
-      .reduce((sum, t) => sum + t.totalAmount, 0);
-
-    const inTotal = a.externalInbound + bankTransfersIn;
-    const outTotal = a.externalOutbound + (a.creditCardPayments || 0) + (a.investments || 0) + bankTransfersOut;
-    return {
-      ...a,
-      bankTransfersIn,
-      bankTransfersOut,
-      inTotal,
-      outTotal,
-      maxVolume: Math.max(inTotal, outTotal, 1),
-    };
+    const tIn  = aggregatedBankTransfers.filter(t => t.toAccountId   === a.id).reduce((s: number, t: { totalAmount: number }) => s + t.totalAmount, 0);
+    const tOut = aggregatedBankTransfers.filter(t => t.fromAccountId === a.id).reduce((s: number, t: { totalAmount: number }) => s + t.totalAmount, 0);
+    const inT  = a.externalInbound  + tIn;
+    const outT = a.externalOutbound + (a.creditCardPayments ?? 0) + (a.investments ?? 0) + tOut;
+    return { ...a, tIn, tOut, inTotal: inT, outTotal: outT, maxVolume: Math.max(inT, outT, 1) };
   });
 
-  const totalSystemVolume = bankVolumes.reduce((sum, v) => sum + v.maxVolume, 0) || 1;
-  const totalMinHeightNeeded = accounts.length * 54 + (accounts.length - 1) * BANK_NODE_GAP;
-  const usableH = Math.max(420, totalMinHeightNeeded);
-  const availableH = usableH - (accounts.length - 1) * BANK_NODE_GAP;
-  const SVG_HEIGHT = usableH + startY * 2;
-  const SVG_WIDTH = 1120;
+  const totalVol = bankVolumes.reduce((s: number, v: { maxVolume: number }) => s + v.maxVolume, 0) || 1;
+  const minH     = accounts.length * MIN_H + (accounts.length - 1) * NODE_GAP;
+  const usableH  = Math.max(360, minH);
+  const availH   = usableH - (accounts.length - 1) * NODE_GAP;
+  const SVG_H    = usableH + PAD_V * 2;
 
-  const leftX = 160;
-  const middleX = 490;
-  const rightX = 840;
-  const nodeW = 18;
-
-  let currentY = startY;
+  let curY = PAD_V;
   const bankNodes = bankVolumes.map((acc, idx) => {
-    const rawProp = acc.maxVolume / totalSystemVolume;
-    const height = Math.max(54, Math.round(availableH * rawProp));
+    const h     = Math.max(MIN_H, Math.round(availH * (acc.maxVolume / totalVol)));
     const color = getBankColor(idx, acc.name);
-    const node = {
-      ...acc,
-      x: middleX,
-      y: currentY,
-      height,
-      color,
-    };
-    currentY += height + BANK_NODE_GAP;
+    const node  = { ...acc, x: MID_X, y: curY, height: h, color };
+    curY += h + NODE_GAP;
     return node;
   });
 
-  // Left Node: External Inbound
-  const activeInboundBanks = bankNodes.filter((b) => b.externalInbound > 0);
-  const sumInbound = activeInboundBanks.reduce((sum, a) => sum + a.externalInbound, 0) || 1;
-  const inboundNodeH = Math.max(50, Math.min(usableH * 0.65, activeInboundBanks.length * 38));
-  const inboundNodeStartY = startY + (usableH - inboundNodeH) / 2;
+  // ── External Inbound (left) ─────────────────────────────────────
+  const sumIn    = bankNodes.reduce((s: number, b: { externalInbound: number }) => s + b.externalInbound, 0) || 1;
+  const inH      = Math.max(48, Math.min(usableH * 0.65, bankNodes.filter(b => b.externalInbound > 0).length * 42));
+  const inStartY = PAD_V + (usableH - inH) / 2;
 
-  let currLeftSourceY = inboundNodeStartY;
-  const inboundSlices = bankNodes.map((bank) => {
-    if (bank.externalInbound <= 0) {
-      return { bank, srcTopY: currLeftSourceY, srcBotY: currLeftSourceY, dstTopY: bank.y, dstBotY: bank.y };
-    }
-    const share = bank.externalInbound / sumInbound;
-    const srcSliceH = Math.max(6, share * inboundNodeH);
-    const srcTopY = currLeftSourceY;
-    const srcBotY = srcTopY + srcSliceH;
-    currLeftSourceY += srcSliceH;
+  // ── Destination nodes (right) ───────────────────────────────────
+  const hasCc  = (overall.totalCreditCardPayments ?? 0) > 0;
+  const hasInv = (overall.totalInvestments ?? 0) > 0;
+  const rVol   = (overall.totalExternalOutbound ?? 0) + (overall.totalCreditCardPayments ?? 0) + (overall.totalInvestments ?? 0) || 1;
+  const dCount = 1 + (hasCc ? 1 : 0) + (hasInv ? 1 : 0);
+  const dGap   = 26;
+  const totDH  = usableH * 0.72 - (dCount - 1) * dGap;
 
-    // Target slice height on bank node left edge
-    const dstScale = bank.height / bank.maxVolume;
-    const dstSliceH = Math.max(6, bank.externalInbound * dstScale);
-    const dstTopY = bank.y;
-    const dstBotY = dstTopY + dstSliceH;
+  const outH = Math.max(44, Math.round(totDH * ((overall.totalExternalOutbound ?? 0) / rVol)));
+  const ccH  = hasCc  ? Math.max(36, Math.round(totDH * ((overall.totalCreditCardPayments ?? 0) / rVol))) : 0;
+  const invH = hasInv ? Math.max(36, Math.round(totDH * ((overall.totalInvestments ?? 0) / rVol))) : 0;
+  const totDB = outH + (hasCc ? ccH + dGap : 0) + (hasInv ? invH + dGap : 0);
 
-    return { bank, srcTopY, srcBotY, dstTopY, dstBotY };
-  });
+  const outY = PAD_V + (usableH - totDB) / 2;
+  const ccY  = outY + outH + (hasCc ? dGap : 0);
+  const invY = ccY + (hasCc ? ccH : 0) + (hasInv ? dGap : 0);
 
-  // Right Destination Nodes:
-  // 1. External Outbound
-  // 2. Credit Card Payments (Internal)
-  // 3. Mutual Funds & Investments
-  const hasCreditCardPayments = (overall.totalCreditCardPayments || 0) > 0;
-  const hasInvestments = (overall.totalInvestments || 0) > 0;
-
-  const totalRightVolume =
-    (overall.totalExternalOutbound || 0) +
-    (overall.totalCreditCardPayments || 0) +
-    (overall.totalInvestments || 0) || 1;
-
-  const destCount = 1 + (hasCreditCardPayments ? 1 : 0) + (hasInvestments ? 1 : 0);
-  const destGap = 24;
-  const totalDestAvailableH = usableH * 0.75 - (destCount - 1) * destGap;
-
-  const outboundNodeH = Math.max(46, Math.round(totalDestAvailableH * ((overall.totalExternalOutbound || 0) / totalRightVolume)));
-  const ccNodeH = hasCreditCardPayments
-    ? Math.max(40, Math.round(totalDestAvailableH * ((overall.totalCreditCardPayments || 0) / totalRightVolume)))
-    : 0;
-  const investmentNodeH = hasInvestments
-    ? Math.max(40, Math.round(totalDestAvailableH * ((overall.totalInvestments || 0) / totalRightVolume)))
-    : 0;
-
-  const totalDestBlockH = outboundNodeH + (hasCreditCardPayments ? ccNodeH + destGap : 0) + (hasInvestments ? investmentNodeH + destGap : 0);
-  const outboundRightY = startY + (usableH - totalDestBlockH) / 2;
-  const ccRightY = outboundRightY + outboundNodeH + (hasCreditCardPayments ? destGap : 0);
-  const investmentRightY = ccRightY + (hasCreditCardPayments ? ccNodeH : 0) + (hasInvestments ? destGap : 0);
-
-  // Outbound Ribbons: External Outbound
-  const activeOutboundBanks = bankNodes.filter((b) => b.externalOutbound > 0);
-  const sumOutbound = activeOutboundBanks.reduce((sum, a) => sum + a.externalOutbound, 0) || 1;
-  let currOutboundDstY = outboundRightY;
-
-  const outboundSlices = bankNodes.map((bank) => {
-    if (bank.externalOutbound <= 0) {
-      return { bank, srcTopY: bank.y, srcBotY: bank.y, dstTopY: currOutboundDstY, dstBotY: currOutboundDstY };
-    }
-    const dstShare = bank.externalOutbound / sumOutbound;
-    const dstSliceH = Math.max(6, dstShare * outboundNodeH);
-    const dstTopY = currOutboundDstY;
-    const dstBotY = dstTopY + dstSliceH;
-    currOutboundDstY += dstSliceH;
-
-    const scale = bank.height / bank.maxVolume;
-    const srcSliceH = Math.max(6, bank.externalOutbound * scale);
-    const srcTopY = bank.y;
-    const srcBotY = srcTopY + srcSliceH;
-
-    return { bank, srcTopY, srcBotY, dstTopY, dstBotY };
-  });
-
-  // Outbound Ribbons: Credit Card Payments
-  const activeCcBanks = bankNodes.filter((b) => (b.creditCardPayments || 0) > 0);
-  const sumCc = activeCcBanks.reduce((sum, a) => sum + (a.creditCardPayments || 0), 0) || 1;
-  let currCcDstY = ccRightY;
-
-  const ccSlices = bankNodes.map((bank) => {
-    const ccAmt = bank.creditCardPayments || 0;
-    if (ccAmt <= 0) return { bank, srcTopY: bank.y, srcBotY: bank.y, dstTopY: currCcDstY, dstBotY: currCcDstY };
-
-    const dstShare = ccAmt / sumCc;
-    const dstSliceH = Math.max(6, dstShare * ccNodeH);
-    const dstTopY = currCcDstY;
-    const dstBotY = dstTopY + dstSliceH;
-    currCcDstY += dstSliceH;
-
-    const scale = bank.height / bank.maxVolume;
-    const extOutH = bank.externalOutbound * scale;
-    const srcSliceH = Math.max(6, ccAmt * scale);
-    const srcTopY = bank.y + extOutH;
-    const srcBotY = srcTopY + srcSliceH;
-
-    return { bank, srcTopY, srcBotY, dstTopY, dstBotY };
-  });
-
-  // Outbound Ribbons: Investments
-  const activeInvBanks = bankNodes.filter((b) => (b.investments || 0) > 0);
-  const sumInvestments = activeInvBanks.reduce((sum, a) => sum + (a.investments || 0), 0) || 1;
-  let currInvDstY = investmentRightY;
-
-  const investmentSlices = bankNodes.map((bank) => {
-    const invAmt = bank.investments || 0;
-    if (invAmt <= 0) return { bank, srcTopY: bank.y, srcBotY: bank.y, dstTopY: currInvDstY, dstBotY: currInvDstY };
-
-    const dstShare = invAmt / sumInvestments;
-    const dstSliceH = Math.max(6, dstShare * investmentNodeH);
-    const dstTopY = currInvDstY;
-    const dstBotY = dstTopY + dstSliceH;
-    currInvDstY += dstSliceH;
-
-    const scale = bank.height / bank.maxVolume;
-    const extOutH = bank.externalOutbound * scale;
-    const ccH = (bank.creditCardPayments || 0) * scale;
-    const srcSliceH = Math.max(6, invAmt * scale);
-    const srcTopY = bank.y + extOutH + ccH;
-    const srcBotY = srcTopY + srcSliceH;
-
-    return { bank, srcTopY, srcBotY, dstTopY, dstBotY };
-  });
-
-  const sankeyLink = (x1: number, y1Top: number, y1Bot: number, x2: number, y2Top: number, y2Bot: number) => {
-    const cp = (x2 - x1) * 0.45;
-    return `
-      M ${x1} ${y1Top}
-      C ${x1 + cp} ${y1Top}, ${x2 - cp} ${y2Top}, ${x2} ${y2Top}
-      L ${x2} ${y2Bot}
-      C ${x2 - cp} ${y2Bot}, ${x1 + cp} ${y1Bot}, ${x1} ${y1Bot}
-      Z
-    `;
+  // ── Ribbon path helper ──────────────────────────────────────────
+  const ribbon = (x1: number, yT1: number, yB1: number, x2: number, yT2: number, yB2: number) => {
+    const cp = (x2 - x1) * 0.42;
+    return `M ${x1} ${yT1} C ${x1+cp} ${yT1},${x2-cp} ${yT2},${x2} ${yT2} L ${x2} ${yB2} C ${x2-cp} ${yB2},${x1+cp} ${yB1},${x1} ${yB1} Z`;
   };
 
+  // ── Inbound slices: left bar → left edge of each bank bar ───────
+  let lCurY = inStartY;
+  const inSlices = bankNodes.map((bank) => {
+    if (bank.externalInbound <= 0) return null;
+    const sH   = Math.max(5, (bank.externalInbound / sumIn) * inH);
+    const dH   = Math.max(5, (bank.externalInbound / bank.maxVolume) * bank.height);
+    const s    = { bank, srcT: lCurY, srcB: lCurY + sH, dstT: bank.y, dstB: bank.y + dH };
+    lCurY += sH;
+    return s;
+  }).filter(Boolean) as Array<{ bank: typeof bankNodes[0]; srcT: number; srcB: number; dstT: number; dstB: number }>;
+
+  // ── Outbound slices: right edge of each bank bar → dest nodes ───
+  // For each bank, outgoing slices stack from top of bar: ext-out, then cc, then inv
+  // Destination slots fill top-to-bottom per node across banks
+  let oDstY = outY, cDstY = ccY, iDstY = invY;
+
+  type Slice = { bank: typeof bankNodes[0]; srcT: number; srcB: number; dstT: number; dstB: number };
+  const outSlices: Slice[] = [];
+  const ccSlices:  Slice[] = [];
+  const invSlices: Slice[] = [];
+  const sumOut = bankNodes.reduce((s: number, b: { externalOutbound: number }) => s + b.externalOutbound, 0) || 1;
+  const sumCc  = bankNodes.reduce((s: number, b: { creditCardPayments?: number }) => s + (b.creditCardPayments ?? 0), 0) || 1;
+  const sumInv = bankNodes.reduce((s: number, b: { investments?: number }) => s + (b.investments ?? 0), 0) || 1;
+
+  // Track per-bank source offset accumulator
+  const bankSrcOffset = new Map<string, number>();
+  bankNodes.forEach(b => bankSrcOffset.set(b.id, 0));
+
+  for (const bank of bankNodes) {
+    const scale = bank.height / bank.maxVolume;
+
+    if (bank.externalOutbound > 0) {
+      const srcH = Math.max(5, bank.externalOutbound * scale);
+      const dstH = Math.max(5, (bank.externalOutbound / sumOut) * outH);
+      const off  = bankSrcOffset.get(bank.id)!;
+      outSlices.push({ bank, srcT: bank.y + off, srcB: bank.y + off + srcH, dstT: oDstY, dstB: oDstY + dstH });
+      bankSrcOffset.set(bank.id, off + srcH);
+      oDstY += dstH;
+    }
+
+    const ccAmt = bank.creditCardPayments ?? 0;
+    if (hasCc && ccAmt > 0) {
+      const srcH = Math.max(5, ccAmt * scale);
+      const dstH = Math.max(5, (ccAmt / sumCc) * ccH);
+      const off  = bankSrcOffset.get(bank.id)!;
+      ccSlices.push({ bank, srcT: bank.y + off, srcB: bank.y + off + srcH, dstT: cDstY, dstB: cDstY + dstH });
+      bankSrcOffset.set(bank.id, off + srcH);
+      cDstY += dstH;
+    }
+
+    const invAmt = bank.investments ?? 0;
+    if (hasInv && invAmt > 0) {
+      const srcH = Math.max(5, invAmt * scale);
+      const dstH = Math.max(5, (invAmt / sumInv) * invH);
+      const off  = bankSrcOffset.get(bank.id)!;
+      invSlices.push({ bank, srcT: bank.y + off, srcB: bank.y + off + srcH, dstT: iDstY, dstB: iDstY + dstH });
+      bankSrcOffset.set(bank.id, off + srcH);
+      iDstY += dstH;
+    }
+  }
+
   return (
-    <div className="beautiful-flow-wrapper" style={{ padding: '0', border: 'none', background: 'transparent', width: '100%', overflow: 'hidden' }}>
-      <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} className="beautiful-flow-svg" style={{ width: '100%', height: 'auto', display: 'block' }}>
+    <div style={{ padding: 0, width: '100%', overflow: 'hidden', position: 'relative' }}>
+      {/* HTML tooltip — floats above the SVG, never overlaps ribbons */}
+      {hoveredFlow && (
+        <div style={{
+          position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--card)', border: `1.5px solid ${hoveredFlow.color}`,
+          borderRadius: 10, padding: '5px 16px', fontSize: 12, fontWeight: 700,
+          color: 'var(--ink)', boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+          pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 10,
+          display: 'flex', gap: 10, alignItems: 'center',
+        }}>
+          <span>{hoveredFlow.title}</span>
+          <span style={{ color: hoveredFlow.color }}>{hoveredFlow.amount}</span>
+        </div>
+      )}
+
+      <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
         <defs>
-          {bankNodes.map((bank) => (
-            <linearGradient key={`grad-in-${bank.id}`} id={`grad-in-${bank.id}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#10b981" />
-              <stop offset="100%" stopColor={bank.color} />
+          {bankNodes.map(b => (
+            <linearGradient key={`gi-${b.id}`} id={`gi-${b.id}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#10b981" /><stop offset="100%" stopColor={b.color} />
             </linearGradient>
           ))}
-
-          {bankNodes.map((bank) => (
-            <linearGradient key={`grad-out-${bank.id}`} id={`grad-out-${bank.id}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={bank.color} />
-              <stop offset="100%" stopColor="#ef4444" />
+          {bankNodes.map(b => (
+            <linearGradient key={`go-${b.id}`} id={`go-${b.id}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={b.color} /><stop offset="100%" stopColor="#ef4444" />
             </linearGradient>
           ))}
-
-          {bankNodes.map((bank) => (
-            <linearGradient key={`grad-cc-${bank.id}`} id={`grad-cc-${bank.id}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={bank.color} />
-              <stop offset="100%" stopColor="#f59e0b" />
+          {bankNodes.map(b => (
+            <linearGradient key={`gc-${b.id}`} id={`gc-${b.id}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={b.color} /><stop offset="100%" stopColor="#f59e0b" />
             </linearGradient>
           ))}
-
-          {bankNodes.map((bank) => (
-            <linearGradient key={`grad-inv-${bank.id}`} id={`grad-inv-${bank.id}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={bank.color} />
-              <stop offset="100%" stopColor="#8b5cf6" />
+          {bankNodes.map(b => (
+            <linearGradient key={`gv-${b.id}`} id={`gv-${b.id}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={b.color} /><stop offset="100%" stopColor="#8b5cf6" />
             </linearGradient>
           ))}
         </defs>
 
-        {/* 1. Inbound Bezier Ribbons from Left Bar to Bank Nodes */}
-        {inboundSlices.map(({ bank, srcTopY, srcBotY, dstTopY, dstBotY }) => {
-          if (bank.externalInbound <= 0) return null;
-          const midX = (leftX + nodeW + bank.x) / 2;
-          const midY = (srcTopY + dstTopY) / 2;
-          const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
+        {/* ── Inbound ribbons ─────────────────────────────────── */}
+        {inSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
+          const act = !hoveredBankId || hoveredBankId === bank.id;
           return (
-            <path
-              key={`in-${bank.id}`}
-              d={sankeyLink(leftX + nodeW, srcTopY, srcBotY, bank.x, dstTopY, dstBotY)}
-              fill={`url(#grad-in-${bank.id})`}
-              opacity={isHighlighted ? '0.5' : '0.08'}
-              style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
-              className="sankey-path hover-opacity"
-              onMouseEnter={() => {
-                setHoveredBankId(bank.id);
-                setHoveredFlow({
-                  title: `External Inbound ⟶ ${bank.name}`,
-                  amount: `+${money(bank.externalInbound)}`,
-                  x: midX,
-                  y: midY,
-                  color: '#10b981',
-                });
-              }}
-              onMouseLeave={() => {
-                setHoveredBankId(null);
-                setHoveredFlow(null);
-              }}
+            <path key={`in-${bank.id}`}
+              d={ribbon(LEFT_X + NODE_W, srcT, srcB, MID_X, dstT, dstB)}
+              fill={`url(#gi-${bank.id})`} opacity={act ? 0.52 : 0.06}
+              style={{ transition: 'opacity .18s', cursor: 'pointer' }}
+              onMouseEnter={() => { setHoveredBankId(bank.id); setHoveredFlow({ title: `External Inbound → ${bank.name}`, amount: `+${money(bank.externalInbound)}`, color: '#10b981' }); }}
+              onMouseLeave={() => { setHoveredBankId(null); setHoveredFlow(null); }}
             />
           );
         })}
 
-        {/* 2a. Outbound Bezier Ribbons from Bank Nodes to External Outbound */}
-        {outboundSlices.map(({ bank, srcTopY, srcBotY, dstTopY, dstBotY }) => {
-          if (bank.externalOutbound <= 0) return null;
-          const midX = (bank.x + nodeW + rightX) / 2;
-          const midY = (srcTopY + dstTopY) / 2;
-          const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
+        {/* ── External Outbound ribbons ───────────────────────── */}
+        {outSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
+          const act = !hoveredBankId || hoveredBankId === bank.id;
           return (
-            <path
-              key={`out-${bank.id}`}
-              d={sankeyLink(bank.x + nodeW, srcTopY, srcBotY, rightX, dstTopY, dstBotY)}
-              fill={`url(#grad-out-${bank.id})`}
-              opacity={isHighlighted ? '0.5' : '0.08'}
-              style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
-              className="sankey-path hover-opacity"
-              onMouseEnter={() => {
-                setHoveredBankId(bank.id);
-                setHoveredFlow({
-                  title: `${bank.name} ⟶ External Outbound`,
-                  amount: `-${money(bank.externalOutbound)}`,
-                  x: midX,
-                  y: midY,
-                  color: '#ef4444',
-                });
-              }}
-              onMouseLeave={() => {
-                setHoveredBankId(null);
-                setHoveredFlow(null);
-              }}
+            <path key={`out-${bank.id}`}
+              d={ribbon(MID_X + NODE_W, srcT, srcB, RIGHT_X, dstT, dstB)}
+              fill={`url(#go-${bank.id})`} opacity={act ? 0.52 : 0.06}
+              style={{ transition: 'opacity .18s', cursor: 'pointer' }}
+              onMouseEnter={() => { setHoveredBankId(bank.id); setHoveredFlow({ title: `${bank.name} → External Outbound`, amount: `-${money(bank.externalOutbound)}`, color: '#ef4444' }); }}
+              onMouseLeave={() => { setHoveredBankId(null); setHoveredFlow(null); }}
             />
           );
         })}
 
-        {/* 2b. Credit Card Payment Ribbons from Bank Nodes to Credit Card Payments (Internal) */}
-        {hasCreditCardPayments &&
-          ccSlices.map(({ bank, srcTopY, srcBotY, dstTopY, dstBotY }) => {
-            const ccAmt = bank.creditCardPayments || 0;
-            if (ccAmt <= 0) return null;
-            const midX = (bank.x + nodeW + rightX) / 2;
-            const midY = (srcTopY + dstTopY) / 2;
-            const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
-            return (
-              <path
-                key={`cc-${bank.id}`}
-                d={sankeyLink(bank.x + nodeW, srcTopY, srcBotY, rightX, dstTopY, dstBotY)}
-                fill={`url(#grad-cc-${bank.id})`}
-                opacity={isHighlighted ? '0.6' : '0.08'}
-                style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
-                className="sankey-path hover-opacity"
-                onMouseEnter={() => {
-                  setHoveredBankId(bank.id);
-                  setHoveredFlow({
-                    title: `${bank.name} ⟶ Credit Card Payments (Internal)`,
-                    amount: `-${money(ccAmt)}`,
-                    x: midX,
-                    y: midY,
-                    color: '#f59e0b',
-                  });
-                }}
-                onMouseLeave={() => {
-                  setHoveredBankId(null);
-                  setHoveredFlow(null);
-                }}
-              />
-            );
-          })}
+        {/* ── Credit Card Payment ribbons ─────────────────────── */}
+        {hasCc && ccSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
+          const act = !hoveredBankId || hoveredBankId === bank.id;
+          return (
+            <path key={`cc-${bank.id}`}
+              d={ribbon(MID_X + NODE_W, srcT, srcB, RIGHT_X, dstT, dstB)}
+              fill={`url(#gc-${bank.id})`} opacity={act ? 0.55 : 0.06}
+              style={{ transition: 'opacity .18s', cursor: 'pointer' }}
+              onMouseEnter={() => { setHoveredBankId(bank.id); setHoveredFlow({ title: `${bank.name} → Credit Card Payments`, amount: `-${money(bank.creditCardPayments ?? 0)}`, color: '#f59e0b' }); }}
+              onMouseLeave={() => { setHoveredBankId(null); setHoveredFlow(null); }}
+            />
+          );
+        })}
 
-        {/* 2c. Investment Bezier Ribbons from Bank Nodes to Mutual Funds & Investments */}
-        {hasInvestments &&
-          investmentSlices.map(({ bank, srcTopY, srcBotY, dstTopY, dstBotY }) => {
-            const invAmt = bank.investments || 0;
-            if (invAmt <= 0) return null;
-            const midX = (bank.x + nodeW + rightX) / 2;
-            const midY = (srcTopY + dstTopY) / 2;
-            const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
-            return (
-              <path
-                key={`inv-${bank.id}`}
-                d={sankeyLink(bank.x + nodeW, srcTopY, srcBotY, rightX, dstTopY, dstBotY)}
-                fill={`url(#grad-inv-${bank.id})`}
-                opacity={isHighlighted ? '0.6' : '0.08'}
-                style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
-                className="sankey-path hover-opacity"
-                onMouseEnter={() => {
-                  setHoveredBankId(bank.id);
-                  setHoveredFlow({
-                    title: `${bank.name} ⟶ Mutual Funds & Investments`,
-                    amount: `+${money(invAmt)}`,
-                    x: midX,
-                    y: midY,
-                    color: '#8b5cf6',
-                  });
-                }}
-                onMouseLeave={() => {
-                  setHoveredBankId(null);
-                  setHoveredFlow(null);
-                }}
-              />
-            );
-          })}
+        {/* ── Investment ribbons ──────────────────────────────── */}
+        {hasInv && invSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
+          const act = !hoveredBankId || hoveredBankId === bank.id;
+          return (
+            <path key={`inv-${bank.id}`}
+              d={ribbon(MID_X + NODE_W, srcT, srcB, RIGHT_X, dstT, dstB)}
+              fill={`url(#gv-${bank.id})`} opacity={act ? 0.55 : 0.06}
+              style={{ transition: 'opacity .18s', cursor: 'pointer' }}
+              onMouseEnter={() => { setHoveredBankId(bank.id); setHoveredFlow({ title: `${bank.name} → Mutual Funds & Investments`, amount: `+${money(bank.investments ?? 0)}`, color: '#8b5cf6' }); }}
+              onMouseLeave={() => { setHoveredBankId(null); setHoveredFlow(null); }}
+            />
+          );
+        })}
 
-        {/* 3. Bank-to-Bank Internal Transfer Channels & Clean Badges */}
+        {/* ── Internal bank-to-bank arcs (loop to the RIGHT of bank bars) */}
         {aggregatedBankTransfers.map((it, idx) => {
-          const fromNode = bankNodes.find((b) => b.id === it.fromAccountId);
-          const toNode = bankNodes.find((b) => b.id === it.toAccountId);
+          const fromNode = bankNodes.find(b => b.id === it.fromAccountId);
+          const toNode   = bankNodes.find(b => b.id === it.toAccountId);
           if (!fromNode || !toNode) return null;
 
-          const fromY = fromNode.y + fromNode.height - 12;
-          const toY = toNode.y + Math.min(16, toNode.height * 0.3);
-          const baseMidY = (fromY + toY) / 2;
-
-          const verticalShift = (idx - (aggregatedBankTransfers.length - 1) / 2) * 34;
-          const badgeY = baseMidY + verticalShift;
-          const curveCpX = middleX + 115 + Math.abs(verticalShift) * 0.5;
-          const badgeCenterX = middleX + 115;
-
-          const transferPath = `
-            M ${middleX + nodeW} ${fromY}
-            C ${curveCpX} ${fromY}, ${curveCpX} ${toY}, ${middleX + nodeW} ${toY}
-          `;
-
-          const bandWidth = Math.max(3, Math.min(10, Math.round(it.totalAmount / 15000)));
-          const labelText = `${it.fromAccountName.split(' ')[0]} ⟶ ${it.toAccountName.split(' ')[0]}: ${money(it.totalAmount)}${it.count > 1 ? ` (${it.count})` : ''}`;
-          const badgeW = Math.max(160, labelText.length * 7 + 22);
-          const isHighlighted = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
+          // Arc exits from right side of from-bar, curves right, lands on right side of to-bar
+          const fromY   = fromNode.y + fromNode.height * 0.72;
+          const toY     = toNode.y   + toNode.height   * 0.28;
+          const peakX   = ARC_X + idx * 20; // stagger arcs so they don't stack
+          const midY    = (fromY + toY) / 2;
+          const sw      = Math.max(2, Math.min(7, Math.round(it.totalAmount / 20000)));
+          const act     = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
+          const arcPath = `M ${MID_X + NODE_W} ${fromY} C ${peakX} ${fromY},${peakX} ${toY},${MID_X + NODE_W} ${toY}`;
+          const fromShort = fromNode.name.split(/[\s–-]/)[0];
+          const toShort   = toNode.name.split(/[\s–-]/)[0];
+          const label   = `${fromShort} → ${toShort}  ${money(it.totalAmount)}`;
 
           return (
-            <g key={`aggr-it-${idx}`} style={{ transition: 'opacity 0.2s ease', opacity: isHighlighted ? 1 : 0.12 }}>
-              <path
-                d={transferPath}
-                fill="none"
-                stroke={fromNode.color}
-                strokeWidth={bandWidth}
-                strokeDasharray="6,4"
-                opacity="0.85"
+            <g key={`arc-${idx}`}
+              style={{ opacity: act ? 1 : 0.1, transition: 'opacity .18s', cursor: 'pointer' }}
+              onMouseEnter={() => { setHoveredBankId(fromNode.id); setHoveredFlow({ title: `Internal: ${it.fromAccountName} → ${it.toAccountName}`, amount: money(it.totalAmount), color: fromNode.color }); }}
+              onMouseLeave={() => { setHoveredBankId(null); setHoveredFlow(null); }}
+            >
+              <path d={arcPath} fill="none" stroke={fromNode.color} strokeWidth={sw} strokeOpacity={0.75} />
+              {/* arrowhead */}
+              <polygon
+                points={`${MID_X + NODE_W},${toY} ${MID_X + NODE_W - 7},${toY - 5} ${MID_X + NODE_W - 7},${toY + 5}`}
+                fill={fromNode.color} opacity={0.85}
               />
-              <rect
-                x={badgeCenterX - badgeW / 2}
-                y={badgeY - 12}
-                width={badgeW}
-                height="24"
-                rx="12"
-                fill="var(--card)"
-                stroke={fromNode.color}
-                strokeWidth="1.5"
-                style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))', cursor: 'pointer' }}
-                onMouseEnter={() => {
-                  setHoveredBankId(fromNode.id);
-                  setHoveredFlow({
-                    title: `Internal Transfer: ${it.fromAccountName} ⟶ ${it.toAccountName} (${it.count} tx)`,
-                    amount: money(it.totalAmount),
-                    x: badgeCenterX,
-                    y: badgeY,
-                    color: fromNode.color,
-                  });
-                }}
-                onMouseLeave={() => {
-                  setHoveredBankId(null);
-                  setHoveredFlow(null);
-                }}
-              />
-              <text
-                x={badgeCenterX}
-                y={badgeY + 4}
-                fill={fromNode.color}
-                fontSize="11"
-                fontWeight="700"
-                textAnchor="middle"
-                style={{ pointerEvents: 'none' }}
-              >
-                🔄 {labelText}
+              {/* label at arc peak */}
+              <text x={peakX + 8} y={midY + 4} fill={fromNode.color} fontSize="10.5" fontWeight="700" textAnchor="start">
+                {label}
               </text>
             </g>
           );
         })}
 
-        {/* 4. Node Rectangles & Labels */}
-        {/* Left Node: External Inbound */}
-        <rect x={leftX} y={inboundNodeStartY} width={nodeW} height={inboundNodeH} fill="#10b981" rx="4" />
-        <text x={leftX - 14} y={inboundNodeStartY + inboundNodeH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="end">
+        {/* ── Left node: External Inbound ────────────────────── */}
+        <rect x={LEFT_X} y={inStartY} width={NODE_W} height={inH} fill="#10b981" rx="4" />
+        <text x={LEFT_X - 12} y={inStartY + inH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="end">
           External Inbound
         </text>
-        <text x={leftX - 14} y={inboundNodeStartY + inboundNodeH / 2 + 12} fill="#059669" fontSize="13" fontWeight="700" textAnchor="end">
+        <text x={LEFT_X - 12} y={inStartY + inH / 2 + 10} fill="#059669" fontSize="12" fontWeight="700" textAnchor="end">
           +{money(overall.totalExternalInbound)}
         </text>
 
-        {/* Middle Nodes: Individual Bank Accounts */}
+        {/* ── Middle nodes: Bank bars + labels to the RIGHT of ribbons */}
         {bankNodes.map((bank) => {
-          const isHighlighted = !hoveredBankId || hoveredBankId === bank.id;
+          const act  = !hoveredBankId || hoveredBankId === bank.id;
+          const lx   = MID_X + NODE_W + 10;
+          const midY = bank.y + bank.height / 2;
           return (
-            <g
-              key={`node-${bank.id}`}
-              style={{ cursor: 'pointer', transition: 'opacity 0.2s ease', opacity: isHighlighted ? 1 : 0.3 }}
+            <g key={`node-${bank.id}`}
+              style={{ opacity: act ? 1 : 0.28, transition: 'opacity .18s', cursor: 'pointer' }}
               onMouseEnter={() => setHoveredBankId(bank.id)}
               onMouseLeave={() => setHoveredBankId(null)}
             >
-              <rect
-                x={bank.x}
-                y={bank.y}
-                width={nodeW}
-                height={bank.height}
-                fill={bank.color}
-                rx="4"
-                style={{
-                  filter: hoveredBankId === bank.id ? `drop-shadow(0 0 10px ${bank.color})` : 'none',
-                }}
-              />
-              <text x={bank.x + nodeW + 12} y={bank.y + Math.min(18, bank.height / 2 - 2)} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
-                {bank.name}
-              </text>
-              <text x={bank.x + nodeW + 12} y={bank.y + Math.min(34, bank.height / 2 + 14)} fontSize="11" fontWeight="500" textAnchor="start">
-                <tspan fill="var(--muted)">In: </tspan>
+              <rect x={bank.x} y={bank.y} width={NODE_W} height={bank.height} fill={bank.color} rx="4"
+                style={{ filter: hoveredBankId === bank.id ? `drop-shadow(0 0 7px ${bank.color})` : 'none' }} />
+              {/* colour pip + name */}
+              <rect x={lx} y={midY - 7} width={6} height={6} rx="3" fill={bank.color} />
+              <text x={lx + 9} y={midY - 1} fill="var(--ink)" fontSize="13" fontWeight="700">{bank.name}</text>
+              <text x={lx + 9} y={midY + 14} fontSize="11">
                 <tspan fill="#059669" fontWeight="700">+{money(bank.inTotal)}</tspan>
-                <tspan fill="var(--muted)"> · Out: </tspan>
+                <tspan fill="var(--muted)"> / </tspan>
                 <tspan fill="#dc2626" fontWeight="700">-{money(bank.outTotal)}</tspan>
               </text>
             </g>
           );
         })}
 
-        {/* Right Node 1: External Outbound */}
-        <rect x={rightX} y={outboundRightY} width={nodeW} height={outboundNodeH} fill="#ef4444" rx="4" />
-        <text x={rightX + nodeW + 14} y={outboundRightY + outboundNodeH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+        {/* ── Right node 1: External Outbound ───────────────── */}
+        <rect x={RIGHT_X} y={outY} width={NODE_W} height={outH} fill="#ef4444" rx="4" />
+        <text x={RIGHT_X + NODE_W + 12} y={outY + outH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="start">
           External Outbound
         </text>
-        <text x={rightX + nodeW + 14} y={outboundRightY + outboundNodeH / 2 + 12} fill="#dc2626" fontSize="13" fontWeight="700" textAnchor="start">
+        <text x={RIGHT_X + NODE_W + 12} y={outY + outH / 2 + 10} fill="#dc2626" fontSize="12" fontWeight="700" textAnchor="start">
           -{money(overall.totalExternalOutbound)}
         </text>
 
-        {/* Right Node 2: Credit Card Payments (Internal) */}
-        {hasCreditCardPayments && (
+        {/* ── Right node 2: Credit Card Payments ────────────── */}
+        {hasCc && (
           <g>
-            <rect x={rightX} y={ccRightY} width={nodeW} height={ccNodeH} fill="#f59e0b" rx="4" />
-            <text x={rightX + nodeW + 14} y={ccRightY + ccNodeH / 2 - 10} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
-              Credit Card Payments (Internal)
+            <rect x={RIGHT_X} y={ccY} width={NODE_W} height={ccH} fill="#f59e0b" rx="4" />
+            <text x={RIGHT_X + NODE_W + 12} y={ccY + ccH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="start">
+              Credit Card Payments
             </text>
-            <text x={rightX + nodeW + 14} y={ccRightY + ccNodeH / 2 + 12} fill="#d97706" fontSize="13" fontWeight="700" textAnchor="start">
-              -{money(overall.totalCreditCardPayments || 0)}
+            <text x={RIGHT_X + NODE_W + 12} y={ccY + ccH / 2 + 10} fill="#d97706" fontSize="12" fontWeight="700" textAnchor="start">
+              -{money(overall.totalCreditCardPayments ?? 0)}
             </text>
           </g>
         )}
 
-        {/* Right Node 3: Mutual Funds & Investments */}
-        {hasInvestments && (
+        {/* ── Right node 3: Mutual Funds & Investments ──────── */}
+        {hasInv && (
           <g>
-            <rect x={rightX} y={investmentRightY} width={nodeW} height={investmentNodeH} fill="#8b5cf6" rx="4" />
-            <text x={rightX + nodeW + 14} y={investmentRightY + investmentNodeH / 2 - 10} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+            <rect x={RIGHT_X} y={invY} width={NODE_W} height={invH} fill="#8b5cf6" rx="4" />
+            <text x={RIGHT_X + NODE_W + 12} y={invY + invH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="start">
               Mutual Funds & Investments
             </text>
-            <text x={rightX + nodeW + 14} y={investmentRightY + investmentNodeH / 2 + 12} fill="#7c3aed" fontSize="13" fontWeight="700" textAnchor="start">
-              +{money(overall.totalInvestments || 0)}
+            <text x={RIGHT_X + NODE_W + 12} y={invY + invH / 2 + 10} fill="#7c3aed" fontSize="12" fontWeight="700" textAnchor="start">
+              +{money(overall.totalInvestments ?? 0)}
             </text>
           </g>
         )}
-
-        {/* 5. Floating Interactive Hover Tooltip */}
-        {hoveredFlow && (
-          <g pointerEvents="none">
-            <rect
-              x={hoveredFlow.x - 140}
-              y={hoveredFlow.y - 28}
-              width="280"
-              height="44"
-              rx="10"
-              fill="var(--card)"
-              stroke={hoveredFlow.color}
-              strokeWidth="1.5"
-              style={{ filter: 'drop-shadow(0 6px 20px rgba(0,0,0,0.15))' }}
-            />
-            <text x={hoveredFlow.x} y={hoveredFlow.y - 10} fill="var(--ink)" fontSize="11" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="middle">
-              {hoveredFlow.title}
-            </text>
-            <text x={hoveredFlow.x} y={hoveredFlow.y + 8} fill={hoveredFlow.color} fontSize="13" fontWeight="800" textAnchor="middle">
-              {hoveredFlow.amount}
-            </text>
-            </g>
-        )}
       </svg>
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-        .hover-opacity { transition: opacity 0.2s ease-in-out; cursor: pointer; }
-        .hover-opacity:hover { opacity: 0.85; }
-      `,
-        }}
-      />
     </div>
   );
 }
