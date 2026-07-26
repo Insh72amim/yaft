@@ -138,6 +138,18 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState(() => dateRange.startDate);
   const [endDate, setEndDate] = useState(() => dateRange.endDate);
   const [presetKey, setPresetKey] = useState('DEFAULT');
+  const [cycleOffset, setCycleOffset] = useState(0);
+
+  const shiftCycle = (direction: -1 | 1) => {
+    const nextOffset = cycleOffset + direction;
+    setCycleOffset(nextOffset);
+    const refDate = new Date();
+    refDate.setUTCMonth(refDate.getUTCMonth() + nextOffset);
+    const def = getDefaultOverviewDateRange(refDate);
+    setStartDate(def.startDate);
+    setEndDate(def.endDate);
+    setPresetKey('DEFAULT');
+  };
 
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showTransfersModal, setShowTransfersModal] = useState(false);
@@ -179,6 +191,7 @@ export default function DashboardPage() {
     setPresetKey(preset);
     const now = new Date();
     if (preset === 'DEFAULT') {
+      setCycleOffset(0);
       const def = getDefaultOverviewDateRange(now);
       setStartDate(def.startDate);
       setEndDate(def.endDate);
@@ -292,7 +305,7 @@ export default function DashboardPage() {
             {reconciling ? 'Matching…' : 'Match Transfers'}
           </button>
 
-          {/* Unified Sleek Date Control Pill */}
+          {/* Unified Sleek Date Control Pill with Prev/Next Period Navigation */}
           <div
             style={{
               display: 'inline-flex',
@@ -300,18 +313,39 @@ export default function DashboardPage() {
               background: 'var(--card)',
               border: '1px solid var(--line)',
               borderRadius: '12px',
-              padding: '4px 8px',
-              gap: '8px',
+              padding: '4px 6px',
+              gap: '6px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
             }}
           >
+            <button
+              type="button"
+              title="Navigate to Previous Period Cycle (Last Fri – Last Thu)"
+              onClick={() => shiftCycle(-1)}
+              style={{
+                background: 'var(--card-hover)',
+                border: '1px solid var(--line)',
+                borderRadius: '8px',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justify: 'center',
+                cursor: 'pointer',
+                color: 'var(--ink)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <ArrowLeft size={14} />
+            </button>
+
             {/* Preset Selector */}
             <select
               value={presetKey}
               aria-label="Overview Time Range Preset"
               onChange={(e) => handlePresetChange(e.target.value)}
               style={{
-                height: '30px',
+                height: '28px',
                 fontSize: '12px',
                 fontWeight: 600,
                 borderRadius: '8px',
@@ -321,7 +355,7 @@ export default function DashboardPage() {
                 padding: '0 8px',
                 cursor: 'pointer',
                 outline: 'none',
-                maxWidth: '170px',
+                maxWidth: '160px',
               }}
             >
               <option value="DEFAULT">Last Fri – Last Thu</option>
@@ -383,6 +417,27 @@ export default function DashboardPage() {
                 }}
               />
             </div>
+
+            <button
+              type="button"
+              title="Navigate to Next Period Cycle (Last Fri – Last Thu)"
+              onClick={() => shiftCycle(1)}
+              style={{
+                background: 'var(--card-hover)',
+                border: '1px solid var(--line)',
+                borderRadius: '8px',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justify: 'center',
+                cursor: 'pointer',
+                color: 'var(--ink)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <ArrowRight size={14} />
+            </button>
           </div>
         </div>
       </header>
@@ -456,6 +511,7 @@ export default function DashboardPage() {
           expenses={data.expenses}
           savings={data.savings}
           accountFlow={data.accountFlow}
+          dateRangeText={dateRangeLabel}
         />
       </section>
 
@@ -843,11 +899,13 @@ function MonthlyFlow({
   expenses,
   savings,
   accountFlow,
+  dateRangeText,
 }: {
   income: number;
   expenses: number;
   savings: number;
   accountFlow?: AccountFlow;
+  dateRangeText?: string;
 }) {
   if (!accountFlow || accountFlow.accounts.length === 0) {
     if (income <= 0) return <Empty text="No income found for this month to generate flow." />;
@@ -889,15 +947,17 @@ function MonthlyFlow({
       </div>
 
       {/* Per Account Spending & Top Outbound Beneficiaries Section */}
-      <AccountSpendingAndBeneficiariesSection accounts={accounts} />
+      <AccountSpendingAndBeneficiariesSection accounts={accounts} dateRangeText={dateRangeText} />
     </div>
   );
 }
 
 function AccountSpendingAndBeneficiariesSection({
   accounts,
+  dateRangeText,
 }: {
   accounts: AccountFlow['accounts'];
+  dateRangeText?: string;
 }) {
   const [selectedAccId, setSelectedAccId] = useState<string>(accounts[0]?.id || '');
   const [outboundTab, setOutboundTab] = useState<'EXTERNAL' | 'INTERNAL' | 'ALL'>('EXTERNAL');
@@ -1016,7 +1076,7 @@ function AccountSpendingAndBeneficiariesSection({
               </span>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink)' }}>Where it went</h3>
             </div>
-            <span className="month-pill" style={{ fontSize: '11px' }}>{activeAcc.name}</span>
+            <span className="month-pill" style={{ fontSize: '11px' }}>{dateRangeText || activeAcc.name}</span>
           </div>
 
           <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
