@@ -1245,24 +1245,24 @@ function MultiBankSankeyDiagram({
           const toY = toNode.y + toNode.height / 2;
           const baseMidY = (fromY + toY) / 2;
 
-          // Stagger multiple aggregated transfer pairs vertically & horizontally (x = 360)
-          const verticalShift = (idx - (aggregatedTransfers.length - 1) / 2) * 36;
+          // Curve internal transfers to the RIGHT of middleX (open space between Middle & Right nodes)
+          const verticalShift = (idx - (aggregatedTransfers.length - 1) / 2) * 32;
           const badgeY = baseMidY + verticalShift;
-          const curveCpX = middleX - 170 - Math.abs(verticalShift) * 0.8;
-          const badgeCenterX = middleX - 165; // Position at x = 360 (open space)
+          const curveCpX = middleX + 90 + Math.abs(verticalShift) * 0.6;
+          const badgeCenterX = middleX + 95;
 
           const transferPath = `
-            M ${middleX} ${fromY}
-            C ${curveCpX} ${fromY}, ${curveCpX} ${toY}, ${middleX} ${toY}
+            M ${middleX + nodeW} ${fromY}
+            C ${curveCpX} ${fromY}, ${curveCpX} ${toY}, ${middleX + nodeW} ${toY}
           `;
 
-          const bandWidth = Math.max(3, Math.min(14, Math.round(it.totalAmount / 10000)));
+          const bandWidth = Math.max(3, Math.min(12, Math.round(it.totalAmount / 10000)));
           const labelText = `${it.fromAccountName.split(' ')[0]} ⟶ ${it.toAccountName.split(' ')[0]}: ${money(it.totalAmount)}${it.count > 1 ? ` (${it.count})` : ''}`;
-          const badgeW = Math.max(160, labelText.length * 7.2);
+          const badgeW = Math.max(150, labelText.length * 6.8 + 20);
           const isHighlighted = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
 
           return (
-            <g key={`aggr-it-${idx}`} style={{ transition: 'opacity 0.2s ease', opacity: isHighlighted ? 1 : 0.2 }}>
+            <g key={`aggr-it-${idx}`} style={{ transition: 'opacity 0.2s ease', opacity: isHighlighted ? 1 : 0.15 }}>
               <path
                 d={transferPath}
                 fill="none"
@@ -1273,14 +1273,14 @@ function MultiBankSankeyDiagram({
               />
               <rect
                 x={badgeCenterX - badgeW / 2}
-                y={badgeY - 13}
+                y={badgeY - 12}
                 width={badgeW}
-                height="26"
-                rx="8"
+                height="24"
+                rx="12"
                 fill="var(--card)"
                 stroke={fromNode.color}
                 strokeWidth="1.5"
-                style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))', cursor: 'pointer' }}
+                style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))', cursor: 'pointer' }}
                 onMouseEnter={() => {
                   setHoveredBankId(fromNode.id);
                   setHoveredFlow({
@@ -1305,7 +1305,7 @@ function MultiBankSankeyDiagram({
                 textAnchor="middle"
                 style={{ pointerEvents: 'none' }}
               >
-                {labelText}
+                🔄 {labelText}
               </text>
             </g>
           );
@@ -1317,7 +1317,7 @@ function MultiBankSankeyDiagram({
         <text x={leftX - 14} y={inboundNodeStartY + inboundNodeH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="end">
           External Inbound
         </text>
-        <text x={leftX - 14} y={inboundNodeStartY + inboundNodeH / 2 + 12} fill="#10b981" fontSize="13" fontWeight="600" textAnchor="end">
+        <text x={leftX - 14} y={inboundNodeStartY + inboundNodeH / 2 + 12} fill="#059669" fontSize="13" fontWeight="700" textAnchor="end">
           +{money(overall.totalExternalInbound)}
         </text>
 
@@ -1342,11 +1342,14 @@ function MultiBankSankeyDiagram({
                   filter: hoveredBankId === bank.id ? `drop-shadow(0 0 10px ${bank.color})` : 'none',
                 }}
               />
-              <text x={bank.x + nodeW + 12} y={bank.y + Math.min(22, bank.height / 2)} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
+              <text x={bank.x + nodeW + 12} y={bank.y + Math.min(18, bank.height / 2 - 2)} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
                 {bank.name}
               </text>
-              <text x={bank.x + nodeW + 12} y={bank.y + Math.min(38, bank.height / 2 + 16)} fill="var(--muted)" fontSize="11" fontWeight="500" textAnchor="start">
-                In: {money(bank.totalInbound)} · Out: {money(bank.totalOutbound)}
+              <text x={bank.x + nodeW + 12} y={bank.y + Math.min(34, bank.height / 2 + 14)} fontSize="11" fontWeight="500" textAnchor="start">
+                <tspan fill="var(--muted)">In: </tspan>
+                <tspan fill="#059669" fontWeight="700">+{money(bank.totalInbound)}</tspan>
+                <tspan fill="var(--muted)"> · Out: </tspan>
+                <tspan fill="#dc2626" fontWeight="700">-{money(bank.totalOutbound)}</tspan>
               </text>
             </g>
           );
@@ -1357,7 +1360,7 @@ function MultiBankSankeyDiagram({
         <text x={rightX + nodeW + 14} y={outboundRightY + outboundNodeH / 2 - 10} fill="var(--ink)" fontSize="15" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
           External Outbound
         </text>
-        <text x={rightX + nodeW + 14} y={outboundRightY + outboundNodeH / 2 + 12} fill="#ef4444" fontSize="13" fontWeight="600" textAnchor="start">
+        <text x={rightX + nodeW + 14} y={outboundRightY + outboundNodeH / 2 + 12} fill="#dc2626" fontSize="13" fontWeight="700" textAnchor="start">
           -{money(overall.totalExternalOutbound)}
         </text>
 
@@ -1368,7 +1371,7 @@ function MultiBankSankeyDiagram({
             <text x={rightX + nodeW + 14} y={investmentRightY + investmentNodeH / 2 - 10} fill="var(--ink)" fontSize="14" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="start">
               Mutual Funds & Investments
             </text>
-            <text x={rightX + nodeW + 14} y={investmentRightY + investmentNodeH / 2 + 12} fill="#8b5cf6" fontSize="13" fontWeight="600" textAnchor="start">
+            <text x={rightX + nodeW + 14} y={investmentRightY + investmentNodeH / 2 + 12} fill="#7c3aed" fontSize="13" fontWeight="700" textAnchor="start">
               +{money(overall.totalInvestments || 0)}
             </text>
           </g>
@@ -1379,19 +1382,19 @@ function MultiBankSankeyDiagram({
           <g pointerEvents="none">
             <rect
               x={hoveredFlow.x - 140}
-              y={hoveredFlow.y - 24}
+              y={hoveredFlow.y - 28}
               width="280"
               height="44"
-              rx="8"
-              fill="#0f172a"
+              rx="10"
+              fill="var(--card)"
               stroke={hoveredFlow.color}
               strokeWidth="1.5"
-              style={{ filter: 'drop-shadow(0 6px 16px rgba(0,0,0,0.6))' }}
+              style={{ filter: 'drop-shadow(0 6px 20px rgba(0,0,0,0.15))' }}
             />
-            <text x={hoveredFlow.x} y={hoveredFlow.y - 6} fill="#f8fafc" fontSize="12" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="middle">
+            <text x={hoveredFlow.x} y={hoveredFlow.y - 10} fill="var(--ink)" fontSize="11" fontWeight="700" fontFamily="var(--font-manrope)" textAnchor="middle">
               {hoveredFlow.title}
             </text>
-            <text x={hoveredFlow.x} y={hoveredFlow.y + 12} fill={hoveredFlow.color} fontSize="13" fontWeight="800" textAnchor="middle">
+            <text x={hoveredFlow.x} y={hoveredFlow.y + 8} fill={hoveredFlow.color} fontSize="13" fontWeight="800" textAnchor="middle">
               {hoveredFlow.amount}
             </text>
           </g>
