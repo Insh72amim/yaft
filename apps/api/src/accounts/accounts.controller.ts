@@ -13,6 +13,19 @@ import { AccountDocumentsService } from '../account-documents/account-documents.
 export const SUPPORTED_SAVINGS_INSTITUTIONS = ['Axis Bank', 'Punjab National Bank', 'State Bank of India'] as const;
 export const SUPPORTED_STOCK_BROKERS = ['Zerodha', 'Groww'] as const;
 
+function extractBeneficiaryName(description: string): string | null {
+  if (!description) return null;
+  const upiMatch = description.match(/UPI\/(?:[^\/]+\/){2,3}([^/]+)(?:\/|$)/i);
+  if (upiMatch && upiMatch[1] && !/^[0-9]+$/.test(upiMatch[1].trim())) {
+    return upiMatch[1].trim();
+  }
+  const neftMatch = description.match(/NEFT-[^-]+-([A-Z\s]+)/i);
+  if (neftMatch && neftMatch[1] && !/^[0-9]+$/.test(neftMatch[1].trim())) {
+    return neftMatch[1].trim();
+  }
+  return null;
+}
+
 @Controller('accounts')
 @UseGuards(JwtAuthGuard)
 export class AccountsController {
@@ -347,19 +360,6 @@ export class AccountsController {
       await tx.account.update({ where: { id: account.id }, data: { openingBalance: 0n } });
     });
   }
-
-function extractBeneficiaryName(description: string): string | null {
-  if (!description) return null;
-  const upiMatch = description.match(/UPI\/(?:[^\/]+\/){2,3}([^/]+)(?:\/|$)/i);
-  if (upiMatch && upiMatch[1] && !/^[0-9]+$/.test(upiMatch[1].trim())) {
-    return upiMatch[1].trim();
-  }
-  const neftMatch = description.match(/NEFT-[^-]+-([A-Z\s]+)/i);
-  if (neftMatch && neftMatch[1] && !/^[0-9]+$/.test(neftMatch[1].trim())) {
-    return neftMatch[1].trim();
-  }
-  return null;
-}
 
   @Get('credit-cards/summary')
   async getCreditCardsSummary(@CurrentUser() user: { id: string }) {
