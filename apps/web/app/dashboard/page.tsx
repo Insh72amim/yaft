@@ -942,7 +942,12 @@ function MonthlyFlow({
             </div>
           </div>
         ))}
-      </function MultiBankSankeyDiagram({
+      </div>
+    </div>
+  );
+}
+
+function MultiBankSankeyDiagram({
   accountFlow,
   income,
   expenses,
@@ -1542,6 +1547,7 @@ function MonthlyFlow({
             <text x={hoveredFlow.x} y={hoveredFlow.y + 8} fill={hoveredFlow.color} fontSize="13" fontWeight="800" textAnchor="middle">
               {hoveredFlow.amount}
             </text>
+            </g>
         )}
       </svg>
       <style
