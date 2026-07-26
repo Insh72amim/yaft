@@ -16,7 +16,10 @@ import {
   X,
   RotateCcw,
   Tag,
-  CheckCircle2,
+  Sparkles,
+  Filter,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -45,9 +48,9 @@ type Transaction = {
   description: string;
   details: string | null;
   amount: number;
-  categoryId: string | null;
+  categoryId?: string | null;
   category: string;
-  categoryColor: string;
+  categoryColor?: string;
   isTransfer: boolean;
 };
 
@@ -94,7 +97,12 @@ export default function TransactionsPage() {
   const [endDate, setEndDate] = useState("");
 
   const [showFilters, setShowFilters] = useState(false);
+  const [showCategoryEdit, setShowCategoryEdit] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [ruleInitialPattern, setRuleInitialPattern] = useState("");
+  const [ruleInitialCategoryId, setRuleInitialCategoryId] = useState("");
+  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+  const [batchUpdating, setBatchUpdating] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TransactionsApiResponse | null>(null);
@@ -141,9 +149,10 @@ export default function TransactionsPage() {
     setMode(newMode);
     setPage(1);
     setAccountId("all");
+    setSelectedTxIds([]);
   };
 
-  const handleCategoryUpdate = async (
+  const handleUpdateCategory = async (
     targetAccountId: string,
     transactionId: string,
     newCategoryId: string,
@@ -180,6 +189,60 @@ export default function TransactionsPage() {
       setError(errorMessage(err, "Could not update transaction category."));
     } finally {
       setUpdatingCatId(null);
+    }
+  };
+
+  const toggleSelectTx = (id: string) => {
+    setSelectedTxIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (!data?.transactions) return;
+    if (selectedTxIds.length === data.transactions.length) {
+      setSelectedTxIds([]);
+    } else {
+      setSelectedTxIds(data.transactions.map((t) => t.id));
+    }
+  };
+
+  const handleBatchUpdateCategory = async (targetCatId: string) => {
+    if (selectedTxIds.length === 0) return;
+    setBatchUpdating(true);
+    try {
+      await api("/categories/batch-update", {
+        method: "POST",
+        body: JSON.stringify({
+          transactionIds: selectedTxIds,
+          categoryId: targetCatId || null,
+        }),
+      }).catch(() =>
+        api("/category-rules/batch-update", {
+          method: "POST",
+          body: JSON.stringify({
+            transactionIds: selectedTxIds,
+            categoryId: targetCatId || null,
+          }),
+        }),
+      );
+      setSelectedTxIds([]);
+      fetchTransactions();
+    } catch (reason) {
+      setError(errorMessage(reason, "Could not bulk update categories."));
+    } finally {
+      setBatchUpdating(false);
+    }
+  };
+
+  const handleCreateRuleFromSelection = () => {
+    if (selectedTxIds.length === 0 || !data?.transactions) return;
+    const firstTx = data.transactions.find((t) => selectedTxIds.includes(t.id));
+    if (firstTx) {
+      const cleanKeyword = firstTx.description.split("/")[0].split("-")[0].trim();
+      setRuleInitialPattern(cleanKeyword || firstTx.description);
+      setRuleInitialCategoryId(firstTx.categoryId || "");
+      setShowRulesModal(true);
     }
   };
 
@@ -294,7 +357,7 @@ export default function TransactionsPage() {
           }}
           onClick={() => handleModeChange("ALL")}>
           <Receipt size={18} />
-          <span>All Transactions</span>
+          <span>Full History / All Ledger</span>
         </button>
       </div>
 
@@ -423,397 +486,623 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      {/* Main Ledger Filter Control Toolbar (Matched with Overview/AccountLedger) */}
-      <div
-        className="panel"
-        style={{
-          padding: "16px",
-          marginBottom: "24px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "12px",
-        }}>
+      {/* Main Ledger Control Panel */}
+      <div className="panel transactions" style={{ marginBottom: "24px" }}>
         <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "12px",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", flex: "1 1 auto", alignItems: "center" }}>
-            {/* Category Dropdown */}
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <Tag size={15} color="var(--muted)" />
-              <select
-                value={categoryId}
-                onChange={(e) => {
-                  setCategoryId(e.target.value);
-                  setPage(1);
-                }}
-                style={{
-                  height: "38px",
-                  fontSize: "13px",
-                  padding: "0 10px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--line)",
-                  background: "var(--background)",
-                  color: "var(--ink)",
-                  fontWeight: 600,
-                  margin: 0,
-                  width: "auto",
-                }}>
-                <option value="all">All Categories</option>
-                <option value="uncategorised">Uncategorised</option>
-                <option value="transfers">Internal Transfers</option>
-                {(data?.categories || []).map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Search Bar */}
-            <div style={{ position: "relative", flex: "1 1 220px", minWidth: "180px" }}>
-              <Search
-                size={16}
-                color="var(--muted)"
-                style={{
-                  position: "absolute",
-                  left: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  pointerEvents: "none",
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Search description or merchant..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                style={{
-                  width: "100%",
-                  height: "38px",
-                  fontSize: "13px",
-                  paddingLeft: "36px",
-                  paddingRight: search ? "32px" : "12px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--line)",
-                  background: "var(--background)",
-                  color: "var(--ink)",
-                  margin: 0,
-                }}
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  style={{
-                    position: "absolute",
-                    right: "10px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: "2px",
-                    color: "var(--muted)",
-                    display: "flex",
-                    alignItems: "center",
-                  }}>
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-
-            {/* Type Segmented Controls */}
-            <div
-              style={{
-                display: "flex",
-                gap: "4px",
-                background: "var(--background)",
-                padding: "3px",
-                borderRadius: "8px",
-                border: "1px solid var(--line)",
-              }}>
-              <button
-                type="button"
-                className={`secondary compact ${typeFilter === "ALL" ? "active" : ""}`}
-                onClick={() => {
-                  setTypeFilter("ALL");
-                  setPage(1);
-                }}
-                style={{
-                  height: "32px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  border: "none",
-                  borderRadius: "6px",
-                }}>
-                All
-              </button>
-              <button
-                type="button"
-                className={`secondary compact ${typeFilter === "EXPENSE" ? "active" : ""}`}
-                onClick={() => {
-                  setTypeFilter("EXPENSE");
-                  setPage(1);
-                }}
-                style={{
-                  height: "32px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  border: "none",
-                  borderRadius: "6px",
-                  color: typeFilter === "EXPENSE" ? "#ef4444" : undefined,
-                }}>
-                Debits
-              </button>
-              <button
-                type="button"
-                className={`secondary compact ${typeFilter === "INCOME" ? "active" : ""}`}
-                onClick={() => {
-                  setTypeFilter("INCOME");
-                  setPage(1);
-                }}
-                style={{
-                  height: "32px",
-                  padding: "0 12px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  border: "none",
-                  borderRadius: "6px",
-                  color: typeFilter === "INCOME" ? "#10b981" : undefined,
-                }}>
-                Credits
-              </button>
-            </div>
-
-            {/* Reset Button */}
-            {activeFilterCount > 0 && (
-              <button
-                type="button"
-                className="ghost compact"
-                onClick={resetFilters}
-                style={{
-                  height: "38px",
-                  fontSize: "12px",
-                  color: "#ef4444",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "0 12px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(239, 68, 68, 0.2)",
-                }}>
-                <RotateCcw size={14} /> Reset ({activeFilterCount})
-              </button>
-            )}
+          className="panel-title"
+          style={{ flexWrap: "wrap", gap: "12px", alignItems: "center", marginBottom: "16px" }}>
+          <div>
+            <span className="eyebrow">Full history</span>
+            <h2>
+              {mode === "CREDIT_CARD"
+                ? "Credit Card Transactions"
+                : mode === "BANK"
+                ? "Bank Account Transactions"
+                : mode === "UPI"
+                ? "UPI Payment Activity"
+                : "All Ledger Transactions"}
+            </h2>
           </div>
-
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            {/* Category Rules Modal Toggle */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            {data && data.pagination.total > 0 && (
+              <span className="month-pill">
+                {(data.pagination.page - 1) * data.pagination.pageSize + 1}–
+                {Math.min(
+                  data.pagination.page * data.pagination.pageSize,
+                  data.pagination.total,
+                )}{" "}
+                of {data.pagination.total}
+              </span>
+            )}
+            <button
+              type="button"
+              className={`secondary compact ${showCategoryEdit ? "active" : ""}`}
+              onClick={() => {
+                setShowCategoryEdit(!showCategoryEdit);
+                if (showCategoryEdit) setSelectedTxIds([]);
+              }}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              <Tag size={14} color="var(--green)" />
+              {showCategoryEdit ? "Done Categorising" : "Categorise"}
+            </button>
+            <button
+              type="button"
+              className={`secondary compact ${
+                showFilters || activeFilterCount > 0 ? "active" : ""
+              }`}
+              onClick={() => setShowFilters(!showFilters)}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              <Filter size={14} />
+              {showFilters ? "Hide Filters" : "Filter Ledger"}
+              {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </button>
             <button
               type="button"
               className="secondary compact"
               onClick={() => setShowRulesModal(true)}
-              style={{
-                height: "38px",
-                fontSize: "12px",
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "0 12px",
-                borderRadius: "8px",
-              }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
               <Workflow size={14} /> Category Rules
-            </button>
-
-            {/* Expand Advanced Filters Toggle */}
-            <button
-              type="button"
-              className={`secondary compact ${showFilters ? "active" : ""}`}
-              onClick={() => setShowFilters(!showFilters)}
-              style={{
-                height: "38px",
-                fontSize: "12px",
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "0 12px",
-                borderRadius: "8px",
-              }}>
-              <SlidersHorizontal size={14} /> Filters
-              {activeFilterCount > 0 && (
-                <span
-                  style={{
-                    background: "var(--accent)",
-                    color: "white",
-                    fontSize: "10px",
-                    width: "16px",
-                    height: "16px",
-                    borderRadius: "50%",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}>
-                  {activeFilterCount}
-                </span>
-              )}
             </button>
           </div>
         </div>
 
-        {/* Expandable Advanced Filter Drawer */}
-        {showFilters && (
+        {/* Toggleable Search & Filter Control Center */}
+        {(showFilters || activeFilterCount > 0) && (
           <div
             style={{
-              paddingTop: "12px",
-              borderTop: "1px solid var(--line)",
               display: "flex",
-              flexWrap: "wrap",
-              gap: "12px",
-              alignItems: "center",
+              flexDirection: "column",
+              gap: "14px",
+              margin: "0 0 20px 0",
+              padding: "16px",
+              background: "var(--background-alt)",
+              borderRadius: "14px",
+              border: "1px solid var(--line)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
             }}>
-            {/* Account Selector */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Account</label>
-              <select
-                value={accountId}
-                onChange={(e) => {
-                  setAccountId(e.target.value);
-                  setPage(1);
-                }}
-                style={{
-                  height: "34px",
-                  fontSize: "12px",
-                  margin: 0,
-                  borderRadius: "6px",
-                  border: "1px solid var(--line)",
-                  background: "var(--background)",
-                  color: "var(--ink)",
-                }}>
-                <option value="all">
-                  {mode === "CREDIT_CARD"
-                    ? "All Credit Cards"
-                    : mode === "BANK"
-                    ? "All Bank Accounts"
-                    : "All Accounts"}
-                </option>
-                {filteredAccounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name}{" "}
-                    {acc.cardLast4 ? `(••••${acc.cardLast4})` : acc.institution ? `· ${acc.institution}` : ""}
+            {/* Top Row: Account Select & Category Select & Search & Type Toggle & Reset */}
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}>
+              {/* Account Dropdown */}
+              <div style={{ flex: "1 1 160px", minWidth: "150px" }}>
+                <select
+                  value={accountId}
+                  onChange={(e) => {
+                    setAccountId(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{
+                    width: "100%",
+                    height: "38px",
+                    fontSize: "13px",
+                    padding: "0 10px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--line)",
+                    background: "var(--background)",
+                    color: "var(--ink)",
+                    fontWeight: 600,
+                  }}>
+                  <option value="all">
+                    {mode === "CREDIT_CARD"
+                      ? "All Credit Cards"
+                      : mode === "BANK"
+                      ? "All Bank Accounts"
+                      : "All Accounts"}
                   </option>
-                ))}
-              </select>
+                  {filteredAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name}{" "}
+                      {acc.cardLast4
+                        ? `(••••${acc.cardLast4})`
+                        : acc.institution
+                        ? `· ${acc.institution}`
+                        : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Category Filter Dropdown */}
+              <div style={{ flex: "1 1 160px", minWidth: "150px" }}>
+                <select
+                  value={categoryId}
+                  onChange={(e) => {
+                    setCategoryId(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{
+                    width: "100%",
+                    height: "38px",
+                    fontSize: "13px",
+                    padding: "0 10px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--line)",
+                    background: "var(--background)",
+                    color: "var(--ink)",
+                    fontWeight: 600,
+                  }}>
+                  <option value="all">All Categories</option>
+                  <option value="uncategorised">Uncategorised</option>
+                  <option value="transfers">Internal Transfers</option>
+                  {(data?.categories || []).map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Search Bar */}
+              <div style={{ position: "relative", flex: "1 1 200px", minWidth: "180px" }}>
+                <Search
+                  size={16}
+                  color="var(--muted)"
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Search description or merchant..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{
+                    width: "100%",
+                    height: "38px",
+                    fontSize: "13px",
+                    paddingLeft: "36px",
+                    paddingRight: search ? "32px" : "12px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--line)",
+                    background: "var(--background)",
+                    color: "var(--ink)",
+                  }}
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setPage(1);
+                    }}
+                    style={{
+                      position: "absolute",
+                      right: "10px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "2px",
+                      color: "var(--muted)",
+                      display: "flex",
+                      alignItems: "center",
+                    }}>
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Type Filter Segmented Controls */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: "4px",
+                  background: "var(--background)",
+                  padding: "3px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--line)",
+                }}>
+                <button
+                  type="button"
+                  className={`secondary compact ${typeFilter === "ALL" ? "active" : ""}`}
+                  onClick={() => {
+                    setTypeFilter("ALL");
+                    setPage(1);
+                  }}
+                  style={{
+                    height: "32px",
+                    padding: "0 12px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    border: "none",
+                    borderRadius: "6px",
+                  }}>
+                  All
+                </button>
+                <button
+                  type="button"
+                  className={`secondary compact ${typeFilter === "EXPENSE" ? "active" : ""}`}
+                  onClick={() => {
+                    setTypeFilter("EXPENSE");
+                    setPage(1);
+                  }}
+                  style={{
+                    height: "32px",
+                    padding: "0 12px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    border: "none",
+                    borderRadius: "6px",
+                    color: typeFilter === "EXPENSE" ? "#ef4444" : undefined,
+                  }}>
+                  Debits
+                </button>
+                <button
+                  type="button"
+                  className={`secondary compact ${typeFilter === "INCOME" ? "active" : ""}`}
+                  onClick={() => {
+                    setTypeFilter("INCOME");
+                    setPage(1);
+                  }}
+                  style={{
+                    height: "32px",
+                    padding: "0 12px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    border: "none",
+                    borderRadius: "6px",
+                    color: typeFilter === "INCOME" ? "#10b981" : undefined,
+                  }}>
+                  Credits
+                </button>
+              </div>
+
+              {/* Reset Filters Chip */}
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  className="ghost compact"
+                  onClick={resetFilters}
+                  style={{
+                    height: "38px",
+                    fontSize: "12px",
+                    color: "#ef4444",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "0 12px",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(239, 68, 68, 0.2)",
+                  }}>
+                  <RotateCcw size={14} /> Reset ({activeFilterCount})
+                </button>
+              )}
             </div>
 
-            {/* Min Amount */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Min Amount (₹)</label>
-              <input
-                type="number"
-                placeholder="0"
-                value={minAmount}
-                onChange={(e) => {
-                  setMinAmount(e.target.value);
-                  setPage(1);
-                }}
+            {/* Bottom Grid: Date Range Card & Amount Range Card */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                gap: "12px",
+              }}>
+              {/* 📅 Date Range Card */}
+              <div
                 style={{
-                  height: "34px",
-                  fontSize: "12px",
-                  width: "110px",
-                  margin: 0,
-                  borderRadius: "6px",
-                  border: "1px solid var(--line)",
                   background: "var(--background)",
-                  color: "var(--ink)",
-                }}
-              />
-            </div>
+                  borderRadius: "10px",
+                  padding: "12px 14px",
+                  border: "1px solid var(--line)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "var(--muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}>
+                    Date Range
+                  </span>
+                  {(startDate || endDate) && (
+                    <small style={{ fontSize: "11px", color: "#8b5cf6", fontWeight: 600 }}>
+                      Filter active
+                    </small>
+                  )}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "11px",
+                        color: "var(--muted)",
+                        marginBottom: "3px",
+                      }}>
+                      From
+                    </label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                        setPage(1);
+                      }}
+                      style={{
+                        width: "100%",
+                        height: "34px",
+                        fontSize: "12px",
+                        padding: "0 8px",
+                        borderRadius: "6px",
+                        border: "1px solid var(--line)",
+                        background: "var(--background-alt)",
+                        color: "var(--ink)",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "11px",
+                        color: "var(--muted)",
+                        marginBottom: "3px",
+                      }}>
+                      To
+                    </label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => {
+                        setEndDate(e.target.value);
+                        setPage(1);
+                      }}
+                      style={{
+                        width: "100%",
+                        height: "34px",
+                        fontSize: "12px",
+                        padding: "0 8px",
+                        borderRadius: "6px",
+                        border: "1px solid var(--line)",
+                        background: "var(--background-alt)",
+                        color: "var(--ink)",
+                      }}
+                    />
+                  </div>
+                </div>
+                {/* Presets */}
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "2px" }}>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    onClick={() => {
+                      const now = new Date();
+                      const y = now.getUTCFullYear();
+                      const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+                      setStartDate(`${y}-${m}-01`);
+                      setEndDate("");
+                      setPage(1);
+                    }}>
+                    This Month
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    onClick={() => {
+                      const now = new Date();
+                      let y = now.getUTCFullYear();
+                      let m = now.getUTCMonth();
+                      if (m === 0) {
+                        m = 12;
+                        y -= 1;
+                      }
+                      const mStr = String(m).padStart(2, "0");
+                      setStartDate(`${y}-${mStr}-01`);
+                      setEndDate(`${y}-${mStr}-31`);
+                      setPage(1);
+                    }}>
+                    Last Month
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    onClick={() => {
+                      const now = new Date();
+                      const today = now.toISOString().split("T")[0];
+                      const d = new Date(now);
+                      d.setMonth(d.getMonth() - 6);
+                      setStartDate(d.toISOString().split("T")[0]);
+                      setEndDate(today);
+                      setPage(1);
+                    }}>
+                    Last 6 Months
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    onClick={() => {
+                      const now = new Date();
+                      const y = now.getUTCFullYear();
+                      const startYr = now.getUTCMonth() >= 3 ? y : y - 1;
+                      setStartDate(`${startYr}-04-01`);
+                      setEndDate(`${startYr + 1}-03-31`);
+                      setPage(1);
+                    }}>
+                    This FY
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    onClick={() => {
+                      const now = new Date();
+                      const y = now.getUTCFullYear();
+                      const currentStart = now.getUTCMonth() >= 3 ? y : y - 1;
+                      const prevStart = currentStart - 1;
+                      setStartDate(`${prevStart}-04-01`);
+                      setEndDate(`${currentStart}-03-31`);
+                      setPage(1);
+                    }}>
+                    Previous FY
+                  </button>
+                </div>
+              </div>
 
-            {/* Max Amount */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Max Amount (₹)</label>
-              <input
-                type="number"
-                placeholder="Max"
-                value={maxAmount}
-                onChange={(e) => {
-                  setMaxAmount(e.target.value);
-                  setPage(1);
-                }}
+              {/* 💰 Amount Range Card */}
+              <div
                 style={{
-                  height: "34px",
-                  fontSize: "12px",
-                  width: "110px",
-                  margin: 0,
-                  borderRadius: "6px",
-                  border: "1px solid var(--line)",
                   background: "var(--background)",
-                  color: "var(--ink)",
-                }}
-              />
-            </div>
-
-            {/* Start Date */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Start Date</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setPage(1);
-                }}
-                style={{
-                  height: "34px",
-                  fontSize: "12px",
-                  margin: 0,
-                  borderRadius: "6px",
+                  borderRadius: "10px",
+                  padding: "12px 14px",
                   border: "1px solid var(--line)",
-                  background: "var(--background)",
-                  color: "var(--ink)",
-                }}
-              />
-            </div>
-
-            {/* End Date */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>End Date</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setPage(1);
-                }}
-                style={{
-                  height: "34px",
-                  fontSize: "12px",
-                  margin: 0,
-                  borderRadius: "6px",
-                  border: "1px solid var(--line)",
-                  background: "var(--background)",
-                  color: "var(--ink)",
-                }}
-              />
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "var(--muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}>
+                    Amount Range (₹)
+                  </span>
+                  {(minAmount || maxAmount) && (
+                    <small style={{ fontSize: "11px", color: "#8b5cf6", fontWeight: 600 }}>
+                      Filter active
+                    </small>
+                  )}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "11px",
+                        color: "var(--muted)",
+                        marginBottom: "3px",
+                      }}>
+                      Min ₹
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={minAmount}
+                      onChange={(e) => {
+                        setMinAmount(e.target.value);
+                        setPage(1);
+                      }}
+                      style={{
+                        width: "100%",
+                        height: "34px",
+                        fontSize: "12px",
+                        padding: "0 8px",
+                        borderRadius: "6px",
+                        border: "1px solid var(--line)",
+                        background: "var(--background-alt)",
+                        color: "var(--ink)",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "11px",
+                        color: "var(--muted)",
+                        marginBottom: "3px",
+                      }}>
+                      Max ₹
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="No max"
+                      value={maxAmount}
+                      onChange={(e) => {
+                        setMaxAmount(e.target.value);
+                        setPage(1);
+                      }}
+                      style={{
+                        width: "100%",
+                        height: "34px",
+                        fontSize: "12px",
+                        padding: "0 8px",
+                        borderRadius: "6px",
+                        border: "1px solid var(--line)",
+                        background: "var(--background-alt)",
+                        color: "var(--ink)",
+                      }}
+                    />
+                  </div>
+                </div>
+                {/* Presets */}
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "2px" }}>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    onClick={() => {
+                      setMinAmount("0");
+                      setMaxAmount("1000");
+                      setPage(1);
+                    }}>
+                    &lt; ₹1k
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    onClick={() => {
+                      setMinAmount("1000");
+                      setMaxAmount("10000");
+                      setPage(1);
+                    }}>
+                    ₹1k – ₹10k
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    onClick={() => {
+                      setMinAmount("10000");
+                      setMaxAmount("50000");
+                      setPage(1);
+                    }}>
+                    ₹10k – ₹50k
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    onClick={() => {
+                      setMinAmount("50000");
+                      setMaxAmount("");
+                      setPage(1);
+                    }}>
+                    &gt; ₹50k
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
-      </div>
 
-      {/* Transactions Table */}
-      <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+        {/* Transactions Table & Checkboxes */}
         {loading ? (
           <div className="loading" style={{ padding: "40px" }}>
             <span />
@@ -833,186 +1122,257 @@ export default function TransactionsPage() {
             </p>
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table
-              className="holdings-table"
-              style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--line)" }}>
-                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Date</th>
-                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Account</th>
-                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Merchant / Description</th>
-                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Category</th>
-                  <th style={{ padding: "12px 16px", textAlign: "right" }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.transactions.map((tx) => {
-                  const isDebit = tx.amount < 0;
-                  return (
-                    <tr
-                      key={tx.id}
-                      style={{ borderBottom: "1px solid var(--line)" }}>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          whiteSpace: "nowrap",
-                          fontSize: "13px",
-                          color: "var(--muted)",
-                          fontWeight: 500,
-                        }}>
+          <>
+            <div className={`account-transaction-table ${showCategoryEdit ? "has-checkboxes" : ""}`}>
+              <header>
+                {showCategoryEdit && (
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(
+                        data?.transactions.length &&
+                          selectedTxIds.length === data.transactions.length,
+                      )}
+                      onChange={toggleSelectAll}
+                      style={{ cursor: "pointer", width: "15px", height: "15px" }}
+                    />
+                  </span>
+                )}
+                <span>Date</span>
+                <span>Account</span>
+                <span>Merchant / Description</span>
+                <span>Category</span>
+                <span style={{ textAlign: "right" }}>Amount</span>
+              </header>
+
+              {data.transactions.map((tx) => {
+                const isDebit = tx.amount < 0;
+                return (
+                  <article key={tx.id} className="transaction-row">
+                    {showCategoryEdit && (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedTxIds.includes(tx.id)}
+                          onChange={() => toggleSelectTx(tx.id)}
+                          style={{ cursor: "pointer", width: "15px", height: "15px" }}
+                        />
+                      </div>
+                    )}
+
+                    <time className="transaction-time-cell">
+                      <span className="date-text">
                         {new Date(tx.transactionDate).toLocaleDateString("en-IN", {
                           day: "2-digit",
                           month: "short",
                           year: "numeric",
+                          timeZone: "UTC",
                         })}
-                      </td>
+                      </span>
+                      <span className="time-text">
+                        {new Date(tx.transactionDate).toLocaleTimeString("en-IN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                          timeZone: "UTC",
+                        })}
+                      </span>
+                    </time>
 
-                      <td
+                    <div className="transaction-account-cell" style={{ whiteSpace: "nowrap" }}>
+                      <span
                         style={{
-                          padding: "12px 16px",
-                          whiteSpace: "nowrap",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "3px 8px",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          background: "var(--card-hover)",
+                          border: "1px solid var(--line)",
                         }}>
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            padding: "3px 8px",
-                            borderRadius: "6px",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            background: "var(--card-hover)",
-                            border: "1px solid var(--line)",
-                          }}>
-                          {tx.accountType === "CREDIT_CARD" ? (
-                            <CreditCard size={13} color="var(--accent)" />
-                          ) : (
-                            <Landmark size={13} color="#0ea5e9" />
-                          )}
-                          <span>{tx.accountName}</span>
-                          {tx.cardLast4 && (
-                            <span style={{ opacity: 0.7, fontFamily: "monospace" }}>
-                              ••••{tx.cardLast4}
-                            </span>
-                          )}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: "12px 16px" }}>
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            fontSize: "14px",
-                            color: "var(--ink)",
-                          }}>
-                          {tx.description}
-                        </div>
-                        {tx.details && (
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              color: "var(--muted)",
-                              marginTop: "2px",
-                            }}>
-                            {tx.details}
-                          </div>
+                        {tx.accountType === "CREDIT_CARD" ? (
+                          <CreditCard size={13} color="var(--accent)" />
+                        ) : (
+                          <Landmark size={13} color="#0ea5e9" />
                         )}
-                      </td>
+                        <span>{tx.accountName}</span>
+                        {tx.cardLast4 && (
+                          <span style={{ opacity: 0.7, fontFamily: "monospace" }}>
+                            ••••{tx.cardLast4}
+                          </span>
+                        )}
+                      </span>
+                    </div>
 
-                      <td style={{ padding: "12px 16px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <span
-                            style={{
-                              width: "8px",
-                              height: "8px",
-                              borderRadius: "50%",
-                              background: tx.categoryColor || "#94a3b8",
-                              display: "inline-block",
-                              flexShrink: 0,
-                            }}
-                          />
-                          <select
-                            value={tx.categoryId || ""}
-                            disabled={updatingCatId === tx.id}
-                            style={{
-                              margin: 0,
-                              padding: "3px 8px",
-                              fontSize: "12px",
-                              width: "auto",
-                              borderRadius: "6px",
-                              border: "1px solid var(--line)",
-                              background: "var(--background)",
-                              color: "var(--ink)",
-                              fontWeight: 500,
-                            }}
-                            onChange={(e) =>
-                              handleCategoryUpdate(
-                                tx.accountId,
-                                tx.id,
-                                e.target.value,
-                              )
-                            }>
-                            <option value="">Uncategorised</option>
-                            {data.categories.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
+                    <div className="transaction-description-cell">
+                      <strong>{tx.description}</strong>
+                      {tx.details && <small>{tx.details}</small>}
+                    </div>
 
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          textAlign: "right",
-                          fontWeight: 700,
-                          fontSize: "14px",
-                          whiteSpace: "nowrap",
-                          color: isDebit ? "#ef4444" : "#10b981",
-                        }}>
-                        {isDebit ? money(tx.amount) : `+${money(tx.amount)}`}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                    <div className="transaction-category-cell">
+                      {tx.isTransfer ? (
+                        <span className="category-pill transfer">Transfer</span>
+                      ) : (
+                        <select
+                          className="category-pill-select"
+                          value={tx.categoryId ?? ""}
+                          disabled={updatingCatId === tx.id}
+                          onChange={(e) =>
+                            void handleUpdateCategory(
+                              tx.accountId,
+                              tx.id,
+                              e.target.value,
+                            )
+                          }
+                          title="Click to change category"
+                          style={{
+                            display: "inline-block",
+                            width: "auto",
+                            maxWidth: "160px",
+                            background: tx.categoryId
+                              ? "var(--theme-soft-start)"
+                              : "var(--background-alt)",
+                            border: "1px solid var(--line)",
+                            borderRadius: "8px",
+                            padding: "3px 8px",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            color: tx.categoryId ? "var(--green)" : "var(--muted)",
+                            cursor: "pointer",
+                            outline: "none",
+                          }}>
+                          <option value="">Uncategorised</option>
+                          {(data.categories || []).map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
 
-        {/* Pagination Controls */}
-        {data?.pagination && data.pagination.pages > 1 && (
-          <div
-            style={{
-              padding: "16px 20px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              borderTop: "1px solid var(--line)",
-            }}>
-            <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-              Page {data.pagination.page} of {data.pagination.pages} ({data.pagination.total} total)
-            </span>
-
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                type="button"
-                className="secondary compact"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                <ChevronLeft size={16} /> Previous
-              </button>
-              <button
-                type="button"
-                className="secondary compact"
-                disabled={page >= data.pagination.pages}
-                onClick={() => setPage((p) => p + 1)}>
-                Next <ChevronRight size={16} />
-              </button>
+                    <b
+                      className={`transaction-amount-cell ${
+                        isDebit ? "negative" : "positive"
+                      }`}>
+                      {isDebit ? money(tx.amount) : `+${money(tx.amount)}`}
+                    </b>
+                  </article>
+                );
+              })}
             </div>
-          </div>
+
+            {/* Batch Categorization Floating Bar */}
+            {selectedTxIds.length > 0 && (
+              <div
+                style={{
+                  position: "fixed",
+                  bottom: "24px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  zIndex: 9999,
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "16px",
+                  boxShadow: "0 12px 30px rgba(0,0,0,0.3)",
+                  padding: "10px 18px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "16px",
+                  flexWrap: "wrap",
+                }}>
+                <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>
+                  {selectedTxIds.length} transaction
+                  {selectedTxIds.length === 1 ? "" : "s"} selected
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <select
+                    disabled={batchUpdating}
+                    onChange={(e) => void handleBatchUpdateCategory(e.target.value)}
+                    defaultValue=""
+                    style={{
+                      height: "34px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      borderRadius: "8px",
+                      border: "1px solid var(--line)",
+                      padding: "0 10px",
+                      background: "var(--background)",
+                      color: "var(--ink)",
+                      cursor: "pointer",
+                    }}>
+                    <option value="" disabled>
+                      Set category for all selected…
+                    </option>
+                    <option value="">Uncategorised</option>
+                    {(data.categories || []).map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    className="secondary compact"
+                    onClick={handleCreateRuleFromSelection}
+                    style={{
+                      height: "34px",
+                      fontSize: "12px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}>
+                    <Sparkles size={14} color="var(--green)" /> Create Rule from Selection
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    onClick={() => setSelectedTxIds([])}
+                    style={{ height: "34px", fontSize: "12px", color: "var(--muted)" }}>
+                    Deselect
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {data?.pagination && data.pagination.pages > 1 && (
+              <footer
+                className="ledger-pagination"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: "16px",
+                  paddingTop: "12px",
+                  borderTop: "1px solid var(--line)",
+                }}>
+                <button
+                  type="button"
+                  className="secondary compact"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                  <ArrowLeft size={14} /> Previous
+                </button>
+                <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                  Page {data.pagination.page} of {data.pagination.pages} ({data.pagination.total} total)
+                </span>
+                <button
+                  type="button"
+                  className="secondary compact"
+                  disabled={page >= data.pagination.pages}
+                  onClick={() =>
+                    setPage((p) => Math.min(data.pagination.pages, p + 1))
+                  }>
+                  Next <ArrowRight size={14} />
+                </button>
+              </footer>
+            )}
+          </>
         )}
       </div>
 
@@ -1024,6 +1384,8 @@ export default function TransactionsPage() {
             setShowRulesModal(false);
             fetchTransactions();
           }}
+          initialPattern={ruleInitialPattern}
+          initialCategoryId={ruleInitialCategoryId}
         />
       )}
     </Shell>
