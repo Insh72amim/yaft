@@ -85,8 +85,8 @@ This file maintains the running inventory of completed, verified features inside
 - [x] **Credit Card Parsers**:
   - [x] Axis Bank credit card parser.
   - [x] HDFC Bank credit card parser (with password candidate fallback and custom font PUA glyph decoding).
-  - [ ] ICICI Bank credit card parser.
-  - [ ] SBI Bank credit card parser.
+  - [x] ICICI Bank credit card parser (monthly & current statement layouts).
+  - [ ] SBI Card (Credit Card) statement parser.
 
 ### 9.3 Salary Page
 - [ ] **Acme Corp Layout Parser**:
