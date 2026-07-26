@@ -443,6 +443,20 @@ export class AccountsController {
       .sort((a, b) => b.totalAmount - a.totalAmount)
       .slice(0, 5);
 
+    const topOutbound = allCcTx
+      .filter((tx) => Number(tx.amount) < 0)
+      .sort((a, b) => Number(a.amount) - Number(b.amount))
+      .slice(0, 5)
+      .map((tx) => ({
+        id: tx.id,
+        date: tx.transactionDate,
+        description: tx.merchant || tx.descriptionRaw,
+        amount: Math.abs(Number(tx.amount)),
+        category: tx.category?.name ?? 'Uncategorised',
+        categoryColor: tx.category?.color ?? '#94a3b8',
+        accountName: tx.account.name,
+      }));
+
     const recentTransactions = allCcTx
       .slice(-10)
       .reverse()
@@ -467,6 +481,7 @@ export class AccountsController {
       cards,
       monthlySpendsAndPayments,
       topCategories,
+      topOutbound,
       recentTransactions,
     };
   }

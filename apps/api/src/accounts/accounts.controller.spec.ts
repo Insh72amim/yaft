@@ -273,6 +273,7 @@ describe('AccountsController getCreditCardsSummary', () => {
     expect(res.summary.utilizationRate).toBe(25);
     expect(res.cards).toHaveLength(1);
     expect(res.cards[0].cardLast4).toBe('0001');
+    expect(res.topOutbound).toHaveLength(1);
     expect(res.recentTransactions).toHaveLength(1);
   });
 });
