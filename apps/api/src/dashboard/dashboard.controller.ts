@@ -404,6 +404,8 @@ export class DashboardController {
           color: item.category?.color ?? '#94a3b8',
           amount: (current?.amount ?? 0) + Math.abs(Number(item.amount)),
         });
+      });
+
     const topOutboundRecipients = [...recipientMap.values()]
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
