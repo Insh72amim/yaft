@@ -348,6 +348,129 @@ export class AccountsController {
     });
   }
 
+  @Get('credit-cards/summary')
+  async getCreditCardsSummary(@CurrentUser() user: { id: string }) {
+    const cardAccounts = await this.prisma.account.findMany({
+      where: { userId: user.id, type: AccountType.CREDIT_CARD, archived: false },
+      include: {
+        vaultEntry: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    let totalLimit = 0;
+    let totalOutstanding = 0;
+
+    const cards = await Promise.all(
+      cardAccounts.map(async (acc) => {
+        const creditLimit = Number(acc.creditLimit ?? 0n);
+        const agg = await this.prisma.transaction.aggregate({
+          where: { accountId: acc.id },
+          _sum: { amount: true },
+        });
+        const balance = Number(acc.openingBalance) + Number(agg._sum.amount ?? 0n);
+        const outstanding = Math.max(0, -balance);
+        const available = Math.max(0, creditLimit - outstanding);
+        const utilizationPercent = creditLimit > 0 ? Math.min(100, Math.round((outstanding / creditLimit) * 100)) : 0;
+
+        totalLimit += creditLimit;
+        totalOutstanding += outstanding;
+
+        return {
+          id: acc.id,
+          name: acc.name,
+          institution: acc.institution,
+          cardLast4: acc.vaultEntry?.last4 ?? null,
+          cardNetwork: acc.vaultEntry?.cardNetwork ?? null,
+          creditLimit,
+          currentBalance: balance,
+          outstanding,
+          availableCredit: available,
+          utilizationPercent,
+          statementDate: acc.statementDay ?? null,
+          dueDate: acc.dueDay ?? null,
+        };
+      })
+    );
+
+    const totalAvailable = Math.max(0, totalLimit - totalOutstanding);
+    const utilizationRate = totalLimit > 0 ? Math.min(100, Math.round((totalOutstanding / totalLimit) * 100)) : 0;
+
+    const allCcTx = await this.prisma.transaction.findMany({
+      where: {
+        account: { userId: user.id, type: AccountType.CREDIT_CARD },
+      },
+      include: { category: true, account: true },
+      orderBy: { transactionDate: 'asc' },
+    });
+
+    const monthMap = new Map<string, { month: string; spends: number; payments: number }>();
+    const categoryMap = new Map<string, { categoryId: string; categoryName: string; color: string; totalAmount: number }>();
+
+    allCcTx.forEach((tx) => {
+      const d = new Date(tx.transactionDate);
+      const monthKey = d.toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      const val = Number(tx.amount);
+
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, { month: monthKey, spends: 0, payments: 0 });
+      }
+      const entry = monthMap.get(monthKey)!;
+
+      if (val < 0) {
+        entry.spends += Math.abs(val);
+        const catName = tx.category?.name ?? 'Uncategorised';
+        const catColor = tx.category?.color ?? '#94a3b8';
+        const catId = tx.categoryId ?? 'uncategorised';
+
+        if (!categoryMap.has(catId)) {
+          categoryMap.set(catId, { categoryId: catId, categoryName: catName, color: catColor, totalAmount: 0 });
+        }
+        categoryMap.get(catId)!.totalAmount += Math.abs(val);
+      } else {
+        entry.payments += val;
+      }
+    });
+
+    const monthlySpendsAndPayments = Array.from(monthMap.values()).slice(-6);
+
+    const totalSpendAll = Array.from(categoryMap.values()).reduce((sum, c) => sum + c.totalAmount, 0);
+    const topCategories = Array.from(categoryMap.values())
+      .map((c) => ({
+        ...c,
+        percentage: totalSpendAll > 0 ? Math.round((c.totalAmount / totalSpendAll) * 100) : 0,
+      }))
+      .sort((a, b) => b.totalAmount - a.totalAmount)
+      .slice(0, 5);
+
+    const recentTransactions = allCcTx
+      .slice(-10)
+      .reverse()
+      .map((tx) => ({
+        id: tx.id,
+        date: tx.transactionDate,
+        description: tx.merchant || tx.descriptionRaw,
+        amount: Number(tx.amount),
+        category: tx.category?.name ?? 'Uncategorised',
+        categoryColor: tx.category?.color ?? '#94a3b8',
+        accountName: tx.account.name,
+      }));
+
+    return {
+      summary: {
+        totalLimit,
+        totalOutstanding,
+        totalAvailable,
+        utilizationRate,
+        activeCardCount: cardAccounts.length,
+      },
+      cards,
+      monthlySpendsAndPayments,
+      topCategories,
+      recentTransactions,
+    };
+  }
+
   @Get('transactions/all')
   async getAllTransactions(
     @CurrentUser() user: { id: string },
