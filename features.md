@@ -81,7 +81,9 @@ This file maintains the running inventory of completed, verified features inside
   - [x] Extract and analyse external/outbound transfers specifically in multi-bank Sankey flow diagram.
 
 ### 9.2 Import Page
-- [ ] **Credit Card Parsers**:
+- [x] **Credit Card Parsers**:
+  - [x] Axis Bank credit card parser.
+  - [x] HDFC Bank credit card parser (with password candidate fallback and custom font PUA glyph decoding).
   - [ ] ICICI Bank credit card parser.
   - [ ] SBI Bank credit card parser.
 
