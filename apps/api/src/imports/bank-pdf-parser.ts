@@ -22,7 +22,7 @@ export type PdfStatementDocument = {
 };
 
 export type BankPdfParser = {
-  id: 'PNB' | 'AXIS' | 'SBI' | 'EPFO';
+  id: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'ICICI';
   institutionAliases: readonly string[];
   matches(document: PdfStatementDocument): boolean;
   parse(document: PdfStatementDocument): { rows: ParsedRow[]; closingBalanceMinor?: number };

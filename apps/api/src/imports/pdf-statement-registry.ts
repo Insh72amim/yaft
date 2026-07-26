@@ -7,8 +7,9 @@ import { normalizeInstitution } from './bank-pdf-parser';
 import { pnbPdfParser } from './pnb-pdf-parser';
 import { sbiPdfParser } from './sbi-pdf-parser';
 import { epfoPdfParser } from './epfo-pdf-parser';
+import { iciciPdfParser } from './icici-pdf-parser';
 
-export const bankPdfParsers: readonly BankPdfParser[] = [pnbPdfParser, axisPdfParser, sbiPdfParser, epfoPdfParser];
+export const bankPdfParsers: readonly BankPdfParser[] = [pnbPdfParser, axisPdfParser, sbiPdfParser, epfoPdfParser, iciciPdfParser];
 
 function institutionMatches(parser: BankPdfParser, institution: string) {
   return parser.institutionAliases.some((alias) => {
@@ -46,7 +47,7 @@ export function selectBankPdfParser(document: PdfStatementDocument, institution?
   if (matches.length > 1) {
     throw new BadRequestException('This PDF matches more than one supported bank layout. Set the account institution and try again.');
   }
-  throw new BadRequestException('This PDF does not match a supported Axis, Punjab National Bank, or SBI statement layout. Scanned and changed layouts are not imported.');
+  throw new BadRequestException('This PDF does not match a supported Axis, ICICI, Punjab National Bank, or SBI statement layout. Scanned and changed layouts are not imported.');
 }
 
 export async function loadPdfStatementDocument(buffer: Buffer, pdfPassword?: string): Promise<PdfStatementDocument> {
