@@ -66,7 +66,7 @@ export default function AssetsPage() {
   const [data, setData] = useState<AssetsHistoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [hidePrivacy, setHidePrivacy] = useState(false);
+  const [hidePrivacy, setHidePrivacy] = useState(true);
   const [selectedAssetCategory, setSelectedAssetCategory] = useState<"ALL" | "CASH" | "EQUITIES" | "EPFO" | "DEBT">("ALL");
 
   useEffect(() => {
