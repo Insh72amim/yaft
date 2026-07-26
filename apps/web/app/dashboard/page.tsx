@@ -64,6 +64,10 @@ type AccountFlow = {
     totalOutbound: number;
     categories?: Array<{ name: string; color: string; amount: number; percentage: number }>;
     topRecipients?: Array<{ name: string; amount: number; count: number; isInternal?: boolean }>;
+    topExternalRecipients?: Array<{ name: string; amount: number; count: number; isInternal?: boolean }>;
+    otherExternalOutbound?: { amount: number; count: number };
+    topInternalRecipients?: Array<{ name: string; amount: number; count: number; isInternal?: boolean }>;
+    otherInternalOutbound?: { amount: number; count: number };
   }>;
   internalTransfers: Array<{
     fromAccountId: string;
@@ -896,14 +900,27 @@ function AccountSpendingAndBeneficiariesSection({
   accounts: AccountFlow['accounts'];
 }) {
   const [selectedAccId, setSelectedAccId] = useState<string>(accounts[0]?.id || '');
+  const [outboundTab, setOutboundTab] = useState<'EXTERNAL' | 'INTERNAL' | 'ALL'>('EXTERNAL');
 
   const activeAcc = accounts.find((a) => a.id === selectedAccId) || accounts[0];
 
   if (!activeAcc) return null;
 
   const categories = activeAcc.categories || [];
-  const topRecipients = activeAcc.topRecipients || [];
   const totalSpent = activeAcc.totalOutbound || 0;
+
+  let displayRecipients = activeAcc.topExternalRecipients || [];
+  let otherBound = activeAcc.otherExternalOutbound;
+
+  if (outboundTab === 'INTERNAL') {
+    displayRecipients = activeAcc.topInternalRecipients || [];
+    otherBound = activeAcc.otherInternalOutbound;
+  } else if (outboundTab === 'ALL') {
+    displayRecipients = activeAcc.topRecipients || [];
+    const totalOtherAmt = (activeAcc.otherExternalOutbound?.amount || 0) + (activeAcc.otherInternalOutbound?.amount || 0);
+    const totalOtherCount = (activeAcc.otherExternalOutbound?.count || 0) + (activeAcc.otherInternalOutbound?.count || 0);
+    otherBound = { amount: totalOtherAmt, count: totalOtherCount };
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1032,24 +1049,78 @@ function AccountSpendingAndBeneficiariesSection({
 
         {/* Card 2: PAYEES & MERCHANTS / Top Outbound Beneficiaries */}
         <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 PAYEES & MERCHANTS
               </span>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink)' }}>Top Outbound Beneficiaries</h3>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink)' }}>
+                {outboundTab === 'EXTERNAL' ? 'Top External Payments' : outboundTab === 'INTERNAL' ? 'Top Internal Transfers' : 'Top Outbound Beneficiaries'}
+              </h3>
             </div>
-            <span className="month-pill" style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <Send size={11} color="var(--accent)" /> Outbound & Internal
-            </span>
+
+            {/* Sub-Tabs for External / Internal / All */}
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', padding: '3px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+              <button
+                type="button"
+                onClick={() => setOutboundTab('EXTERNAL')}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: outboundTab === 'EXTERNAL' ? 'var(--accent)' : 'transparent',
+                  color: outboundTab === 'EXTERNAL' ? '#fff' : 'var(--muted)',
+                  fontSize: '10.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                External (Top 5)
+              </button>
+              <button
+                type="button"
+                onClick={() => setOutboundTab('INTERNAL')}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: outboundTab === 'INTERNAL' ? '#3b82f6' : 'transparent',
+                  color: outboundTab === 'INTERNAL' ? '#fff' : 'var(--muted)',
+                  fontSize: '10.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                Internal (Top 5)
+              </button>
+              <button
+                type="button"
+                onClick={() => setOutboundTab('ALL')}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: outboundTab === 'ALL' ? 'var(--line)' : 'transparent',
+                  color: outboundTab === 'ALL' ? 'var(--ink)' : 'var(--muted)',
+                  fontSize: '10.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                All
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '4px' }}>
-            {topRecipients.length === 0 ? (
-              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>No outbound beneficiaries recorded for this account</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
+            {displayRecipients.length === 0 ? (
+              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>No beneficiaries recorded for this view</span>
             ) : (
-              topRecipients.slice(0, 5).map((rec, idx) => {
-                const maxAmt = topRecipients[0]?.amount || 1;
+              displayRecipients.map((rec, idx) => {
+                const maxAmt = displayRecipients[0]?.amount || 1;
                 const barWidthPct = Math.min(100, Math.max(8, Math.round((rec.amount / maxAmt) * 100)));
                 return (
                   <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1075,6 +1146,35 @@ function AccountSpendingAndBeneficiariesSection({
                   </div>
                 );
               })
+            )}
+
+            {/* Other / Rest of Bounds Summary Item */}
+            {otherBound && otherBound.amount > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justify: 'space-between',
+                  alignItems: 'center',
+                  fontSize: '12px',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  border: '1px dashed var(--line)',
+                  background: 'var(--background)',
+                  marginTop: '4px',
+                }}
+              >
+                <span style={{ fontWeight: 600, color: 'var(--muted)', fontSize: '11.5px' }}>
+                  {outboundTab === 'EXTERNAL'
+                    ? 'Other External Outbounds'
+                    : outboundTab === 'INTERNAL'
+                    ? 'Other Internal Outbounds'
+                    : 'Rest of Outbound Payments'}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <strong style={{ fontSize: '12px', color: 'var(--muted)' }}>{money(otherBound.amount)}</strong>
+                  <small style={{ color: 'var(--muted)', fontSize: '10.5px' }}>({otherBound.count} txns)</small>
+                </div>
+              </div>
             )}
           </div>
         </div>

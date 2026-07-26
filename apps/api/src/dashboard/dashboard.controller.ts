@@ -247,12 +247,12 @@ export class DashboardController {
         }))
         .sort((a, b) => b.amount - a.amount);
 
-      const recipientMapAcc = new Map<string, { name: string; amount: number; count: number; isInternal: boolean }>();
+      const externalRecipientsMap = new Map<string, { name: string; amount: number; count: number; isInternal: false }>();
+      const internalRecipientsMap = new Map<string, { name: string; amount: number; count: number; isInternal: true }>();
+      const allRecipientsMap = new Map<string, { name: string; amount: number; count: number; isInternal: boolean }>();
+
       accountTxs.forEach((t) => {
         const amt = Math.abs(Number(t.amount));
-        let name = '';
-        let isInternal = false;
-
         let destAccountId: string | undefined;
         if (t.transferGroupId) {
           const opposite = monthTransactions.find(
@@ -268,24 +268,52 @@ export class DashboardController {
           }
         }
 
-        if (destAccountId) {
-          const destAcc = accounts.find((a) => a.id === destAccountId);
-          if (destAcc) {
-            name = destAcc.name;
-            isInternal = true;
-          }
-        }
+        const destAcc = destAccountId ? accounts.find((a) => a.id === destAccountId) : undefined;
+        const isCCCategory = t.category?.name && /CC TRANSFER|CREDIT CARD|CC PAYMENT|CARD BILL|CC BILL/i.test(t.category.name);
+        const internal = isInternalTransfer(t);
 
-        if (!name) {
+        const isInternalFlow = destAcc !== undefined || isCCCategory || internal;
+
+        let name = '';
+        if (destAcc) {
+          name = destAcc.name;
+        } else if (isCCCategory) {
+          name = t.category?.name || 'Credit Card Payment';
+        } else {
           name = extractBeneficiaryName(t.descriptionRaw) || t.merchant || t.descriptionRaw;
         }
 
-        const key = `${name}_${isInternal}`;
-        const current = recipientMapAcc.get(key) || { name, amount: 0, count: 0, isInternal };
-        recipientMapAcc.set(key, { name, amount: current.amount + amt, count: current.count + 1, isInternal });
+        const key = name;
+        if (isInternalFlow) {
+          const current = internalRecipientsMap.get(key) || { name, amount: 0, count: 0, isInternal: true };
+          internalRecipientsMap.set(key, { name, amount: current.amount + amt, count: current.count + 1, isInternal: true });
+        } else {
+          const current = externalRecipientsMap.get(key) || { name, amount: 0, count: 0, isInternal: false };
+          externalRecipientsMap.set(key, { name, amount: current.amount + amt, count: current.count + 1, isInternal: false });
+        }
+
+        const allKey = `${name}_${isInternalFlow}`;
+        const currentAll = allRecipientsMap.get(allKey) || { name, amount: 0, count: 0, isInternal: isInternalFlow };
+        allRecipientsMap.set(allKey, { name, amount: currentAll.amount + amt, count: currentAll.count + 1, isInternal: isInternalFlow });
       });
 
-      const topRecipients = [...recipientMapAcc.values()]
+      const sortedExternal = [...externalRecipientsMap.values()].sort((a, b) => b.amount - a.amount);
+      const topExternalRecipients = sortedExternal.slice(0, 5);
+      const remainingExternal = sortedExternal.slice(5);
+      const otherExternalOutbound = {
+        amount: remainingExternal.reduce((sum, r) => sum + r.amount, 0),
+        count: remainingExternal.reduce((sum, r) => sum + r.count, 0),
+      };
+
+      const sortedInternal = [...internalRecipientsMap.values()].sort((a, b) => b.amount - a.amount);
+      const topInternalRecipients = sortedInternal.slice(0, 5);
+      const remainingInternal = sortedInternal.slice(5);
+      const otherInternalOutbound = {
+        amount: remainingInternal.reduce((sum, r) => sum + r.amount, 0),
+        count: remainingInternal.reduce((sum, r) => sum + r.count, 0),
+      };
+
+      const topRecipients = [...allRecipientsMap.values()]
         .sort((a, b) => b.amount - a.amount)
         .slice(0, 5);
 
@@ -295,6 +323,10 @@ export class DashboardController {
         totalOutbound: totalOutboundAmt,
         categories,
         topRecipients,
+        topExternalRecipients,
+        otherExternalOutbound,
+        topInternalRecipients,
+        otherInternalOutbound,
       };
     });
 
