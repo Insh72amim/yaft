@@ -555,6 +555,7 @@ export default function BudgetsPage() {
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "14px" }}>
                 {categories
+                  .filter((cat) => (cat.type || "EXPENSE") === "EXPENSE")
                   .map((cat) => {
                     const existingBudget = budgets.find((b) => b.categoryId === cat.id);
                     const catType = (cat.type || "EXPENSE") as string;
