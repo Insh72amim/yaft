@@ -18,7 +18,6 @@ import {
   Zap,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemeColorSelector } from "@/components/theme-color-selector";
 import { api, errorMessage, isUnauthorized } from "@/lib/api";
 
@@ -376,10 +375,9 @@ export default function ProfileMePage() {
                   Theme & Accent Color Customization
                 </label>
                 <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>
-                  Personalize light/dark mode and select your primary UI color accent.
+                  Select your preferred UI color accent theme for YAFT.
                 </p>
                 <div style={{ display: "flex", gap: "12px", alignItems: "center", marginTop: "4px" }}>
-                  <ThemeToggle />
                   <ThemeColorSelector />
                 </div>
               </div>
