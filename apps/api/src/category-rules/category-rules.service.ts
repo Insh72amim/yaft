@@ -256,8 +256,8 @@ export class CategoryRulesService {
       where: { id },
       data: {
         name: trimmed,
-        color: color || existing.color,
-        type: type || existing.type,
+        color: color !== undefined ? color : existing.color,
+        type: type !== undefined ? type : existing.type,
       },
     });
   }

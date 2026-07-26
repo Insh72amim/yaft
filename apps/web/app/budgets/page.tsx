@@ -397,11 +397,13 @@ export default function BudgetsPage() {
                     onChange={(e) => setSelectedCatId(e.target.value)}
                     style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}
                   >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
+                    {categories
+                      .filter((c) => (c.type || "EXPENSE") === "EXPENSE")
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -542,13 +544,14 @@ export default function BudgetsPage() {
               <div className="panel-title" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                 <div>
                   <span className="eyebrow" style={{ color: "var(--green)" }}>Category Directory</span>
-                  <h2>All System Categories ({categories.length})</h2>
+                  <h2>Expense Categories ({categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE").length})</h2>
                 </div>
 
                 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                  {(["ALL", "EXPENSE", "INCOME", "INVESTMENT", "TRANSFER"] as const).map((t) => {
-                    const count = t === "ALL" ? categories.length : categories.filter((c) => (c.type || "EXPENSE") === t).length;
-                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `Expenses (${count})` : t === "INCOME" ? `Income (${count})` : t === "INVESTMENT" ? `Investments (${count})` : `Transfers (${count})`;
+                  {(["ALL", "EXPENSE"] as const).map((t) => {
+                    const expenseCats = categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE");
+                    const count = expenseCats.length;
+                    const label = `Expense Envelopes (${count})`;
                     return (
                       <button
                         key={t}
@@ -566,7 +569,7 @@ export default function BudgetsPage() {
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "14px" }}>
                 {categories
-                  .filter((cat) => directoryCatFilter === "ALL" || (cat.type || "EXPENSE") === directoryCatFilter)
+                  .filter((cat) => (cat.type || "EXPENSE") === "EXPENSE")
                   .map((cat) => {
                     const existingBudget = budgets.find((b) => b.categoryId === cat.id);
                     const catType = cat.type || "EXPENSE";
@@ -593,9 +596,19 @@ export default function BudgetsPage() {
                             <strong style={{ fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>{cat.name}</strong>
                           </div>
 
-                          <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "8px", background: badgeBg, color: badgeColor, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                            {badgeLabel}
-                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "8px", background: badgeBg, color: badgeColor, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                              {badgeLabel}
+                            </span>
+                            <button
+                              type="button"
+                              title="Edit Category & Group"
+                              onClick={() => handleOpenEditCategory(cat)}
+                              style={{ background: "transparent", border: "none", cursor: "pointer", padding: "2px", color: "var(--muted)", display: "flex", alignItems: "center" }}
+                            >
+                              <Pencil size={13} />
+                            </button>
+                          </div>
                         </div>
 
                         {existingBudget ? (
