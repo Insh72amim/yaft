@@ -11,12 +11,10 @@ import {
   Layers,
   ArrowUpRight,
   ArrowDownLeft,
-  SlidersHorizontal,
   Workflow,
   X,
   RotateCcw,
   Tag,
-  Sparkles,
   Filter,
   ArrowLeft,
   ArrowRight,
@@ -28,7 +26,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shell } from "@/components/shell";
 import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
-import { SpendRulesModal } from "@/components/spend-rules-modal";
 
 type Mode = "CREDIT_CARD" | "BANK" | "UPI" | "ALL";
 
@@ -91,7 +88,9 @@ export default function TransactionsPage() {
   const [mode, setMode] = useState<Mode>("CREDIT_CARD");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"ALL" | "EXPENSE" | "INCOME">("ALL");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "EXPENSE" | "INCOME">(
+    "ALL",
+  );
   const [categoryId, setCategoryId] = useState("all");
   const [accountId, setAccountId] = useState("all");
   const [minAmount, setMinAmount] = useState("");
@@ -101,13 +100,13 @@ export default function TransactionsPage() {
 
   const [showFilters, setShowFilters] = useState(false);
   const [showCategoryEdit, setShowCategoryEdit] = useState(false);
-  const [showRulesModal, setShowRulesModal] = useState(false);
-  const [ruleInitialPattern, setRuleInitialPattern] = useState("");
-  const [ruleInitialCategoryId, setRuleInitialCategoryId] = useState("");
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [reconciling, setReconciling] = useState(false);
-  const [reconcileMsg, setReconcileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [reconcileMsg, setReconcileMsg] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TransactionsApiResponse | null>(null);
@@ -144,7 +143,19 @@ export default function TransactionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [mode, page, search, typeFilter, categoryId, accountId, minAmount, maxAmount, startDate, endDate, router]);
+  }, [
+    mode,
+    page,
+    search,
+    typeFilter,
+    categoryId,
+    accountId,
+    minAmount,
+    maxAmount,
+    startDate,
+    endDate,
+    router,
+  ]);
 
   useEffect(() => {
     fetchTransactions();
@@ -161,14 +172,20 @@ export default function TransactionsPage() {
     setReconciling(true);
     setReconcileMsg(null);
     try {
-      const res = await api<{ matchedPairsCount: number }>('/transfers/reconcile', { method: 'POST' });
+      const res = await api<{ matchedPairsCount: number }>(
+        "/transfers/reconcile",
+        { method: "POST" },
+      );
       await fetchTransactions();
       setReconcileMsg({
-        type: 'success',
-        text: `Transfer matching finished — linked ${res.matchedPairsCount} new internal transfer pair${res.matchedPairsCount === 1 ? '' : 's'}.`,
+        type: "success",
+        text: `Transfer matching finished — linked ${res.matchedPairsCount} new internal transfer pair${res.matchedPairsCount === 1 ? "" : "s"}.`,
       });
     } catch (err) {
-      setReconcileMsg({ type: 'error', text: errorMessage(err, 'Failed to reconcile transfers.') });
+      setReconcileMsg({
+        type: "error",
+        text: errorMessage(err, "Failed to reconcile transfers."),
+      });
     } finally {
       setReconciling(false);
       // auto-dismiss after 6 s
@@ -259,17 +276,6 @@ export default function TransactionsPage() {
     }
   };
 
-  const handleCreateRuleFromSelection = () => {
-    if (selectedTxIds.length === 0 || !data?.transactions) return;
-    const firstTx = data.transactions.find((t) => selectedTxIds.includes(t.id));
-    if (firstTx) {
-      const cleanKeyword = firstTx.description.split("/")[0].split("-")[0].trim();
-      setRuleInitialPattern(cleanKeyword || firstTx.description);
-      setRuleInitialCategoryId(firstTx.categoryId || "");
-      setShowRulesModal(true);
-    }
-  };
-
   const activeFilterCount =
     (categoryId !== "all" ? 1 : 0) +
     (typeFilter !== "ALL" ? 1 : 0) +
@@ -292,11 +298,12 @@ export default function TransactionsPage() {
     setPage(1);
   };
 
-  const filteredAccounts = data?.accounts.filter((acc) => {
-    if (mode === "CREDIT_CARD") return acc.type === "CREDIT_CARD";
-    if (mode === "BANK") return ["BANK", "SAVINGS"].includes(acc.type);
-    return ["BANK", "SAVINGS", "CREDIT_CARD"].includes(acc.type);
-  }) ?? [];
+  const filteredAccounts =
+    data?.accounts.filter((acc) => {
+      if (mode === "CREDIT_CARD") return acc.type === "CREDIT_CARD";
+      if (mode === "BANK") return ["BANK", "SAVINGS"].includes(acc.type);
+      return ["BANK", "SAVINGS", "CREDIT_CARD"].includes(acc.type);
+    }) ?? [];
 
   return (
     <Shell>
@@ -305,7 +312,8 @@ export default function TransactionsPage() {
           <span className="eyebrow">Financial Ledger</span>
           <h1>Transactions &amp; Activity</h1>
           <p>
-            Filter, categorize, and track complete transaction history across Credit Cards, Bank Accounts, and UPI payments.
+            Filter, categorize, and track complete transaction history across
+            Credit Cards, Bank Accounts, and UPI payments.
           </p>
         </div>
         <button
@@ -313,10 +321,9 @@ export default function TransactionsPage() {
           className="secondary compact"
           onClick={handleReconcileTransfers}
           disabled={reconciling}
-          style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
-        >
-          <RefreshCw size={14} className={reconciling ? 'spin' : ''} />
-          {reconciling ? 'Matching…' : 'Match Transfers'}
+          style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+          <RefreshCw size={14} className={reconciling ? "spin" : ""} />
+          {reconciling ? "Matching…" : "Match Transfers"}
         </button>
       </header>
 
@@ -324,28 +331,40 @@ export default function TransactionsPage() {
       {reconcileMsg && (
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '12px 16px',
-            borderRadius: '12px',
-            marginBottom: '8px',
-            fontSize: '13px',
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            padding: "12px 16px",
+            borderRadius: "12px",
+            marginBottom: "8px",
+            fontSize: "13px",
             fontWeight: 500,
-            background: reconcileMsg.type === 'success' ? 'rgba(29,117,79,0.08)' : 'rgba(201,75,69,0.08)',
-            border: `1px solid ${reconcileMsg.type === 'success' ? 'rgba(29,117,79,0.2)' : 'rgba(201,75,69,0.2)'}`,
-            color: reconcileMsg.type === 'success' ? 'var(--green)' : 'var(--red)',
-          }}
-        >
-          {reconcileMsg.type === 'success'
-            ? <CheckCircle2 size={16} />
-            : <AlertCircle size={16} />}
+            background:
+              reconcileMsg.type === "success"
+                ? "rgba(29,117,79,0.08)"
+                : "rgba(201,75,69,0.08)",
+            border: `1px solid ${reconcileMsg.type === "success" ? "rgba(29,117,79,0.2)" : "rgba(201,75,69,0.2)"}`,
+            color:
+              reconcileMsg.type === "success" ? "var(--green)" : "var(--red)",
+          }}>
+          {reconcileMsg.type === "success" ? (
+            <CheckCircle2 size={16} />
+          ) : (
+            <AlertCircle size={16} />
+          )}
           <span>{reconcileMsg.text}</span>
           <button
             type="button"
             onClick={() => setReconcileMsg(null)}
-            style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 2px', lineHeight: 1 }}
-          >
+            style={{
+              marginLeft: "auto",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "inherit",
+              padding: "0 2px",
+              lineHeight: 1,
+            }}>
             <X size={14} />
           </button>
         </div>
@@ -408,22 +427,6 @@ export default function TransactionsPage() {
           <QrCode size={18} />
           <span>UPI Payments</span>
         </button>
-
-        <button
-          type="button"
-          className={`secondary ${mode === "ALL" ? "active" : ""}`}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "8px 16px",
-            borderRadius: "10px",
-            fontWeight: 600,
-          }}
-          onClick={() => handleModeChange("ALL")}>
-          <Receipt size={18} />
-          <span>Full History / All Ledger</span>
-        </button>
       </div>
 
       {error && (
@@ -464,10 +467,10 @@ export default function TransactionsPage() {
               {mode === "CREDIT_CARD"
                 ? "Total Credit Charges"
                 : mode === "BANK"
-                ? "Total Outflows"
-                : mode === "UPI"
-                ? "Total UPI Outflow"
-                : "Total Debits / Expenses"}
+                  ? "Total Outflows"
+                  : mode === "UPI"
+                    ? "Total UPI Outflow"
+                    : "Total Debits / Expenses"}
             </span>
             <strong
               style={{
@@ -502,10 +505,10 @@ export default function TransactionsPage() {
               {mode === "CREDIT_CARD"
                 ? "Total Card Refunds & Payments"
                 : mode === "BANK"
-                ? "Total Inflows"
-                : mode === "UPI"
-                ? "Total UPI Inflow"
-                : "Total Credits / Income"}
+                  ? "Total Inflows"
+                  : mode === "UPI"
+                    ? "Total UPI Inflow"
+                    : "Total Credits / Income"}
             </span>
             <strong
               style={{
@@ -555,20 +558,31 @@ export default function TransactionsPage() {
       <div className="panel transactions" style={{ marginBottom: "24px" }}>
         <div
           className="panel-title"
-          style={{ flexWrap: "wrap", gap: "12px", alignItems: "center", marginBottom: "16px" }}>
+          style={{
+            flexWrap: "wrap",
+            gap: "12px",
+            alignItems: "center",
+            marginBottom: "16px",
+          }}>
           <div>
             <span className="eyebrow">Full history</span>
             <h2>
               {mode === "CREDIT_CARD"
                 ? "Credit Card Transactions"
                 : mode === "BANK"
-                ? "Bank Account Transactions"
-                : mode === "UPI"
-                ? "UPI Payment Activity"
-                : "All Ledger Transactions"}
+                  ? "Bank Account Transactions"
+                  : mode === "UPI"
+                    ? "UPI Payment Activity"
+                    : "All Ledger Transactions"}
             </h2>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}>
             {data && data.pagination.total > 0 && (
               <span className="month-pill">
                 {(data.pagination.page - 1) * data.pagination.pageSize + 1}–
@@ -586,7 +600,11 @@ export default function TransactionsPage() {
                 setShowCategoryEdit(!showCategoryEdit);
                 if (showCategoryEdit) setSelectedTxIds([]);
               }}
-              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}>
               <Tag size={14} color="var(--green)" />
               {showCategoryEdit ? "Done Categorising" : "Categorise"}
             </button>
@@ -596,17 +614,14 @@ export default function TransactionsPage() {
                 showFilters || activeFilterCount > 0 ? "active" : ""
               }`}
               onClick={() => setShowFilters(!showFilters)}
-              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}>
               <Filter size={14} />
               {showFilters ? "Hide Filters" : "Filter Ledger"}
               {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-            </button>
-            <button
-              type="button"
-              className="secondary compact"
-              onClick={() => setShowRulesModal(true)}
-              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-              <Workflow size={14} /> Category Rules
             </button>
           </div>
         </div>
@@ -657,8 +672,8 @@ export default function TransactionsPage() {
                     {mode === "CREDIT_CARD"
                       ? "All Credit Cards"
                       : mode === "BANK"
-                      ? "All Bank Accounts"
-                      : "All Accounts"}
+                        ? "All Bank Accounts"
+                        : "All Accounts"}
                   </option>
                   {filteredAccounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
@@ -666,8 +681,8 @@ export default function TransactionsPage() {
                       {acc.cardLast4
                         ? `(••••${acc.cardLast4})`
                         : acc.institution
-                        ? `· ${acc.institution}`
-                        : ""}
+                          ? `· ${acc.institution}`
+                          : ""}
                     </option>
                   ))}
                 </select>
@@ -704,7 +719,12 @@ export default function TransactionsPage() {
               </div>
 
               {/* Search Bar */}
-              <div style={{ position: "relative", flex: "1 1 200px", minWidth: "180px" }}>
+              <div
+                style={{
+                  position: "relative",
+                  flex: "1 1 200px",
+                  minWidth: "180px",
+                }}>
                 <Search
                   size={16}
                   color="var(--muted)"
@@ -866,7 +886,12 @@ export default function TransactionsPage() {
                   flexDirection: "column",
                   gap: "8px",
                 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}>
                   <span
                     style={{
                       fontSize: "11px",
@@ -878,12 +903,22 @@ export default function TransactionsPage() {
                     Date Range
                   </span>
                   {(startDate || endDate) && (
-                    <small style={{ fontSize: "11px", color: "#8b5cf6", fontWeight: 600 }}>
+                    <small
+                      style={{
+                        fontSize: "11px",
+                        color: "#8b5cf6",
+                        fontWeight: 600,
+                      }}>
                       Filter active
                     </small>
                   )}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "8px",
+                  }}>
                   <div>
                     <label
                       style={{
@@ -944,11 +979,22 @@ export default function TransactionsPage() {
                   </div>
                 </div>
                 {/* Presets */}
-                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "2px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    flexWrap: "wrap",
+                    marginTop: "2px",
+                  }}>
                   <button
                     type="button"
                     className="ghost compact"
-                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    style={{
+                      fontSize: "11px",
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--line)",
+                    }}
                     onClick={() => {
                       const now = new Date();
                       const y = now.getUTCFullYear();
@@ -962,7 +1008,12 @@ export default function TransactionsPage() {
                   <button
                     type="button"
                     className="ghost compact"
-                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    style={{
+                      fontSize: "11px",
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--line)",
+                    }}
                     onClick={() => {
                       const now = new Date();
                       let y = now.getUTCFullYear();
@@ -981,7 +1032,12 @@ export default function TransactionsPage() {
                   <button
                     type="button"
                     className="ghost compact"
-                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    style={{
+                      fontSize: "11px",
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--line)",
+                    }}
                     onClick={() => {
                       const now = new Date();
                       const today = now.toISOString().split("T")[0];
@@ -996,7 +1052,12 @@ export default function TransactionsPage() {
                   <button
                     type="button"
                     className="ghost compact"
-                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    style={{
+                      fontSize: "11px",
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--line)",
+                    }}
                     onClick={() => {
                       const now = new Date();
                       const y = now.getUTCFullYear();
@@ -1010,7 +1071,12 @@ export default function TransactionsPage() {
                   <button
                     type="button"
                     className="ghost compact"
-                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    style={{
+                      fontSize: "11px",
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--line)",
+                    }}
                     onClick={() => {
                       const now = new Date();
                       const y = now.getUTCFullYear();
@@ -1036,7 +1102,12 @@ export default function TransactionsPage() {
                   flexDirection: "column",
                   gap: "8px",
                 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}>
                   <span
                     style={{
                       fontSize: "11px",
@@ -1048,12 +1119,22 @@ export default function TransactionsPage() {
                     Amount Range (₹)
                   </span>
                   {(minAmount || maxAmount) && (
-                    <small style={{ fontSize: "11px", color: "#8b5cf6", fontWeight: 600 }}>
+                    <small
+                      style={{
+                        fontSize: "11px",
+                        color: "#8b5cf6",
+                        fontWeight: 600,
+                      }}>
                       Filter active
                     </small>
                   )}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "8px",
+                  }}>
                   <div>
                     <label
                       style={{
@@ -1116,11 +1197,22 @@ export default function TransactionsPage() {
                   </div>
                 </div>
                 {/* Presets */}
-                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "2px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    flexWrap: "wrap",
+                    marginTop: "2px",
+                  }}>
                   <button
                     type="button"
                     className="ghost compact"
-                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    style={{
+                      fontSize: "11px",
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--line)",
+                    }}
                     onClick={() => {
                       setMinAmount("0");
                       setMaxAmount("1000");
@@ -1131,7 +1223,12 @@ export default function TransactionsPage() {
                   <button
                     type="button"
                     className="ghost compact"
-                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    style={{
+                      fontSize: "11px",
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--line)",
+                    }}
                     onClick={() => {
                       setMinAmount("1000");
                       setMaxAmount("10000");
@@ -1142,7 +1239,12 @@ export default function TransactionsPage() {
                   <button
                     type="button"
                     className="ghost compact"
-                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    style={{
+                      fontSize: "11px",
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--line)",
+                    }}
                     onClick={() => {
                       setMinAmount("10000");
                       setMaxAmount("50000");
@@ -1153,7 +1255,12 @@ export default function TransactionsPage() {
                   <button
                     type="button"
                     className="ghost compact"
-                    style={{ fontSize: "11px", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--line)" }}
+                    style={{
+                      fontSize: "11px",
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--line)",
+                    }}
                     onClick={() => {
                       setMinAmount("50000");
                       setMaxAmount("");
@@ -1183,23 +1290,34 @@ export default function TransactionsPage() {
             <Receipt size={40} style={{ marginBottom: "12px", opacity: 0.5 }} />
             <h3>No transactions match your criteria</h3>
             <p style={{ fontSize: "14px", marginTop: "4px" }}>
-              Try clearing your search query, adjusting amount limits, or changing dates.
+              Try clearing your search query, adjusting amount limits, or
+              changing dates.
             </p>
           </div>
         ) : (
           <>
-            <div className={`account-transaction-table has-account ${showCategoryEdit ? "has-checkboxes" : ""}`}>
+            <div
+              className={`account-transaction-table has-account ${showCategoryEdit ? "has-checkboxes" : ""}`}>
               <header>
                 {showCategoryEdit && (
-                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}>
                     <input
                       type="checkbox"
                       checked={Boolean(
                         data?.transactions.length &&
-                          selectedTxIds.length === data.transactions.length,
+                        selectedTxIds.length === data.transactions.length,
                       )}
                       onChange={toggleSelectAll}
-                      style={{ cursor: "pointer", width: "15px", height: "15px" }}
+                      style={{
+                        cursor: "pointer",
+                        width: "15px",
+                        height: "15px",
+                      }}
                     />
                   </span>
                 )}
@@ -1215,36 +1333,53 @@ export default function TransactionsPage() {
                 return (
                   <article key={tx.id} className="transaction-row">
                     {showCategoryEdit && (
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}>
                         <input
                           type="checkbox"
                           checked={selectedTxIds.includes(tx.id)}
                           onChange={() => toggleSelectTx(tx.id)}
-                          style={{ cursor: "pointer", width: "15px", height: "15px" }}
+                          style={{
+                            cursor: "pointer",
+                            width: "15px",
+                            height: "15px",
+                          }}
                         />
                       </div>
                     )}
 
                     <time className="transaction-time-cell">
                       <span className="date-text">
-                        {new Date(tx.transactionDate).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          timeZone: "UTC",
-                        })}
+                        {new Date(tx.transactionDate).toLocaleDateString(
+                          "en-IN",
+                          {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            timeZone: "UTC",
+                          },
+                        )}
                       </span>
                       <span className="time-text">
-                        {new Date(tx.transactionDate).toLocaleTimeString("en-IN", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                          timeZone: "UTC",
-                        })}
+                        {new Date(tx.transactionDate).toLocaleTimeString(
+                          "en-IN",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true,
+                            timeZone: "UTC",
+                          },
+                        )}
                       </span>
                     </time>
 
-                    <div className="transaction-account-cell" style={{ overflow: "hidden", minWidth: 0 }}>
+                    <div
+                      className="transaction-account-cell"
+                      style={{ overflow: "hidden", minWidth: 0 }}>
                       <span
                         title={tx.accountName}
                         style={{
@@ -1263,15 +1398,33 @@ export default function TransactionsPage() {
                           whiteSpace: "nowrap",
                         }}>
                         {tx.accountType === "CREDIT_CARD" ? (
-                          <CreditCard size={13} color="var(--accent)" style={{ flexShrink: 0 }} />
+                          <CreditCard
+                            size={13}
+                            color="var(--accent)"
+                            style={{ flexShrink: 0 }}
+                          />
                         ) : (
-                          <Landmark size={13} color="#0ea5e9" style={{ flexShrink: 0 }} />
+                          <Landmark
+                            size={13}
+                            color="#0ea5e9"
+                            style={{ flexShrink: 0 }}
+                          />
                         )}
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}>
                           {tx.accountName}
                         </span>
                         {tx.cardLast4 && (
-                          <span style={{ opacity: 0.7, fontFamily: "monospace", flexShrink: 0 }}>
+                          <span
+                            style={{
+                              opacity: 0.7,
+                              fontFamily: "monospace",
+                              flexShrink: 0,
+                            }}>
                             ••••{tx.cardLast4}
                           </span>
                         )}
@@ -1311,7 +1464,9 @@ export default function TransactionsPage() {
                             padding: "3px 8px",
                             fontSize: "11px",
                             fontWeight: 600,
-                            color: tx.categoryId ? "var(--green)" : "var(--muted)",
+                            color: tx.categoryId
+                              ? "var(--green)"
+                              : "var(--muted)",
                             cursor: "pointer",
                             outline: "none",
                           }}>
@@ -1355,14 +1510,22 @@ export default function TransactionsPage() {
                   gap: "16px",
                   flexWrap: "wrap",
                 }}>
-                <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>
+                <span
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "var(--ink)",
+                  }}>
                   {selectedTxIds.length} transaction
                   {selectedTxIds.length === 1 ? "" : "s"} selected
                 </span>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <select
                     disabled={batchUpdating}
-                    onChange={(e) => void handleBatchUpdateCategory(e.target.value)}
+                    onChange={(e) =>
+                      void handleBatchUpdateCategory(e.target.value)
+                    }
                     defaultValue=""
                     style={{
                       height: "34px",
@@ -1388,23 +1551,13 @@ export default function TransactionsPage() {
 
                   <button
                     type="button"
-                    className="secondary compact"
-                    onClick={handleCreateRuleFromSelection}
+                    className="ghost compact"
+                    onClick={() => setSelectedTxIds([])}
                     style={{
                       height: "34px",
                       fontSize: "12px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
+                      color: "var(--muted)",
                     }}>
-                    <Sparkles size={14} color="var(--green)" /> Create Rule from Selection
-                  </button>
-
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    onClick={() => setSelectedTxIds([])}
-                    style={{ height: "34px", fontSize: "12px", color: "var(--muted)" }}>
                     Deselect
                   </button>
                 </div>
@@ -1431,7 +1584,8 @@ export default function TransactionsPage() {
                   <ArrowLeft size={14} /> Previous
                 </button>
                 <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-                  Page {data.pagination.page} of {data.pagination.pages} ({data.pagination.total} total)
+                  Page {data.pagination.page} of {data.pagination.pages} (
+                  {data.pagination.total} total)
                 </span>
                 <button
                   type="button"
@@ -1447,19 +1601,6 @@ export default function TransactionsPage() {
           </>
         )}
       </div>
-
-      {/* Spend Categorization Rules Modal */}
-      {showRulesModal && (
-        <SpendRulesModal
-          categories={data?.categories || []}
-          onClose={() => {
-            setShowRulesModal(false);
-            fetchTransactions();
-          }}
-          initialPattern={ruleInitialPattern}
-          initialCategoryId={ruleInitialCategoryId}
-        />
-      )}
     </Shell>
   );
 }

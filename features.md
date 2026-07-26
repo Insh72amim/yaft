@@ -106,8 +106,8 @@ This file maintains the running inventory of completed, verified features inside
   - [x] Rule builder with conditions (merchant/description patterns) for auto-categorization and tax-deductible tagging (80C, 80D, HRA).
 
 ### 9.7 Budgeting & Analytics
-- [ ] **Category Envelopes & Monthly Budget Tracker**:
-  - [ ] Target monthly envelope budgets per category with progress indicators and threshold alerts.
-- [ ] **Net Worth & Asset Allocation History**:
-  - [ ] Monthly historical net worth tracking with visual asset allocation breakdowns (Liquid Cash, Equities, EPFO, Debt/Loans).
+- [x] **Category Envelopes & Monthly Budget Tracker**:
+  - [x] Target monthly envelope budgets per category with progress indicators and threshold alerts.
+- [x] **Net Worth & Asset Allocation History**:
+  - [x] Monthly historical net worth tracking with visual asset allocation breakdowns (Liquid Cash, Equities, EPFO, Debt/Loans).
 
