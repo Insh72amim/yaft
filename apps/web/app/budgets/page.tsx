@@ -548,24 +548,9 @@ export default function BudgetsPage() {
                   <h2>Expense Categories ({categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE").length})</h2>
                 </div>
 
-                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                  {(["ALL", "EXPENSE"] as const).map((t) => {
-                    const expenseCats = categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE");
-                    const count = expenseCats.length;
-                    const label = `Expense Envelopes (${count})`;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        className={`secondary compact ${directoryCatFilter === t ? "active" : ""}`}
-                        onClick={() => setDirectoryCatFilter(t)}
-                        style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "8px", fontWeight: 600 }}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <span className="month-pill" style={{ fontSize: "11px" }}>
+                  {categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE").length} Expense Envelopes
+                </span>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "14px" }}>
