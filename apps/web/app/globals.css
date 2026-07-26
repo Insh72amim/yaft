@@ -175,6 +175,14 @@ html[data-color-theme="purple"] {
 .account-transaction-table.has-checkboxes.has-actions > article {
   grid-template-columns: 36px 120px minmax(200px, 1fr) 140px 100px 45px;
 }
+.account-transaction-table.has-account > header,
+.account-transaction-table.has-account > article {
+  grid-template-columns: 110px 160px minmax(200px, 1fr) 140px 120px;
+}
+.account-transaction-table.has-account.has-checkboxes > header,
+.account-transaction-table.has-account.has-checkboxes > article {
+  grid-template-columns: 36px 110px 160px minmax(200px, 1fr) 140px 120px;
+}
 .account-transaction-table > header {
   padding: 14px 25px;
   background: #f1f4f2;
