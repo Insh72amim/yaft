@@ -990,127 +990,213 @@ function MultiBankSankeyDiagram({
     return p[index % p.length];
   };
 
-  // ── Layout ─────────────────────────────────────────────────────
-  const SVG_W   = 1080;
-  const PAD_V   = 48;
-  const NODE_W  = 16;
-  const NODE_GAP = 30;
-  const MIN_H   = 54;
-  const LEFT_X  = 138;   // right edge of External Inbound bar
-  const MID_X   = 450;   // left edge of bank bars
-  const RIGHT_X = 790;   // left edge of destination bars
-  const ARC_X   = MID_X + NODE_W + 56; // peak x for internal-transfer arcs
+  // ── Layout & Exact Flow Conservation Scale ─────────────────────────────
+  const SVG_W = 1080;
+  const PAD_V = 48;
+  const NODE_W = 16;
+  const NODE_GAP = 32;
+  const MIN_BANK_H = 50;
+  const LEFT_X = 138;
+  const MID_X = 450;
+  const RIGHT_X = 790;
+  const ARC_X = MID_X + NODE_W + 56;
 
-  // Volume per bank
+  // 1. Calculate per-bank volume totals
   const bankVolumes = accounts.map((a) => {
-    const tIn  = aggregatedBankTransfers.filter(t => t.toAccountId   === a.id).reduce((s: number, t: { totalAmount: number }) => s + t.totalAmount, 0);
-    const tOut = aggregatedBankTransfers.filter(t => t.fromAccountId === a.id).reduce((s: number, t: { totalAmount: number }) => s + t.totalAmount, 0);
-    const inT  = a.externalInbound  + tIn;
-    const outT = a.externalOutbound + (a.creditCardPayments ?? 0) + (a.investments ?? 0) + tOut;
-    return { ...a, tIn, tOut, inTotal: inT, outTotal: outT, maxVolume: Math.max(inT, outT, 1) };
+    const tIn = aggregatedBankTransfers
+      .filter((t) => t.toAccountId === a.id)
+      .reduce((s: number, t: { totalAmount: number }) => s + t.totalAmount, 0);
+    const tOut = aggregatedBankTransfers
+      .filter((t) => t.fromAccountId === a.id)
+      .reduce((s: number, t: { totalAmount: number }) => s + t.totalAmount, 0);
+    const inTotal = a.externalInbound + tIn;
+    const outTotal = a.externalOutbound + (a.creditCardPayments ?? 0) + (a.investments ?? 0) + tOut;
+    return {
+      ...a,
+      tIn,
+      tOut,
+      inTotal,
+      outTotal,
+      maxVolume: Math.max(inTotal, outTotal, 1),
+    };
   });
 
-  const totalVol = bankVolumes.reduce((s: number, v: { maxVolume: number }) => s + v.maxVolume, 0) || 1;
-  const minH     = accounts.length * MIN_H + (accounts.length - 1) * NODE_GAP;
-  const usableH  = Math.max(360, minH);
-  const availH   = usableH - (accounts.length - 1) * NODE_GAP;
-  const SVG_H    = usableH + PAD_V * 2;
+  // 2. System volume totals
+  const totalInboundVolume = bankVolumes.reduce((s: number, b: { externalInbound: number }) => s + b.externalInbound, 0);
+  const totalExtOutboundVolume = bankVolumes.reduce((s: number, b: { externalOutbound: number }) => s + b.externalOutbound, 0);
+  const totalCcVolume = bankVolumes.reduce((s: number, b: { creditCardPayments?: number }) => s + (b.creditCardPayments ?? 0), 0);
+  const totalInvVolume = bankVolumes.reduce((s: number, b: { investments?: number }) => s + (b.investments ?? 0), 0);
+  const totalRightVolume = totalExtOutboundVolume + totalCcVolume + totalInvVolume;
 
-  let curY = PAD_V;
-  const bankNodes = bankVolumes.map((acc, idx) => {
-    const h     = Math.max(MIN_H, Math.round(availH * (acc.maxVolume / totalVol)));
-    const color = getBankColor(idx, acc.name);
-    const node  = { ...acc, x: MID_X, y: curY, height: h, color };
-    curY += h + NODE_GAP;
-    return node;
-  });
+  const totalBankVolume = bankVolumes.reduce((s: number, b: { maxVolume: number }) => s + b.maxVolume, 0);
+  const maxSystemVolume = Math.max(totalInboundVolume, totalRightVolume, totalBankVolume, 1);
 
-  // ── External Inbound (left) ─────────────────────────────────────
-  const sumIn    = bankNodes.reduce((s: number, b: { externalInbound: number }) => s + b.externalInbound, 0) || 1;
-  const inH      = Math.max(48, Math.min(usableH * 0.65, bankNodes.filter(b => b.externalInbound > 0).length * 42));
-  const inStartY = PAD_V + (usableH - inH) / 2;
+  const minHeightNeeded = accounts.length * MIN_BANK_H + (accounts.length - 1) * NODE_GAP;
+  const usableH = Math.max(380, minHeightNeeded);
 
-  // ── Destination nodes (right) ───────────────────────────────────
-  const hasCc  = (overall.totalCreditCardPayments ?? 0) > 0;
-  const hasInv = (overall.totalInvestments ?? 0) > 0;
-  const rVol   = (overall.totalExternalOutbound ?? 0) + (overall.totalCreditCardPayments ?? 0) + (overall.totalInvestments ?? 0) || 1;
-  const dCount = 1 + (hasCc ? 1 : 0) + (hasInv ? 1 : 0);
-  const dGap   = 26;
-  const totDH  = usableH * 0.72 - (dCount - 1) * dGap;
+  // Unified Scale factor: pixels per rupee
+  const scale = (usableH * 0.75) / maxSystemVolume;
+  const flowH = (amt: number) => (amt > 0 ? Math.max(4, Math.round(amt * scale)) : 0);
 
-  const outH = Math.max(44, Math.round(totDH * ((overall.totalExternalOutbound ?? 0) / rVol)));
-  const ccH  = hasCc  ? Math.max(36, Math.round(totDH * ((overall.totalCreditCardPayments ?? 0) / rVol))) : 0;
-  const invH = hasInv ? Math.max(36, Math.round(totDH * ((overall.totalInvestments ?? 0) / rVol))) : 0;
-  const totDB = outH + (hasCc ? ccH + dGap : 0) + (hasInv ? invH + dGap : 0);
+  // 3. Compute Inbound Slices & External Inbound Bar Height
+  const inSlicesData = bankVolumes
+    .filter((b) => b.externalInbound > 0)
+    .map((b) => flowH(b.externalInbound));
 
-  const outY = PAD_V + (usableH - totDB) / 2;
-  const ccY  = outY + outH + (hasCc ? dGap : 0);
+  const inboundH = Math.max(40, inSlicesData.reduce((s, h) => s + h, 0));
+  const inStartY = PAD_V + (usableH - inboundH) / 2;
+
+  // 4. Compute Right Destination Node Heights & Y Positions
+  const hasCc = totalCcVolume > 0;
+  const hasInv = totalInvVolume > 0;
+
+  const outSlicesData = bankVolumes.filter((b) => b.externalOutbound > 0).map((b) => flowH(b.externalOutbound));
+  const outboundH = Math.max(40, outSlicesData.reduce((s, h) => s + h, 0));
+
+  const ccSlicesData = bankVolumes.filter((b) => (b.creditCardPayments ?? 0) > 0).map((b) => flowH(b.creditCardPayments ?? 0));
+  const ccH = hasCc ? Math.max(32, ccSlicesData.reduce((s, h) => s + h, 0)) : 0;
+
+  const invSlicesData = bankVolumes.filter((b) => (b.investments ?? 0) > 0).map((b) => flowH(b.investments ?? 0));
+  const invH = hasInv ? Math.max(32, invSlicesData.reduce((s, h) => s + h, 0)) : 0;
+
+  const dGap = 26;
+  const totalRightBlockH = outboundH + (hasCc ? ccH + dGap : 0) + (hasInv ? invH + dGap : 0);
+
+  const outY = PAD_V + (usableH - totalRightBlockH) / 2;
+  const ccY = outY + outboundH + (hasCc ? dGap : 0);
   const invY = ccY + (hasCc ? ccH : 0) + (hasInv ? dGap : 0);
 
-  // ── Ribbon path helper ──────────────────────────────────────────
+  // 5. Position Bank Nodes (Middle)
+  const bankNodes = bankVolumes.map((acc, idx) => {
+    const extInH = flowH(acc.externalInbound);
+    const bankTransInH = aggregatedBankTransfers
+      .filter((t) => t.toAccountId === acc.id)
+      .reduce((s, t) => s + flowH(t.totalAmount), 0);
+    const sumInH = extInH + bankTransInH;
+
+    const extOutH = flowH(acc.externalOutbound);
+    const ccH_slice = flowH(acc.creditCardPayments ?? 0);
+    const invH_slice = flowH(acc.investments ?? 0);
+    const bankTransOutH = aggregatedBankTransfers
+      .filter((t) => t.fromAccountId === acc.id)
+      .reduce((s, t) => s + flowH(t.totalAmount), 0);
+    const sumOutH = extOutH + ccH_slice + invH_slice + bankTransOutH;
+
+    const nodeHeight = Math.max(MIN_BANK_H, sumInH, sumOutH);
+    return {
+      ...acc,
+      color: getBankColor(idx, acc.name),
+      sumInH,
+      sumOutH,
+      height: nodeHeight,
+    };
+  });
+
+  let curY = PAD_V;
+  const bankNodesWithY = bankNodes.map((node) => {
+    const n = { ...node, x: MID_X, y: curY };
+    curY += node.height + NODE_GAP;
+    return n;
+  });
+
+  const finalSvgH = Math.max(usableH + PAD_V * 2, curY + PAD_V);
+
+  // 6. Ribbon path helper
   const ribbon = (x1: number, yT1: number, yB1: number, x2: number, yT2: number, yB2: number) => {
     const cp = (x2 - x1) * 0.42;
     return `M ${x1} ${yT1} C ${x1+cp} ${yT1},${x2-cp} ${yT2},${x2} ${yT2} L ${x2} ${yB2} C ${x2-cp} ${yB2},${x1+cp} ${yB1},${x1} ${yB1} Z`;
   };
 
-  // ── Inbound slices: left bar → left edge of each bank bar ───────
-  let lCurY = inStartY;
-  const inSlices = bankNodes.map((bank) => {
-    if (bank.externalInbound <= 0) return null;
-    const sH   = Math.max(5, (bank.externalInbound / sumIn) * inH);
-    const dH   = Math.max(5, (bank.externalInbound / bank.maxVolume) * bank.height);
-    const s    = { bank, srcT: lCurY, srcB: lCurY + sH, dstT: bank.y, dstB: bank.y + dH };
-    lCurY += sH;
-    return s;
-  }).filter(Boolean) as Array<{ bank: typeof bankNodes[0]; srcT: number; srcB: number; dstT: number; dstB: number }>;
+  // 7. Build Inbound Ribbons
+  let currInSrcY = inStartY;
+  const bankInboundOffset = new Map<string, number>();
+  bankNodesWithY.forEach((b) => bankInboundOffset.set(b.id, 0));
 
-  // ── Outbound slices: right edge of each bank bar → dest nodes ───
-  // For each bank, outgoing slices stack from top of bar: ext-out, then cc, then inv
-  // Destination slots fill top-to-bottom per node across banks
-  let oDstY = outY, cDstY = ccY, iDstY = invY;
+  type Slice = { bank: (typeof bankNodesWithY)[0]; srcT: number; srcB: number; dstT: number; dstB: number };
+  const inSlices: Slice[] = [];
 
-  type Slice = { bank: typeof bankNodes[0]; srcT: number; srcB: number; dstT: number; dstB: number };
+  for (const bank of bankNodesWithY) {
+    if (bank.externalInbound <= 0) continue;
+    const srcH = flowH(bank.externalInbound);
+    const dstH = srcH;
+    const dstOff = bankInboundOffset.get(bank.id)!;
+
+    inSlices.push({
+      bank,
+      srcT: currInSrcY,
+      srcB: currInSrcY + srcH,
+      dstT: bank.y + dstOff,
+      dstB: bank.y + dstOff + dstH,
+    });
+
+    currInSrcY += srcH;
+    bankInboundOffset.set(bank.id, dstOff + dstH);
+  }
+
+  // 8. Build Outbound Ribbons
+  let currOutDstY = outY;
+  let currCcDstY = ccY;
+  let currInvDstY = invY;
+
+  const bankOutboundOffset = new Map<string, number>();
+  bankNodesWithY.forEach((b) => bankOutboundOffset.set(b.id, 0));
+
   const outSlices: Slice[] = [];
-  const ccSlices:  Slice[] = [];
+  const ccSlices: Slice[] = [];
   const invSlices: Slice[] = [];
-  const sumOut = bankNodes.reduce((s: number, b: { externalOutbound: number }) => s + b.externalOutbound, 0) || 1;
-  const sumCc  = bankNodes.reduce((s: number, b: { creditCardPayments?: number }) => s + (b.creditCardPayments ?? 0), 0) || 1;
-  const sumInv = bankNodes.reduce((s: number, b: { investments?: number }) => s + (b.investments ?? 0), 0) || 1;
 
-  // Track per-bank source offset accumulator
-  const bankSrcOffset = new Map<string, number>();
-  bankNodes.forEach(b => bankSrcOffset.set(b.id, 0));
-
-  for (const bank of bankNodes) {
-    const scale = bank.height / bank.maxVolume;
-
+  for (const bank of bankNodesWithY) {
     if (bank.externalOutbound > 0) {
-      const srcH = Math.max(5, bank.externalOutbound * scale);
-      const dstH = Math.max(5, (bank.externalOutbound / sumOut) * outH);
-      const off  = bankSrcOffset.get(bank.id)!;
-      outSlices.push({ bank, srcT: bank.y + off, srcB: bank.y + off + srcH, dstT: oDstY, dstB: oDstY + dstH });
-      bankSrcOffset.set(bank.id, off + srcH);
-      oDstY += dstH;
+      const srcH = flowH(bank.externalOutbound);
+      const dstH = srcH;
+      const srcOff = bankOutboundOffset.get(bank.id)!;
+
+      outSlices.push({
+        bank,
+        srcT: bank.y + srcOff,
+        srcB: bank.y + srcOff + srcH,
+        dstT: currOutDstY,
+        dstB: currOutDstY + dstH,
+      });
+
+      bankOutboundOffset.set(bank.id, srcOff + srcH);
+      currOutDstY += dstH;
     }
 
     const ccAmt = bank.creditCardPayments ?? 0;
     if (hasCc && ccAmt > 0) {
-      const srcH = Math.max(5, ccAmt * scale);
-      const dstH = Math.max(5, (ccAmt / sumCc) * ccH);
-      const off  = bankSrcOffset.get(bank.id)!;
-      ccSlices.push({ bank, srcT: bank.y + off, srcB: bank.y + off + srcH, dstT: cDstY, dstB: cDstY + dstH });
-      bankSrcOffset.set(bank.id, off + srcH);
-      cDstY += dstH;
+      const srcH = flowH(ccAmt);
+      const dstH = srcH;
+      const srcOff = bankOutboundOffset.get(bank.id)!;
+
+      ccSlices.push({
+        bank,
+        srcT: bank.y + srcOff,
+        srcB: bank.y + srcOff + srcH,
+        dstT: currCcDstY,
+        dstB: currCcDstY + dstH,
+      });
+
+      bankOutboundOffset.set(bank.id, srcOff + srcH);
+      currCcDstY += dstH;
     }
 
     const invAmt = bank.investments ?? 0;
     if (hasInv && invAmt > 0) {
-      const srcH = Math.max(5, invAmt * scale);
-      const dstH = Math.max(5, (invAmt / sumInv) * invH);
-      const off  = bankSrcOffset.get(bank.id)!;
-      invSlices.push({ bank, srcT: bank.y + off, srcB: bank.y + off + srcH, dstT: iDstY, dstB: iDstY + dstH });
-      bankSrcOffset.set(bank.id, off + srcH);
-      iDstY += dstH;
+      const srcH = flowH(invAmt);
+      const dstH = srcH;
+      const srcOff = bankOutboundOffset.get(bank.id)!;
+
+      invSlices.push({
+        bank,
+        srcT: bank.y + srcOff,
+        srcB: bank.y + srcOff + srcH,
+        dstT: currInvDstY,
+        dstB: currInvDstY + dstH,
+      });
+
+      bankOutboundOffset.set(bank.id, srcOff + srcH);
+      currInvDstY += dstH;
     }
   }
 
@@ -1131,24 +1217,24 @@ function MultiBankSankeyDiagram({
         </div>
       )}
 
-      <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      <svg viewBox={`0 0 ${SVG_W} ${finalSvgH}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
         <defs>
-          {bankNodes.map(b => (
+          {bankNodesWithY.map(b => (
             <linearGradient key={`gi-${b.id}`} id={`gi-${b.id}`} x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="#10b981" /><stop offset="100%" stopColor={b.color} />
             </linearGradient>
           ))}
-          {bankNodes.map(b => (
+          {bankNodesWithY.map(b => (
             <linearGradient key={`go-${b.id}`} id={`go-${b.id}`} x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor={b.color} /><stop offset="100%" stopColor="#ef4444" />
             </linearGradient>
           ))}
-          {bankNodes.map(b => (
+          {bankNodesWithY.map(b => (
             <linearGradient key={`gc-${b.id}`} id={`gc-${b.id}`} x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor={b.color} /><stop offset="100%" stopColor="#f59e0b" />
             </linearGradient>
           ))}
-          {bankNodes.map(b => (
+          {bankNodesWithY.map(b => (
             <linearGradient key={`gv-${b.id}`} id={`gv-${b.id}`} x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor={b.color} /><stop offset="100%" stopColor="#8b5cf6" />
             </linearGradient>
@@ -1213,16 +1299,15 @@ function MultiBankSankeyDiagram({
 
         {/* ── Internal bank-to-bank arcs (loop to the RIGHT of bank bars) */}
         {aggregatedBankTransfers.map((it, idx) => {
-          const fromNode = bankNodes.find(b => b.id === it.fromAccountId);
-          const toNode   = bankNodes.find(b => b.id === it.toAccountId);
+          const fromNode = bankNodesWithY.find(b => b.id === it.fromAccountId);
+          const toNode   = bankNodesWithY.find(b => b.id === it.toAccountId);
           if (!fromNode || !toNode) return null;
 
-          // Arc exits from right side of from-bar, curves right, lands on right side of to-bar
           const fromY   = fromNode.y + fromNode.height * 0.72;
           const toY     = toNode.y   + toNode.height   * 0.28;
-          const peakX   = ARC_X + idx * 20; // stagger arcs so they don't stack
+          const peakX   = ARC_X + idx * 20;
           const midY    = (fromY + toY) / 2;
-          const sw      = Math.max(2, Math.min(7, Math.round(it.totalAmount / 20000)));
+          const sw      = Math.max(2, Math.min(7, Math.round(flowH(it.totalAmount))));
           const act     = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
           const arcPath = `M ${MID_X + NODE_W} ${fromY} C ${peakX} ${fromY},${peakX} ${toY},${MID_X + NODE_W} ${toY}`;
           const fromShort = fromNode.name.split(/[\s–-]/)[0];
@@ -1250,16 +1335,16 @@ function MultiBankSankeyDiagram({
         })}
 
         {/* ── Left node: External Inbound ────────────────────── */}
-        <rect x={LEFT_X} y={inStartY} width={NODE_W} height={inH} fill="#10b981" rx="4" />
-        <text x={LEFT_X - 12} y={inStartY + inH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="end">
+        <rect x={LEFT_X} y={inStartY} width={NODE_W} height={inboundH} fill="#10b981" rx="4" />
+        <text x={LEFT_X - 12} y={inStartY + inboundH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="end">
           External Inbound
         </text>
-        <text x={LEFT_X - 12} y={inStartY + inH / 2 + 10} fill="#059669" fontSize="12" fontWeight="700" textAnchor="end">
+        <text x={LEFT_X - 12} y={inStartY + inboundH / 2 + 10} fill="#059669" fontSize="12" fontWeight="700" textAnchor="end">
           +{money(overall.totalExternalInbound)}
         </text>
 
         {/* ── Middle nodes: Bank bars + labels to the RIGHT of ribbons */}
-        {bankNodes.map((bank) => {
+        {bankNodesWithY.map((bank) => {
           const act  = !hoveredBankId || hoveredBankId === bank.id;
           const lx   = MID_X + NODE_W + 10;
           const midY = bank.y + bank.height / 2;
@@ -1284,11 +1369,11 @@ function MultiBankSankeyDiagram({
         })}
 
         {/* ── Right node 1: External Outbound ───────────────── */}
-        <rect x={RIGHT_X} y={outY} width={NODE_W} height={outH} fill="#ef4444" rx="4" />
-        <text x={RIGHT_X + NODE_W + 12} y={outY + outH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="start">
+        <rect x={RIGHT_X} y={outY} width={NODE_W} height={outboundH} fill="#ef4444" rx="4" />
+        <text x={RIGHT_X + NODE_W + 12} y={outY + outboundH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="start">
           External Outbound
         </text>
-        <text x={RIGHT_X + NODE_W + 12} y={outY + outH / 2 + 10} fill="#dc2626" fontSize="12" fontWeight="700" textAnchor="start">
+        <text x={RIGHT_X + NODE_W + 12} y={outY + outboundH / 2 + 10} fill="#dc2626" fontSize="12" fontWeight="700" textAnchor="start">
           -{money(overall.totalExternalOutbound)}
         </text>
 
