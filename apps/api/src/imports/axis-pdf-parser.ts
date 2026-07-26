@@ -236,8 +236,9 @@ export const axisPdfParser: BankPdfParser = {
   institutionAliases: ['AXIS', 'AXIS BANK'],
   matches(document) {
     const hasBankHeader = document.tablePages.some((page) => page.tables.some((table) => table.some(isAxisBankHeader)));
-    const hasCcHeader = document.tablePages.some((page) => page.tables.some((table) => table.some(isAxisCcHeader)));
-    return (axisBankTextMatches(document) && hasBankHeader) || (axisCcTextMatches(document) && hasCcHeader);
+    // For CC statements, text match alone is sufficient — the parser handles header-less layouts internally.
+    // Bank statements still require both text and header to avoid false positives.
+    return (axisBankTextMatches(document) && hasBankHeader) || axisCcTextMatches(document);
   },
   parse: parseAxisDocument,
 };
