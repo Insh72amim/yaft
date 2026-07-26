@@ -464,7 +464,7 @@ export default function DashboardPage() {
           <div>
             <small>Net Cash Flow</small>
             <strong style={{ fontSize: '1.4rem', color: data.savings >= 0 ? 'var(--green)' : '#ef4444' }}>{money(data.savings)}</strong>
-            <em>{data.savings >= 0 ? '🟢 Net Surplus' : '🔴 Net Deficit'} in {monthLabel}</em>
+
           </div>
         </article>
 
