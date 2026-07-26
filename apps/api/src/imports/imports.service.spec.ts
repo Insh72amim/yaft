@@ -38,7 +38,7 @@ describe('ImportsService statement password flow', () => {
     const { service, credentials, prisma, tx } = setup();
     await service.create('user-1', 'account-1', file, { pdfPassword: 'entered once', rememberPassword: true });
     expect(prisma.account.findFirst).toHaveBeenCalledWith({ where: { id: 'account-1', userId: 'user-1', archived: false,
-      type: { in: ['BANK', 'SAVINGS', 'EPFO'] } } });
+      type: { in: ['BANK', 'SAVINGS', 'EPFO', 'UPI_LITE'] } } });
     expect(parseStatement).toHaveBeenCalledWith(file, { institution: 'SBI', pdfPassword: 'entered once' });
     expect(credentials.encrypt).toHaveBeenCalledWith('account-1', 'entered once');
     expect(tx.statementCredential.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { accountId: 'account-1' } }));
@@ -79,7 +79,7 @@ describe('ImportsService statement password flow', () => {
   it('rejects destinations that are not owned active bank or savings accounts', async () => {
     const { service, prisma } = setup();
     prisma.account.findFirst.mockResolvedValue(null);
-    await expect(service.create('user-1', 'ineligible-account', file)).rejects.toThrow('Eligible bank or EPFO account not found');
+    await expect(service.create('user-1', 'ineligible-account', file)).rejects.toThrow('Eligible account not found.');
     expect(parseStatement).not.toHaveBeenCalled();
   });
 

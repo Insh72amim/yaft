@@ -361,6 +361,85 @@ export class AccountsController {
     });
   }
 
+  @Get(':accountId/timeline')
+  async getAccountTimeline(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+  ) {
+    const account = await this.prisma.account.findFirst({
+      where: { id: accountId, userId: user.id },
+      select: { id: true, name: true, type: true },
+    });
+    if (!account) throw new NotFoundException('Account not found.');
+
+    const now = new Date();
+    const startOfTimeline = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1));
+
+    const transactions = await this.prisma.transaction.findMany({
+      where: {
+        accountId: account.id,
+        transactionDate: { gte: startOfTimeline },
+      },
+      select: {
+        id: true,
+        transactionDate: true,
+        amount: true,
+        transferGroupId: true,
+      },
+      orderBy: { transactionDate: 'desc' },
+    });
+
+    const monthsList: { month: string; monthKey: string; year: number; monthIdx: number }[] = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      const monthStr = d.toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      const year = d.getUTCFullYear();
+      const monthIdx = d.getUTCMonth();
+      const monthKey = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
+      monthsList.push({ month: monthStr, monthKey, year, monthIdx });
+    }
+
+    const timeline = monthsList.map(({ month, monthKey, year, monthIdx }) => {
+      const monthTxns = transactions.filter((tx) => {
+        const d = new Date(tx.transactionDate);
+        return d.getUTCFullYear() === year && d.getUTCMonth() === monthIdx;
+      });
+
+      let inbound = 0;
+      let internalTransfer = 0;
+      let outbound = 0;
+
+      monthTxns.forEach((tx) => {
+        const val = Number(tx.amount);
+        if (tx.transferGroupId) {
+          internalTransfer += Math.abs(val);
+        } else if (val > 0) {
+          inbound += val;
+        } else {
+          outbound += Math.abs(val);
+        }
+      });
+
+      const totalCount = monthTxns.length;
+      const status = totalCount > 0 ? 'UPLOADED' : 'NO_TRANSACTIONS';
+
+      return {
+        month,
+        monthKey,
+        inbound,
+        internalTransfer,
+        outbound,
+        totalCount,
+        status,
+      };
+    });
+
+    return {
+      account: { id: account.id, name: account.name, type: account.type },
+      timeline,
+    };
+  }
+
   @Get('credit-cards/summary')
   async getCreditCardsSummary(@CurrentUser() user: { id: string }) {
     const cardAccounts = await this.prisma.account.findMany({
