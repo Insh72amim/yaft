@@ -7,14 +7,6 @@ import './globals.css';
 export const metadata = {
   title: 'YAFT',
   description: 'Yet Another Financial Tool — your private financial home',
-  icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/icon.svg', type: 'image/svg+xml' },
-    ],
-    shortcut: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
 };
 
 const themeScript = `
@@ -39,10 +31,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/icon.png" type="image/png" sizes="32x32" />
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>{children}</body>
