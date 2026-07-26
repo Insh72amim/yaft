@@ -1246,7 +1246,6 @@ function AccountDoughnutChart({
     </div>
   );
 }
-}
 
 function MultiBankSankeyDiagram({
   accountFlow,
