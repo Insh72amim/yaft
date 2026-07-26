@@ -263,7 +263,7 @@ export default function AssetsPage() {
         <section className="panel" style={{ padding: "24px" }}>
           <div className="panel-title" style={{ marginBottom: "20px" }}>
             <div>
-              <span className="eyebrow" style={{ color: "var(--green)" }}>12-Month Historical Progression</span>
+              <span className="eyebrow" style={{ color: "var(--green)" }}>6-Month Historical Progression</span>
               <h2>Net Worth Growth & Asset Allocation</h2>
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center", fontSize: "12px" }}>
@@ -282,7 +282,7 @@ export default function AssetsPage() {
                 return (
                   <div key={idx} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", height: "100%", justifyContent: "flex-end" }}>
                     <span style={{ fontSize: "10px", color: isLatest ? "var(--green)" : "var(--muted)", fontWeight: isLatest ? 700 : 500 }}>
-                      {hidePrivacy ? "•••" : `₹${(h.netWorth / 100000).toFixed(1)}L`}
+                      {hidePrivacy ? "•••" : `₹${(h.netWorth / 100 / 100000).toFixed(1)}L`}
                     </span>
                     <div
                       title={`${h.month}: Net Worth ${money(h.netWorth)}`}
