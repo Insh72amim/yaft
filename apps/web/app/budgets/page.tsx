@@ -546,9 +546,9 @@ export default function BudgetsPage() {
                 </div>
 
                 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                  {(["ALL", "EXPENSE", "INCOME", "INVESTMENT"] as const).map((t) => {
+                  {(["ALL", "EXPENSE", "INCOME", "INVESTMENT", "TRANSFER"] as const).map((t) => {
                     const count = t === "ALL" ? categories.length : categories.filter((c) => (c.type || "EXPENSE") === t).length;
-                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `Expenses (${count})` : t === "INCOME" ? `Income (${count})` : `Investments (${count})`;
+                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `Expenses (${count})` : t === "INCOME" ? `Income (${count})` : t === "INVESTMENT" ? `Investments (${count})` : `Transfers (${count})`;
                     return (
                       <button
                         key={t}
@@ -570,9 +570,9 @@ export default function BudgetsPage() {
                   .map((cat) => {
                     const existingBudget = budgets.find((b) => b.categoryId === cat.id);
                     const catType = cat.type || "EXPENSE";
-                    const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : "rgba(239, 68, 68, 0.12)";
-                    const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : "#991b1b";
-                    const badgeLabel = catType === "INCOME" ? "INCOME" : catType === "INVESTMENT" ? "INVESTMENT" : "EXPENSE";
+                    const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : catType === "TRANSFER" ? "rgba(168, 85, 247, 0.12)" : "rgba(239, 68, 68, 0.12)";
+                    const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : catType === "TRANSFER" ? "#6b21a8" : "#991b1b";
+                    const badgeLabel = catType === "INCOME" ? "INCOME" : catType === "INVESTMENT" ? "INVESTMENT" : catType === "TRANSFER" ? "TRANSFER" : "EXPENSE";
 
                     return (
                       <div
@@ -676,6 +676,7 @@ export default function BudgetsPage() {
                     <option value="EXPENSE">Expense</option>
                     <option value="INCOME">Income</option>
                     <option value="INVESTMENT">Investment & Wealth</option>
+                    <option value="TRANSFER">Internal Transfer / Payment</option>
                   </select>
                 </div>
 
@@ -706,13 +707,13 @@ export default function BudgetsPage() {
               <div className="panel-title" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
                 <div>
                   <span className="eyebrow" style={{ color: "var(--green)" }}>Available Categories</span>
-                  <h2>Your Expense, Income & Investment Categories ({categories.length})</h2>
+                  <h2>Your Expense, Income, Investment & Transfer Categories ({categories.length})</h2>
                 </div>
 
                 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                  {(["ALL", "EXPENSE", "INCOME", "INVESTMENT"] as const).map((t) => {
+                  {(["ALL", "EXPENSE", "INCOME", "INVESTMENT", "TRANSFER"] as const).map((t) => {
                     const count = t === "ALL" ? categories.length : categories.filter((c) => (c.type || "EXPENSE") === t).length;
-                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `Expenses (${count})` : t === "INCOME" ? `Income (${count})` : `Investments (${count})`;
+                    const label = t === "ALL" ? `All (${count})` : t === "EXPENSE" ? `Expenses (${count})` : t === "INCOME" ? `Income (${count})` : t === "INVESTMENT" ? `Investments (${count})` : `Transfers (${count})`;
                     return (
                       <button
                         key={t}
@@ -733,9 +734,9 @@ export default function BudgetsPage() {
                   .filter((cat) => manageCatFilter === "ALL" || (cat.type || "EXPENSE") === manageCatFilter)
                   .map((c) => {
                     const catType = c.type || "EXPENSE";
-                    const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : "rgba(239, 68, 68, 0.12)";
-                    const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : "#991b1b";
-                    const badgeLabel = catType === "INCOME" ? "INCOME" : catType === "INVESTMENT" ? "INVESTMENT" : "EXPENSE";
+                    const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : catType === "TRANSFER" ? "rgba(168, 85, 247, 0.12)" : "rgba(239, 68, 68, 0.12)";
+                    const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : catType === "TRANSFER" ? "#6b21a8" : "#991b1b";
+                    const badgeLabel = catType === "INCOME" ? "INCOME" : catType === "INVESTMENT" ? "INVESTMENT" : catType === "TRANSFER" ? "TRANSFER" : "EXPENSE";
 
                     return (
                       <div
@@ -983,6 +984,7 @@ export default function BudgetsPage() {
                   <option value="EXPENSE">Expense</option>
                   <option value="INCOME">Income</option>
                   <option value="INVESTMENT">Investment & Wealth</option>
+                  <option value="TRANSFER">Internal Transfer / Payment</option>
                 </select>
               </div>
 
