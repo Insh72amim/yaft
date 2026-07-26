@@ -63,7 +63,7 @@ function normalize(rows: RawRow[]): ParsedRow[] {
 
 export type ParsedStatement = {
   rows: ParsedRow[];
-  parserId?: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'ICICI';
+  parserId?: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'ICICI' | 'HDFC';
   closingBalanceMinor?: number;
   extractedAccountDigits?: string;
 };

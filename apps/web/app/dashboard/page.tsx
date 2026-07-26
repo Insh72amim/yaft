@@ -316,7 +316,7 @@ export default function DashboardPage() {
                 height: '28px',
                 display: 'flex',
                 alignItems: 'center',
-                justify: 'center',
+                justifyContent: 'center',
                 cursor: 'pointer',
                 color: 'var(--ink)',
                 transition: 'all 0.15s ease',
@@ -416,7 +416,7 @@ export default function DashboardPage() {
                 height: '28px',
                 display: 'flex',
                 alignItems: 'center',
-                justify: 'center',
+                justifyContent: 'center',
                 cursor: 'pointer',
                 color: 'var(--ink)',
                 transition: 'all 0.15s ease',
@@ -1199,7 +1199,7 @@ function AccountSpendingAndBeneficiariesSection({
               <div
                 style={{
                   display: 'flex',
-                  justify: 'space-between',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
                   fontSize: '12px',
                   padding: '8px 10px',

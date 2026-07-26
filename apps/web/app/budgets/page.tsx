@@ -57,8 +57,8 @@ export default function BudgetsPage() {
   const [successMsg, setSuccessMsg] = useState("");
 
   // Category Filter States
-  const [manageCatFilter, setManageCatFilter] = useState<"ALL" | "EXPENSE" | "INCOME" | "INVESTMENT">("ALL");
-  const [directoryCatFilter, setDirectoryCatFilter] = useState<"ALL" | "EXPENSE" | "INCOME" | "INVESTMENT">("ALL");
+  const [manageCatFilter, setManageCatFilter] = useState<"ALL" | "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER">("ALL");
+  const [directoryCatFilter, setDirectoryCatFilter] = useState<"ALL" | "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER">("ALL");
 
   // Envelope Form States
   const [selectedCatId, setSelectedCatId] = useState("");
@@ -555,10 +555,9 @@ export default function BudgetsPage() {
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "14px" }}>
                 {categories
-                  .filter((cat) => (cat.type || "EXPENSE") === "EXPENSE")
                   .map((cat) => {
                     const existingBudget = budgets.find((b) => b.categoryId === cat.id);
-                    const catType = cat.type || "EXPENSE";
+                    const catType = (cat.type || "EXPENSE") as string;
                     const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : catType === "TRANSFER" ? "rgba(168, 85, 247, 0.12)" : "rgba(239, 68, 68, 0.12)";
                     const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : catType === "TRANSFER" ? "#6b21a8" : "#991b1b";
                     const badgeLabel = catType === "INCOME" ? "INCOME" : catType === "INVESTMENT" ? "INVESTMENT" : catType === "TRANSFER" ? "TRANSFER" : "EXPENSE";
@@ -732,7 +731,7 @@ export default function BudgetsPage() {
                 {categories
                   .filter((cat) => manageCatFilter === "ALL" || (cat.type || "EXPENSE") === manageCatFilter)
                   .map((c) => {
-                    const catType = c.type || "EXPENSE";
+                    const catType = (c.type || "EXPENSE") as string;
                     const badgeBg = catType === "INCOME" ? "rgba(34, 197, 94, 0.12)" : catType === "INVESTMENT" ? "rgba(59, 130, 246, 0.12)" : catType === "TRANSFER" ? "rgba(168, 85, 247, 0.12)" : "rgba(239, 68, 68, 0.12)";
                     const badgeColor = catType === "INCOME" ? "#166534" : catType === "INVESTMENT" ? "#1e40af" : catType === "TRANSFER" ? "#6b21a8" : "#991b1b";
                     const badgeLabel = catType === "INCOME" ? "INCOME" : catType === "INVESTMENT" ? "INVESTMENT" : catType === "TRANSFER" ? "TRANSFER" : "EXPENSE";
