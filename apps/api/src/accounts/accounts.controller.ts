@@ -351,7 +351,7 @@ export class AccountsController {
   @Get('transactions/all')
   async getAllTransactions(
     @CurrentUser() user: { id: string },
-    @Query('mode') mode?: 'CREDIT_CARD' | 'UPI' | 'ALL',
+    @Query('mode') mode?: 'CREDIT_CARD' | 'BANK' | 'UPI' | 'ALL',
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) requestedPage = 1,
     @Query('search') search?: string,
     @Query('type') type?: string,
@@ -359,14 +359,21 @@ export class AccountsController {
     @Query('endDate') endDate?: string,
     @Query('categoryId') categoryId?: string,
     @Query('accountId') accountId?: string,
+    @Query('minAmount') minAmountStr?: string,
+    @Query('maxAmount') maxAmountStr?: string,
   ) {
     const page = Math.max(1, requestedPage);
     const pageSize = 50;
 
-    const baseWhere = buildTransactionWhere(user.id, accountId, search, undefined, undefined, type, startDate, endDate, categoryId);
+    const minAmount = minAmountStr !== undefined && minAmountStr.trim() !== '' ? Number(minAmountStr) : undefined;
+    const maxAmount = maxAmountStr !== undefined && maxAmountStr.trim() !== '' ? Number(maxAmountStr) : undefined;
+
+    const baseWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate, categoryId);
 
     if (mode === 'CREDIT_CARD') {
       baseWhere.account = { ...baseWhere.account, type: AccountType.CREDIT_CARD };
+    } else if (mode === 'BANK') {
+      baseWhere.account = { ...baseWhere.account, type: { in: [AccountType.BANK, AccountType.SAVINGS, AccountType.FIXED_DEPOSIT] } };
     } else if (mode === 'UPI') {
       const upiConditions = [
         { merchant: { contains: 'UPI', mode: 'insensitive' } },

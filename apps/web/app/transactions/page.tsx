@@ -1,6 +1,8 @@
 "use client";
+
 import {
   CreditCard,
+  Landmark,
   QrCode,
   Receipt,
   Search,
@@ -9,13 +11,20 @@ import {
   Layers,
   ArrowUpRight,
   ArrowDownLeft,
+  SlidersHorizontal,
+  Workflow,
+  X,
+  RotateCcw,
+  Tag,
+  CheckCircle2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shell } from "@/components/shell";
 import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
+import { SpendRulesModal } from "@/components/spend-rules-modal";
 
-type Mode = "CREDIT_CARD" | "UPI" | "ALL";
+type Mode = "CREDIT_CARD" | "BANK" | "UPI" | "ALL";
 
 type Summary = {
   totalSpent: number;
@@ -76,11 +85,16 @@ export default function TransactionsPage() {
   const [mode, setMode] = useState<Mode>("CREDIT_CARD");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "EXPENSE" | "INCOME">("ALL");
   const [categoryId, setCategoryId] = useState("all");
   const [accountId, setAccountId] = useState("all");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  const [showFilters, setShowFilters] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TransactionsApiResponse | null>(null);
@@ -99,6 +113,8 @@ export default function TransactionsPage() {
       if (typeFilter !== "ALL") query.set("type", typeFilter);
       if (categoryId !== "all") query.set("categoryId", categoryId);
       if (accountId !== "all") query.set("accountId", accountId);
+      if (minAmount.trim()) query.set("minAmount", minAmount.trim());
+      if (maxAmount.trim()) query.set("maxAmount", maxAmount.trim());
       if (startDate) query.set("startDate", startDate);
       if (endDate) query.set("endDate", endDate);
 
@@ -115,7 +131,7 @@ export default function TransactionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [mode, page, search, typeFilter, categoryId, accountId, startDate, endDate, router]);
+  }, [mode, page, search, typeFilter, categoryId, accountId, minAmount, maxAmount, startDate, endDate, router]);
 
   useEffect(() => {
     fetchTransactions();
@@ -167,8 +183,31 @@ export default function TransactionsPage() {
     }
   };
 
+  const activeFilterCount =
+    (categoryId !== "all" ? 1 : 0) +
+    (typeFilter !== "ALL" ? 1 : 0) +
+    (search.trim() ? 1 : 0) +
+    (minAmount ? 1 : 0) +
+    (maxAmount ? 1 : 0) +
+    (startDate ? 1 : 0) +
+    (endDate ? 1 : 0) +
+    (accountId !== "all" ? 1 : 0);
+
+  const resetFilters = () => {
+    setCategoryId("all");
+    setSearch("");
+    setMinAmount("");
+    setMaxAmount("");
+    setStartDate("");
+    setEndDate("");
+    setTypeFilter("ALL");
+    setAccountId("all");
+    setPage(1);
+  };
+
   const filteredAccounts = data?.accounts.filter((acc) => {
     if (mode === "CREDIT_CARD") return acc.type === "CREDIT_CARD";
+    if (mode === "BANK") return ["BANK", "SAVINGS", "FIXED_DEPOSIT"].includes(acc.type);
     return true;
   }) ?? [];
 
@@ -176,10 +215,10 @@ export default function TransactionsPage() {
     <Shell>
       <header className="page-header">
         <div>
-          <span className="eyebrow">Transaction Activity</span>
-          <h1>Transactions &amp; Payments</h1>
+          <span className="eyebrow">Financial Ledger</span>
+          <h1>Transactions &amp; Activity</h1>
           <p>
-            Unified view of all your credit card charges and UPI payment history.
+            Filter, categorize, and track complete transaction history across Credit Cards, Bank Accounts, and UPI payments.
           </p>
         </div>
       </header>
@@ -192,6 +231,7 @@ export default function TransactionsPage() {
           marginBottom: "24px",
           borderBottom: "1px solid var(--line)",
           paddingBottom: "12px",
+          overflowX: "auto",
         }}>
         <button
           type="button"
@@ -207,6 +247,22 @@ export default function TransactionsPage() {
           onClick={() => handleModeChange("CREDIT_CARD")}>
           <CreditCard size={18} />
           <span>All Credit Cards</span>
+        </button>
+
+        <button
+          type="button"
+          className={`secondary ${mode === "BANK" ? "active" : ""}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "8px 16px",
+            borderRadius: "10px",
+            fontWeight: 600,
+          }}
+          onClick={() => handleModeChange("BANK")}>
+          <Landmark size={18} />
+          <span>Bank Accounts</span>
         </button>
 
         <button
@@ -238,7 +294,7 @@ export default function TransactionsPage() {
           }}
           onClick={() => handleModeChange("ALL")}>
           <Receipt size={18} />
-          <span>All Activity</span>
+          <span>All Transactions</span>
         </button>
       </div>
 
@@ -248,7 +304,7 @@ export default function TransactionsPage() {
         </p>
       )}
 
-      {/* Summary Cards */}
+      {/* Summary KPI Cards */}
       {data?.summary && (
         <div
           style={{
@@ -278,10 +334,12 @@ export default function TransactionsPage() {
               }}>
               <ArrowUpRight size={15} color="#ef4444" />
               {mode === "CREDIT_CARD"
-                ? "Total Credit Used / Spent"
+                ? "Total Credit Charges"
+                : mode === "BANK"
+                ? "Total Outflows"
                 : mode === "UPI"
                 ? "Total UPI Outflow"
-                : "Total Expenses / Spent"}
+                : "Total Debits / Expenses"}
             </span>
             <strong
               style={{
@@ -314,10 +372,12 @@ export default function TransactionsPage() {
               }}>
               <ArrowDownLeft size={15} color="#10b981" />
               {mode === "CREDIT_CARD"
-                ? "Total Refunds & Payments"
+                ? "Total Card Refunds & Payments"
+                : mode === "BANK"
+                ? "Total Inflows"
                 : mode === "UPI"
                 ? "Total UPI Inflow"
-                : "Total Income / Received"}
+                : "Total Credits / Income"}
             </span>
             <strong
               style={{
@@ -349,7 +409,7 @@ export default function TransactionsPage() {
                 gap: "6px",
               }}>
               <Layers size={15} />
-              Total Transactions Count
+              Total Matching Records
             </span>
             <strong
               style={{
@@ -363,108 +423,393 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      {/* Filter Controls Bar */}
+      {/* Main Ledger Filter Control Toolbar (Matched with Overview/AccountLedger) */}
       <div
         className="panel"
         style={{
           padding: "16px",
           marginBottom: "24px",
           display: "flex",
-          flexWrap: "wrap",
+          flexDirection: "column",
           gap: "12px",
-          alignItems: "center",
         }}>
-        <div style={{ flex: "1 1 200px", position: "relative" }}>
-          <Search
-            size={16}
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "12px",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", flex: "1 1 auto", alignItems: "center" }}>
+            {/* Category Dropdown */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Tag size={15} color="var(--muted)" />
+              <select
+                value={categoryId}
+                onChange={(e) => {
+                  setCategoryId(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  height: "38px",
+                  fontSize: "13px",
+                  padding: "0 10px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--line)",
+                  background: "var(--background)",
+                  color: "var(--ink)",
+                  fontWeight: 600,
+                  margin: 0,
+                  width: "auto",
+                }}>
+                <option value="all">All Categories</option>
+                <option value="uncategorised">Uncategorised</option>
+                <option value="transfers">Internal Transfers</option>
+                {(data?.categories || []).map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search Bar */}
+            <div style={{ position: "relative", flex: "1 1 220px", minWidth: "180px" }}>
+              <Search
+                size={16}
+                color="var(--muted)"
+                style={{
+                  position: "absolute",
+                  left: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  pointerEvents: "none",
+                }}
+              />
+              <input
+                type="text"
+                placeholder="Search description or merchant..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  width: "100%",
+                  height: "38px",
+                  fontSize: "13px",
+                  paddingLeft: "36px",
+                  paddingRight: search ? "32px" : "12px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--line)",
+                  background: "var(--background)",
+                  color: "var(--ink)",
+                  margin: 0,
+                }}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "2px",
+                    color: "var(--muted)",
+                    display: "flex",
+                    alignItems: "center",
+                  }}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Type Segmented Controls */}
+            <div
+              style={{
+                display: "flex",
+                gap: "4px",
+                background: "var(--background)",
+                padding: "3px",
+                borderRadius: "8px",
+                border: "1px solid var(--line)",
+              }}>
+              <button
+                type="button"
+                className={`secondary compact ${typeFilter === "ALL" ? "active" : ""}`}
+                onClick={() => {
+                  setTypeFilter("ALL");
+                  setPage(1);
+                }}
+                style={{
+                  height: "32px",
+                  padding: "0 12px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  border: "none",
+                  borderRadius: "6px",
+                }}>
+                All
+              </button>
+              <button
+                type="button"
+                className={`secondary compact ${typeFilter === "EXPENSE" ? "active" : ""}`}
+                onClick={() => {
+                  setTypeFilter("EXPENSE");
+                  setPage(1);
+                }}
+                style={{
+                  height: "32px",
+                  padding: "0 12px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  border: "none",
+                  borderRadius: "6px",
+                  color: typeFilter === "EXPENSE" ? "#ef4444" : undefined,
+                }}>
+                Debits
+              </button>
+              <button
+                type="button"
+                className={`secondary compact ${typeFilter === "INCOME" ? "active" : ""}`}
+                onClick={() => {
+                  setTypeFilter("INCOME");
+                  setPage(1);
+                }}
+                style={{
+                  height: "32px",
+                  padding: "0 12px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  border: "none",
+                  borderRadius: "6px",
+                  color: typeFilter === "INCOME" ? "#10b981" : undefined,
+                }}>
+                Credits
+              </button>
+            </div>
+
+            {/* Reset Button */}
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                className="ghost compact"
+                onClick={resetFilters}
+                style={{
+                  height: "38px",
+                  fontSize: "12px",
+                  color: "#ef4444",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "0 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(239, 68, 68, 0.2)",
+                }}>
+                <RotateCcw size={14} /> Reset ({activeFilterCount})
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            {/* Category Rules Modal Toggle */}
+            <button
+              type="button"
+              className="secondary compact"
+              onClick={() => setShowRulesModal(true)}
+              style={{
+                height: "38px",
+                fontSize: "12px",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "0 12px",
+                borderRadius: "8px",
+              }}>
+              <Workflow size={14} /> Category Rules
+            </button>
+
+            {/* Expand Advanced Filters Toggle */}
+            <button
+              type="button"
+              className={`secondary compact ${showFilters ? "active" : ""}`}
+              onClick={() => setShowFilters(!showFilters)}
+              style={{
+                height: "38px",
+                fontSize: "12px",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "0 12px",
+                borderRadius: "8px",
+              }}>
+              <SlidersHorizontal size={14} /> Filters
+              {activeFilterCount > 0 && (
+                <span
+                  style={{
+                    background: "var(--accent)",
+                    color: "white",
+                    fontSize: "10px",
+                    width: "16px",
+                    height: "16px",
+                    borderRadius: "50%",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}>
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Expandable Advanced Filter Drawer */}
+        {showFilters && (
+          <div
             style={{
-              position: "absolute",
-              left: "12px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--muted)",
-            }}
-          />
-          <input
-            type="text"
-            placeholder="Search merchant or details..."
-            value={search}
-            style={{ paddingLeft: "36px", margin: 0 }}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
+              paddingTop: "12px",
+              borderTop: "1px solid var(--line)",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "12px",
+              alignItems: "center",
+            }}>
+            {/* Account Selector */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Account</label>
+              <select
+                value={accountId}
+                onChange={(e) => {
+                  setAccountId(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  height: "34px",
+                  fontSize: "12px",
+                  margin: 0,
+                  borderRadius: "6px",
+                  border: "1px solid var(--line)",
+                  background: "var(--background)",
+                  color: "var(--ink)",
+                }}>
+                <option value="all">
+                  {mode === "CREDIT_CARD"
+                    ? "All Credit Cards"
+                    : mode === "BANK"
+                    ? "All Bank Accounts"
+                    : "All Accounts"}
+                </option>
+                {filteredAccounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name}{" "}
+                    {acc.cardLast4 ? `(••••${acc.cardLast4})` : acc.institution ? `· ${acc.institution}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <select
-          value={accountId}
-          style={{ width: "auto", margin: 0 }}
-          onChange={(e) => {
-            setAccountId(e.target.value);
-            setPage(1);
-          }}>
-          <option value="all">
-            {mode === "CREDIT_CARD" ? "All Credit Cards" : "All Accounts"}
-          </option>
-          {filteredAccounts.map((acc) => (
-            <option key={acc.id} value={acc.id}>
-              {acc.name}{" "}
-              {acc.cardLast4 ? `(••••${acc.cardLast4})` : acc.institution ? `· ${acc.institution}` : ""}
-            </option>
-          ))}
-        </select>
+            {/* Min Amount */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Min Amount (₹)</label>
+              <input
+                type="number"
+                placeholder="0"
+                value={minAmount}
+                onChange={(e) => {
+                  setMinAmount(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  height: "34px",
+                  fontSize: "12px",
+                  width: "110px",
+                  margin: 0,
+                  borderRadius: "6px",
+                  border: "1px solid var(--line)",
+                  background: "var(--background)",
+                  color: "var(--ink)",
+                }}
+              />
+            </div>
 
-        <select
-          value={categoryId}
-          style={{ width: "auto", margin: 0 }}
-          onChange={(e) => {
-            setCategoryId(e.target.value);
-            setPage(1);
-          }}>
-          <option value="all">All Categories</option>
-          <option value="uncategorised">Uncategorised</option>
-          <option value="transfers">Transfers</option>
-          {data?.categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+            {/* Max Amount */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Max Amount (₹)</label>
+              <input
+                type="number"
+                placeholder="Max"
+                value={maxAmount}
+                onChange={(e) => {
+                  setMaxAmount(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  height: "34px",
+                  fontSize: "12px",
+                  width: "110px",
+                  margin: 0,
+                  borderRadius: "6px",
+                  border: "1px solid var(--line)",
+                  background: "var(--background)",
+                  color: "var(--ink)",
+                }}
+              />
+            </div>
 
-        <select
-          value={typeFilter}
-          style={{ width: "auto", margin: 0 }}
-          onChange={(e) => {
-            setTypeFilter(e.target.value);
-            setPage(1);
-          }}>
-          <option value="ALL">All Types</option>
-          <option value="EXPENSE">Expenses Only</option>
-          <option value="INCOME">Credits Only</option>
-        </select>
+            {/* Start Date */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  height: "34px",
+                  fontSize: "12px",
+                  margin: 0,
+                  borderRadius: "6px",
+                  border: "1px solid var(--line)",
+                  background: "var(--background)",
+                  color: "var(--ink)",
+                }}
+              />
+            </div>
 
-        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-          <input
-            type="date"
-            value={startDate}
-            style={{ margin: 0, width: "auto" }}
-            onChange={(e) => {
-              setStartDate(e.target.value);
-              setPage(1);
-            }}
-          />
-          <span style={{ color: "var(--muted)" }}>to</span>
-          <input
-            type="date"
-            value={endDate}
-            style={{ margin: 0, width: "auto" }}
-            onChange={(e) => {
-              setEndDate(e.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
+            {/* End Date */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setPage(1);
+                }}
+                style={{
+                  height: "34px",
+                  fontSize: "12px",
+                  margin: 0,
+                  borderRadius: "6px",
+                  border: "1px solid var(--line)",
+                  background: "var(--background)",
+                  color: "var(--ink)",
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Transactions Table */}
@@ -482,9 +827,9 @@ export default function TransactionsPage() {
               color: "var(--muted)",
             }}>
             <Receipt size={40} style={{ marginBottom: "12px", opacity: 0.5 }} />
-            <h3>No transactions found</h3>
+            <h3>No transactions match your criteria</h3>
             <p style={{ fontSize: "14px", marginTop: "4px" }}>
-              Try adjusting your search query, filters, or date range.
+              Try clearing your search query, adjusting amount limits, or changing dates.
             </p>
           </div>
         ) : (
@@ -496,7 +841,7 @@ export default function TransactionsPage() {
                 <tr style={{ borderBottom: "1px solid var(--line)" }}>
                   <th style={{ padding: "12px 16px", textAlign: "left" }}>Date</th>
                   <th style={{ padding: "12px 16px", textAlign: "left" }}>Account</th>
-                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Merchant / Details</th>
+                  <th style={{ padding: "12px 16px", textAlign: "left" }}>Merchant / Description</th>
                   <th style={{ padding: "12px 16px", textAlign: "left" }}>Category</th>
                   <th style={{ padding: "12px 16px", textAlign: "right" }}>Amount</th>
                 </tr>
@@ -513,6 +858,8 @@ export default function TransactionsPage() {
                           padding: "12px 16px",
                           whiteSpace: "nowrap",
                           fontSize: "13px",
+                          color: "var(--muted)",
+                          fontWeight: 500,
                         }}>
                         {new Date(tx.transactionDate).toLocaleDateString("en-IN", {
                           day: "2-digit",
@@ -539,9 +886,9 @@ export default function TransactionsPage() {
                             border: "1px solid var(--line)",
                           }}>
                           {tx.accountType === "CREDIT_CARD" ? (
-                            <CreditCard size={13} />
+                            <CreditCard size={13} color="var(--accent)" />
                           ) : (
-                            <QrCode size={13} />
+                            <Landmark size={13} color="#0ea5e9" />
                           )}
                           <span>{tx.accountName}</span>
                           {tx.cardLast4 && (
@@ -574,31 +921,46 @@ export default function TransactionsPage() {
                       </td>
 
                       <td style={{ padding: "12px 16px" }}>
-                        <select
-                          value={tx.categoryId || ""}
-                          disabled={updatingCatId === tx.id}
-                          style={{
-                            margin: 0,
-                            padding: "4px 8px",
-                            fontSize: "12px",
-                            width: "auto",
-                            borderRadius: "6px",
-                            border: `1px solid ${tx.categoryColor || "var(--line)"}`,
-                          }}
-                          onChange={(e) =>
-                            handleCategoryUpdate(
-                              tx.accountId,
-                              tx.id,
-                              e.target.value,
-                            )
-                          }>
-                          <option value="">Uncategorised</option>
-                          {data.categories.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span
+                            style={{
+                              width: "8px",
+                              height: "8px",
+                              borderRadius: "50%",
+                              background: tx.categoryColor || "#94a3b8",
+                              display: "inline-block",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <select
+                            value={tx.categoryId || ""}
+                            disabled={updatingCatId === tx.id}
+                            style={{
+                              margin: 0,
+                              padding: "3px 8px",
+                              fontSize: "12px",
+                              width: "auto",
+                              borderRadius: "6px",
+                              border: "1px solid var(--line)",
+                              background: "var(--background)",
+                              color: "var(--ink)",
+                              fontWeight: 500,
+                            }}
+                            onChange={(e) =>
+                              handleCategoryUpdate(
+                                tx.accountId,
+                                tx.id,
+                                e.target.value,
+                              )
+                            }>
+                            <option value="">Uncategorised</option>
+                            {data.categories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </td>
 
                       <td
@@ -620,7 +982,7 @@ export default function TransactionsPage() {
           </div>
         )}
 
-        {/* Pagination Footer */}
+        {/* Pagination Controls */}
         {data?.pagination && data.pagination.pages > 1 && (
           <div
             style={{
@@ -653,6 +1015,17 @@ export default function TransactionsPage() {
           </div>
         )}
       </div>
+
+      {/* Spend Categorization Rules Modal */}
+      {showRulesModal && (
+        <SpendRulesModal
+          categories={data?.categories || []}
+          onClose={() => {
+            setShowRulesModal(false);
+            fetchTransactions();
+          }}
+        />
+      )}
     </Shell>
   );
 }
