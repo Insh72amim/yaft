@@ -116,6 +116,7 @@ export default function TransactionsPage() {
   const [data, setData] = useState<TransactionsApiResponse | null>(null);
   const [error, setError] = useState("");
   const [updatingCatId, setUpdatingCatId] = useState<string | null>(null);
+  const [editingTxCatId, setEditingTxCatId] = useState<string | null>(null);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -1508,19 +1509,22 @@ export default function TransactionsPage() {
                     <div className="transaction-category-cell">
                       {tx.isTransfer ? (
                         <span className="category-pill transfer">Transfer</span>
-                      ) : (
+                      ) : showCategoryEdit || editingTxCatId === tx.id ? (
                         <select
+                          autoFocus
                           className="category-pill-select"
                           value={tx.categoryId ?? ""}
                           disabled={updatingCatId === tx.id}
-                          onChange={(e) =>
+                          onBlur={() => setEditingTxCatId(null)}
+                          onChange={(e) => {
                             void handleUpdateCategory(
                               tx.accountId,
                               tx.id,
                               e.target.value,
-                            )
-                          }
-                          title="Click to change category"
+                            );
+                            setEditingTxCatId(null);
+                          }}
+                          title="Select category"
                           style={{
                             display: "inline-block",
                             width: "auto",
@@ -1546,6 +1550,42 @@ export default function TransactionsPage() {
                             </option>
                           ))}
                         </select>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditingTxCatId(tx.id)}
+                          title="Click to change category"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            padding: "3px 10px",
+                            borderRadius: "8px",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            background: tx.categoryId
+                              ? "rgba(34, 197, 94, 0.1)"
+                              : "var(--card-hover)",
+                            color: tx.categoryId
+                              ? "var(--green)"
+                              : "var(--muted)",
+                            border: "1px solid var(--line)",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}>
+                          {tx.categoryColor && (
+                            <span
+                              style={{
+                                width: "6px",
+                                height: "6px",
+                                borderRadius: "50%",
+                                background: tx.categoryColor,
+                                flexShrink: 0,
+                              }}
+                            />
+                          )}
+                          <span>{tx.category}</span>
+                        </button>
                       )}
                     </div>
 

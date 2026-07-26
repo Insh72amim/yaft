@@ -631,7 +631,6 @@ export default function CreditCardsPage() {
       {vaultAccount && (
         <VaultModal
           accountId={vaultAccount.id}
-          accountName={vaultAccount.name}
           onClose={() => {
             setVaultAccount(null);
             loadData();
