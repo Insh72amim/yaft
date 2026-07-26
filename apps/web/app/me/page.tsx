@@ -413,7 +413,7 @@ export default function ProfileMePage() {
             </div>
 
             <div style={{ overflowX: "auto" }}>
-              <div className="account-transaction-table has-account">
+              <div className="account-transaction-table system-ids-table">
                 <header>
                   <span>Account Name</span>
                   <span>System ID (accountId)</span>
@@ -426,13 +426,22 @@ export default function ProfileMePage() {
                   const last4 = vaultEntries[acc.id];
                   return (
                     <article key={acc.id} className="transaction-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, overflow: "hidden" }}>
                         {acc.type === "CREDIT_CARD" ? (
-                          <CreditCard size={15} color="var(--accent)" />
+                          <CreditCard size={15} color="var(--accent)" style={{ flexShrink: 0 }} />
                         ) : (
-                          <Landmark size={15} color="#0ea5e9" />
+                          <Landmark size={15} color="#0ea5e9" style={{ flexShrink: 0 }} />
                         )}
-                        <strong style={{ fontSize: "13px" }}>{acc.name}</strong>
+                        <strong
+                          style={{
+                            fontSize: "13px",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={acc.name}>
+                          {acc.name}
+                        </strong>
                       </div>
 
                       <div>
