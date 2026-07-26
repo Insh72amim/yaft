@@ -10,8 +10,9 @@ import { epfoPdfParser } from './epfo-pdf-parser';
 import { iciciPdfParser } from './icici-pdf-parser';
 import { hdfcCcPdfParser } from './hdfc-cc-pdf-parser';
 import { sbiCcPdfParser } from './sbi-cc-pdf-parser';
+import { gpayPdfParser } from './gpay-pdf-parser';
 
-export const bankPdfParsers: readonly BankPdfParser[] = [pnbPdfParser, axisPdfParser, sbiPdfParser, epfoPdfParser, iciciPdfParser, hdfcCcPdfParser, sbiCcPdfParser];
+export const bankPdfParsers: readonly BankPdfParser[] = [pnbPdfParser, axisPdfParser, sbiPdfParser, epfoPdfParser, iciciPdfParser, hdfcCcPdfParser, sbiCcPdfParser, gpayPdfParser];
 
 function institutionMatches(parser: BankPdfParser, institution: string) {
   return parser.institutionAliases.some((alias) => {

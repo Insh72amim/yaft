@@ -17,6 +17,7 @@ enum AccountType {
   STOCKS
   LOAN
   EPFO
+  UPI_LITE
 }
 
 enum ImportStatus {
