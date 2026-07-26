@@ -112,6 +112,7 @@ export class DashboardController {
         institution: string | null;
         externalInbound: number;
         externalOutbound: number;
+        creditCardPayments: number;
         investments: number;
         internalInbound: number;
         internalOutbound: number;
@@ -126,6 +127,7 @@ export class DashboardController {
         institution: acc.institution,
         externalInbound: 0,
         externalOutbound: 0,
+        creditCardPayments: 0,
         investments: 0,
         internalInbound: 0,
         internalOutbound: 0,
@@ -137,6 +139,7 @@ export class DashboardController {
       fromAccountName: string;
       toAccountId: string;
       toAccountName: string;
+      toAccountType?: string;
       amount: number;
     }> = [];
 
@@ -151,8 +154,6 @@ export class DashboardController {
         if (tx.amount > 0) {
           accFlow.internalInbound += amt;
         } else {
-          accFlow.internalOutbound += amt;
-
           let destAccountId: string | undefined;
           if (tx.transferGroupId) {
             const opposite = monthTransactions.find(
@@ -171,13 +172,26 @@ export class DashboardController {
           if (destAccountId) {
             const destAcc = accounts.find((a) => a.id === destAccountId);
             if (destAcc) {
+              if (destAcc.type === 'CREDIT_CARD') {
+                accFlow.creditCardPayments += amt;
+              } else {
+                accFlow.internalOutbound += amt;
+              }
               internalTransfersList.push({
                 fromAccountId: tx.accountId,
                 fromAccountName: accFlow.name,
                 toAccountId: destAcc.id,
                 toAccountName: destAcc.name,
+                toAccountType: destAcc.type,
                 amount: amt,
               });
+            }
+          } else {
+            const isCC = /CREDIT CARD|CC PAYMENT|CARD PAYMENT|AUTOPAY CC|CARD BILL/i.test(tx.descriptionRaw);
+            if (isCC) {
+              accFlow.creditCardPayments += amt;
+            } else {
+              accFlow.internalOutbound += amt;
             }
           }
         }
@@ -209,18 +223,20 @@ export class DashboardController {
       }
     });
 
+    const totalCreditCardPayments = [...savingsMap.values()].reduce((sum, acc) => sum + acc.creditCardPayments, 0);
     const totalInvestments = [...savingsMap.values()].reduce((sum, acc) => sum + acc.investments, 0);
 
     const accountFlowData = {
       accounts: [...savingsMap.values()].map((acc) => ({
         ...acc,
         totalInbound: acc.externalInbound + acc.internalInbound,
-        totalOutbound: acc.externalOutbound + acc.investments + acc.internalOutbound,
+        totalOutbound: acc.externalOutbound + acc.creditCardPayments + acc.investments + acc.internalOutbound,
       })),
       internalTransfers: internalTransfersList,
       overall: {
         totalExternalInbound: savingsNetInbound,
-        totalExternalOutbound: Math.max(0, savingsNetOutbound - totalInvestments),
+        totalExternalOutbound: Math.max(0, savingsNetOutbound - totalInvestments - totalCreditCardPayments),
+        totalCreditCardPayments,
         totalInvestments,
         totalInternalTransfers: internalTransfersList.reduce((sum, item) => sum + item.amount, 0),
       },
