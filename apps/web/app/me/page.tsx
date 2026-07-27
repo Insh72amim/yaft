@@ -7,19 +7,23 @@ import {
   Copy,
   CreditCard,
   Database,
+  Download,
+  FileLock2,
   Globe,
   Key,
   Landmark,
   Lock,
   Palette,
+  RefreshCw,
   ShieldCheck,
   Sliders,
+  Upload,
   User,
   Zap,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { ThemeColorSelector } from "@/components/theme-color-selector";
-import { api, errorMessage, isUnauthorized } from "@/lib/api";
+import { api, downloadPostFile, errorMessage, isUnauthorized } from "@/lib/api";
 
 type UserProfile = {
   id: string;
@@ -53,6 +57,24 @@ export default function ProfileMePage() {
   // Preference state
   const [defaultDatePreset, setDefaultDatePreset] = useState("DEFAULT");
   const [savedMessage, setSavedMessage] = useState("");
+
+  // Backup & Restore state
+  const [exportPassphrase, setExportPassphrase] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+  const [exportSuccess, setExportSuccess] = useState("");
+
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restorePassphrase, setRestorePassphrase] = useState("");
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState("");
+  const [restoreResult, setRestoreResult] = useState<{
+    accountsRestored: number;
+    transactionsRestored: number;
+    categoriesRestored: number;
+    documentsRestored: number;
+    filesRestored: number;
+  } | null>(null);
 
   useEffect(() => {
     // Load stored default date preset preference
@@ -380,6 +402,205 @@ export default function ProfileMePage() {
                 <div style={{ display: "flex", gap: "12px", alignItems: "center", marginTop: "4px" }}>
                   <ThemeColorSelector />
                 </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 3: Encrypted Local Backup & Disaster Recovery Vault */}
+          <section className="panel" style={{ padding: "24px" }}>
+            <div style={{ marginBottom: "20px" }}>
+              <span className="eyebrow">Disaster recovery & data privacy</span>
+              <h2 style={{ margin: "4px 0 6px 0", fontSize: "18px" }}>Encrypted Local Backup & Restore (.yaft-backup)</h2>
+              <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
+                Export your entire financial footprint (accounts, transactions, envelopes, rules, and attached MinIO statement documents) into an AES-256-GCM encrypted archive.
+              </p>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
+              {/* Export Panel */}
+              <div
+                style={{
+                  background: "var(--background-alt)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "14px",
+                  padding: "20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: "16px",
+                }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                    <FileLock2 size={18} color="#10b981" />
+                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700 }}>1-Click Encrypted Export</h3>
+                  </div>
+                  <p style={{ fontSize: "12px", color: "var(--muted)", margin: "0 0 14px 0" }}>
+                    Derives an AES-256 key via PBKDF2 with 100,000 iterations. The resulting archive contains zero unencrypted text.
+                  </p>
+
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <label style={{ fontSize: "12px", fontWeight: 600 }}>Set Backup Passphrase (min 6 chars)</label>
+                    <input
+                      type="password"
+                      placeholder="Enter encryption passphrase..."
+                      value={exportPassphrase}
+                      onChange={(e) => setExportPassphrase(e.target.value)}
+                      style={{
+                        padding: "8px 12px",
+                        fontSize: "13px",
+                        borderRadius: "8px",
+                        border: "1px solid var(--line)",
+                        background: "var(--card)",
+                      }}
+                    />
+                  </div>
+
+                  {exportError && <p className="error" style={{ fontSize: "12px", marginTop: "8px" }}>{exportError}</p>}
+                  {exportSuccess && <p style={{ fontSize: "12px", color: "#10b981", marginTop: "8px", fontWeight: 600 }}>{exportSuccess}</p>}
+                </div>
+
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={exporting || exportPassphrase.trim().length < 6}
+                  onClick={async () => {
+                    setExporting(true);
+                    setExportError("");
+                    setExportSuccess("");
+                    try {
+                      const dateStr = new Date().toISOString().split("T")[0];
+                      await downloadPostFile(
+                        "/backup/export",
+                        { passphrase: exportPassphrase.trim() },
+                        `yaft-backup-${dateStr}.yaft-backup`
+                      );
+                      setExportSuccess("Encrypted backup file generated and downloaded successfully!");
+                    } catch (err) {
+                      setExportError(errorMessage(err, "Failed to export backup."));
+                    } finally {
+                      setExporting(false);
+                    }
+                  }}
+                  style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                  {exporting ? <RefreshCw className="spin" size={16} /> : <Download size={16} />}
+                  <span>{exporting ? "Encrypting & Exporting..." : "Download .yaft-backup Archive"}</span>
+                </button>
+              </div>
+
+              {/* Restore Panel */}
+              <div
+                style={{
+                  background: "var(--background-alt)",
+                  border: "1px solid var(--line)",
+                  borderRadius: "14px",
+                  padding: "20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: "16px",
+                }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                    <Upload size={18} color="#0ea5e9" />
+                    <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700 }}>Restore from .yaft-backup Archive</h3>
+                  </div>
+                  <p style={{ fontSize: "12px", color: "var(--muted)", margin: "0 0 14px 0" }}>
+                    Decrypts the payload, validates authentication tags, and atomically restores database records & S3 attachments.
+                  </p>
+
+                  <div style={{ display: "grid", gap: "10px" }}>
+                    <div>
+                      <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>
+                        Select Backup File (.yaft-backup)
+                      </label>
+                      <input
+                        type="file"
+                        accept=".yaft-backup"
+                        onChange={(e) => setRestoreFile(e.target.files?.[0] || null)}
+                        style={{ fontSize: "12px" }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>
+                        Backup Passphrase
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Enter backup passphrase..."
+                        value={restorePassphrase}
+                        onChange={(e) => setRestorePassphrase(e.target.value)}
+                        style={{
+                          padding: "8px 12px",
+                          fontSize: "13px",
+                          borderRadius: "8px",
+                          border: "1px solid var(--line)",
+                          background: "var(--card)",
+                          width: "100%",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {restoreError && <p className="error" style={{ fontSize: "12px", marginTop: "8px" }}>{restoreError}</p>}
+                  {restoreResult && (
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        padding: "10px 12px",
+                        background: "rgba(16, 185, 129, 0.1)",
+                        border: "1px solid rgba(16, 185, 129, 0.3)",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                        color: "#10b981",
+                      }}>
+                      <strong>Backup Restored Successfully!</strong>
+                      <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                        <li>{restoreResult.accountsRestored} Accounts</li>
+                        <li>{restoreResult.transactionsRestored} Transactions</li>
+                        <li>{restoreResult.categoriesRestored} Categories</li>
+                        <li>{restoreResult.documentsRestored} Documents ({restoreResult.filesRestored} S3 files)</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={restoring || !restoreFile || !restorePassphrase.trim()}
+                  onClick={async () => {
+                    if (!restoreFile || !restorePassphrase.trim()) return;
+                    setRestoring(true);
+                    setRestoreError("");
+                    setRestoreResult(null);
+                    try {
+                      const formData = new FormData();
+                      formData.append("file", restoreFile);
+                      formData.append("passphrase", restorePassphrase.trim());
+
+                      const res = await api<{
+                        accountsRestored: number;
+                        transactionsRestored: number;
+                        categoriesRestored: number;
+                        documentsRestored: number;
+                        filesRestored: number;
+                      }>("/backup/restore", {
+                        method: "POST",
+                        body: formData,
+                      });
+
+                      setRestoreResult(res);
+                    } catch (err) {
+                      setRestoreError(errorMessage(err, "Failed to restore backup. Please verify passphrase."));
+                    } finally {
+                      setRestoring(false);
+                    }
+                  }}
+                  style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                  {restoring ? <RefreshCw className="spin" size={16} /> : <Upload size={16} />}
+                  <span>{restoring ? "Decrypting & Restoring..." : "Restore Archive to Ledger"}</span>
+                </button>
               </div>
             </div>
           </section>
