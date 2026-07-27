@@ -16,6 +16,7 @@ import { AccountDocumentsModule } from './account-documents/account-documents.mo
 import { CategoryRulesModule } from './category-rules/category-rules.module';
 import { TransfersModule } from './transfers/transfers.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { BackupModule } from './backup/backup.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
     CategoryRulesModule,
     TransfersModule,
     OrganizationsModule,
+    BackupModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
