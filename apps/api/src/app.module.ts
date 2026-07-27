@@ -15,6 +15,7 @@ import { LoansModule } from './loans/loans.module';
 import { AccountDocumentsModule } from './account-documents/account-documents.module';
 import { CategoryRulesModule } from './category-rules/category-rules.module';
 import { TransfersModule } from './transfers/transfers.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { TransfersModule } from './transfers/transfers.module';
     VaultModule,
     CategoryRulesModule,
     TransfersModule,
+    OrganizationsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

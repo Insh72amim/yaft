@@ -9,6 +9,8 @@ import * as os from 'os';
 import { PrismaService } from '../common/prisma.service';
 import { S3Service } from '../s3/s3.service';
 import { isPayslipSchema, parsePayslipPdf, PAYSLIP_SCHEMAS } from './payslip-parser';
+import { parseDynamicPayslip } from './dynamic-payslip-parser';
+import { loadPdfStatementDocument } from '../imports/pdf-statement-registry';
 import { StatementCredentialCipher } from '../common/statement-credentials.service';
 import { ManualSalaryDto } from './salary.dto';
 
@@ -29,7 +31,35 @@ export class SalaryService {
   async upload(userId: string, file: Express.Multer.File, payslipSchema?: string, pdfPassword?: string, salaryType: string = 'SALARY') {
     if (!isPayslipSchema(payslipSchema)) throw new BadRequestException('Choose a supported payslip employer.');
     const hash = createHash('sha256').update(file.buffer).digest('hex');
-    const parsed = await parsePayslipPdf(file.buffer, payslipSchema, pdfPassword);
+
+    // Check user organizations for dynamic parsing
+    let matchedOrg: any = null;
+    const orgs = await this.prisma.organization.findMany({ where: { userId } });
+    if (payslipSchema && payslipSchema !== 'GOLDMAN_SACHS') {
+      matchedOrg = orgs.find((o) => o.id === payslipSchema || o.name.toLowerCase() === payslipSchema.toLowerCase());
+    }
+
+    let parsed: any;
+    if (matchedOrg) {
+      const doc = await loadPdfStatementDocument(file.buffer, pdfPassword);
+      const fullText = doc.textPages.map((p: any) => p.text).join('\n');
+      const dynResult = parseDynamicPayslip(fullText, matchedOrg.parsingConfig as any, matchedOrg.name);
+      parsed = {
+        payPeriod: dynResult.payPeriod,
+        employer: matchedOrg.name,
+        employeeName: dynResult.employeeName,
+        employeeNumberLast4: dynResult.employeeNumberLast4,
+        currency: matchedOrg.currency || 'INR',
+        grossEarnings: dynResult.grossEarnings,
+        grossDeductions: dynResult.grossDeductions,
+        directPayment: 0,
+        netPay: dynResult.netPay,
+        lineItems: dynResult.lineItems,
+      };
+    } else {
+      parsed = await parsePayslipPdf(file.buffer, (payslipSchema as any) || 'GOLDMAN_SACHS', pdfPassword);
+      matchedOrg = orgs.find((o) => o.name.toLowerCase() === parsed.employer.toLowerCase());
+    }
 
     let targetEmployer = parsed.employer;
     if (salaryType === 'BONUS') {
@@ -57,9 +87,10 @@ export class SalaryService {
         userId, payPeriod: parsed.payPeriod, employer: targetEmployer, employeeName: parsed.employeeName,
         employeeNumberLast4: parsed.employeeNumberLast4, department: parsed.department, designation: parsed.designation,
         bankName: parsed.bankName, bankAccountLast4: parsed.bankAccountLast4, uanLast4: parsed.uanLast4,
+        organizationId: matchedOrg?.id || undefined,
         currency: parsed.currency, grossEarnings: BigInt(parsed.grossEarnings), grossDeductions: BigInt(parsed.grossDeductions),
         directPayment: BigInt(parsed.directPayment), netPay: BigInt(parsed.netPay), filename: file.originalname.slice(0, 200), fileHash: hash,
-        lineItems: { create: parsed.lineItems.map((item) => ({ type: item.type, description: item.description,
+        lineItems: { create: parsed.lineItems.map((item: any) => ({ type: item.type, description: item.description,
           currentAmount: BigInt(item.currentAmount), ytdAmount: item.ytdAmount === undefined ? undefined : BigInt(item.ytdAmount) })) },
       }, include: { lineItems: true } });
 

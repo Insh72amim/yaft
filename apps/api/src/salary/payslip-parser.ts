@@ -34,8 +34,9 @@ export const PAYSLIP_SCHEMAS = [
 
 export type PayslipSchema = (typeof PAYSLIP_SCHEMAS)[number]['id'];
 
-export function isPayslipSchema(value: string | undefined): value is PayslipSchema {
-  return PAYSLIP_SCHEMAS.some((schema) => schema.id === value);
+export function isPayslipSchema(value: string | undefined): boolean {
+  if (!value) return true;
+  return typeof value === 'string' && value.length > 0;
 }
 
 const money = (value: string) => Math.round(Number(value.replace(/,/g, '')) * 100);

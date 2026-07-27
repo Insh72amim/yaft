@@ -24,6 +24,8 @@ import {
   money,
 } from "@/lib/api";
 import { PdfViewerModal } from "@/components/pdf-viewer-modal";
+import { OrganizationModal } from "@/components/organization-modal";
+import { PayslipConfigBuilderModal } from "@/components/payslip-config-builder-modal";
 
 type SalaryStatement = {
   id: string;
@@ -60,7 +62,7 @@ type SalaryOverview = {
 export default function SalaryPage() {
   const router = useRouter();
   const [data, setData] = useState<SalaryOverview>();
-  const [activeTab, setActiveTab] = useState<"statements" | "timeline">(
+  const [activeTab, setActiveTab] = useState<"statements" | "timeline" | "organizations">(
     "statements",
   );
   const [error, setError] = useState("");
@@ -69,15 +71,37 @@ export default function SalaryPage() {
   const [viewingStatement, setViewingStatement] =
     useState<SalaryStatement | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);
+
+  // Organizations state
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [editingOrg, setEditingOrg] = useState<any | null>(null);
+  const [showOrgModal, setShowOrgModal] = useState(false);
+  const [builderOrg, setBuilderOrg] = useState<any | null>(null);
+  const [deletingOrg, setDeletingOrg] = useState<any | null>(null);
+  const [purgeStatements, setPurgeStatements] = useState(false);
+  const [orgBusy, setOrgBusy] = useState(false);
+  const loadOrgs = useCallback(async () => {
+    try {
+      const list = await api<any[]>("/organizations");
+      setOrganizations(list);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
-      setData(await api<SalaryOverview>("/salary-statements"));
+      const [overviewData] = await Promise.all([
+        api<SalaryOverview>("/salary-statements"),
+        loadOrgs(),
+      ]);
+      setData(overviewData);
     } catch (reason) {
       if (isUnauthorized(reason)) router.replace("/login");
       else
         setError(errorMessage(reason, "Could not load your salary history."));
     }
-  }, [router]);
+  }, [loadOrgs, router]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -169,6 +193,14 @@ export default function SalaryPage() {
           onClick={() => setActiveTab("timeline")}>
           <ArrowUpRight />
           Earnings &amp; tax timeline
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === "organizations"}
+          className={activeTab === "organizations" ? "active" : ""}
+          onClick={() => setActiveTab("organizations")}>
+          <Building2 size={16} />
+          Organizations &amp; Parser Configs ({organizations.length})
         </button>
       </div>
       {activeTab === "statements" ? (
@@ -314,6 +346,135 @@ export default function SalaryPage() {
             )}
           </section>
         </>
+      ) : activeTab === "organizations" ? (
+        <section className="panel" style={{ padding: "20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            <div>
+              <h3 style={{ margin: 0 }}>Employer Organizations &amp; Payslip JSON Schemas</h3>
+              <p style={{ margin: "4px 0 0 0", color: "var(--muted)", fontSize: "13px" }}>
+                Create organizations, upload sample payslips, and configure stored JSON parsing rules for auto-extracting future slips.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="primary compact"
+              onClick={() => {
+                setEditingOrg(null);
+                setShowOrgModal(true);
+              }}>
+              <Building2 size={15} /> Create Organization
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
+            {organizations.map((org) => (
+              <div
+                key={org.id}
+                style={{
+                  border: "1px solid var(--line)",
+                  borderRadius: "14px",
+                  padding: "16px",
+                  background: "var(--card)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: "16px",
+                }}>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span
+                        style={{
+                          width: "36px",
+                          height: "36px",
+                          borderRadius: "10px",
+                          background: org.color || "#4f46e5",
+                          color: "#fff",
+                          display: "grid",
+                          placeItems: "center",
+                          fontWeight: 700,
+                        }}>
+                        {org.name.slice(0, 2).toUpperCase()}
+                      </span>
+                      <div>
+                        <strong style={{ fontSize: "15px", display: "block" }}>{org.name}</strong>
+                        {org.taxId && <small style={{ color: "var(--muted)" }}>Tax ID: {org.taxId}</small>}
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        padding: "2px 8px",
+                        borderRadius: "10px",
+                        background: "var(--bg)",
+                        color: "var(--muted)",
+                      }}>
+                      {org.statementCount} slips
+                    </span>
+                  </div>
+
+                  <div style={{ marginTop: "12px", fontSize: "12px", color: "var(--muted)" }}>
+                    {org.sampleFilename ? (
+                      <span style={{ color: "#10b981", display: "flex", alignItems: "center", gap: "4px" }}>
+                        <ShieldCheck size={14} /> Sample slip: {org.sampleFilename}
+                      </span>
+                    ) : (
+                      <span>No sample slip uploaded yet</span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "8px", borderTop: "1px solid var(--line)", paddingTop: "12px" }}>
+                  <button
+                    type="button"
+                    className="secondary compact"
+                    style={{ flex: 1 }}
+                    onClick={() => {
+                      setEditingOrg(org);
+                      setShowOrgModal(true);
+                    }}>
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="primary compact"
+                    style={{ flex: 1 }}
+                    onClick={() => setBuilderOrg(org)}>
+                    Parser Config
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary compact"
+                    style={{ color: "#f43f5e" }}
+                    onClick={() => setDeletingOrg(org)}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {organizations.length === 0 && (
+              <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "40px 20px" }}>
+                <Building2 size={40} style={{ color: "var(--muted)", marginBottom: "12px" }} />
+                <h4>No Organizations Created</h4>
+                <p style={{ color: "var(--muted)", fontSize: "13px" }}>
+                  Create an employer organization profile to configure auto-parsing JSON schemas for your payslips.
+                </p>
+                <button
+                  type="button"
+                  className="primary compact"
+                  style={{ marginTop: "12px" }}
+                  onClick={() => {
+                    setEditingOrg(null);
+                    setShowOrgModal(true);
+                  }}>
+                  Create Organization
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
       ) : (
         <SalaryTimeline points={data.timeline} />
       )}
@@ -379,6 +540,88 @@ export default function SalaryPage() {
             await load();
           }}
         />
+      )}
+      {showOrgModal && (
+        <OrganizationModal
+          org={editingOrg}
+          onClose={() => {
+            setShowOrgModal(false);
+            setEditingOrg(null);
+          }}
+          onSuccess={() => {
+            void loadOrgs();
+          }}
+        />
+      )}
+
+      {builderOrg && (
+        <PayslipConfigBuilderModal
+          org={builderOrg}
+          onClose={() => setBuilderOrg(null)}
+          onSuccess={() => {
+            void loadOrgs();
+          }}
+        />
+      )}
+
+      {deletingOrg && (
+        <div className="modal-wrap">
+          <button className="backdrop" onClick={() => setDeletingOrg(null)} aria-label="Close modal" />
+          <section className="modal" role="dialog" aria-modal="true" style={{ maxWidth: "460px" }}>
+            <header className="modal-header">
+              <h2>Delete Organization</h2>
+            </header>
+            <p style={{ fontSize: "14px", margin: "12px 0", color: "var(--muted)" }}>
+              Are you sure you want to delete <strong>{deletingOrg.name}</strong>? Choose how to handle associated statements:
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", margin: "16px 0" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="purgeOpt"
+                  checked={!purgeStatements}
+                  onChange={() => setPurgeStatements(false)}
+                />
+                Keep historical payslips (unlinks organization profile)
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="purgeOpt"
+                  checked={purgeStatements}
+                  onChange={() => setPurgeStatements(true)}
+                />
+                Purge organization and all {deletingOrg.statementCount} associated payslip statements
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="ghost" onClick={() => setDeletingOrg(null)} disabled={orgBusy}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary"
+                style={{ background: "#f43f5e", borderColor: "#f43f5e" }}
+                disabled={orgBusy}
+                onClick={async () => {
+                  setOrgBusy(true);
+                  try {
+                    await api(`/organizations/${deletingOrg.id}?purgeStatements=${purgeStatements}`, {
+                      method: "DELETE",
+                    });
+                    setDeletingOrg(null);
+                    await load();
+                  } catch (err) {
+                    setError(errorMessage(err, "Could not delete organization."));
+                  } finally {
+                    setOrgBusy(false);
+                  }
+                }}>
+                {orgBusy ? "Deleting…" : "Confirm Delete"}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </Shell>
   );
