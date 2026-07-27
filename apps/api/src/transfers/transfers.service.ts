@@ -2,6 +2,14 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 
+function isSameCalendarDay(d1: Date, d2: Date): boolean {
+  return (
+    d1.getUTCFullYear() === d2.getUTCFullYear() &&
+    d1.getUTCMonth() === d2.getUTCMonth() &&
+    d1.getUTCDate() === d2.getUTCDate()
+  );
+}
+
 @Injectable()
 export class TransfersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -40,15 +48,12 @@ export class TransfersService {
         }
       }
 
-      // Find candidate credit within ±3 days
-      const minDate = new Date(debit.transactionDate.getTime() - 3 * 86_400_000);
-      const maxDate = new Date(debit.transactionDate.getTime() + 3 * 86_400_000);
-
+      // Strict Same-Day Matching Only (same calendar YYYY-MM-DD date)
       const candidates = credits.filter((credit) => {
         if (usedCreditIds.has(credit.id)) return false;
         if (credit.accountId === debit.accountId) return false;
         if (credit.amount !== positiveAmount) return false;
-        if (credit.transactionDate < minDate || credit.transactionDate > maxDate) return false;
+        if (!isSameCalendarDay(debit.transactionDate, credit.transactionDate)) return false;
         if (targetAccountId && credit.accountId !== targetAccountId) return false;
         return true;
       });
@@ -142,11 +147,9 @@ export class TransfersService {
 
     for (const debit of debits) {
       const positiveAmount = -debit.amount;
-      const minDate = new Date(debit.transactionDate.getTime() - 4 * 86_400_000);
-      const maxDate = new Date(debit.transactionDate.getTime() + 4 * 86_400_000);
 
       const candidate = credits.find(
-        (c) => c.accountId !== debit.accountId && c.amount === positiveAmount && c.transactionDate >= minDate && c.transactionDate <= maxDate,
+        (c) => c.accountId !== debit.accountId && c.amount === positiveAmount && isSameCalendarDay(debit.transactionDate, c.transactionDate),
       );
 
       if (candidate) {

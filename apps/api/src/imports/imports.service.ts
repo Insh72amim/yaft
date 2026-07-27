@@ -6,6 +6,8 @@ import type { BankPdfParser, ParsedRow } from './bank-pdf-parser';
 import { UpdateStagedDto, UploadStatementDto } from './imports.dto';
 import { parseStatementWithMetadata } from './statement-parser';
 
+import { TransfersService } from '../transfers/transfers.service';
+
 const categoryRules: Array<[RegExp, string]> = [
   [/salary|payroll/i, 'Salary'], [/swiggy|zomato|restaurant|cafe/i, 'Food & dining'],
   [/blinkit|bigbasket|grofer|grocery/i, 'Groceries'], [/uber|ola|metro|irctc|fuel|petrol/i, 'Transport'],
@@ -15,7 +17,11 @@ const categoryRules: Array<[RegExp, string]> = [
 
 @Injectable()
 export class ImportsService {
-  constructor(private readonly prisma: PrismaService, private readonly credentials: StatementCredentialsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly credentials: StatementCredentialsService,
+    private readonly transfersService: TransfersService,
+  ) {}
 
   private async parseWithPasswordFallback(
     file: Express.Multer.File,
@@ -297,11 +303,14 @@ export class ImportsService {
           }
         }
 
+        const startOfDay = new Date(Date.UTC(row.transactionDate.getUTCFullYear(), row.transactionDate.getUTCMonth(), row.transactionDate.getUTCDate()));
+        const endOfDay = new Date(Date.UTC(row.transactionDate.getUTCFullYear(), row.transactionDate.getUTCMonth(), row.transactionDate.getUTCDate(), 23, 59, 59, 999));
+
         const opposite = await tx.transaction.findFirst({ where: { 
           account: { userId }, 
           accountId: targetAccountId ? targetAccountId : { not: batch.accountId }, 
           amount: -row.amount,
-          transactionDate: { gte: new Date(row.transactionDate.getTime() - 3 * 86_400_000), lte: new Date(row.transactionDate.getTime() + 3 * 86_400_000) },
+          transactionDate: { gte: startOfDay, lte: endOfDay },
           transferGroupId: null 
         } });
         
@@ -333,6 +342,8 @@ export class ImportsService {
 
       await tx.importBatch.update({ where: { id: batch.id }, data: { status: 'COMMITTED', committedAt: new Date() } });
     });
+
+    await this.transfersService.reconcileTransfers(userId);
     return { imported, skipped: batch.staged.length - imported };
   }
 
