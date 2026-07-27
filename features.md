@@ -86,19 +86,21 @@ This file maintains the running inventory of completed, verified features inside
   - [x] Axis Bank credit card parser.
   - [x] HDFC Bank credit card parser (with password candidate fallback and custom font PUA glyph decoding).
   - [x] ICICI Bank credit card parser (monthly & current statement layouts).
-  - [ ] SBI Card (Credit Card) statement parser.
+  - [x] SBI Card (Credit Card) statement parser.
 
 ### 9.3 Salary Page
-- [ ] **Acme Corp Layout Parser**:
-  - [ ] Design and implement parser compatibility for Acme Corp-style payroll formats.
+- [x] **Organization Onboarding & Dynamic JSON Payslip Engine**:
+  - [x] Employer organization management (create, edit, delete with statement purge options).
+  - [x] DB-stored JSON parsing rules (`parsingConfig`).
+  - [x] Interactive sample payslip upload & visual test sandbox with math equation verification.
 
 ### 9.4 Data Security & Backups
 - [ ] **Encrypted Local Backup & Restore**:
   - [ ] One-click AES-256-GCM encrypted export and restore of database records and S3 document files (`.yaft-backup`).
 
 ### 9.5 Parser Engine & Organization Onboarding
-- [ ] **Organization Onboarding for Salary**:
-  - [ ] Dynamic layout configuration engine for onboarding new company payslips (regex patterns, field anchors, earnings/deduction markers) without writing custom code.
+- [x] **Organization Onboarding for Salary**:
+  - [x] Dynamic layout configuration engine for onboarding new company payslips (regex patterns, field anchors, earnings/deduction markers) without writing custom code.
 - [ ] **Generic Pluggable Statement Parser Pipeline**:
   - [ ] Schema-driven statement parser layout builder for dynamic onboarding of new bank and credit card statement formats.
 
