@@ -503,7 +503,7 @@ function BudgetsContent() {
               style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
             >
               <TagIcon size={15} color={activeTab === "TAGS" ? "#3b82f6" : "var(--muted)"} />
-              Tags & Trips ({tags.length})
+              Tags ({tags.length})
             </button>
 
             <button
@@ -753,14 +753,14 @@ function BudgetsContent() {
           </div>
         )}
 
-        {/* TAB 2: TAGS & TRIPS */}
+        {/* TAB 2: TAGS */}
         {activeTab === "TAGS" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
             {/* Action Bar */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--ink)" }}>Custom Tags & Trip Budgets</h3>
-                <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "var(--muted)" }}>Track vacation trips, special projects, or manual tax deductions across all accounts.</p>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--ink)" }}>Custom Tags</h3>
+                <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "var(--muted)" }}>Tag transactions manually or set date-range rules to auto-apply tags across all accounts.</p>
               </div>
 
               <button
@@ -769,7 +769,7 @@ function BudgetsContent() {
                 onClick={() => { setEditingTag(null); setTagName(""); setTagColor("#3b82f6"); setTagDesc(""); setTagStart(""); setTagEnd(""); setTagBudget(""); setTagModalOpen(true); }}
                 style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
                 <Plus size={16} />
-                <span>Create New Tag / Trip</span>
+                <span>Create New Tag</span>
               </button>
             </div>
 
@@ -847,12 +847,12 @@ function BudgetsContent() {
                 <div className="panel-title" style={{ marginBottom: "16px" }}>
                   <div>
                     <span className="eyebrow" style={{ color: "#3b82f6" }}>Active Directory</span>
-                    <h2>All Active Tags & Trips ({tags.length})</h2>
+                    <h2>All Active Tags ({tags.length})</h2>
                   </div>
                 </div>
 
                 {tags.length === 0 ? (
-                  <p style={{ color: "var(--muted)", fontSize: "13px" }}>No tags created yet. Click "Create New Tag / Trip" above.</p>
+                  <p style={{ color: "var(--muted)", fontSize: "13px" }}>No tags created yet. Click "Create New Tag" above.</p>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "280px", overflowY: "auto" }}>
                     {tags.map((tag) => {
@@ -1104,17 +1104,17 @@ function BudgetsContent() {
           <div className="modal-backdrop" onClick={() => setTagModalOpen(false)}>
             <div className="modal-content panel" style={{ maxWidth: "480px", width: "100%", padding: "24px" }} onClick={(e) => e.stopPropagation()}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>{editingTag ? "Edit Tag / Trip" : "Create New Tag or Trip"}</h3>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>{editingTag ? "Edit Tag" : "Create New Tag"}</h3>
                 <button type="button" className="icon-button" onClick={() => setTagModalOpen(false)}><X size={18}/></button>
               </div>
               <form onSubmit={handleSaveTag} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Tag / Trip Name</label>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Tag Name</label>
                   <input
                     type="text"
                     value={tagName}
                     onChange={(e) => setTagName(e.target.value)}
-                    placeholder="e.g. Goa Trip 2026 or Medical Expenses"
+                    placeholder="e.g. Vacation 2026 or Medical Expenses"
                     required
                     style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
                   />
@@ -1147,7 +1147,7 @@ function BudgetsContent() {
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                   <div>
-                    <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Start Date</label>
+                    <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Start Date (Optional)</label>
                     <input
                       type="date"
                       value={tagStart}
@@ -1156,7 +1156,7 @@ function BudgetsContent() {
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>End Date</label>
+                    <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>End Date (Optional)</label>
                     <input
                       type="date"
                       value={tagEnd}
@@ -1167,7 +1167,7 @@ function BudgetsContent() {
                 </div>
 
                 <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Trip Budget Limit (₹, Optional)</label>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Tag Budget Limit (₹, Optional)</label>
                   <input
                     type="number"
                     value={tagBudget}
