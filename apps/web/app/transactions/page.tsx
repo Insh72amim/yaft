@@ -512,22 +512,6 @@ export default function TransactionsPage() {
 
         <button
           type="button"
-          className={`secondary ${mode === "UPI" ? "active" : ""}`}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "8px 16px",
-            borderRadius: "10px",
-            fontWeight: 600,
-          }}
-          onClick={() => handleModeChange("UPI")}>
-          <QrCode size={18} />
-          <span>UPI Payments</span>
-        </button>
-
-        <button
-          type="button"
           className={`secondary ${mode === "UPI_LITE" ? "active" : ""}`}
           style={{
             display: "flex",

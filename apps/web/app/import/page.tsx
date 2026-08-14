@@ -1,6 +1,6 @@
 'use client';
 import { AlertTriangle, ArrowLeft, BadgeIndianRupee, BriefcaseBusiness, Building2, Check, CreditCard, FileSpreadsheet, KeyRound, Landmark,
-  Mail, RefreshCw, ShieldCheck, Smartphone, Sparkles, Trash2, UploadCloud } from 'lucide-react';
+  Mail, RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
@@ -102,11 +102,7 @@ function ImportWorkspace() {
   const [historySearch, setHistorySearch] = useState('');
 
   // Email Transaction Alert Ingestion States
-  const [emailSubTab, setEmailSubTab] = useState<'GMAIL_OAUTH' | 'SNIPPET' | 'LOGS'>('GMAIL_OAUTH');
-  const [emailSnippet, setEmailSnippet] = useState('');
-  const [emailSnippetAccount, setEmailSnippetAccount] = useState('');
-  const [snippetParsing, setSnippetParsing] = useState(false);
-  const [snippetResult, setSnippetResult] = useState<any>(null);
+  const [emailSubTab, setEmailSubTab] = useState<'GMAIL_OAUTH' | 'LOGS'>('GMAIL_OAUTH');
   const [emailLogs, setEmailLogs] = useState<any[]>([]);
   const [loadingEmailLogs, setLoadingEmailLogs] = useState(false);
 
@@ -213,29 +209,6 @@ function ImportWorkspace() {
       setLoadingEmailLogs(false);
     }
   }, []);
-
-  const handleParseSnippet = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!emailSnippet.trim()) return;
-    setSnippetParsing(true); setError(''); setNotice(''); setSnippetResult(null);
-    try {
-      const res = await api<any>('/email-ingestion/parse-snippet', {
-        method: 'POST',
-        body: JSON.stringify({ snippet: emailSnippet, targetAccountId: emailSnippetAccount || undefined }),
-      });
-      setSnippetResult(res);
-      setNotice(res.message);
-      const targetBatchId = res.batchIds?.[0] || res.batchId;
-      await refreshPending(targetBatchId);
-      if (targetBatchId) {
-        setActiveTab('UPLOAD');
-      }
-    } catch (err) {
-      setError(errorMessage(err, 'Could not parse email snippet.'));
-    } finally {
-      setSnippetParsing(false);
-    }
-  };
 
   const refreshPending = useCallback(async (preferredId?: string) => {
     const reviews = await api<PendingImport[]>('/imports/unified/pending');
@@ -764,12 +737,6 @@ function ImportWorkspace() {
               </button>
               <button
                 type="button"
-                className={`secondary compact ${emailSubTab === 'SNIPPET' ? 'active' : ''}`}
-                onClick={() => setEmailSubTab('SNIPPET')}>
-                <Sparkles size={14} /> Quick Alert Text Parser
-              </button>
-              <button
-                type="button"
                 className={`secondary compact ${emailSubTab === 'LOGS' ? 'active' : ''}`}
                 onClick={() => { setEmailSubTab('LOGS'); loadEmailLogs(); }}>
                 <RefreshCw size={14} /> Activity Logs
@@ -876,63 +843,6 @@ function ImportWorkspace() {
                   <li><strong>Local Token Encryption</strong>: OAuth refresh tokens are encrypted at rest using local AES-256-GCM.</li>
                   <li><strong>You Control Sync</strong>: Sync transactions whenever you want or disconnect anytime with 1 click.</li>
                 </ul>
-              </div>
-            )}
-          </div>
-        )}
-
-        {emailSubTab === 'SNIPPET' && (
-          <div className="panel" style={{ padding: '24px' }}>
-            <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 700, color: 'var(--ink)' }}>Paste Bank Transaction Alert Email</h4>
-            <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: 'var(--muted)' }}>
-              Copy the body text of any SMS or email alert sent by your bank (e.g. <em>"Rs. 2,450.00 debited from A/C **1234 to ZOMATO on 14-08-26"</em>). YAFT will parse the fields and stage it in your review queue.
-            </p>
-            <form onSubmit={handleParseSnippet} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Target Account (Optional)</label>
-                <select
-                  value={emailSnippetAccount}
-                  onChange={(e) => setEmailSnippetAccount(e.target.value)}
-                  style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid var(--line)', padding: '0 10px', background: 'var(--background-alt)', color: 'var(--ink)' }}>
-                  <option value="">✨ Auto-detect or Create Default Email Account</option>
-                  {catalog.accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>{acc.name} ({acc.institution || acc.type})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Transaction Email Text</label>
-                <textarea
-                  rows={5}
-                  value={emailSnippet}
-                  onChange={(e) => setEmailSnippet(e.target.value)}
-                  placeholder="Paste alert email text here... e.g. Rs. 2,450.00 has been debited from account **1234 to VPA zomato@upi on 14-08-26. Ref: 100000000103."
-                  required
-                  style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--line)', padding: '12px', fontFamily: 'monospace', fontSize: '13px', background: 'var(--background-alt)', color: 'var(--ink)' }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="primary"
-                disabled={snippetParsing || !emailSnippet.trim()}
-                style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={16} />
-                <span>{snippetParsing ? 'Parsing Alert…' : 'Parse & Stage Transaction'}</span>
-              </button>
-            </form>
-
-            {snippetResult && (
-              <div style={{ marginTop: '24px', background: 'var(--background-alt)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)' }}>
-                <strong style={{ fontSize: '13px', color: 'var(--green)', display: 'block', marginBottom: '10px' }}>✓ Extracted Transaction Alert Details</strong>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', fontSize: '12px' }}>
-                  <div><span style={{ color: 'var(--muted)' }}>Bank:</span> <strong>{snippetResult.parsedAlerts[0]?.bankName}</strong></div>
-                  <div><span style={{ color: 'var(--muted)' }}>Amount:</span> <strong style={{ color: snippetResult.parsedAlerts[0]?.type === 'DEBIT' ? '#ef4444' : '#10b981' }}>{money(Math.abs(snippetResult.parsedAlerts[0]?.amountDisplay) * 100)}</strong></div>
-                  <div><span style={{ color: 'var(--muted)' }}>Merchant:</span> <strong>{snippetResult.parsedAlerts[0]?.merchant}</strong></div>
-                  <div><span style={{ color: 'var(--muted)' }}>Account Last 4:</span> <strong>{snippetResult.parsedAlerts[0]?.accountLast4 || 'N/A'}</strong></div>
-                  <div><span style={{ color: 'var(--muted)' }}>Reference:</span> <strong>{snippetResult.parsedAlerts[0]?.referenceNumber || 'N/A'}</strong></div>
-                </div>
               </div>
             )}
           </div>
