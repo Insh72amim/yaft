@@ -51,6 +51,8 @@ model User {
   salaryStatements SalaryStatement[]
   activeSips   ActiveSip[]
   tags         Tag[]
+  emailConfigs EmailConfig[]
+  emailSyncLogs EmailSyncLog[]
 }
 
 model SalaryStatement {
@@ -444,4 +446,46 @@ model TransactionTag {
   @@index([tagId])
   @@index([transactionId])
 }
+
+model EmailConfig {
+  id                    String         @id @default(cuid())
+  userId                String
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email                 String
+  host                  String         @default("imap.gmail.com")
+  port                  Int            @default(993)
+  tls                   Boolean        @default(true)
+  enabled               Boolean        @default(true)
+  autoSync              Boolean        @default(false)
+  syncIntervalMinutes   Int            @default(60)
+  lastSyncAt            DateTime?
+  passwordCipher        Bytes?
+  passwordIv            Bytes?
+  passwordTag           Bytes?
+  passwordKeyVersion    Int?           @default(1)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  syncLogs              EmailSyncLog[]
+
+  @@unique([userId, email])
+  @@index([userId])
+}
+
+model EmailSyncLog {
+  id                String       @id @default(cuid())
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  configId          String?
+  config            EmailConfig? @relation(fields: [configId], references: [id], onDelete: SetNull)
+  status            String       // SUCCESS, PARTIAL, FAILED
+  emailsScanned     Int          @default(0)
+  alertsParsed      Int          @default(0)
+  transactionsAdded Int          @default(0)
+  errorMessage      String?
+  sourceSnippet     String?
+  createdAt         DateTime     @default(now())
+
+  @@index([userId, createdAt])
+}
+
 

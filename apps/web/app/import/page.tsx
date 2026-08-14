@@ -1,6 +1,6 @@
 'use client';
 import { AlertTriangle, ArrowLeft, BadgeIndianRupee, BriefcaseBusiness, Building2, Check, CreditCard, FileSpreadsheet, KeyRound, Landmark,
-  RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud } from 'lucide-react';
+  Mail, RefreshCw, ShieldCheck, Smartphone, Sparkles, Trash2, UploadCloud } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
@@ -92,13 +92,26 @@ function ImportWorkspace() {
   const requestedAccount = searchParams.get('accountId');
 
   // Sub-tab state
-  const [activeTab, setActiveTab] = useState<'UPLOAD' | 'HISTORY'>('UPLOAD');
+  const [activeTab, setActiveTab] = useState<'UPLOAD' | 'HISTORY' | 'EMAIL_SYNC'>('UPLOAD');
   const [historyItems, setHistoryItems] = useState<HistoryImportItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [historyCategoryFilter, setHistoryCategoryFilter] = useState<'ALL' | 'BANK' | 'CREDIT_CARD' | 'SALARY' | 'DOCUMENT'>('ALL');
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | 'COMMITTED' | 'REVIEW'>('ALL');
   const [historySearch, setHistorySearch] = useState('');
+
+  // Email Ingestion State
+  const [emailSubTab, setEmailSubTab] = useState<'SNIPPET' | 'SETTINGS' | 'LOGS'>('SNIPPET');
+  const [emailSnippet, setEmailSnippet] = useState('');
+  const [emailSnippetAccount, setEmailSnippetAccount] = useState('');
+  const [snippetParsing, setSnippetParsing] = useState(false);
+  const [snippetResult, setSnippetResult] = useState<any>(null);
+  const [emailConfig, setEmailConfig] = useState<any>(null);
+  const [emailForm, setEmailForm] = useState({ email: '', host: 'imap.gmail.com', port: 993, tls: true, password: '', autoSync: false });
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [syncingInbox, setSyncingInbox] = useState(false);
+  const [emailLogs, setEmailLogs] = useState<any[]>([]);
+  const [loadingEmailLogs, setLoadingEmailLogs] = useState(false);
 
   const [catalog, setCatalog] = useState<Catalog>();
   const [pending, setPending] = useState<PendingImport[]>([]);
@@ -129,6 +142,86 @@ function ImportWorkspace() {
       setLoadingHistory(false);
     }
   }, []);
+
+  const loadEmailConfig = useCallback(async () => {
+    try {
+      const cfg = await api<any>('/email-ingestion/config');
+      setEmailConfig(cfg);
+      if (cfg && cfg.configured) {
+        setEmailForm({
+          email: cfg.email || '',
+          host: cfg.host || 'imap.gmail.com',
+          port: cfg.port || 993,
+          tls: cfg.tls !== undefined ? cfg.tls : true,
+          password: '',
+          autoSync: cfg.autoSync || false,
+        });
+      }
+    } catch {}
+  }, []);
+
+  const loadEmailLogs = useCallback(async () => {
+    try {
+      setLoadingEmailLogs(true);
+      const logs = await api<any[]>('/email-ingestion/logs');
+      setEmailLogs(logs || []);
+    } catch {} finally {
+      setLoadingEmailLogs(false);
+    }
+  }, []);
+
+  const handleParseSnippet = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!emailSnippet.trim()) return;
+    setSnippetParsing(true); setError(''); setNotice(''); setSnippetResult(null);
+    try {
+      const res = await api<any>('/email-ingestion/parse-snippet', {
+        method: 'POST',
+        body: JSON.stringify({ snippet: emailSnippet, targetAccountId: emailSnippetAccount || undefined }),
+      });
+      setSnippetResult(res);
+      setNotice(res.message);
+      await refreshPending(res.batchId);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not parse email snippet.'));
+    } finally {
+      setSnippetParsing(false);
+    }
+  };
+
+  const handleSaveEmailConfig = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!emailForm.email || !emailForm.password) {
+      setError('Please enter your email address and password.');
+      return;
+    }
+    setSavingConfig(true); setError(''); setNotice('');
+    try {
+      const res = await api<any>('/email-ingestion/config', {
+        method: 'POST',
+        body: JSON.stringify(emailForm),
+      });
+      setNotice(res.message);
+      await loadEmailConfig();
+    } catch (err) {
+      setError(errorMessage(err, 'Could not save email configuration.'));
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleSyncInboxNow = async () => {
+    setSyncingInbox(true); setError(''); setNotice('');
+    try {
+      const res = await api<any>('/email-ingestion/sync', { method: 'POST' });
+      setNotice(res.message);
+      await loadEmailLogs();
+    } catch (err) {
+      setError(errorMessage(err, 'Could not trigger email inbox sync.'));
+    } finally {
+      setSyncingInbox(false);
+    }
+  };
 
   const refreshPending = useCallback(async (preferredId?: string) => {
     const reviews = await api<PendingImport[]>('/imports/unified/pending');
@@ -376,6 +469,20 @@ function ImportWorkspace() {
         <span>Past Uploads & Timeline</span>
         {historyItems.length > 0 && <span style={{ background: 'var(--card-hover)', color: 'var(--ink)', fontSize: '11px', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>{historyItems.length}</span>}
       </button>
+
+      <button
+        type="button"
+        className={`secondary ${activeTab === 'EMAIL_SYNC' ? 'active' : ''}`}
+        onClick={() => {
+          setActiveTab('EMAIL_SYNC');
+          loadEmailConfig();
+          loadEmailLogs();
+        }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', fontWeight: 600 }}>
+        <Mail size={16} color="#3b82f6" />
+        <span>Email Auto-Sync & Alert Ingestion</span>
+        <span style={{ background: '#3b82f6', color: '#ffffff', fontSize: '10px', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>NEW</span>
+      </button>
     </div>
 
     {activeTab === 'HISTORY' ? (
@@ -554,6 +661,225 @@ function ImportWorkspace() {
                 </div>
               </section>
             ))}
+          </div>
+        )}
+      </div>
+    ) : activeTab === 'EMAIL_SYNC' ? (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Email Header Banner */}
+        <div className="panel" style={{ padding: '20px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.04) 100%)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ background: '#3b82f6', color: '#fff', padding: '10px', borderRadius: '10px' }}>
+                <Mail size={24} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--ink)' }}>Email Transaction Alert Ingestion</h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--muted)' }}>
+                  Parse transaction emails (HDFC, ICICI, SBI, Axis, Amex) instantly or configure local IMAP auto-sync.
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className={`secondary compact ${emailSubTab === 'SNIPPET' ? 'active' : ''}`}
+                onClick={() => setEmailSubTab('SNIPPET')}>
+                <Sparkles size={14} /> Quick Alert Text Parser
+              </button>
+              <button
+                type="button"
+                className={`secondary compact ${emailSubTab === 'SETTINGS' ? 'active' : ''}`}
+                onClick={() => setEmailSubTab('SETTINGS')}>
+                <KeyRound size={14} /> IMAP Credentials
+              </button>
+              <button
+                type="button"
+                className={`secondary compact ${emailSubTab === 'LOGS' ? 'active' : ''}`}
+                onClick={() => { setEmailSubTab('LOGS'); loadEmailLogs(); }}>
+                <RefreshCw size={14} /> Activity Logs
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Notice & Error Messages */}
+        {error && <div className="error-banner" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><AlertTriangle size={16}/><span>{error}</span></div>}
+        {notice && <div className="notice-banner" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}><Check size={16}/><span>{notice}</span></div>}
+
+        {emailSubTab === 'SNIPPET' && (
+          <div className="panel" style={{ padding: '24px' }}>
+            <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 700, color: 'var(--ink)' }}>Paste Bank Transaction Alert Email</h4>
+            <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: 'var(--muted)' }}>
+              Copy the body text of any SMS or email alert sent by your bank (e.g. <em>"Rs. 2,450.00 debited from A/C **1234 to ZOMATO on 14-08-26"</em>). YAFT will parse the fields and stage it in your review queue.
+            </p>
+            <form onSubmit={handleParseSnippet} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Target Account (Optional)</label>
+                <select
+                  value={emailSnippetAccount}
+                  onChange={(e) => setEmailSnippetAccount(e.target.value)}
+                  style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid var(--line)', padding: '0 10px', background: 'var(--background-alt)', color: 'var(--ink)' }}>
+                  <option value="">✨ Auto-detect or Create Default Email Account</option>
+                  {catalog.accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>{acc.name} ({acc.institution || acc.type})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Transaction Email Text</label>
+                <textarea
+                  rows={5}
+                  value={emailSnippet}
+                  onChange={(e) => setEmailSnippet(e.target.value)}
+                  placeholder="Paste alert email text here... e.g. Rs. 2,450.00 has been debited from account **1234 to VPA zomato@upi on 14-08-26. Ref: 100000000103."
+                  required
+                  style={{ width: '100%', borderRadius: '8px', border: '1px solid var(--line)', padding: '12px', fontFamily: 'monospace', fontSize: '13px', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="primary"
+                disabled={snippetParsing || !emailSnippet.trim()}
+                style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={16} />
+                <span>{snippetParsing ? 'Parsing Alert…' : 'Parse & Stage Transaction'}</span>
+              </button>
+            </form>
+
+            {snippetResult && (
+              <div style={{ marginTop: '24px', background: 'var(--background-alt)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+                <strong style={{ fontSize: '13px', color: 'var(--green)', display: 'block', marginBottom: '10px' }}>✓ Extracted Transaction Alert Details</strong>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', fontSize: '12px' }}>
+                  <div><span style={{ color: 'var(--muted)' }}>Bank:</span> <strong>{snippetResult.parsedAlerts[0]?.bankName}</strong></div>
+                  <div><span style={{ color: 'var(--muted)' }}>Amount:</span> <strong style={{ color: snippetResult.parsedAlerts[0]?.type === 'DEBIT' ? '#ef4444' : '#10b981' }}>{money(Math.abs(snippetResult.parsedAlerts[0]?.amountDisplay) * 100)}</strong></div>
+                  <div><span style={{ color: 'var(--muted)' }}>Merchant:</span> <strong>{snippetResult.parsedAlerts[0]?.merchant}</strong></div>
+                  <div><span style={{ color: 'var(--muted)' }}>Account Last 4:</span> <strong>{snippetResult.parsedAlerts[0]?.accountLast4 || 'N/A'}</strong></div>
+                  <div><span style={{ color: 'var(--muted)' }}>Reference:</span> <strong>{snippetResult.parsedAlerts[0]?.referenceNumber || 'N/A'}</strong></div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {emailSubTab === 'SETTINGS' && (
+          <div className="panel" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--ink)' }}>IMAP Email Connector Settings</h4>
+                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--muted)' }}>
+                  Credentials are encrypted using local AES-256-GCM. Never stored in plaintext.
+                </p>
+              </div>
+              {emailConfig?.configured && (
+                <button
+                  type="button"
+                  className="secondary compact"
+                  onClick={handleSyncInboxNow}
+                  disabled={syncingInbox}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <RefreshCw size={14} className={syncingInbox ? 'spin' : ''} />
+                  <span>{syncingInbox ? 'Syncing...' : 'Sync Inbox Now'}</span>
+                </button>
+              )}
+            </div>
+
+            <form onSubmit={handleSaveEmailConfig} style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '500px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Email Address</label>
+                <input
+                  type="email"
+                  value={emailForm.email}
+                  onChange={(e) => setEmailForm({ ...emailForm, email: e.target.value })}
+                  placeholder="your-email@gmail.com"
+                  required
+                  style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid var(--line)', padding: '0 10px', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>IMAP Host</label>
+                  <input
+                    type="text"
+                    value={emailForm.host}
+                    onChange={(e) => setEmailForm({ ...emailForm, host: e.target.value })}
+                    placeholder="imap.gmail.com"
+                    style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid var(--line)', padding: '0 10px', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Port</label>
+                  <input
+                    type="number"
+                    value={emailForm.port}
+                    onChange={(e) => setEmailForm({ ...emailForm, port: parseInt(e.target.value, 10) || 993 })}
+                    style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid var(--line)', padding: '0 10px', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>App Password / Token</label>
+                <input
+                  type="password"
+                  value={emailForm.password}
+                  onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
+                  placeholder="Generate a Gmail App Password in Google Account settings"
+                  required
+                  style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid var(--line)', padding: '0 10px', background: 'var(--background-alt)', color: 'var(--ink)' }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="primary"
+                disabled={savingConfig}
+                style={{ alignSelf: 'flex-start', marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldCheck size={16} />
+                <span>{savingConfig ? 'Encrypting & Saving…' : 'Save Encrypted Connection'}</span>
+              </button>
+            </form>
+          </div>
+        )}
+
+        {emailSubTab === 'LOGS' && (
+          <div className="panel" style={{ padding: '24px' }}>
+            <h4 style={{ margin: '0 0 16px 0', fontSize: '1rem', fontWeight: 700, color: 'var(--ink)' }}>Email Ingestion Activity Logs</h4>
+            {loadingEmailLogs ? (
+              <div className="loading"><span/><p>Loading sync logs...</p></div>
+            ) : emailLogs.length === 0 ? (
+              <p style={{ color: 'var(--muted)', fontSize: '13px' }}>No email ingestion activity recorded yet.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--line)', textAlign: 'left', color: 'var(--muted)' }}>
+                      <th style={{ padding: '8px' }}>Timestamp</th>
+                      <th style={{ padding: '8px' }}>Status</th>
+                      <th style={{ padding: '8px' }}>Alerts Parsed</th>
+                      <th style={{ padding: '8px' }}>Snippet Preview</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {emailLogs.map((log) => (
+                      <tr key={log.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                        <td style={{ padding: '8px', color: 'var(--muted)' }}>{new Date(log.createdAt).toLocaleString('en-IN')}</td>
+                        <td style={{ padding: '8px' }}>
+                          <span style={{ background: '#10b98120', color: '#10b981', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '10px' }}>
+                            {log.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px', fontWeight: 700 }}>{log.alertsParsed} alert(s)</td>
+                        <td style={{ padding: '8px', color: 'var(--muted)', fontFamily: 'monospace', fontSize: '11px' }}>{log.sourceSnippet ? log.sourceSnippet.slice(0, 60) + '...' : 'Inbox Sync Run'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

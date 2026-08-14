@@ -18,6 +18,7 @@ import { TransfersModule } from './transfers/transfers.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { BackupModule } from './backup/backup.module';
 import { TagsModule } from './tags/tags.module';
+import { EmailIngestionModule } from './email-ingestion/email-ingestion.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { TagsModule } from './tags/tags.module';
     OrganizationsModule,
     BackupModule,
     TagsModule,
+    EmailIngestionModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
