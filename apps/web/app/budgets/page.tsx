@@ -563,6 +563,54 @@ function BudgetsContent() {
     }
   };
 
+  const handleApplyRules = async () => {
+    setApplyingRules(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const res = await api<{ updatedCount: number }>("/category-rules/apply", { method: "POST" });
+      setSuccessMsg(`Retroactively categorized ${res.updatedCount || 0} transactions!`);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to apply rules retroactively."));
+    } finally {
+      setApplyingRules(false);
+    }
+  };
+
+  const handleSeedRules = async () => {
+    setSeedingRules(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      await api("/category-rules/seed-defaults", { method: "POST" });
+      setSuccessMsg("Seeded default categorization rules.");
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to seed default rules."));
+    } finally {
+      setSeedingRules(false);
+    }
+  };
+
+  const handleConfirmGroup = async (transactionIds: string[], categoryId: string) => {
+    setConfirmingCatId(categoryId);
+    setError("");
+    setSuccessMsg("");
+    try {
+      await api("/category-rules/batch-update", {
+        method: "POST",
+        body: JSON.stringify({ transactionIds, categoryId }),
+      });
+      setSuccessMsg(`Categorized ${transactionIds.length} transactions!`);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to confirm transaction group."));
+    } finally {
+      setConfirmingCatId(null);
+    }
+  };
+
   if (loading && categories.length === 0) {
     return (
       <Shell>
@@ -1370,6 +1418,278 @@ function BudgetsContent() {
                   </button>
                 </div>
               </form>
+            </section>
+          </div>
+        )}
+
+        {/* TAB 4: AUTO-CATEGORIZATION RULES */}
+        {activeTab === "RULES" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            {/* Quick Actions Panel */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
+              <div>
+                <strong style={{ fontSize: "15px", color: "var(--ink)", display: "block" }}>Auto-Categorization Engine</strong>
+                <span style={{ fontSize: "12px", color: "var(--muted)" }}>Automatically match statement merchant names and descriptions to financial categories</span>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={handleSeedRules}
+                  disabled={seedingRules}
+                  className="secondary compact"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  {seedingRules ? <Loader2 className="spin" size={14} /> : <Zap size={14} color="#f59e0b" />}
+                  <span>Seed Default Rules</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleApplyRules}
+                  disabled={applyingRules}
+                  className="secondary compact"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700 }}>
+                  {applyingRules ? <Loader2 className="spin" size={14} /> : <Sparkles size={14} />}
+                  <span>Apply Rules Retroactively</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Create New Auto Rule Form */}
+            <section className="panel" style={{ padding: "20px" }}>
+              <div className="panel-title" style={{ marginBottom: "16px" }}>
+                <div>
+                  <span className="eyebrow" style={{ color: "var(--green)" }}>Rule Builder</span>
+                  <h2>Create New Auto-Categorization Rule</h2>
+                </div>
+              </div>
+
+              <form onSubmit={handleCreateRule} style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ flex: "1 1 200px" }}>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Pattern / Keyword</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. SWIGGY, ZOMATO, UBER..."
+                    value={rulePattern}
+                    onChange={(e) => setRulePattern(e.target.value)}
+                    required
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+
+                <div style={{ flex: "1 1 140px" }}>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Match Field</label>
+                  <select
+                    value={ruleMatchField}
+                    onChange={(e: any) => setRuleMatchField(e.target.value)}
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                    <option value="DESCRIPTION">Description</option>
+                    <option value="MERCHANT">Merchant Name</option>
+                    <option value="REFERENCE">Reference Code</option>
+                  </select>
+                </div>
+
+                <div style={{ flex: "1 1 140px" }}>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Match Operator</label>
+                  <select
+                    value={ruleMatchType}
+                    onChange={(e: any) => setRuleMatchType(e.target.value)}
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                    <option value="CONTAINS">Contains</option>
+                    <option value="EXACT">Exact Match</option>
+                    <option value="STARTS_WITH">Starts With</option>
+                    <option value="REGEX">Regex Pattern</option>
+                  </select>
+                </div>
+
+                <div style={{ flex: "1 1 180px" }}>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Assign Category</label>
+                  <select
+                    value={ruleCategoryId}
+                    onChange={(e) => setRuleCategoryId(e.target.value)}
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.type || "EXPENSE"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ flex: "0 0 90px" }}>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Priority</label>
+                  <input
+                    type="number"
+                    value={rulePriority}
+                    onChange={(e) => setRulePriority(parseInt(e.target.value, 10) || 0)}
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={creatingRule || !rulePattern.trim()}
+                  className="secondary compact"
+                  style={{ height: "40px", padding: "0 20px", marginTop: "18px", display: "inline-flex", alignItems: "center", gap: "8px", background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700, borderRadius: "8px" }}>
+                  {creatingRule ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
+                  <span>Add Rule</span>
+                </button>
+              </form>
+            </section>
+
+            {/* Active Categorization Rules List */}
+            <section className="panel" style={{ padding: "20px" }}>
+              <div className="panel-title" style={{ marginBottom: "16px" }}>
+                <div>
+                  <span className="eyebrow" style={{ color: "var(--green)" }}>Rule Directory</span>
+                  <h2>Active Categorization Rules ({rules.length})</h2>
+                </div>
+              </div>
+
+              {rules.length === 0 ? (
+                <div style={{ padding: "30px", textAlign: "center", color: "var(--muted)" }}>
+                  <span>No custom rules defined yet. Click "Seed Default Rules" to quickly add standard rules!</span>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "14px" }}>
+                  {rules.map((rule) => {
+                    const catName = rule.category?.name || "Unassigned";
+                    const catColor = rule.category?.color || "#3b82f6";
+                    return (
+                      <div
+                        key={rule.id}
+                        style={{
+                          background: "var(--background-alt)",
+                          border: "1px solid var(--line)",
+                          borderRadius: "12px",
+                          padding: "14px 16px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <strong style={{ fontSize: "14px", color: "var(--ink)", fontFamily: "monospace" }}>"{rule.pattern}"</strong>
+                            <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "var(--line)", color: "var(--muted)", fontWeight: 700 }}>
+                              {rule.matchField} ({rule.matchType})
+                            </span>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "var(--muted)" }}>
+                            <span>→</span>
+                            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: catColor, display: "inline-block" }} />
+                            <strong style={{ color: "var(--ink)" }}>{catName}</strong>
+                            <span>(Priority {rule.priority})</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="icon-button danger"
+                          title="Delete Rule"
+                          onClick={() => handleDeleteRule(rule.id)}
+                          style={{ background: "transparent", border: "1px solid var(--line)", borderRadius: "6px", padding: "6px", cursor: "pointer", color: "#ef4444" }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* TAB 5: UNVERIFIED CATEGORY CONFIRMATIONS */}
+        {activeTab === "CONFIRMATIONS" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <section className="panel" style={{ padding: "20px" }}>
+              <div className="panel-title" style={{ marginBottom: "16px" }}>
+                <div>
+                  <span className="eyebrow" style={{ color: "var(--green)" }}>Verification Queue</span>
+                  <h2>Unverified Categorization Suggestions ({unverifiedCategories.length} Groups)</h2>
+                </div>
+              </div>
+
+              {unverifiedCategories.length === 0 ? (
+                <div style={{ padding: "40px", textAlign: "center", color: "var(--green)" }}>
+                  <CheckCircle2 size={32} style={{ margin: "0 auto 12px auto", display: "block" }} />
+                  <strong style={{ fontSize: "15px", display: "block" }}>All transactions are verified!</strong>
+                  <span style={{ fontSize: "12px", color: "var(--muted)" }}>There are no pending categorization suggestions requiring manual confirmation.</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {unverifiedCategories.map((group) => {
+                    const catId = group.category?.id || "";
+                    const catName = group.category?.name || "Unassigned";
+                    const catColor = group.category?.color || "#3b82f6";
+                    return (
+                      <div
+                        key={catId || "unassigned"}
+                        style={{
+                          background: "var(--background-alt)",
+                          border: "1px solid var(--line)",
+                          borderRadius: "14px",
+                          padding: "18px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "12px",
+                        }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: catColor }} />
+                            <div>
+                              <strong style={{ fontSize: "15px", color: "var(--ink)", display: "block" }}>Suggested: {catName}</strong>
+                              <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                                {group.unverifiedCount} unverified transaction{group.unverifiedCount === 1 ? "" : "s"} of {group.totalCount} total
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmGroup(group.transactions.map((t) => t.id), catId)}
+                            disabled={confirmingCatId === catId}
+                            className="secondary compact"
+                            style={{ background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700, padding: "8px 18px", borderRadius: "8px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                            {confirmingCatId === catId ? <Loader2 className="spin" size={14} /> : <CheckCircle2 size={14} />}
+                            <span>Confirm All ({group.unverifiedCount})</span>
+                          </button>
+                        </div>
+
+                        {/* Transactions Preview List */}
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
+                            <thead>
+                              <tr style={{ borderBottom: "1px solid var(--line)", textAlign: "left", color: "var(--muted)" }}>
+                                <th style={{ padding: "6px 8px" }}>Date</th>
+                                <th style={{ padding: "6px 8px" }}>Description</th>
+                                <th style={{ padding: "6px 8px", textAlign: "right" }}>Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.transactions.slice(0, 5).map((tx) => (
+                                <tr key={tx.id} style={{ borderBottom: "1px solid var(--line)" }}>
+                                  <td style={{ padding: "6px 8px", color: "var(--muted)" }}>{new Date(tx.transactionDate).toLocaleDateString("en-IN")}</td>
+                                  <td style={{ padding: "6px 8px", fontWeight: 600 }}>{tx.merchant || tx.descriptionRaw}</td>
+                                  <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: tx.amount < 0 ? "#ef4444" : "#10b981" }}>
+                                    {money(Math.abs(tx.amount))}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {group.transactions.length > 5 && (
+                            <span style={{ fontSize: "11px", color: "var(--muted)", display: "block", marginTop: "6px" }}>
+                              + {group.transactions.length - 5} more transactions in this group
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </div>
         )}
