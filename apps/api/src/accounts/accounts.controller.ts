@@ -441,6 +441,7 @@ export class AccountsController {
   }
 
   @Get('credit-cards/summary')
+  @Get('credit-cards')
   async getCreditCardsSummary(@CurrentUser() user: { id: string }) {
     const cardAccounts = await this.prisma.account.findMany({
       where: { userId: user.id, type: AccountType.CREDIT_CARD, archived: false },

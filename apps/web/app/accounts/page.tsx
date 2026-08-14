@@ -1407,7 +1407,7 @@ function CreditCardsSection() {
     try {
       setLoading(true);
       setError("");
-      const res = await api<CreditCardsApiResponse>("/credit-cards");
+      const res = await api<CreditCardsApiResponse>("/accounts/credit-cards/summary");
       setData(res);
     } catch (err: any) {
       if (isUnauthorized(err)) {
