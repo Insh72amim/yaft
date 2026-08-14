@@ -390,22 +390,6 @@ export default function SalaryPage() {
                 </select>
               </div>
             )}
-
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <Link
-                href="/import?kind=SALARY_PAYSLIP&source=STANDARD_PAYSLIP"
-                className="secondary compact"
-                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                <Upload size={14} /> Upload Payslip
-              </Link>
-              <button
-                type="button"
-                className="primary compact"
-                onClick={() => setShowManualModal(true)}
-                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                <BadgeIndianRupee size={14} /> + Manual Entry
-              </button>
-            </div>
           </div>
         )}
       </div>
