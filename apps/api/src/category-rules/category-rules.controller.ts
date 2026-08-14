@@ -42,6 +42,32 @@ export class CategoryRulesController {
     return this.categoryRules.batchUpdate(user.id, body.transactionIds, body.categoryId);
   }
 
+  @Post('seed-defaults')
+  seedDefaults(@CurrentUser() user: { id: string }) {
+    return this.categoryRules.seedDefaultRules(user.id);
+  }
+
+  @Get('unverified')
+  getUnverified(@CurrentUser() user: { id: string }) {
+    return this.categoryRules.getUnverifiedByCategory(user.id);
+  }
+
+  @Post('confirm')
+  confirmTransactions(
+    @CurrentUser() user: { id: string },
+    @Body() body: { transactionIds: string[] },
+  ) {
+    return this.categoryRules.confirmTransactions(user.id, body.transactionIds);
+  }
+
+  @Post('confirm-category/:id')
+  confirmCategory(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+  ) {
+    return this.categoryRules.confirmCategory(user.id, id);
+  }
+
   @Delete(':id')
   @HttpCode(204)
   delete(@CurrentUser() user: { id: string }, @Param('id') id: string) {

@@ -29,7 +29,7 @@ export type ParsedPayslip = {
 };
 
 export const PAYSLIP_SCHEMAS = [
-  { id: 'GOLDMAN_SACHS', employer: 'Goldman Sachs' },
+  { id: 'STANDARD_PAYSLIP', employer: 'Standard Payslip' },
 ] as const;
 
 export type PayslipSchema = (typeof PAYSLIP_SCHEMAS)[number]['id'];
@@ -89,12 +89,13 @@ export async function parsePayslipPdf(buffer: Buffer, schema: PayslipSchema, pdf
 
 export function parsePayslipText(text: string, schema: PayslipSchema): ParsedPayslip {
   switch (schema) {
-    case 'GOLDMAN_SACHS': return parseGoldmanSachsPayslipText(text);
-    default: throw new BadRequestException('Choose a supported payslip employer.');
+    case 'STANDARD_PAYSLIP':
+    default:
+      return parseStandardPayslipText(text);
   }
 }
 
-function parseGoldmanSachsPayslipText(text: string): ParsedPayslip {
+function parseStandardPayslipText(text: string): ParsedPayslip {
   const lines = text.split(/\r?\n/).map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean)
     .filter((line) => !/^-- \d+ of \d+ --$/.test(line));
   const periodMatch = text.match(/Payslip\s+for\s+the\s+month\s+of\s+([A-Za-z]+)\s+(\d{4})/i);
@@ -102,11 +103,8 @@ function parseGoldmanSachsPayslipText(text: string): ParsedPayslip {
   const monthIndex = new Date(`${periodMatch[1]} 1, 2000`).getMonth();
   if (Number.isNaN(monthIndex)) throw new BadRequestException('The salary month is invalid.');
   const payPeriod = new Date(Date.UTC(Number(periodMatch[2]), monthIndex, 1));
-  const employerLine = lines.find((line) => /\bgoldman\s+sachs\b/i.test(line));
-  if (!employerLine) {
-    throw new BadRequestException('This payslip does not match the selected Goldman Sachs employer.');
-  }
-  const employer = employerLine.replace(/^\d+-/, '').trim().slice(0, 160);
+  const employerLine = lines.find((line) => /\b(Limited|Inc|Corporation|Corp|Pvt|Private|Services|LLC|Technologies)\b/i.test(line)) || lines[0];
+  const employer = employerLine ? employerLine.replace(/^\d+-/, '').trim().slice(0, 160) : 'Employer';
 
   const employeeHeader = lines.findIndex((line) => /Employee Name.*Person Number.*Date of Joining/i.test(line));
   const employeeLine = employeeHeader >= 0 ? nextUseful(lines, employeeHeader, (line) => /\d{6,}.*\d{2}[-/]\d{2}[-/]\d{4}/.test(line)) : undefined;

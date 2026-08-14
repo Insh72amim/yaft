@@ -35,7 +35,7 @@ export class SalaryService {
     // Check user organizations for dynamic parsing
     let matchedOrg: any = null;
     const orgs = await this.prisma.organization.findMany({ where: { userId } });
-    if (payslipSchema && payslipSchema !== 'GOLDMAN_SACHS') {
+    if (payslipSchema && payslipSchema !== 'STANDARD_PAYSLIP') {
       matchedOrg = orgs.find((o) => o.id === payslipSchema || o.name.toLowerCase() === payslipSchema.toLowerCase());
     }
 
@@ -57,7 +57,7 @@ export class SalaryService {
         lineItems: dynResult.lineItems,
       };
     } else {
-      parsed = await parsePayslipPdf(file.buffer, (payslipSchema as any) || 'GOLDMAN_SACHS', pdfPassword);
+      parsed = await parsePayslipPdf(file.buffer, (payslipSchema as any) || 'STANDARD_PAYSLIP', pdfPassword);
       matchedOrg = orgs.find((o) => o.name.toLowerCase() === parsed.employer.toLowerCase());
     }
 
@@ -119,7 +119,14 @@ export class SalaryService {
   }
 
   async overview(userId: string) {
-    const statements = await this.prisma.salaryStatement.findMany({ where: { userId }, include: { lineItems: true }, orderBy: { payPeriod: 'desc' } });
+    const statements = await this.prisma.salaryStatement.findMany({
+      where: { userId },
+      include: {
+        lineItems: true,
+        organization: { select: { id: true, name: true, code: true, color: true } },
+      },
+      orderBy: { payPeriod: 'desc' },
+    });
     const committed = statements.filter((statement) => statement.status === 'COMMITTED');
     const totalGross = committed.reduce((sum, statement) => sum + Number(statement.grossEarnings), 0);
     const totalDeductions = committed.reduce((sum, statement) => sum + Number(statement.grossDeductions), 0);
@@ -368,10 +375,27 @@ export class SalaryService {
     await this.prisma.salaryStatement.delete({ where: { id: statement.id } });
   }
 
-  private serialize(statement: SalaryWithItems) {
+  private serialize(statement: any) {
     const { fileHash: _fileHash, ...safe } = statement;
-    return { ...safe, grossEarnings: Number(statement.grossEarnings), grossDeductions: Number(statement.grossDeductions),
-      directPayment: Number(statement.directPayment), netPay: Number(statement.netPay),
-      lineItems: statement.lineItems.map((item) => ({ ...item, currentAmount: Number(item.currentAmount), ytdAmount: item.ytdAmount === null ? null : Number(item.ytdAmount) })) };
+    return {
+      ...safe,
+      grossEarnings: Number(statement.grossEarnings),
+      grossDeductions: Number(statement.grossDeductions),
+      directPayment: Number(statement.directPayment),
+      netPay: Number(statement.netPay),
+      organization: statement.organization
+        ? {
+            id: statement.organization.id,
+            name: statement.organization.name,
+            code: statement.organization.code,
+            color: statement.organization.color,
+          }
+        : null,
+      lineItems: (statement.lineItems || []).map((item: any) => ({
+        ...item,
+        currentAmount: Number(item.currentAmount),
+        ytdAmount: item.ytdAmount === null ? null : Number(item.ytdAmount),
+      })),
+    };
   }
 }

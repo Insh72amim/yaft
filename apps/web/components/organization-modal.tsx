@@ -10,6 +10,7 @@ type Organization = {
   taxId?: string | null;
   currency?: string;
   color?: string | null;
+  isCurrent?: boolean;
 };
 
 export function OrganizationModal({
@@ -26,6 +27,7 @@ export function OrganizationModal({
   const [taxId, setTaxId] = useState(org?.taxId || "");
   const [currency, setCurrency] = useState(org?.currency || "INR");
   const [color, setColor] = useState(org?.color || "#4f46e5");
+  const [isCurrent, setIsCurrent] = useState(Boolean(org?.isCurrent));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -47,6 +49,7 @@ export function OrganizationModal({
             taxId: taxId.trim() || undefined,
             currency,
             color,
+            isCurrent,
           }),
         });
       } else {
@@ -58,6 +61,7 @@ export function OrganizationModal({
             taxId: taxId.trim() || undefined,
             currency,
             color,
+            isCurrent,
           }),
         });
       }
@@ -71,46 +75,49 @@ export function OrganizationModal({
   }
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card" style={{ maxWidth: "480px" }}>
-        <header className="modal-header">
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+    <div className="modal-wrap">
+      <button className="backdrop" onClick={onClose} aria-label="Close modal" />
+      <section className="modal" role="dialog" aria-modal="true" style={{ maxWidth: "520px" }}>
+        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <span
               style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "8px",
+                width: "40px",
+                height: "40px",
+                borderRadius: "12px",
                 background: color,
                 display: "grid",
                 placeItems: "center",
                 color: "#fff",
+                fontWeight: 700,
+                boxShadow: "0 6px 14px rgba(0,0,0,0.15)",
               }}>
-              <Building2 size={18} />
+              <Building2 size={20} />
             </span>
             <div>
-              <h3 style={{ margin: 0 }}>
+              <h3 style={{ margin: 0, fontSize: "18px" }}>
                 {isEditing ? "Edit Employer Organization" : "Create Organization"}
               </h3>
-              <small style={{ color: "var(--muted)" }}>
+              <p style={{ margin: "2px 0 0 0", color: "var(--muted)", fontSize: "12px" }}>
                 Manage employer details & payslip configuration.
-              </small>
+              </p>
             </div>
           </div>
-          <button type="button" className="close-btn" onClick={onClose}>
+          <button type="button" className="ghost icon-only" onClick={onClose} style={{ borderRadius: "50%", padding: "6px" }}>
             <X size={18} />
           </button>
         </header>
 
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "12px" }}>
           <div>
             <label className="field-label" htmlFor="orgName">Organization / Employer Name *</label>
             <input
               id="orgName"
               className="text-input"
               type="text"
-              placeholder="e.g. Goldman Sachs, Acme Corp, Google"
+              placeholder="e.g. Acme Corp, Acme Corp, Google"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -169,8 +176,21 @@ export function OrganizationModal({
             </div>
           </div>
 
+          <label style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px", background: "var(--paper)", borderRadius: "10px", cursor: "pointer", border: "1px solid var(--line)" }}>
+            <input
+              type="checkbox"
+              checked={isCurrent}
+              onChange={(e) => setIsCurrent(e.target.checked)}
+              style={{ width: "16px", height: "16px", accentColor: "var(--indigo)" }}
+            />
+            <div>
+              <strong style={{ fontSize: "13px", display: "block", color: "var(--ink)" }}>Set as Current Employer</strong>
+              <span style={{ fontSize: "11px", color: "var(--muted)" }}>Pre-selects this employer on salary imports & top filters.</span>
+            </div>
+          </label>
+
           <footer className="modal-actions" style={{ marginTop: "12px" }}>
-            <button type="button" className="secondary" onClick={onClose} disabled={busy}>
+            <button type="button" className="ghost" onClick={onClose} disabled={busy}>
               Cancel
             </button>
             <button type="submit" className="primary" disabled={busy || !name.trim()}>
@@ -178,7 +198,7 @@ export function OrganizationModal({
             </button>
           </footer>
         </form>
-      </div>
+      </section>
     </div>
   );
 }

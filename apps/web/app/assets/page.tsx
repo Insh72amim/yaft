@@ -170,24 +170,32 @@ export default function AssetsPage() {
             </small>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-            <div className="hero-orbit">
-              <span>{hidePrivacy ? "•••" : `₹${(netWorth / 100000).toFixed(1)}L`}</span>
-              <small>Net Worth</small>
-            </div>
+          <div style={{ display: "flex", alignItems: "center", position: "relative", zIndex: 10 }}>
             <button
               type="button"
-              className="secondary compact"
               onClick={() => setHidePrivacy(!hidePrivacy)}
               style={{
-                background: "rgba(255, 255, 255, 0.16)",
-                borderColor: "rgba(255, 255, 255, 0.25)",
-                color: "white",
-                backdropFilter: "blur(8px)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 16px",
+                borderRadius: "20px",
+                background: hidePrivacy ? "rgba(255, 255, 255, 0.2)" : "rgba(16, 185, 129, 0.3)",
+                border: `1px solid ${hidePrivacy ? "rgba(255, 255, 255, 0.35)" : "rgba(16, 185, 129, 0.6)"}`,
+                color: "#ffffff",
+                fontWeight: 600,
+                fontSize: "12px",
+                backdropFilter: "blur(12px)",
+                boxShadow: "0 4px 14px rgba(0, 0, 0, 0.15)",
+                cursor: "pointer",
+                position: "relative",
+                zIndex: 10,
+                pointerEvents: "auto",
+                transition: "all 0.2s ease",
               }}
             >
-              {hidePrivacy ? <Eye size={15} /> : <EyeOff size={15} />}
-              {hidePrivacy ? "Show" : "Hide"}
+              {hidePrivacy ? <Eye size={15} style={{ pointerEvents: "none" }} /> : <EyeOff size={15} style={{ pointerEvents: "none" }} />}
+              <span style={{ pointerEvents: "none" }}>{hidePrivacy ? "Show Amounts" : "Hide Amounts"}</span>
             </button>
           </div>
         </div>

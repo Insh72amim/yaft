@@ -49,7 +49,9 @@ model User {
   categoryBudgets CategoryBudget[]
   imports      ImportBatch[]
   salaryStatements SalaryStatement[]
+  organizations Organization[]
   activeSips   ActiveSip[]
+  tags         Tag[]
 }
 
 model SalaryStatement {
@@ -81,6 +83,9 @@ model SalaryStatement {
   pdfPasswordIv         Bytes?
   pdfPasswordTag        Bytes?
   pdfPasswordKeyVersion Int?              @default(1)
+
+  organizationId        String?
+  organization          Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   lineItems             SalaryLineItem[]
 
@@ -249,6 +254,7 @@ model Transaction {
   fingerprint     String
   transferGroupId String?
   userVerified    Boolean      @default(false)
+  tags            TransactionTag[]
   createdAt       DateTime     @default(now())
 
   @@index([accountId, transactionDate])
@@ -411,4 +417,55 @@ model CategoryBudget {
 
   @@unique([userId, categoryId, month, year])
   @@index([userId, month, year])
+}
+
+model Tag {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  color        String           @default("#3b82f6")
+  description  String?
+  startDate    DateTime?
+  endDate      DateTime?
+  budgetLimit  BigInt?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  transactions TransactionTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model TransactionTag {
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  tagId         String
+  tag           Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  assignedAt    DateTime    @default(now())
+
+  @@id([transactionId, tagId])
+  @@index([tagId])
+  @@index([transactionId])
+}
+
+
+model Organization {
+  id               String            @id @default(cuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  code             String?
+  taxId            String?
+  currency         String            @default("INR")
+  color            String?
+  parsingConfig    Json?
+  sampleFilename   String?
+  isCurrent        Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  salaryStatements SalaryStatement[]
+
+  @@unique([userId, name])
+  @@index([userId])
 }

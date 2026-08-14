@@ -12,7 +12,8 @@ type Account = { id: string; name: string; type: string; institution: string | n
 type SourceOption = { source: string; label: string; description: string; extensions: string[]; maxBytes: number; accountRequired: boolean;
   commitMode: 'REVIEW_REQUIRED' | 'IMMEDIATE_ATOMIC_REPLACEMENT'; pdfPasswordSupported: boolean; rememberPasswordSupported: boolean; eligibleAccountIds: string[] };
 type KindOption = { kind: ImportKind; label: string; description: string; sources: SourceOption[] };
-type Catalog = { accounts: Account[]; options: KindOption[] };
+type OrganizationInfo = { id: string; name: string; code?: string | null; isCurrent: boolean };
+type Catalog = { accounts: Account[]; organizations?: OrganizationInfo[]; options: KindOption[] };
 type Category = { id: string; name: string; color: string };
 type BankRow = { id: string; rowNumber: number; transactionDate: string; postedDate: string | null; descriptionRaw: string; merchant: string | null;
   amount: number; reference: string | null; categoryId: string | null; isDuplicate: boolean; include: boolean; confidence: number };
@@ -24,7 +25,7 @@ type SalaryReview = { id: string; filename: string; payPeriod: string; employer:
   grossEarnings: number; grossDeductions: number; directPayment: number; netPay: number; status: string; createdAt: string; lineItems: SalaryItem[] };
 type BankPending = { kind: 'BANK_STATEMENT' | 'CREDIT_CARD_STATEMENT'; source: string; mode: 'REVIEW_REQUIRED'; createdAt: string; review: BankReview;
   actions: { commit: string; discard: string; updateRow: string } };
-type SalaryPending = { kind: 'SALARY_PAYSLIP'; source: 'GOLDMAN_SACHS'; mode: 'REVIEW_REQUIRED'; createdAt: string; review: SalaryReview;
+type SalaryPending = { kind: 'SALARY_PAYSLIP'; source: 'STANDARD_PAYSLIP'; mode: 'REVIEW_REQUIRED'; createdAt: string; review: SalaryReview;
   actions: { commit: string; discard: string } };
 type PendingImport = BankPending | SalaryPending;
 type ReviewUploadResult = Omit<BankPending, 'createdAt'> | Omit<SalaryPending, 'createdAt'>;
@@ -44,7 +45,7 @@ const SOURCE_URLS: Record<string, string> = {
   SBI: 'https://yonoretail.sbi.bank.in/registration/welcome',
   PNB: 'https://iretail.pnb.bank.in/',
   AXIS: 'https://omni.axis.bank.in/axisretailbanking/',
-  GOLDMAN_SACHS: 'https://www.goldmansachs.com/',
+  STANDARD_PAYSLIP: 'https://workday.com/',
   ZERODHA_KITE: 'https://console.zerodha.com/portfolio/holdings',
   GROWW: 'https://groww.in/user/profile/report',
   HDFC_CC: 'https://netbanking.hdfcbank.com/',
@@ -120,6 +121,8 @@ function ImportWorkspace() {
         }
       }
 
+
+
       if (!selectedKind) selectedKind = nextCatalog.options[0];
       if (!selectedSource) selectedSource = selectedKind?.sources.find((item) => item.source === requestedSource) ?? selectedKind?.sources[0];
 
@@ -128,6 +131,11 @@ function ImportWorkspace() {
         setSource(selectedSource.source);
         setAccountId(requestedAccount && selectedSource.eligibleAccountIds.includes(requestedAccount) ? requestedAccount
           : selectedSource.eligibleAccountIds.length === 1 ? selectedSource.eligibleAccountIds[0] : '');
+      }
+      // For salary payslip, always prefer the current employer's ORG_ source.
+      if (selectedKind?.kind === 'SALARY_PAYSLIP') {
+        const currentSrc = selectedKind.sources.find((s) => (s as any).isCurrent);
+        if (currentSrc) setSource(currentSrc.source);
       }
     } catch (reason) {
       if (isUnauthorized(reason)) router.replace('/login');
@@ -152,7 +160,11 @@ function ImportWorkspace() {
 
   function chooseKind(nextKind: ImportKind) {
     const option = catalog?.options.find((item) => item.kind === nextKind);
-    const nextSource = option?.sources[0];
+    // For salary payslips, prefer the current employer; otherwise pick the first source.
+    const currentSrc = nextKind === 'SALARY_PAYSLIP'
+      ? option?.sources.find((s) => (s as any).isCurrent)
+      : undefined;
+    const nextSource = currentSrc ?? option?.sources[0];
     setKind(nextKind); setSource(nextSource?.source ?? '');
     setAccountId(nextSource?.eligibleAccountIds.length === 1 ? nextSource.eligibleAccountIds[0] : '');
     clearFileAndCredentials();
@@ -312,7 +324,9 @@ function ImportWorkspace() {
       <div>{catalog.options.map((option) => { const Icon = kindIcon(option.kind); return <button type="button" key={option.kind}
         className={kind === option.kind ? 'selected' : ''} aria-pressed={kind === option.kind} onClick={() => chooseKind(option.kind)}><Icon/><span><strong>{option.label}</strong><small>{option.description}</small></span></button>; })}</div></fieldset>
       <div className="unified-fields"><label>2. Source<select value={sourceOption.source} onChange={(event) => chooseSource(event.target.value)}>
-        {kindOption?.sources.map((option) => <option key={option.source} value={option.source}>{option.label}</option>)}</select>
+        {kindOption?.sources.map((option) => <option key={option.source} value={option.source}>
+          {option.label}{(option as any).isCurrent ? ' ✓ Current' : ''}
+        </option>)}</select>
         <small>{sourceOption.description} <a href={SOURCE_URLS[sourceOption.source] ?? '#'} target="_blank" rel="noreferrer">Download from portal</a></small></label>
         <label>3. Destination account<select value={accountId} onChange={(event) => { setAccountId(event.target.value); setPdfPassword(''); setRememberPassword(false); setError(''); setNotice(''); setSyncWarning(''); }}>
           <option value="">✨ Auto-detect account from statement (Recommended)</option>

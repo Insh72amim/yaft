@@ -16,3 +16,6 @@ tmp/
 *.pdf
 *.xlsx
 *.xls
+yaft-worktrees/
+YAFT-worktrees/
+
