@@ -53,6 +53,13 @@ type Transaction = {
   category: string;
   categoryColor?: string;
   isTransfer: boolean;
+  tags?: Array<{ id: string; name: string; color: string }>;
+};
+
+type TagOption = {
+  id: string;
+  name: string;
+  color: string;
 };
 
 type Category = {
@@ -82,6 +89,7 @@ type TransactionsApiResponse = {
   transactions: Transaction[];
   categories: Category[];
   accounts: AccountOption[];
+  tags?: TagOption[];
   pagination: Pagination;
 };
 
@@ -98,6 +106,7 @@ export default function TransactionsPage() {
   >("ALL");
   const [categoryId, setCategoryId] = useState("all");
   const [accountId, setAccountId] = useState("all");
+  const [tagId, setTagId] = useState("all");
   const [minAmount, setMinAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -105,6 +114,9 @@ export default function TransactionsPage() {
 
   const [showFilters, setShowFilters] = useState(false);
   const [showCategoryEdit, setShowCategoryEdit] = useState(false);
+  const [showTagAssignModal, setShowTagAssignModal] = useState(false);
+  const [selectedTagToAssign, setSelectedTagToAssign] = useState("");
+  const [assigningTags, setAssigningTags] = useState(false);
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [reconciling, setReconciling] = useState(false);
@@ -132,6 +144,7 @@ export default function TransactionsPage() {
       if (categoryGroup !== "ALL") query.set("categoryGroup", categoryGroup);
       if (categoryId !== "all") query.set("categoryId", categoryId);
       if (accountId !== "all") query.set("accountId", accountId);
+      if (tagId !== "all") query.set("tagId", tagId);
       if (minAmount.trim()) query.set("minAmount", minAmount.trim());
       if (maxAmount.trim()) query.set("maxAmount", maxAmount.trim());
       if (startDate) query.set("startDate", startDate);
@@ -284,9 +297,32 @@ export default function TransactionsPage() {
     }
   };
 
+  const handleAssignTagToSelected = async (action: "ADD" | "REMOVE" | "SET") => {
+    if (selectedTxIds.length === 0 || !selectedTagToAssign) return;
+    setAssigningTags(true);
+    try {
+      await api("/tags/assign", {
+        method: "POST",
+        body: JSON.stringify({
+          transactionIds: selectedTxIds,
+          tagIds: [selectedTagToAssign],
+          action,
+        }),
+      });
+      setShowTagAssignModal(false);
+      setSelectedTxIds([]);
+      fetchTransactions();
+    } catch (err) {
+      setError(errorMessage(err, "Could not assign tags."));
+    } finally {
+      setAssigningTags(false);
+    }
+  };
+
   const activeFilterCount =
     (categoryGroup !== "ALL" ? 1 : 0) +
     (categoryId !== "all" ? 1 : 0) +
+    (tagId !== "all" ? 1 : 0) +
     (typeFilter !== "ALL" ? 1 : 0) +
     (search.trim() ? 1 : 0) +
     (minAmount ? 1 : 0) +
@@ -298,6 +334,7 @@ export default function TransactionsPage() {
   const resetFilters = () => {
     setCategoryGroup("ALL");
     setCategoryId("all");
+    setTagId("all");
     setSearch("");
     setMinAmount("");
     setMaxAmount("");
@@ -632,8 +669,26 @@ export default function TransactionsPage() {
                 gap: "6px",
               }}>
               <Tag size={14} color="var(--green)" />
-              {showCategoryEdit ? "Done Categorising" : "Categorise"}
+              {showCategoryEdit ? "Done Categorising" : "Select & Edit"}
             </button>
+            {selectedTxIds.length > 0 && (
+              <button
+                type="button"
+                className="secondary compact"
+                onClick={() => setShowTagAssignModal(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  background: "var(--green)",
+                  color: "#ffffff",
+                  border: "none",
+                  fontWeight: 700,
+                }}>
+                <Tag size={14} />
+                <span>Bulk Tag ({selectedTxIds.length})</span>
+              </button>
+            )}
             <button
               type="button"
               className={`secondary compact ${
@@ -802,6 +857,34 @@ export default function TransactionsPage() {
                         {cat.name}
                       </option>
                     ))}
+                </select>
+              </div>
+
+              {/* Tag / Event Filter Dropdown */}
+              <div style={{ flex: "1 1 150px", minWidth: "140px" }}>
+                <select
+                  value={tagId}
+                  onChange={(e) => {
+                    setTagId(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{
+                    width: "100%",
+                    height: "38px",
+                    fontSize: "13px",
+                    padding: "0 10px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--line)",
+                    background: "var(--background)",
+                    color: "var(--ink)",
+                    fontWeight: 600,
+                  }}>
+                  <option value="all">All Tags & Events</option>
+                  {data?.tags?.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      #{t.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1519,7 +1602,28 @@ export default function TransactionsPage() {
                     </div>
 
                     <div className="transaction-description-cell">
-                      <strong>{tx.description}</strong>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                        <strong>{tx.description}</strong>
+                        {tx.tags && tx.tags.length > 0 && (
+                          <div style={{ display: "inline-flex", gap: "4px", flexWrap: "wrap" }}>
+                            {tx.tags.map((t) => (
+                              <span
+                                key={t.id}
+                                style={{
+                                  fontSize: "10px",
+                                  padding: "1px 6px",
+                                  borderRadius: "4px",
+                                  background: `${t.color}20`,
+                                  color: t.color,
+                                  fontWeight: 700,
+                                  border: `1px solid ${t.color}40`,
+                                }}>
+                                #{t.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       {tx.details && <small>{tx.details}</small>}
                     </div>
 
@@ -1727,6 +1831,57 @@ export default function TransactionsPage() {
           </>
         )}
       </div>
+
+      {/* Bulk Tag Assignment Modal */}
+      {showTagAssignModal && (
+        <div className="modal-wrap" style={{ zIndex: 99999 }}>
+          <button className="backdrop" onClick={() => setShowTagAssignModal(false)} aria-label="Close tag assignment modal" />
+          <section className="modal" style={{ width: "min(420px, 90vw)", padding: "20px", borderRadius: "14px", background: "var(--card)", border: "1px solid var(--line)" }}>
+            <h3 style={{ margin: "0 0 10px 0", fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+              <Tag size={18} color="var(--green)" /> Tag {selectedTxIds.length} Selected Transaction{selectedTxIds.length === 1 ? "" : "s"}
+            </h3>
+            <p style={{ margin: "0 0 14px 0", fontSize: "12px", color: "var(--muted)" }}>
+              Select an event or custom tag to apply or remove from selected items.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "6px" }}>Select Tag</label>
+                <select
+                  value={selectedTagToAssign}
+                  onChange={(e) => setSelectedTagToAssign(e.target.value)}
+                  style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 700 }}>
+                  <option value="">Choose tag / event...</option>
+                  {data?.tags?.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      #{t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+                <button
+                  type="button"
+                  className="ghost compact"
+                  disabled={assigningTags || !selectedTagToAssign}
+                  onClick={() => handleAssignTagToSelected("REMOVE")}
+                  style={{ color: "#ef4444" }}>
+                  Remove Tag
+                </button>
+                <button
+                  type="button"
+                  className="secondary compact"
+                  disabled={assigningTags || !selectedTagToAssign}
+                  onClick={() => handleAssignTagToSelected("ADD")}
+                  style={{ background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700 }}>
+                  {assigningTags ? "Applying..." : "Apply Tag"}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </Shell>
   );
 }

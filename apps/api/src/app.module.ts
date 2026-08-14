@@ -17,6 +17,7 @@ import { CategoryRulesModule } from './category-rules/category-rules.module';
 import { TransfersModule } from './transfers/transfers.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { BackupModule } from './backup/backup.module';
+import { TagsModule } from './tags/tags.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { BackupModule } from './backup/backup.module';
     TransfersModule,
     OrganizationsModule,
     BackupModule,
+    TagsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

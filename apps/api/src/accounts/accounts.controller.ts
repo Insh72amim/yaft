@@ -639,6 +639,7 @@ export class AccountsController {
     @Query('categoryId') categoryId?: string,
     @Query('categoryGroup') categoryGroup?: string,
     @Query('accountId') accountId?: string,
+    @Query('tagId') tagId?: string,
     @Query('minAmount') minAmountStr?: string,
     @Query('maxAmount') maxAmountStr?: string,
   ) {
@@ -648,7 +649,7 @@ export class AccountsController {
     const minAmount = minAmountStr !== undefined && minAmountStr.trim() !== '' ? Number(minAmountStr) : undefined;
     const maxAmount = maxAmountStr !== undefined && maxAmountStr.trim() !== '' ? Number(maxAmountStr) : undefined;
 
-    const baseWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate, categoryId, categoryGroup);
+    const baseWhere = buildTransactionWhere(user.id, accountId, search, minAmount, maxAmount, type, startDate, endDate, categoryId, categoryGroup, tagId);
 
     if (mode === 'CREDIT_CARD') {
       baseWhere.account = { ...baseWhere.account, type: AccountType.CREDIT_CARD };
@@ -680,7 +681,7 @@ export class AccountsController {
       baseWhere.account = { ...baseWhere.account, type: { in: [AccountType.BANK, AccountType.SAVINGS, AccountType.CREDIT_CARD] } };
     }
 
-    const [total, aggregate, transactions, userCategories, userAccounts] = await Promise.all([
+    const [total, aggregate, transactions, userCategories, userAccounts, userTags] = await Promise.all([
       this.prisma.transaction.count({ where: baseWhere }),
       this.prisma.transaction.aggregate({
         where: baseWhere,
@@ -692,7 +693,8 @@ export class AccountsController {
           account: {
             select: { id: true, name: true, type: true, institution: true, vaultEntry: { select: { last4: true } } }
           },
-          category: { select: { id: true, name: true, color: true } }
+          category: { select: { id: true, name: true, color: true } },
+          tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
         },
         orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
@@ -707,6 +709,7 @@ export class AccountsController {
         },
         select: { id: true, name: true, type: true, institution: true, vaultEntry: { select: { last4: true } } },
       }),
+      this.prisma.tag.findMany({ where: { userId: user.id }, orderBy: { name: 'asc' } }),
     ]);
 
     const debitsWhere = { ...baseWhere, amount: { lt: 0n } };
@@ -739,6 +742,7 @@ export class AccountsController {
         category: item.category?.name ?? 'Uncategorised',
         categoryColor: item.category?.color ?? '#94a3b8',
         isTransfer: Boolean(item.transferGroupId),
+        tags: item.tags.map((t) => ({ id: t.tag.id, name: t.tag.name, color: t.tag.color })),
       })),
       categories: userCategories.map((c) => ({ id: c.id, name: c.name, color: c.color, type: c.type })),
       accounts: userAccounts.map((a) => ({
@@ -748,6 +752,7 @@ export class AccountsController {
         institution: a.institution,
         cardLast4: a.vaultEntry?.last4 ?? null,
       })),
+      tags: userTags.map((t) => ({ id: t.id, name: t.name, color: t.color })),
       pagination: { page, pageSize, total, pages: Math.ceil(total / pageSize) },
     };
   }
@@ -1002,8 +1007,13 @@ export function buildTransactionWhere(
   endDateStr?: string,
   categoryId?: string,
   categoryGroup?: string,
+  tagId?: string,
 ) {
   const where: any = { account: { userId, archived: false } };
+
+  if (tagId && tagId !== 'all') {
+    where.tags = { some: { tagId } };
+  }
 
   if (accountId && accountId !== 'all') {
     where.accountId = accountId;
