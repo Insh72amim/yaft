@@ -180,7 +180,11 @@ function ImportWorkspace() {
       const res = await api<any>('/email-ingestion/google/sync', { method: 'POST' });
       setNotice(res.message);
       await loadGoogleConfig();
-      if (res.batchId) await refreshPending(res.batchId);
+      const firstBatchId = res.batchIds?.[0] || res.batchId;
+      await refreshPending(firstBatchId);
+      if (firstBatchId || (res.batchIds && res.batchIds.length > 0)) {
+        setActiveTab('UPLOAD');
+      }
     } catch (err) {
       setError(errorMessage(err, 'Could not sync Gmail transaction alerts.'));
     } finally {
@@ -221,7 +225,11 @@ function ImportWorkspace() {
       });
       setSnippetResult(res);
       setNotice(res.message);
-      await refreshPending(res.batchId);
+      const targetBatchId = res.batchIds?.[0] || res.batchId;
+      await refreshPending(targetBatchId);
+      if (targetBatchId) {
+        setActiveTab('UPLOAD');
+      }
     } catch (err) {
       setError(errorMessage(err, 'Could not parse email snippet.'));
     } finally {
@@ -705,6 +713,34 @@ function ImportWorkspace() {
       </div>
     ) : activeTab === 'EMAIL_SYNC' ? (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {pending.length > 0 && (
+          <div style={{
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            padding: '12px 18px',
+            borderRadius: '10px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldCheck size={18} color="#10b981" />
+              <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>
+                {pending.length} pending import batch{pending.length > 1 ? 'es' : ''} waiting in your Review Queue.
+              </strong>
+            </div>
+            <button
+              type="button"
+              className="primary compact"
+              onClick={() => setActiveTab('UPLOAD')}
+              style={{ fontSize: '12px', padding: '6px 14px' }}>
+              Go to Review Queue &rarr;
+            </button>
+          </div>
+        )}
+
         {/* Email Header Banner */}
         <div className="panel" style={{ padding: '20px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.04) 100%)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
