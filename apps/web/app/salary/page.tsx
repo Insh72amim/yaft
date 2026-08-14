@@ -261,43 +261,45 @@ export default function SalaryPage() {
           </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          {availableFys.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--muted)" }}>Financial Year:</span>
-              <select
-                value={selectedFy}
-                onChange={(e) => setSelectedFy(e.target.value)}
-                className="text-input"
-                style={{ minWidth: "130px", padding: "6px 12px", borderRadius: "10px", fontSize: "13px" }}>
-                <option value="ALL">All Years ({availableFys.length})</option>
-                {availableFys.map((fy) => (
-                  <option key={fy} value={fy}>
-                    {fy}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+        {activeTab !== "organizations" && (
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            {availableFys.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--muted)" }}>Financial Year:</span>
+                <select
+                  value={selectedFy}
+                  onChange={(e) => setSelectedFy(e.target.value)}
+                  className="text-input"
+                  style={{ minWidth: "130px", padding: "6px 12px", borderRadius: "10px", fontSize: "13px" }}>
+                  <option value="ALL">All Years ({availableFys.length})</option>
+                  {availableFys.map((fy) => (
+                    <option key={fy} value={fy}>
+                      {fy}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-          {organizations.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--muted)" }}>Employer:</span>
-              <select
-                value={selectedOrgId}
-                onChange={(e) => setSelectedOrgId(e.target.value)}
-                className="text-input"
-                style={{ minWidth: "160px", maxWidth: "220px", padding: "6px 12px", borderRadius: "10px", fontSize: "13px" }}>
-                <option value="ALL">All Employers ({organizations.length})</option>
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name} {org.isCurrent ? "★ (Current)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
+            {organizations.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--muted)" }}>Employer:</span>
+                <select
+                  value={selectedOrgId}
+                  onChange={(e) => setSelectedOrgId(e.target.value)}
+                  className="text-input"
+                  style={{ minWidth: "160px", maxWidth: "220px", padding: "6px 12px", borderRadius: "10px", fontSize: "13px" }}>
+                  <option value="ALL">All Employers ({organizations.length})</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name} {org.isCurrent ? "★ (Current)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {activeTab === "statements" ? (
@@ -508,82 +510,113 @@ export default function SalaryPage() {
             </button>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "16px" }}>
             {organizations.map((org) => (
               <div
                 key={org.id}
                 style={{
                   border: "1px solid var(--line)",
-                  borderRadius: "14px",
-                  padding: "16px",
+                  borderRadius: "16px",
+                  padding: "18px",
                   background: "var(--card)",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
                   gap: "16px",
+                  boxShadow: "0 4px 14px rgba(0, 0, 0, 0.05)",
                 }}>
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      <span
-                        style={{
-                          width: "36px",
-                          height: "36px",
-                          borderRadius: "10px",
-                          background: org.color || "#4f46e5",
-                          color: "#fff",
-                          display: "grid",
-                          placeItems: "center",
-                          fontWeight: 700,
-                        }}>
-                        {org.name.slice(0, 2).toUpperCase()}
-                      </span>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <strong style={{ fontSize: "15px" }}>{org.name}</strong>
+                  <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+                    <span
+                      style={{
+                        width: "42px",
+                        height: "42px",
+                        minWidth: "42px",
+                        borderRadius: "12px",
+                        background: org.color || "#4f46e5",
+                        color: "#fff",
+                        display: "grid",
+                        placeItems: "center",
+                        fontWeight: 700,
+                        fontSize: "15px",
+                        boxShadow: `0 4px 12px ${org.color ? `${org.color}40` : "rgba(79,70,229,0.3)"}`,
+                      }}>
+                      {org.name.slice(0, 2).toUpperCase()}
+                    </span>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px", flexWrap: "wrap" }}>
+                        <strong
+                          style={{
+                            fontSize: "15px",
+                            fontWeight: 700,
+                            lineHeight: 1.35,
+                            color: "var(--ink)",
+                            wordBreak: "break-word",
+                            flex: 1,
+                            minWidth: "160px",
+                          }}>
+                          {org.name}
+                        </strong>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
                           {org.isCurrent && (
                             <span
                               style={{
                                 fontSize: "10px",
                                 fontWeight: 700,
-                                padding: "2px 6px",
+                                padding: "2px 7px",
                                 borderRadius: "6px",
                                 background: "rgba(99,102,241,0.2)",
                                 color: "#6366f1",
                                 border: "1px solid rgba(99,102,241,0.4)",
+                                whiteSpace: "nowrap",
                               }}>
                               Current Employer
                             </span>
                           )}
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              padding: "2px 8px",
+                              borderRadius: "10px",
+                              background: "var(--paper)",
+                              color: "var(--muted)",
+                              border: "1px solid var(--line)",
+                              whiteSpace: "nowrap",
+                            }}>
+                            {org.statementCount} slip{org.statementCount === 1 ? "" : "s"}
+                          </span>
                         </div>
-                        {org.taxId && <small style={{ color: "var(--muted)", display: "block" }}>Tax ID: {org.taxId}</small>}
                       </div>
+
+                      {org.taxId && (
+                        <small style={{ color: "var(--muted)", fontSize: "12px", display: "block", marginTop: "3px" }}>
+                          Tax ID / PAN: {org.taxId}
+                        </small>
+                      )}
                     </div>
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        padding: "2px 8px",
-                        borderRadius: "10px",
-                        background: "var(--bg)",
-                        color: "var(--muted)",
-                      }}>
-                      {org.statementCount} slips
-                    </span>
                   </div>
 
-                  <div style={{ marginTop: "12px", fontSize: "12px", color: "var(--muted)" }}>
+                  <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px dashed var(--line)", fontSize: "12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     {org.sampleFilename ? (
-                      <span style={{ color: "#10b981", display: "flex", alignItems: "center", gap: "4px" }}>
-                        <ShieldCheck size={14} /> Sample slip: {org.sampleFilename}
+                      <span style={{ color: "#10b981", display: "flex", alignItems: "center", gap: "5px", fontWeight: 500 }}>
+                        <ShieldCheck size={14} /> Sample: {org.sampleFilename}
                       </span>
                     ) : (
-                      <span>No sample slip uploaded yet</span>
+                      <span style={{ color: "var(--muted)", display: "flex", alignItems: "center", gap: "5px" }}>
+                        <FileText size={14} /> No sample slip uploaded
+                      </span>
                     )}
+
+                    <span style={{ color: org.payslipConfig ? "#6366f1" : "var(--muted)", fontSize: "11px", fontWeight: 600 }}>
+                      {org.payslipConfig ? "⚡ Custom Rules Set" : "Standard Schema"}
+                    </span>
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: "8px", borderTop: "1px solid var(--line)", paddingTop: "12px" }}>
+                <div style={{ display: "flex", gap: "8px", borderTop: "1px solid var(--line)", paddingTop: "14px" }}>
                   <button
                     type="button"
                     className="secondary compact"
@@ -592,20 +625,28 @@ export default function SalaryPage() {
                       setEditingOrg(org);
                       setShowOrgModal(true);
                     }}>
-                    Edit
+                    Edit Profile
                   </button>
-                  <button
-                    type="button"
-                    className="primary compact"
-                    style={{ flex: 1 }}
-                    onClick={() => setBuilderOrg(org)}>
-                    Parser Config
-                  </button>
+
                   <button
                     type="button"
                     className="secondary compact"
-                    style={{ color: "#f43f5e" }}
-                    onClick={() => setDeletingOrg(org)}>
+                    style={{
+                      flex: 1.2,
+                      background: "rgba(99, 102, 241, 0.12)",
+                      color: "#6366f1",
+                      borderColor: "rgba(99, 102, 241, 0.3)",
+                      fontWeight: 600,
+                    }}
+                    onClick={() => setBuilderOrg(org)}>
+                    Parser Config
+                  </button>
+
+                  <button
+                    type="button"
+                    className="danger compact icon-only"
+                    onClick={() => setDeletingOrg(org)}
+                    aria-label="Delete organization">
                     <Trash2 size={14} />
                   </button>
                 </div>
