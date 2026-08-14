@@ -27,6 +27,7 @@ import { PdfViewerModal } from "@/components/pdf-viewer-modal";
 import { OrganizationModal } from "@/components/organization-modal";
 import { PayslipConfigBuilderModal } from "@/components/payslip-config-builder-modal";
 import { SalaryBreakdownModal, DetailedSalaryStatement } from "@/components/salary-breakdown-modal";
+import { SalaryAnalyticsCard } from "@/components/salary-analytics-card";
 
 type SalaryStatement = DetailedSalaryStatement;
 type SalaryTimelinePoint = {
@@ -348,6 +349,19 @@ export default function SalaryPage() {
               <em>Employee + employer share</em>
             </article>
           </section>
+
+          <SalaryAnalyticsCard
+            statementCount={filteredSummary.statementCount}
+            totalGross={filteredSummary.totalGross}
+            totalDeductions={filteredSummary.totalDeductions}
+            totalNet={filteredSummary.totalNet}
+            employeePf={filteredSummary.employeePf}
+            employerPf={filteredSummary.employerPf}
+            taxes={filteredSummary.taxes}
+            latestNetPay={filteredSummary.latestNetPay}
+            selectedFy={selectedFy}
+          />
+
           <section className="panel salary-history salary-history-wide">
             <div className="panel-title">
               <div>
@@ -1131,31 +1145,65 @@ function ChronologicalTimeline({
     <section className="vertical-timeline-section">
       <h3>Chronological Pay Breakdown Feed</h3>
       <div className="vertical-timeline">
-        {sortedPoints.map((point) => (
-          <div key={point.month} className="timeline-item">
-            <div className="timeline-marker" />
-            <div className="timeline-content">
-              <div className="timeline-header">
-                <h4>{monthLabel(point.month)}</h4>
-                <span>Salary Slip</span>
-              </div>
-              <div className="timeline-stats-grid">
-                <div className="timeline-stat gross">
-                  <small>Gross Earnings</small>
-                  <strong>{money(point.grossEarnings)}</strong>
+        {sortedPoints.map((point, idx) => {
+          const prevPoint = sortedPoints[idx + 1];
+          let momPct: number | null = null;
+          if (prevPoint && prevPoint.netPay > 0) {
+            momPct = Number(
+              (((point.netPay - prevPoint.netPay) / prevPoint.netPay) * 100).toFixed(1)
+            );
+          }
+
+          return (
+            <div key={point.month} className="timeline-item">
+              <div className="timeline-marker" />
+              <div className="timeline-content">
+                <div className="timeline-header">
+                  <h4>{monthLabel(point.month)}</h4>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {momPct !== null && (
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: "10px",
+                          background:
+                            momPct >= 0
+                              ? "rgba(16, 185, 129, 0.15)"
+                              : "rgba(244, 63, 94, 0.15)",
+                          color: momPct >= 0 ? "#10b981" : "#f43f5e",
+                          border: `1px solid ${
+                            momPct >= 0
+                              ? "rgba(16, 185, 129, 0.3)"
+                              : "rgba(244, 63, 94, 0.3)"
+                          }`,
+                        }}
+                      >
+                        {momPct >= 0 ? `+${momPct}%` : `${momPct}%`} MoM
+                      </span>
+                    )}
+                    <span>Salary Slip</span>
+                  </div>
                 </div>
-                <div className="timeline-stat net">
-                  <small>Net Earnings</small>
-                  <strong>{money(point.netPay)}</strong>
-                </div>
-                <div className="timeline-stat tax">
-                  <small>Taxes Paid</small>
-                  <strong>{money(point.tax)}</strong>
+                <div className="timeline-stats-grid">
+                  <div className="timeline-stat gross">
+                    <small>Gross Earnings</small>
+                    <strong>{money(point.grossEarnings)}</strong>
+                  </div>
+                  <div className="timeline-stat net">
+                    <small>Net Earnings</small>
+                    <strong>{money(point.netPay)}</strong>
+                  </div>
+                  <div className="timeline-stat tax">
+                    <small>Taxes Paid</small>
+                    <strong>{money(point.tax)}</strong>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
