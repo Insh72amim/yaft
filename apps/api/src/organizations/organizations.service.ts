@@ -14,6 +14,56 @@ export class OrganizationsService {
 
   async list(userId: string) {
     if (!this.orgModel) return [];
+
+    // Auto-discover and link organizations from SalaryStatements
+    const statements = await this.prisma.salaryStatement.findMany({
+      where: { userId },
+      select: { id: true, employer: true, organizationId: true },
+    });
+
+    if (statements.length > 0) {
+      let existingOrgs = await this.orgModel.findMany({ where: { userId } });
+      const existingNames = new Set(existingOrgs.map((o: any) => o.name.toLowerCase()));
+
+      for (const s of statements) {
+        const cleanEmployer = s.employer.replace(/\s*\((Bonus|Variable Pay)\)$/i, '').trim();
+        if (!cleanEmployer) continue;
+
+        let matched = existingOrgs.find((o: any) => o.name.toLowerCase() === cleanEmployer.toLowerCase());
+        if (!matched && !existingNames.has(cleanEmployer.toLowerCase())) {
+          existingNames.add(cleanEmployer.toLowerCase());
+          try {
+            matched = await this.orgModel.create({
+              data: {
+                userId,
+                name: cleanEmployer,
+                currency: 'INR',
+                color: '#4f46e5',
+                isCurrent: existingOrgs.length === 0,
+                parsingConfig: {
+                  documentAnchors: [cleanEmployer.toUpperCase()],
+                  fields: {
+                    payPeriod: { anchor: 'Pay Period' },
+                    grossEarnings: { anchor: 'Gross Earnings' },
+                    grossDeductions: { anchor: 'Total Deductions' },
+                    netPay: { anchor: 'Net Pay' },
+                  },
+                },
+              },
+            });
+            existingOrgs.push(matched);
+          } catch {}
+        }
+
+        if (matched && (!s.organizationId || s.organizationId !== matched.id)) {
+          await this.prisma.salaryStatement.update({
+            where: { id: s.id },
+            data: { organizationId: matched.id },
+          }).catch(() => {});
+        }
+      }
+    }
+
     const orgs = await this.orgModel.findMany({
       where: { userId },
       include: { _count: { select: { salaryStatements: true } } },
@@ -96,6 +146,17 @@ export class OrganizationsService {
       },
     });
 
+    // Auto-link existing matching salary statements
+    const allStatements = await this.prisma.salaryStatement.findMany({ where: { userId } });
+    for (const s of allStatements) {
+      if (s.employer.toLowerCase().includes(org.name.toLowerCase())) {
+        await this.prisma.salaryStatement.update({
+          where: { id: s.id },
+          data: { organizationId: org.id },
+        }).catch(() => {});
+      }
+    }
+
     return org;
   }
 
@@ -123,6 +184,17 @@ export class OrganizationsService {
         ...(dto.parsingConfig ? { parsingConfig: dto.parsingConfig } : {}),
       },
     });
+
+    // Auto-link matching salary statements
+    const allStatements = await this.prisma.salaryStatement.findMany({ where: { userId } });
+    for (const s of allStatements) {
+      if (s.employer.toLowerCase().includes(updated.name.toLowerCase())) {
+        await this.prisma.salaryStatement.update({
+          where: { id: s.id },
+          data: { organizationId: updated.id },
+        }).catch(() => {});
+      }
+    }
 
     return updated;
   }

@@ -26,16 +26,9 @@ import {
 import { PdfViewerModal } from "@/components/pdf-viewer-modal";
 import { OrganizationModal } from "@/components/organization-modal";
 import { PayslipConfigBuilderModal } from "@/components/payslip-config-builder-modal";
+import { SalaryBreakdownModal, DetailedSalaryStatement } from "@/components/salary-breakdown-modal";
 
-type SalaryStatement = {
-  id: string;
-  payPeriod: string;
-  employer: string;
-  grossEarnings: number;
-  grossDeductions: number;
-  netPay: number;
-  filename: string;
-};
+type SalaryStatement = DetailedSalaryStatement;
 type SalaryTimelinePoint = {
   month: string;
   grossEarnings: number;
@@ -70,11 +63,14 @@ export default function SalaryPage() {
   const [deleteError, setDeleteError] = useState("");
   const [viewingStatement, setViewingStatement] =
     useState<SalaryStatement | null>(null);
+  const [breakdownStatement, setBreakdownStatement] =
+    useState<SalaryStatement | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);
 
   // Organizations state & Filter state
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>("ALL");
+  const [selectedFy, setSelectedFy] = useState<string>("ALL");
   const [editingOrg, setEditingOrg] = useState<any | null>(null);
   const [showOrgModal, setShowOrgModal] = useState(false);
   const [builderOrg, setBuilderOrg] = useState<any | null>(null);
@@ -147,14 +143,35 @@ export default function SalaryPage() {
       </Shell>
     );
 
-  // Compute filtered statements, summary & timeline points based on selectedOrgId
+  const getFinancialYear = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const year = d.getUTCFullYear();
+    const month = d.getUTCMonth() + 1;
+    if (month >= 4) {
+      const nextY = (year + 1).toString().slice(2);
+      return `FY${year.toString().slice(2)}-${nextY}`;
+    } else {
+      const prevY = (year - 1).toString().slice(2);
+      return `FY${prevY}-${year.toString().slice(2)}`;
+    }
+  };
+
+  const availableFys = Array.from(
+    new Set((data.statements || []).map((s: any) => getFinancialYear(s.payPeriod)))
+  ).sort().reverse();
+
+  // Compute filtered statements, summary & timeline points based on selectedOrgId and selectedFy
   const targetOrg = organizations.find((o) => o.id === selectedOrgId);
   const filteredStatements = (data.statements || []).filter((statement: any) => {
-    if (selectedOrgId === "ALL") return true;
-    return (
+    const matchesOrg =
+      selectedOrgId === "ALL" ||
       statement.organization?.id === selectedOrgId ||
-      (targetOrg && statement.employer.toLowerCase().includes(targetOrg.name.toLowerCase()))
-    );
+      Boolean(targetOrg && statement.employer.toLowerCase().includes(targetOrg.name.toLowerCase()));
+
+    const matchesFy =
+      selectedFy === "ALL" || getFinancialYear(statement.payPeriod) === selectedFy;
+
+    return matchesOrg && matchesFy;
   });
 
   const filteredSummary = {
@@ -173,7 +190,7 @@ export default function SalaryPage() {
   );
 
   const filteredTimeline = (data.timeline || []).filter((point) =>
-    selectedOrgId === "ALL" ? true : filteredTimelineMonths.has(point.month)
+    selectedOrgId === "ALL" && selectedFy === "ALL" ? true : filteredTimelineMonths.has(point.month)
   );
 
   return (
@@ -243,23 +260,43 @@ export default function SalaryPage() {
           </button>
         </div>
 
-        {organizations.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--muted)" }}>Employer:</span>
-            <select
-              value={selectedOrgId}
-              onChange={(e) => setSelectedOrgId(e.target.value)}
-              className="text-input"
-              style={{ minWidth: "160px", maxWidth: "220px", padding: "6px 12px", borderRadius: "10px", fontSize: "13px" }}>
-              <option value="ALL">All Employers ({organizations.length})</option>
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name} {org.isCurrent ? "★ (Current)" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          {availableFys.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--muted)" }}>Financial Year:</span>
+              <select
+                value={selectedFy}
+                onChange={(e) => setSelectedFy(e.target.value)}
+                className="text-input"
+                style={{ minWidth: "130px", padding: "6px 12px", borderRadius: "10px", fontSize: "13px" }}>
+                <option value="ALL">All Years ({availableFys.length})</option>
+                {availableFys.map((fy) => (
+                  <option key={fy} value={fy}>
+                    {fy}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {organizations.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--muted)" }}>Employer:</span>
+              <select
+                value={selectedOrgId}
+                onChange={(e) => setSelectedOrgId(e.target.value)}
+                className="text-input"
+                style={{ minWidth: "160px", maxWidth: "220px", padding: "6px 12px", borderRadius: "10px", fontSize: "13px" }}>
+                <option value="ALL">All Employers ({organizations.length})</option>
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name} {org.isCurrent ? "★ (Current)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       {activeTab === "statements" ? (
@@ -369,12 +406,20 @@ export default function SalaryPage() {
                       <div className="button-group">
                         <b>{money(statement.netPay)}</b>
                         <div></div>
+                        <button
+                          type="button"
+                          className="secondary compact"
+                          onClick={() => setBreakdownStatement(statement)}
+                          title="View itemized breakdown"
+                        >
+                          Breakdown
+                        </button>
                         {statement.filename !== "Manual Entry" ? (
                           <>
                             <button
                               className="secondary compact icon-only"
                               onClick={() => setViewingStatement(statement)}
-                              title="View inline"
+                              title="View inline PDF"
                             >
                               <Eye size={14} />
                             </button>
@@ -629,6 +674,16 @@ export default function SalaryPage() {
           title={viewingStatement.employer}
           payPeriod={viewingStatement.payPeriod}
           onClose={() => setViewingStatement(null)}
+        />
+      )}
+      {breakdownStatement && (
+        <SalaryBreakdownModal
+          statement={breakdownStatement}
+          onClose={() => setBreakdownStatement(null)}
+          onViewPdf={() => {
+            setViewingStatement(breakdownStatement);
+            setBreakdownStatement(null);
+          }}
         />
       )}
       {showManualModal && (

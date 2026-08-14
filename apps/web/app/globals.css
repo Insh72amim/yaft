@@ -1749,3 +1749,28 @@ html[data-theme='dark'] .account-document-icon.pdf{color:#fb923c;background:#3a1
   border: 1px solid var(--line);
   font-size: 11px;
 }
+
+/* Salary Breakdown Modal & Meta Cards */
+.meta-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--paper, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.meta-card .meta-icon {
+  color: var(--muted);
+}
+.meta-card small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.meta-card strong {
+  font-size: 13px;
+  color: var(--ink);
+}

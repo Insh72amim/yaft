@@ -68,6 +68,33 @@ export class SalaryService {
       targetEmployer = `${parsed.employer} (Variable Pay)`;
     }
 
+    if (!matchedOrg && parsed?.employer) {
+      const cleanEmp = parsed.employer.replace(/\s*\((Bonus|Variable Pay)\)$/i, '').trim();
+      matchedOrg = orgs.find((o: any) => o.name.toLowerCase() === cleanEmp.toLowerCase());
+      if (!matchedOrg && cleanEmp && (this.prisma as any).organization) {
+        try {
+          matchedOrg = await (this.prisma as any).organization.create({
+            data: {
+              userId,
+              name: cleanEmp,
+              currency: 'INR',
+              color: '#4f46e5',
+              isCurrent: orgs.length === 0,
+              parsingConfig: {
+                documentAnchors: [cleanEmp.toUpperCase()],
+                fields: {
+                  payPeriod: { anchor: 'Pay Period' },
+                  grossEarnings: { anchor: 'Gross Earnings' },
+                  grossDeductions: { anchor: 'Total Deductions' },
+                  netPay: { anchor: 'Net Pay' },
+                },
+              },
+            },
+          });
+        } catch {}
+      }
+    }
+
     const existing = await this.prisma.salaryStatement.findFirst({
       where: {
         userId,
@@ -89,6 +116,7 @@ export class SalaryService {
         bankName: parsed.bankName, bankAccountLast4: parsed.bankAccountLast4, uanLast4: parsed.uanLast4,
         currency: parsed.currency, grossEarnings: BigInt(parsed.grossEarnings), grossDeductions: BigInt(parsed.grossDeductions),
         directPayment: BigInt(parsed.directPayment), netPay: BigInt(parsed.netPay), filename: file.originalname.slice(0, 200), fileHash: hash,
+        organizationId: matchedOrg?.id,
         lineItems: { create: parsed.lineItems.map((item: any) => ({ type: item.type, description: item.description,
           currentAmount: BigInt(item.currentAmount), ytdAmount: item.ytdAmount === undefined ? undefined : BigInt(item.ytdAmount) })) },
       }, include: { lineItems: true } });
@@ -126,23 +154,23 @@ export class SalaryService {
       },
       orderBy: { payPeriod: 'desc' },
     });
-    const committed = statements.filter((statement) => statement.status === 'COMMITTED');
-    const totalGross = committed.reduce((sum, statement) => sum + Number(statement.grossEarnings), 0);
-    const totalDeductions = committed.reduce((sum, statement) => sum + Number(statement.grossDeductions), 0);
-    const totalNet = committed.reduce((sum, statement) => sum + Number(statement.netPay), 0);
-    const allItems = committed.flatMap((statement) => statement.lineItems);
-    const employeePf = allItems.filter((item) => item.type === SalaryItemType.DEDUCTION && /\bpf\b|provident fund/i.test(item.description)).reduce((sum, item) => sum + Number(item.currentAmount), 0);
-    const employerPf = allItems.filter((item) => item.type === SalaryItemType.EMPLOYER_CONTRIBUTION && /\bpf\b|provident fund/i.test(item.description)).reduce((sum, item) => sum + Number(item.currentAmount), 0);
-    const taxes = allItems.filter((item) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description)).reduce((sum, item) => sum + Number(item.currentAmount), 0);
+    const committed = statements.filter((statement: any) => statement.status === 'COMMITTED');
+    const totalGross = committed.reduce((sum: number, statement: any) => sum + Number(statement.grossEarnings), 0);
+    const totalDeductions = committed.reduce((sum: number, statement: any) => sum + Number(statement.grossDeductions), 0);
+    const totalNet = committed.reduce((sum: number, statement: any) => sum + Number(statement.netPay), 0);
+    const allItems = committed.flatMap((statement: any) => statement.lineItems);
+    const employeePf = allItems.filter((item: any) => item.type === SalaryItemType.DEDUCTION && /\bpf\b|provident fund/i.test(item.description)).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
+    const employerPf = allItems.filter((item: any) => item.type === SalaryItemType.EMPLOYER_CONTRIBUTION && /\bpf\b|provident fund/i.test(item.description)).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
+    const taxes = allItems.filter((item: any) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description)).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
     const latest = committed[0];
     const monthly = new Map<string, { grossEarnings: number; netPay: number; tax: number }>();
-    [...committed].sort((left, right) => left.payPeriod.getTime() - right.payPeriod.getTime()).forEach((statement) => {
+    [...committed].sort((left: any, right: any) => left.payPeriod.getTime() - right.payPeriod.getTime()).forEach((statement: any) => {
       const month = statement.payPeriod.toISOString().slice(0, 7);
       const current = monthly.get(month) ?? { grossEarnings: 0, netPay: 0, tax: 0 };
       current.grossEarnings += Number(statement.grossEarnings);
       current.netPay += Number(statement.netPay);
-      current.tax += statement.lineItems.filter((item) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description))
-        .reduce((sum, item) => sum + Number(item.currentAmount), 0);
+      current.tax += statement.lineItems.filter((item: any) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description))
+        .reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
       monthly.set(month, current);
     });
     let cumulativeGross = 0;
@@ -157,8 +185,8 @@ export class SalaryService {
       summary: { statementCount: committed.length, totalGross, totalDeductions, totalNet, employeePf, employerPf, taxes,
         latestNetPay: latest ? Number(latest.netPay) : 0 },
       timeline,
-      pending: statements.find((statement) => statement.status === 'REVIEW') ? this.serialize(statements.find((statement) => statement.status === 'REVIEW')!) : null,
-      statements: committed.map((statement) => this.serialize(statement)),
+      pending: statements.find((statement: any) => statement.status === 'REVIEW') ? this.serialize(statements.find((statement: any) => statement.status === 'REVIEW')!) : null,
+      statements: committed.map((statement: any) => this.serialize(statement)),
     };
   }
 
@@ -171,7 +199,7 @@ export class SalaryService {
   async pendingAll(userId: string) {
     const statements = await this.prisma.salaryStatement.findMany({ where: { userId, status: 'REVIEW' },
       include: { lineItems: true }, orderBy: { createdAt: 'desc' } });
-    return statements.map((statement) => this.serialize(statement));
+    return statements.map((statement: any) => this.serialize(statement));
   }
 
   async commit(userId: string, statementId: string) {
@@ -309,6 +337,36 @@ export class SalaryService {
       await this.discard(userId, existing.id);
     }
 
+    // Find or auto-create organization for this employer
+    let matchedOrg: any = null;
+    const cleanEmp = dto.employer.replace(/\s*\((Bonus|Variable Pay)\)$/i, '').trim();
+    if (cleanEmp && (this.prisma as any).organization) {
+      const orgs = await (this.prisma as any).organization.findMany({ where: { userId } });
+      matchedOrg = orgs.find((o: any) => o.name.toLowerCase() === cleanEmp.toLowerCase());
+      if (!matchedOrg) {
+        try {
+          matchedOrg = await (this.prisma as any).organization.create({
+            data: {
+              userId,
+              name: cleanEmp,
+              currency: 'INR',
+              color: '#4f46e5',
+              isCurrent: orgs.length === 0,
+              parsingConfig: {
+                documentAnchors: [cleanEmp.toUpperCase()],
+                fields: {
+                  payPeriod: { anchor: 'Pay Period' },
+                  grossEarnings: { anchor: 'Gross Earnings' },
+                  grossDeductions: { anchor: 'Total Deductions' },
+                  netPay: { anchor: 'Net Pay' },
+                },
+              },
+            },
+          });
+        } catch {}
+      }
+    }
+
     const statement = await this.prisma.salaryStatement.create({
       data: {
         userId,
@@ -317,6 +375,7 @@ export class SalaryService {
         grossEarnings,
         grossDeductions,
         netPay,
+        organizationId: matchedOrg?.id,
         filename: file ? file.originalname.slice(0, 200) : 'Manual Entry',
         fileHash: file ? createHash('sha256').update(file.buffer).digest('hex') : 'manual-placeholder',
         status: 'COMMITTED',
