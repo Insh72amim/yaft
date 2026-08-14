@@ -22,6 +22,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Zap,
+  Calendar,
+  Loader2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -117,6 +119,16 @@ export default function TransactionsPage() {
   const [showTagAssignModal, setShowTagAssignModal] = useState(false);
   const [selectedTagToAssign, setSelectedTagToAssign] = useState("");
   const [assigningTags, setAssigningTags] = useState(false);
+
+  const [showRangeActionModal, setShowRangeActionModal] = useState(false);
+  const [rangeStartDateTime, setRangeStartDateTime] = useState("");
+  const [rangeEndDateTime, setRangeEndDateTime] = useState("");
+  const [rangeTagId, setRangeTagId] = useState("");
+  const [rangeCategoryId, setRangeCategoryId] = useState("");
+  const [rangeAccountId, setRangeAccountId] = useState("all");
+  const [rangeKeywords, setRangeKeywords] = useState("");
+  const [rangeSubmitting, setRangeSubmitting] = useState(false);
+
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [reconciling, setReconciling] = useState(false);
@@ -316,6 +328,45 @@ export default function TransactionsPage() {
       setError(errorMessage(err, "Could not assign tags."));
     } finally {
       setAssigningTags(false);
+    }
+  };
+
+  const handleRunRangeAction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rangeStartDateTime && !rangeEndDateTime && !rangeKeywords.trim()) {
+      setError("Please enter a date/time range or keyword search.");
+      return;
+    }
+    setRangeSubmitting(true);
+    setError("");
+    try {
+      const keywordsArray = rangeKeywords
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean);
+
+      const res = await api<{ matchedCount: number; newlyTaggedCount: number; newlyCategorizedCount: number }>("/tags/range-apply", {
+        method: "POST",
+        body: JSON.stringify({
+          startDate: rangeStartDateTime || undefined,
+          endDate: rangeEndDateTime || undefined,
+          tagIds: rangeTagId ? [rangeTagId] : undefined,
+          categoryId: rangeCategoryId || undefined,
+          accountId: rangeAccountId !== "all" ? rangeAccountId : undefined,
+          keywords: keywordsArray.length > 0 ? keywordsArray : undefined,
+        }),
+      });
+
+      setReconcileMsg({
+        type: "success",
+        text: `Updated ${res.matchedCount} matching transactions in date/time range (${res.newlyTaggedCount} tagged, ${res.newlyCategorizedCount} categorized)!`,
+      });
+      setShowRangeActionModal(false);
+      fetchTransactions();
+    } catch (err) {
+      setError(errorMessage(err, "Could not apply range tag/categorization."));
+    } finally {
+      setRangeSubmitting(false);
     }
   };
 
@@ -689,6 +740,21 @@ export default function TransactionsPage() {
                 <span>Bulk Tag ({selectedTxIds.length})</span>
               </button>
             )}
+            <button
+              type="button"
+              className={`secondary compact ${showRangeActionModal ? "active" : ""}`}
+              onClick={() => setShowRangeActionModal(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "var(--background-alt)",
+                border: "1px solid var(--line)",
+                fontWeight: 600,
+              }}>
+              <Calendar size={14} color="var(--green)" />
+              <span>Tag / Categorise by Range</span>
+            </button>
             <button
               type="button"
               className={`secondary compact ${
@@ -1879,6 +1945,94 @@ export default function TransactionsPage() {
                 </button>
               </div>
             </div>
+          </section>
+        </div>
+      )}
+
+      {/* Date/Time Range Tag & Categorize Modal */}
+      {showRangeActionModal && (
+        <div className="modal-wrap" style={{ zIndex: 99999 }}>
+          <button className="backdrop" onClick={() => setShowRangeActionModal(false)} aria-label="Close range action modal" />
+          <section className="modal" style={{ width: "min(460px, 90vw)", padding: "20px", borderRadius: "14px", background: "var(--card)", border: "1px solid var(--line)" }}>
+            <h3 style={{ margin: "0 0 10px 0", fontSize: "1.15rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
+              <Calendar size={18} color="var(--green)" /> Tag & Categorise by Date/Time Range
+            </h3>
+            <p style={{ margin: "0 0 14px 0", fontSize: "12px", color: "var(--muted)" }}>
+              Tag or re-categorise all transactions occurring between a specific start and end date/time.
+            </p>
+
+            <form onSubmit={handleRunRangeAction} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Start Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={rangeStartDateTime}
+                    onChange={(e) => setRangeStartDateTime(e.target.value)}
+                    style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>End Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={rangeEndDateTime}
+                    onChange={(e) => setRangeEndDateTime(e.target.value)}
+                    style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Tag to Apply (Optional)</label>
+                <select
+                  value={rangeTagId}
+                  onChange={(e) => setRangeTagId(e.target.value)}
+                  style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                  <option value="">Do not apply tag</option>
+                  {data?.tags?.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      #{t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Category to Assign (Optional)</label>
+                <select
+                  value={rangeCategoryId}
+                  onChange={(e) => setRangeCategoryId(e.target.value)}
+                  style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                  <option value="">Keep current category</option>
+                  {data?.categories?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Merchant / Description Keywords (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Kerala, Kochi, Munnar, Indigo..."
+                  value={rangeKeywords}
+                  onChange={(e) => setRangeKeywords(e.target.value)}
+                  style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "6px" }}>
+                <button type="button" className="ghost compact" onClick={() => setShowRangeActionModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={rangeSubmitting} className="secondary compact" style={{ background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700 }}>
+                  {rangeSubmitting ? <Loader2 size={14} className="spin" /> : "Apply to Range"}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       )}

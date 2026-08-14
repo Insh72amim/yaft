@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, UseGuards } 
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { TagsService } from './tags.service';
-import { AssignTagsDto, AutoApplyTagDto, CreateTagDto, UpdateTagDto } from './tags.dto';
+import { AssignTagsDto, AutoApplyTagDto, CreateTagDto, RangeTagAndCategorizeDto, UpdateTagDto } from './tags.dto';
 
 @Controller('tags')
 @UseGuards(JwtAuthGuard)
@@ -38,6 +38,11 @@ export class TagsController {
   @Post('assign')
   assignTags(@CurrentUser() user: { id: string }, @Body() dto: AssignTagsDto) {
     return this.tagsService.assignTags(user.id, dto);
+  }
+
+  @Post('range-apply')
+  rangeTagAndCategorize(@CurrentUser() user: { id: string }, @Body() dto: RangeTagAndCategorizeDto) {
+    return this.tagsService.rangeTagAndCategorize(user.id, dto);
   }
 
   @Post(':id/auto-apply')

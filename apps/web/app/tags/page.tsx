@@ -127,18 +127,24 @@ export default function TagsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Auto-Tag Modal States
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [autoTagModalId, setAutoTagModalId] = useState<string | null>(null);
   const [autoStartDate, setAutoStartDate] = useState("");
   const [autoEndDate, setAutoEndDate] = useState("");
   const [autoKeywords, setAutoKeywords] = useState("");
+  const [autoCategoryId, setAutoCategoryId] = useState("");
   const [autoTagging, setAutoTagging] = useState(false);
 
   const loadTags = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const res = await api<TagItem[]>("/tags");
-      setTags(res || []);
+      const [tagsRes, catRes] = await Promise.all([
+        api<TagItem[]>("/tags"),
+        api<Array<{ id: string; name: string }>>("/categories").catch(() => []),
+      ]);
+      setTags(tagsRes || []);
+      setCategories(catRes || []);
     } catch (err) {
       setError(errorMessage(err, "Could not load tags."));
     } finally {
@@ -274,6 +280,7 @@ export default function TagsPage() {
     setAutoStartDate(tag.startDate ? tag.startDate.split("T")[0] : "");
     setAutoEndDate(tag.endDate ? tag.endDate.split("T")[0] : "");
     setAutoKeywords("");
+    setAutoCategoryId("");
   };
 
   const handleRunAutoTag = async (e: React.FormEvent) => {
@@ -289,16 +296,18 @@ export default function TagsPage() {
       .filter(Boolean);
 
     try {
-      const res = await api<{ matchedCount: number; newlyTaggedCount: number }>(`/tags/${autoTagModalId}/auto-apply`, {
+      const res = await api<{ matchedCount: number; newlyTaggedCount: number; newlyCategorizedCount?: number }>(`/tags/${autoTagModalId}/auto-apply`, {
         method: "POST",
         body: JSON.stringify({
           startDate: autoStartDate || null,
           endDate: autoEndDate || null,
           keywords: keywordsArray.length > 0 ? keywordsArray : null,
+          categoryId: autoCategoryId || undefined,
         }),
       });
 
-      setSuccessMsg(`Auto-tagged ${res.newlyTaggedCount} transaction${res.newlyTaggedCount === 1 ? "" : "s"}! (${res.matchedCount} matched)`);
+      const catInfo = res.newlyCategorizedCount ? ` and categorized ${res.newlyCategorizedCount}` : "";
+      setSuccessMsg(`Auto-tagged ${res.newlyTaggedCount}${catInfo} transaction${res.newlyTaggedCount === 1 ? "" : "s"}! (${res.matchedCount} matched in date/time range)`);
       setAutoTagModalId(null);
       loadTags();
       if (selectedTagId === autoTagModalId) loadTagAnalytics(selectedTagId);
@@ -809,6 +818,21 @@ export default function TagsPage() {
                     onChange={(e) => setAutoKeywords(e.target.value)}
                     style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
                   />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Also Assign Category (Optional)</label>
+                  <select
+                    value={autoCategoryId}
+                    onChange={(e) => setAutoCategoryId(e.target.value)}
+                    style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                    <option value="">Keep current categories</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "6px" }}>

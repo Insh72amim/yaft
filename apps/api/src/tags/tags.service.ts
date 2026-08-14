@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
-import { AssignTagsDto, AutoApplyTagDto, CreateTagDto, UpdateTagDto } from './tags.dto';
+import { AssignTagsDto, AutoApplyTagDto, CreateTagDto, RangeTagAndCategorizeDto, UpdateTagDto } from './tags.dto';
 
 @Injectable()
 export class TagsService {
@@ -339,16 +339,12 @@ export class TagsService {
 
     if (dto.startDate || dto.endDate) {
       whereClause.transactionDate = {};
-      if (dto.startDate) whereClause.transactionDate.gte = new Date(dto.startDate);
-      if (dto.endDate) whereClause.transactionDate.lte = new Date(dto.endDate);
+      if (dto.startDate) whereClause.transactionDate.gte = parseDateBoundary(dto.startDate, false);
+      if (dto.endDate) whereClause.transactionDate.lte = parseDateBoundary(dto.endDate, true);
     } else if (tag.startDate || tag.endDate) {
       whereClause.transactionDate = {};
       if (tag.startDate) whereClause.transactionDate.gte = tag.startDate;
       if (tag.endDate) whereClause.transactionDate.lte = tag.endDate;
-    }
-
-    if (dto.categoryId) {
-      whereClause.categoryId = dto.categoryId;
     }
 
     if (dto.keywords && dto.keywords.length > 0) {
@@ -362,11 +358,23 @@ export class TagsService {
       select: { id: true },
     });
 
+    const txIds = matchingTx.map((t) => t.id);
+
+    let newlyCategorizedCount = 0;
+    if (dto.categoryId && txIds.length > 0) {
+      const catId = dto.categoryId === 'uncategorised' || dto.categoryId === 'none' ? null : dto.categoryId;
+      const res = await this.prisma.transaction.updateMany({
+        where: { id: { in: txIds } },
+        data: { categoryId: catId },
+      });
+      newlyCategorizedCount = res.count;
+    }
+
     let newlyTaggedCount = 0;
-    for (const tx of matchingTx) {
+    for (const txId of txIds) {
       try {
         await this.prisma.transactionTag.create({
-          data: { transactionId: tx.id, tagId },
+          data: { transactionId: txId, tagId },
         });
         newlyTaggedCount++;
       } catch {
@@ -377,6 +385,87 @@ export class TagsService {
     return {
       matchedCount: matchingTx.length,
       newlyTaggedCount,
+      newlyCategorizedCount,
     };
   }
+
+  async rangeTagAndCategorize(userId: string, dto: RangeTagAndCategorizeDto) {
+    const whereClause: any = {
+      account: { userId, archived: false },
+    };
+
+    if (dto.accountId && dto.accountId !== 'all') {
+      whereClause.accountId = dto.accountId;
+    }
+
+    if (dto.startDate || dto.endDate) {
+      whereClause.transactionDate = {};
+      if (dto.startDate) whereClause.transactionDate.gte = parseDateBoundary(dto.startDate, false);
+      if (dto.endDate) whereClause.transactionDate.lte = parseDateBoundary(dto.endDate, true);
+    }
+
+    if (dto.keywords && dto.keywords.length > 0) {
+      whereClause.OR = dto.keywords.map((kw: string) => ({
+        descriptionRaw: { contains: kw.trim(), mode: 'insensitive' },
+      }));
+    }
+
+    const matchingTx = await this.prisma.transaction.findMany({
+      where: whereClause,
+      select: { id: true },
+    });
+
+    const txIds = matchingTx.map((t) => t.id);
+    if (txIds.length === 0) {
+      return { matchedCount: 0, newlyTaggedCount: 0, newlyCategorizedCount: 0 };
+    }
+
+    let newlyCategorizedCount = 0;
+    if (dto.categoryId !== undefined && dto.categoryId !== '') {
+      const catId = dto.categoryId === 'uncategorised' || dto.categoryId === 'none' ? null : dto.categoryId;
+      const res = await this.prisma.transaction.updateMany({
+        where: { id: { in: txIds } },
+        data: { categoryId: catId },
+      });
+      newlyCategorizedCount = res.count;
+    }
+
+    let newlyTaggedCount = 0;
+    if (dto.tagIds && dto.tagIds.length > 0) {
+      const userTags = await this.prisma.tag.findMany({
+        where: { id: { in: dto.tagIds }, userId },
+        select: { id: true },
+      });
+      const validTagIds = userTags.map((t) => t.id);
+
+      for (const txId of txIds) {
+        for (const tagId of validTagIds) {
+          try {
+            await this.prisma.transactionTag.create({
+              data: { transactionId: txId, tagId },
+            });
+            newlyTaggedCount++;
+          } catch {
+            // Ignore duplicate
+          }
+        }
+      }
+    }
+
+    return {
+      matchedCount: txIds.length,
+      newlyTaggedCount,
+      newlyCategorizedCount,
+    };
+  }
+}
+
+function parseDateBoundary(dateStr: string, isEnd = false): Date {
+  if (dateStr.includes('T')) {
+    return new Date(dateStr);
+  }
+  if (isEnd) {
+    return new Date(`${dateStr}T23:59:59.999Z`);
+  }
+  return new Date(`${dateStr}T00:00:00.000Z`);
 }
