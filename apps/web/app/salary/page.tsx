@@ -12,6 +12,8 @@ import {
   WalletCards,
   Eye,
   TrendingUp,
+  Calendar,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -182,13 +184,13 @@ export default function SalaryPage() {
 
   const filteredLineItems = filteredStatements.flatMap((s: any) => s.lineItems || []);
   const filteredEmployeePf = filteredLineItems
-    .filter((item: any) => item.type === "DEDUCTION" && /\bpf\b|provident fund/i.test(item.description))
+    .filter((item: any) => item.type === "DEDUCTION" && /\bpf\b|provident fund/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && (Number(item.currentAmount) || 0) < 5000000)
     .reduce((sum: number, item: any) => sum + (Number(item.currentAmount) || 0), 0);
   const filteredEmployerPf = filteredLineItems
-    .filter((item: any) => item.type === "EMPLOYER_CONTRIBUTION" && /\bpf\b|provident fund/i.test(item.description))
+    .filter((item: any) => item.type === "EMPLOYER_CONTRIBUTION" && /\bpf\b|provident fund/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && (Number(item.currentAmount) || 0) < 5000000)
     .reduce((sum: number, item: any) => sum + (Number(item.currentAmount) || 0), 0);
   const filteredTaxes = filteredLineItems
-    .filter((item: any) => item.type === "DEDUCTION" && /tax/i.test(item.description))
+    .filter((item: any) => item.type === "DEDUCTION" && /tax/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && (Number(item.currentAmount) || 0) < 50000000)
     .reduce((sum: number, item: any) => sum + (Number(item.currentAmount) || 0), 0);
 
   const filteredSummary = {
@@ -197,9 +199,9 @@ export default function SalaryPage() {
     totalNet: filteredStatements.reduce((acc, s) => acc + s.netPay, 0),
     totalGross: filteredStatements.reduce((acc, s) => acc + s.grossEarnings, 0),
     totalDeductions: filteredStatements.reduce((acc, s) => acc + s.grossDeductions, 0),
-    employeePf: selectedOrgId === "ALL" && selectedFy === "ALL" ? data.summary.employeePf : filteredEmployeePf,
-    employerPf: selectedOrgId === "ALL" && selectedFy === "ALL" ? data.summary.employerPf : filteredEmployerPf,
-    taxes: selectedOrgId === "ALL" && selectedFy === "ALL" ? data.summary.taxes : filteredTaxes,
+    employeePf: filteredEmployeePf,
+    employerPf: filteredEmployerPf,
+    taxes: filteredTaxes,
   };
 
   const filteredTimelineMonths = new Set(
@@ -458,88 +460,232 @@ export default function SalaryPage() {
             </article>
           </section>
 
-          <section className="panel salary-history salary-history-wide">
-            <div className="panel-title">
+          <section className="panel salary-history salary-history-wide" style={{ padding: "24px" }}>
+            <div className="panel-title" style={{ marginBottom: "20px" }}>
               <div>
-                <span className="eyebrow">Verified payroll record</span>
-                <h2>Salary history</h2>
+                <span className="eyebrow">Verified payroll records</span>
+                <h2 style={{ fontSize: "18px", fontWeight: 700, margin: "2px 0 0 0" }}>Salary history</h2>
               </div>
-              <Link
-                className="secondary compact"
-                href="/import?kind=SALARY_PAYSLIP&source=STANDARD_PAYSLIP">
-                <Upload />
-                Unified importer
-              </Link>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+                  {filteredStatements.length} verified statement{filteredStatements.length === 1 ? "" : "s"}
+                </span>
+                <Link
+                  className="secondary compact"
+                  href="/import?kind=SALARY_PAYSLIP&source=STANDARD_PAYSLIP"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <Upload size={13} />
+                  Import payslip
+                </Link>
+              </div>
             </div>
+
             {filteredStatements.length ? (
-              <div className="salary-history-list">
-                {filteredStatements.map((statement: any) => (
-                  <article key={statement.id}>
-                    <time>
-                      {new Date(statement.payPeriod).toLocaleDateString(
-                        "en-IN",
-                        { month: "short", year: "numeric", timeZone: "UTC" },
-                      )}
-                    </time>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <strong>{statement.employer}</strong>
-                        {statement.organization && (
-                          <span
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 8px", fontSize: "13px" }}>
+                  <thead>
+                    <tr style={{ color: "var(--muted)", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.6px" }}>
+                      <th style={{ padding: "8px 14px", textAlign: "left" }}>Pay Period</th>
+                      <th style={{ padding: "8px 14px", textAlign: "left" }}>Employer</th>
+                      <th style={{ padding: "8px 14px", textAlign: "right" }}>Gross Salary</th>
+                      <th style={{ padding: "8px 14px", textAlign: "right" }}>Deductions</th>
+                      <th style={{ padding: "8px 14px", textAlign: "right" }}>Net Take-Home</th>
+                      <th style={{ padding: "8px 14px", textAlign: "right" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStatements.map((statement: any) => {
+                      const stmtLineItems = statement.lineItems || [];
+                      const stmtTaxes = stmtLineItems
+                        .filter((li: any) => li.type === "DEDUCTION" && /tax/i.test(li.description))
+                        .reduce((sum: number, li: any) => sum + (Number(li.currentAmount) || 0), 0);
+                      const stmtPf = stmtLineItems
+                        .filter((li: any) => li.type === "DEDUCTION" && /\bpf\b|provident/i.test(li.description))
+                        .reduce((sum: number, li: any) => sum + (Number(li.currentAmount) || 0), 0);
+
+                      const orgColor = statement.organization?.color;
+                      const initial = (statement.employer || "GS").slice(0, 2).toUpperCase();
+
+                      return (
+                        <tr
+                          key={statement.id}
+                          style={{
+                            background: "var(--background-alt)",
+                            borderRadius: "12px",
+                            transition: "background 0.15s ease",
+                          }}>
+                          {/* Pay Period */}
+                          <td style={{ padding: "12px 14px", borderTopLeftRadius: "12px", borderBottomLeftRadius: "12px" }}>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                padding: "4px 10px",
+                                borderRadius: "8px",
+                                background: "var(--card)",
+                                border: "1px solid var(--line)",
+                                fontWeight: 700,
+                                fontSize: "11.5px",
+                                color: "var(--ink)",
+                                whiteSpace: "nowrap",
+                              }}>
+                              <Calendar size={13} style={{ color: "var(--muted)" }} />
+                              {new Date(statement.payPeriod).toLocaleDateString("en-IN", {
+                                month: "short",
+                                year: "numeric",
+                                timeZone: "UTC",
+                              }).toUpperCase()}
+                            </span>
+                          </td>
+
+                          {/* Employer */}
+                          <td style={{ padding: "12px 14px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <span
+                                style={{
+                                  width: "30px",
+                                  height: "30px",
+                                  minWidth: "30px",
+                                  borderRadius: "8px",
+                                  background: orgColor ? `${orgColor}22` : "rgba(99, 102, 241, 0.12)",
+                                  color: orgColor || "#6366f1",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  fontWeight: 800,
+                                  fontSize: "11px",
+                                  border: `1px solid ${orgColor ? `${orgColor}44` : "rgba(99, 102, 241, 0.25)"}`,
+                                }}>
+                                {initial}
+                              </span>
+                              <div style={{ minWidth: 0 }}>
+                                <strong
+                                  style={{
+                                    fontSize: "13px",
+                                    fontWeight: 700,
+                                    color: "var(--ink)",
+                                    display: "block",
+                                    lineHeight: 1.3,
+                                  }}>
+                                  {statement.employer}
+                                </strong>
+                                {statement.designation && (
+                                  <small style={{ color: "var(--muted)", fontSize: "11px" }}>
+                                    {statement.designation}
+                                  </small>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Gross Salary */}
+                          <td style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>
+                            <strong style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>
+                              {money(statement.grossEarnings)}
+                            </strong>
+                          </td>
+
+                          {/* Deductions & Tax */}
+                          <td style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: "13px", fontWeight: 600, color: "#ef4444" }}>
+                              -{money(statement.grossDeductions)}
+                            </span>
+                            {(stmtTaxes > 0 || stmtPf > 0) && (
+                              <small style={{ display: "block", color: "var(--muted)", fontSize: "10px", marginTop: "2px" }}>
+                                {stmtTaxes > 0 ? `Tax: ${money(stmtTaxes, true)}` : ""}
+                                {stmtTaxes > 0 && stmtPf > 0 ? " · " : ""}
+                                {stmtPf > 0 ? `PF: ${money(stmtPf, true)}` : ""}
+                              </small>
+                            )}
+                          </td>
+
+                          {/* Net Take-Home */}
+                          <td style={{ padding: "12px 14px", textAlign: "right", whiteSpace: "nowrap" }}>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                padding: "4px 10px",
+                                borderRadius: "8px",
+                                background: "rgba(16, 185, 129, 0.12)",
+                                color: "#10b981",
+                                fontWeight: 800,
+                                fontSize: "13px",
+                              }}>
+                              <Check size={12} strokeWidth={3} />
+                              {money(statement.netPay)}
+                            </span>
+                          </td>
+
+                          {/* Actions */}
+                          <td
                             style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "5px",
-                              padding: "2px 8px",
-                              borderRadius: "12px",
-                              fontSize: "11px",
-                              fontWeight: 600,
-                              background: statement.organization.color ? `${statement.organization.color}22` : "var(--paper)",
-                              color: statement.organization.color || "var(--ink)",
-                              border: `1px solid ${statement.organization.color ? `${statement.organization.color}44` : "var(--line)"}`,
-                              maxWidth: "180px",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
+                              padding: "12px 14px",
+                              textAlign: "right",
+                              borderTopRightRadius: "12px",
+                              borderBottomRightRadius: "12px",
                               whiteSpace: "nowrap",
                             }}>
-                            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: statement.organization.color || "var(--indigo)" }} />
-                            {statement.organization.name}
-                          </span>
-                        )}
-                      </div>
-                      <small>
-                        Net: {money(statement.netPay)} | Gross:{" "}
-                        {money(statement.grossEarnings)}
-                      </small>
-                    </div>
-                    <div className="salary-actions">
-                      <button
-                        type="button"
-                        className="secondary compact"
-                        onClick={() => setBreakdownStatement(statement)}
-                      >
-                        <Eye size={14} />
-                        View Breakdown
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary compact"
-                        onClick={() => setViewingStatement(statement)}
-                      >
-                        <FileText size={14} />
-                        View PDF
-                      </button>
-                      <button
-                        type="button"
-                        className="danger compact icon-only"
-                        onClick={() => setDeletingId(statement.id)}
-                        aria-label={`Delete statement for ${statement.employer}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </article>
-                ))}
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                              <button
+                                type="button"
+                                className="secondary compact"
+                                onClick={() => setBreakdownStatement(statement)}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  fontSize: "11.5px",
+                                  padding: "4px 9px",
+                                }}>
+                                <Eye size={13} />
+                                Breakdown
+                              </button>
+                              {statement.filename !== "Manual Entry" ? (
+                                <button
+                                  type="button"
+                                  className="secondary compact"
+                                  onClick={() => setViewingStatement(statement)}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    fontSize: "11.5px",
+                                    padding: "4px 9px",
+                                  }}>
+                                  <FileText size={13} />
+                                  PDF
+                                </button>
+                              ) : (
+                                <span
+                                  style={{
+                                    fontSize: "10.5px",
+                                    color: "var(--muted)",
+                                    background: "var(--card)",
+                                    border: "1px solid var(--line)",
+                                    padding: "3px 7px",
+                                    borderRadius: "6px",
+                                    fontWeight: 600,
+                                  }}>
+                                  Manual
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                className="danger compact icon-only"
+                                onClick={() => setDeletingId(statement.id)}
+                                aria-label={`Delete statement for ${statement.employer}`}
+                                style={{ padding: "5px 7px" }}>
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             ) : (
               <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center" }}>

@@ -159,9 +159,9 @@ export class SalaryService {
     const totalDeductions = committed.reduce((sum: number, statement: any) => sum + Number(statement.grossDeductions), 0);
     const totalNet = committed.reduce((sum: number, statement: any) => sum + Number(statement.netPay), 0);
     const allItems = committed.flatMap((statement: any) => statement.lineItems);
-    const employeePf = allItems.filter((item: any) => item.type === SalaryItemType.DEDUCTION && /\bpf\b|provident fund/i.test(item.description)).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
-    const employerPf = allItems.filter((item: any) => item.type === SalaryItemType.EMPLOYER_CONTRIBUTION && /\bpf\b|provident fund/i.test(item.description)).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
-    const taxes = allItems.filter((item: any) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description)).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
+    const employeePf = allItems.filter((item: any) => item.type === SalaryItemType.DEDUCTION && /\bpf\b|provident fund/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && Number(item.currentAmount) < 5000000).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
+    const employerPf = allItems.filter((item: any) => item.type === SalaryItemType.EMPLOYER_CONTRIBUTION && /\bpf\b|provident fund/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && Number(item.currentAmount) < 5000000).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
+    const taxes = allItems.filter((item: any) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && Number(item.currentAmount) < 50000000).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
     const latest = committed[0];
     const monthly = new Map<string, { grossEarnings: number; netPay: number; tax: number }>();
     [...committed].sort((left: any, right: any) => left.payPeriod.getTime() - right.payPeriod.getTime()).forEach((statement: any) => {
