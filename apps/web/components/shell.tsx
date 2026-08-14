@@ -27,7 +27,8 @@ const links = [
   { href: "/transactions", label: "Transactions", icon: Receipt },
   { href: "/accounts", label: "Accounts", icon: BriefcaseBusiness },
   { href: "/assets", label: "Assets", icon: TrendingUp },
-  { href: "/tags", label: "Tags", icon: Tag },
+  { href: "/budgets", label: "Budgets", icon: Target },
+  { href: "/tags", label: "Tags & Trips", icon: Tag },
   { href: "/salary", label: "Salary", icon: BadgeIndianRupee },
   { href: "/import", label: "Import", icon: Upload },
 ];
