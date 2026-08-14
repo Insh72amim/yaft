@@ -24,6 +24,7 @@
   --theme-progress-end: #4caf50;
   --theme-shadow-color: rgba(23, 79, 59, 0.16);
   --sidebar-bg: #f4f6f4;
+  --background-alt: #edf3ef;
 }
 
 /* Color Theme Overrides (Light Mode) */
@@ -541,17 +542,18 @@ html[data-theme='dark'] .holding-sector-tag {
 html[data-theme='dark']{color-scheme:dark;--ink:#edf4f0;--muted:#9caca3;--line:#2b3a33;--paper:#0c1411;--card:#14201a;--green:#76cfa5;--mint:#193729;--orange:#f3a06c;--red:#ff8f88;--shadow:0 18px 50px rgba(0,0,0,.3);
   /* Green Theme Defaults (Dark Mode) */
   --grad-start: #1e5641;
-  --grad-end: #0e261d;
+  --grad-end: #091711;
   --grad-start-trans: rgba(30, 86, 65, 0.95);
-  --grad-end-trans: rgba(14, 38, 29, 0.75);
+  --grad-end-trans: rgba(9, 23, 17, 0.75);
   --theme-soft-start: rgba(26, 46, 36, 0.8);
   --theme-soft-end: rgba(34, 60, 44, 0.9);
   --theme-soft-hover-start: rgba(34, 60, 44, 1.0);
   --theme-soft-hover-end: rgba(42, 72, 52, 1.0);
   --theme-border-soft: #2a5e3e;
   --theme-progress-end: #8ad9b2;
-  --theme-shadow-color: rgba(0, 0, 0, 0.3);
-  --sidebar-bg: #101a16;
+  --theme-shadow-color: rgba(0, 0, 0, 0.4);
+  --sidebar-bg: #0f1814;
+  --background-alt: #182720;
 }
 
 /* Color Theme Overrides (Dark Mode) */
@@ -559,64 +561,67 @@ html[data-theme='dark'][data-color-theme="blue"] {
   --green: #60a5fa;
   --mint: #1e293b;
   --grad-start: #1d4ed8;
-  --grad-end: #0f172a;
+  --grad-end: #090d16;
   --grad-start-trans: rgba(29, 78, 216, 0.95);
-  --grad-end-trans: rgba(15, 23, 42, 0.75);
+  --grad-end-trans: rgba(9, 13, 22, 0.75);
   --theme-soft-start: rgba(30, 41, 59, 0.8);
   --theme-soft-end: rgba(15, 23, 42, 0.9);
   --theme-soft-hover-start: rgba(15, 23, 42, 1.0);
   --theme-soft-hover-end: rgba(30, 41, 59, 1.0);
   --theme-border-soft: #1e3a8a;
   --theme-progress-end: #93c5fd;
-  --paper: #0f172a;
-  --card: #1e293b;
-  --line: #334155;
+  --paper: #090d16;
+  --card: #131b2e;
+  --line: #263554;
   --ink: #f8fafc;
   --muted: #94a3b8;
-  --theme-shadow-color: rgba(0, 0, 0, 0.4);
-  --sidebar-bg: #0b0f19;
+  --theme-shadow-color: rgba(0, 0, 0, 0.5);
+  --sidebar-bg: #0d1322;
+  --background-alt: #19243b;
 }
 html[data-theme='dark'][data-color-theme="yellow"] {
   --green: #fbbf24;
   --mint: #451a03;
   --grad-start: #b45309;
-  --grad-end: #451a03;
+  --grad-end: #0f0a05;
   --grad-start-trans: rgba(180, 83, 9, 0.95);
-  --grad-end-trans: rgba(69, 26, 3, 0.75);
+  --grad-end-trans: rgba(15, 10, 5, 0.75);
   --theme-soft-start: rgba(69, 26, 3, 0.8);
   --theme-soft-end: rgba(120, 53, 4, 0.9);
   --theme-soft-hover-start: rgba(120, 53, 4, 1.0);
   --theme-soft-hover-end: rgba(146, 64, 14, 1.0);
   --theme-border-soft: #78350f;
   --theme-progress-end: #fde68a;
-  --paper: #1c150c;
-  --card: #281d11;
-  --line: #42301b;
+  --paper: #0f0a05;
+  --card: #1e150b;
+  --line: #3d2c18;
   --ink: #fdfaf7;
   --muted: #bdae9c;
-  --theme-shadow-color: rgba(0, 0, 0, 0.4);
-  --sidebar-bg: #17110a;
+  --theme-shadow-color: rgba(0, 0, 0, 0.5);
+  --sidebar-bg: #140e07;
+  --background-alt: #261b0f;
 }
 html[data-theme='dark'][data-color-theme="purple"] {
   --green: #a78bfa;
   --mint: #2e1065;
   --grad-start: #6d28d9;
-  --grad-end: #1e1b4b;
+  --grad-end: #0a0712;
   --grad-start-trans: rgba(109, 40, 217, 0.95);
-  --grad-end-trans: rgba(30, 27, 75, 0.75);
+  --grad-end-trans: rgba(10, 7, 18, 0.75);
   --theme-soft-start: rgba(46, 16, 101, 0.8);
   --theme-soft-end: rgba(88, 28, 135, 0.9);
   --theme-soft-hover-start: rgba(88, 28, 135, 1.0);
   --theme-soft-hover-end: rgba(109, 40, 217, 1.0);
   --theme-border-soft: #581c87;
   --theme-progress-end: #c084fc;
-  --paper: #120e1c;
-  --card: #1c152b;
-  --line: #32254d;
+  --paper: #0a0712;
+  --card: #171126;
+  --line: #342852;
   --ink: #faf9fd;
   --muted: #ab9ebf;
-  --theme-shadow-color: rgba(0, 0, 0, 0.4);
-  --sidebar-bg: #0f0a1c;
+  --theme-shadow-color: rgba(0, 0, 0, 0.5);
+  --sidebar-bg: #100b1c;
+  --background-alt: #211936;
 }
 html[data-theme='dark'] .sidebar{background:var(--sidebar-bg)}
 html[data-theme='dark'] .brand-mark,html[data-theme='dark'] .primary{background:var(--green);color:#fff}
@@ -654,7 +659,14 @@ html[data-theme='dark'] .import-card li span{background:#22342b;color:#8ad9b2}
 html[data-theme='dark'] .dropzone,html[data-theme='dark'] .salary-dropzone,html[data-theme='dark'] .portfolio-dropzone{background:#111b17;border-color:#52655b}
 html[data-theme='dark'] .dropzone:hover,html[data-theme='dark'] .dropzone.has-file,html[data-theme='dark'] .salary-dropzone:hover,html[data-theme='dark'] .salary-dropzone.has-file,html[data-theme='dark'] .portfolio-dropzone:hover,html[data-theme='dark'] .portfolio-dropzone.has-file{background:#192920;border-color:#6db691}
 html[data-theme='dark'] .notice{background:#3a301c;color:#e7c37c}
-html[data-theme='dark'] .review-summary{background:linear-gradient(125deg,#205d43,#163f2f)}
+html[data-theme='dark'] .hero-card,
+html[data-theme='dark'] .salary-review-hero,
+html[data-theme='dark'] .assets-hero {
+  background: linear-gradient(135deg, var(--grad-start), var(--grad-end)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 50px var(--theme-shadow-color);
+}
+html[data-theme='dark'] .review-summary{background:linear-gradient(125deg,var(--grad-start),var(--grad-end))}
 html[data-theme='dark'] .review-head,html[data-theme='dark'] .account-transaction-table>header,html[data-theme='dark'] .holdings-table th,html[data-theme='dark'] .account-group>header{background:#19251f}
 html[data-theme='dark'] .check span{border-color:#52655b}
 html[data-theme='dark'] .commit-bar{background:rgba(20,32,26,.94);box-shadow:0 12px 35px rgba(0,0,0,.3)}
@@ -663,7 +675,15 @@ html[data-theme='dark'] .account-group{border-color:var(--line)}
 html[data-theme='dark'] .account-group>header strong{color:#a5b6ad}
 html[data-theme='dark'] .account-choice,html[data-theme='dark'] .import-kind-picker button{border-color:#35463e;background:#111b17}
 html[data-theme='dark'] .account-choice:hover,html[data-theme='dark'] .import-kind-picker button:hover{border-color:#628873;background:#192820}
-html[data-theme='dark'] .account-choice.selected,html[data-theme='dark'] .import-kind-picker button.selected,html[data-theme='dark'] .pending-tabs button.selected{border-color:var(--green);background:var(--theme-soft-start);box-shadow:0 0 0 2px var(--theme-shadow-color)}
+html[data-theme='dark'] .account-choice.selected,html[data-theme='dark'] .import-kind-picker button.selected{border-color:var(--green);background:var(--theme-soft-start);box-shadow:0 0 0 2px var(--theme-shadow-color)}
+html[data-theme='dark'] .pending-tabs button{background:var(--card);border-color:var(--line);color:var(--ink)}
+html[data-theme='dark'] .pending-tabs button span,html[data-theme='dark'] .pending-tabs button small{color:var(--muted)}
+html[data-theme='dark'] .pending-tabs button strong{color:var(--ink)}
+html[data-theme='dark'] .pending-tabs button.selected{border-color:var(--green);background:var(--theme-soft-start);box-shadow:0 0 12px var(--theme-shadow-color)}
+html[data-theme='dark'] .salary-tabs{background:var(--background-alt);border-color:var(--line)}
+html[data-theme='dark'] .salary-tabs button{color:var(--muted)}
+html[data-theme='dark'] .salary-tabs button:hover{color:var(--green)}
+html[data-theme='dark'] .salary-tabs button.active{background:var(--card);color:var(--green);box-shadow:0 4px 14px rgba(0,0,0,.4)}
 html[data-theme='dark'] .account-choice>svg,html[data-theme='dark'] .account-row-end svg{color:#8b9c93}
 html[data-theme='dark'] .account-fields{border-color:var(--line)}
 html[data-theme='dark'] .account-row-link:hover{background:#1a2821}
