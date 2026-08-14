@@ -58,18 +58,37 @@ type UnverifiedCategoryGroup = {
 };
 
 export default function BudgetsPage() {
-  const [activeTab, setActiveTab] = useState<"ENVELOPES" | "CATEGORIES" | "RULES" | "CONFIRMATIONS">("ENVELOPES");
+  const [activeTab, setActiveTab] = useState<"ENVELOPES" | "TAGS" | "CATEGORIES" | "RULES" | "CONFIRMATIONS">("ENVELOPES");
 
   // Main Data States
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [budgets, setBudgets] = useState<CategoryBudgetItem[]>([]);
   const [rules, setRules] = useState<CategoryRuleItem[]>([]);
   const [unverifiedCategories, setUnverifiedCategories] = useState<UnverifiedCategoryGroup[]>([]);
+  const [tags, setTags] = useState<Array<{ id: string; name: string; color: string; description: string | null; startDate: string | null; endDate: string | null; budgetLimit: number | null; transactionCount: number; totalSpent: number }>>([]);
   const [summary, setSummary] = useState({ totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0 });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  // Tag Assignment Form States
+  const [tagAssignMode, setTagAssignMode] = useState<"TIME_BASED" | "KEYWORD">("TIME_BASED");
+  const [selectedTagId, setSelectedTagId] = useState("");
+  const [tagStartDate, setTagStartDate] = useState("");
+  const [tagEndDate, setTagEndDate] = useState("");
+  const [tagKeywords, setTagKeywords] = useState("");
+  const [tagCatIdFilter, setTagCatIdFilter] = useState("");
+  const [applyingTag, setApplyingTag] = useState(false);
+
+  // New Tag Modal / Inline Form State
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#3b82f6");
+  const [newTagDesc, setNewTagDesc] = useState("");
+  const [newTagStart, setNewTagStart] = useState("");
+  const [newTagEnd, setNewTagEnd] = useState("");
+  const [newTagBudget, setNewTagBudget] = useState("");
+  const [creatingTag, setCreatingTag] = useState(false);
 
   // Category Filter States
   const [manageCatFilter, setManageCatFilter] = useState<"ALL" | "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER">("ALL");
@@ -118,11 +137,12 @@ export default function BudgetsPage() {
     try {
       setLoading(true);
       setError("");
-      const [catRes, budgetRes, ruleRes, unverifiedRes] = await Promise.all([
-        api<any>("/categories").catch(() => []),
+      const [budgetRes, catRes, ruleRes, unverifiedRes, tagRes] = await Promise.all([
         api<{ summary: any; budgets: CategoryBudgetItem[] }>("/budgets").catch(() => ({ summary: { totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0 }, budgets: [] })),
+        api<any>("/categories").catch(() => []),
         api<CategoryRuleItem[]>("/category-rules").catch(() => []),
         api<UnverifiedCategoryGroup[]>("/category-rules/unverified").catch(() => []),
+        api<any[]>("/tags").catch(() => []),
       ]);
 
       const catList: CategoryOption[] = Array.isArray(catRes)
@@ -135,15 +155,77 @@ export default function BudgetsPage() {
       if (budgetRes.summary) setSummary(budgetRes.summary);
       setRules(ruleRes || []);
       setUnverifiedCategories(unverifiedRes || []);
+      setTags(tagRes || []);
 
       if (!selectedCatId && catList.length > 0) setSelectedCatId(catList[0].id);
       if (!ruleCategoryId && catList.length > 0) setRuleCategoryId(catList[0].id);
+      if (!selectedTagId && tagRes && tagRes.length > 0) setSelectedTagId(tagRes[0].id);
     } catch (err) {
       setError(errorMessage(err, "Could not load budgets or categories."));
     } finally {
       setLoading(false);
     }
-  }, [selectedCatId, ruleCategoryId]);
+  }, [selectedCatId, ruleCategoryId, selectedTagId]);
+
+  const handleCreateTag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTagName.trim()) return;
+    try {
+      setCreatingTag(true);
+      setError("");
+      const created = await api<any>("/tags", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newTagName.trim(),
+          color: newTagColor,
+          description: newTagDesc.trim() || null,
+          startDate: newTagStart ? new Date(newTagStart).toISOString() : null,
+          endDate: newTagEnd ? new Date(newTagEnd).toISOString() : null,
+          budgetLimit: newTagBudget ? parseFloat(newTagBudget) : null,
+        }),
+      });
+      setSuccessMsg(`Created tag "${created.name}".`);
+      setNewTagName("");
+      setNewTagDesc("");
+      setNewTagStart("");
+      setNewTagEnd("");
+      setNewTagBudget("");
+      setSelectedTagId(created.id);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to create tag."));
+    } finally {
+      setCreatingTag(false);
+    }
+  };
+
+  const handleApplyTagAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTagId) {
+      setError("Please select a tag to assign.");
+      return;
+    }
+    try {
+      setApplyingTag(true);
+      setError("");
+      setSuccessMsg("");
+      const res = await api<{ matchedCount: number; assignedCount: number }>(`/tags/${selectedTagId}/auto-apply`, {
+        method: "POST",
+        body: JSON.stringify({
+          startDate: tagStartDate ? new Date(tagStartDate).toISOString() : undefined,
+          endDate: tagEndDate ? new Date(tagEndDate).toISOString() : undefined,
+          keywords: tagKeywords.trim() || undefined,
+          categoryId: tagCatIdFilter || undefined,
+        }),
+      });
+      setSuccessMsg(`Successfully auto-assigned tag to ${res.assignedCount} matching transaction(s)!`);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to assign tag."));
+    } finally {
+      setApplyingTag(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -421,6 +503,15 @@ export default function BudgetsPage() {
             >
               <Target size={15} color={activeTab === "ENVELOPES" ? "var(--green)" : "var(--muted)"} />
               Envelope Budgets ({budgets.length})
+            </button>
+            <button
+              type="button"
+              className={`secondary compact ${activeTab === "TAGS" ? "active" : ""}`}
+              onClick={() => setActiveTab("TAGS")}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
+            >
+              <Tag size={15} color={activeTab === "TAGS" ? "#3b82f6" : "var(--muted)"} />
+              Tag & Trip Assignment ({tags.length})
             </button>
             <button
               type="button"
@@ -719,6 +810,197 @@ export default function BudgetsPage() {
                     );
                   })}
               </div>
+            </section>
+          </div>
+        )}
+
+        {/* TAB: TAG & TRIP ASSIGNMENT */}
+        {activeTab === "TAGS" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "20px" }}>
+              {/* Form 1: Auto-Assign Tag (Time-Based & Keyword) */}
+              <section className="panel" style={{ padding: "20px" }}>
+                <div className="panel-title" style={{ marginBottom: "16px" }}>
+                  <div>
+                    <span className="eyebrow" style={{ color: "#3b82f6" }}>Automated Tag Assignment</span>
+                    <h2>Assign Tag to Transactions (Manual & Time-Based)</h2>
+                  </div>
+                </div>
+
+                <form onSubmit={handleApplyTagAssignment} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Target Tag / Trip</label>
+                    <select
+                      value={selectedTagId}
+                      onChange={(e) => setSelectedTagId(e.target.value)}
+                      required
+                      style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                      <option value="">Select Tag or Trip...</option>
+                      {tags.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name} {t.startDate ? `(${t.startDate.slice(0, 10)})` : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Start Date (Time-Based)</label>
+                      <input
+                        type="date"
+                        value={tagStartDate}
+                        onChange={(e) => setTagStartDate(e.target.value)}
+                        style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>End Date (Time-Based)</label>
+                      <input
+                        type="date"
+                        value={tagEndDate}
+                        onChange={(e) => setTagEndDate(e.target.value)}
+                        style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Merchant / Description Keywords (Optional)</label>
+                    <input
+                      type="text"
+                      value={tagKeywords}
+                      onChange={(e) => setTagKeywords(e.target.value)}
+                      placeholder="e.g. Zomato, Indigo, Swiggy, Hotel"
+                      style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={applyingTag || !selectedTagId}
+                    className="primary"
+                    style={{ alignSelf: "flex-start", marginTop: "4px", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                    <Sparkles size={16} />
+                    <span>{applyingTag ? "Applying Tag..." : "Auto-Apply Tag to Matching Transactions"}</span>
+                  </button>
+                </form>
+              </section>
+
+              {/* Form 2: Quick Tag Creator */}
+              <section className="panel" style={{ padding: "20px" }}>
+                <div className="panel-title" style={{ marginBottom: "16px" }}>
+                  <div>
+                    <span className="eyebrow" style={{ color: "#3b82f6" }}>Custom Tag Creator</span>
+                    <h2>Create New Tag or Vacation Trip</h2>
+                  </div>
+                </div>
+
+                <form onSubmit={handleCreateTag} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Tag / Trip Name</label>
+                    <input
+                      type="text"
+                      value={newTagName}
+                      onChange={(e) => setNewTagName(e.target.value)}
+                      placeholder="e.g. Goa Vacation 2026, Tax Deductible"
+                      required
+                      style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                    />
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Trip Start Date</label>
+                      <input
+                        type="date"
+                        value={newTagStart}
+                        onChange={(e) => setNewTagStart(e.target.value)}
+                        style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Trip End Date</label>
+                      <input
+                        type="date"
+                        value={newTagEnd}
+                        onChange={(e) => setNewTagEnd(e.target.value)}
+                        style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Trip Budget Limit (₹, Optional)</label>
+                    <input
+                      type="number"
+                      value={newTagBudget}
+                      onChange={(e) => setNewTagBudget(e.target.value)}
+                      placeholder="e.g. 50000"
+                      style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={creatingTag}
+                    className="secondary"
+                    style={{ alignSelf: "flex-start", marginTop: "4px", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                    <Plus size={16} />
+                    <span>{creatingTag ? "Creating..." : "Create Tag / Trip"}</span>
+                  </button>
+                </form>
+              </section>
+            </div>
+
+            {/* Tags Cards Grid */}
+            <section className="panel" style={{ padding: "24px" }}>
+              <h3 style={{ margin: "0 0 16px 0", fontSize: "1.05rem", fontWeight: 700, color: "var(--ink)" }}>All Active Tags & Trip Budgets ({tags.length})</h3>
+              {tags.length === 0 ? (
+                <p style={{ color: "var(--muted)", fontSize: "13px" }}>No tags created yet. Create a tag above to start tracking vacation trips or manual project expenses.</p>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+                  {tags.map((tag) => {
+                    const hasBudget = tag.budgetLimit !== null && tag.budgetLimit > 0;
+                    const pct = hasBudget ? Math.min(100, Math.round((tag.totalSpent / tag.budgetLimit!) * 100)) : 0;
+                    return (
+                      <div key={tag.id} style={{ background: "var(--background-alt)", padding: "16px", borderRadius: "12px", border: "1px solid var(--line)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: tag.color, display: "inline-block" }} />
+                            <strong style={{ fontSize: "14px", color: "var(--ink)" }}>{tag.name}</strong>
+                          </div>
+                          <button
+                            type="button"
+                            className="secondary compact"
+                            style={{ fontSize: "11px" }}
+                            onClick={() => { setSelectedTagId(tag.id); setTagStartDate(tag.startDate ? tag.startDate.slice(0, 10) : ""); setTagEndDate(tag.endDate ? tag.endDate.slice(0, 10) : ""); setTagKeywords(tag.name); }}>
+                            Assign
+                          </button>
+                        </div>
+                        {tag.startDate && (
+                          <span style={{ fontSize: "11px", color: "var(--muted)", display: "block", marginBottom: "8px" }}>
+                            📅 {tag.startDate.slice(0, 10)} to {tag.endDate ? tag.endDate.slice(0, 10) : "Present"}
+                          </span>
+                        )}
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginTop: "8px" }}>
+                          <span style={{ color: "var(--muted)" }}>Tagged Outflow:</span>
+                          <strong style={{ color: "#ef4444" }}>{money(tag.totalSpent * 100)}</strong>
+                        </div>
+                        {hasBudget && (
+                          <div style={{ marginTop: "8px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--muted)", marginBottom: "2px" }}>
+                              <span>Trip Limit: {money(tag.budgetLimit! * 100)}</span>
+                              <span>{pct}%</span>
+                            </div>
+                            <div style={{ width: "100%", height: "4px", background: "var(--line)", borderRadius: "4px", overflow: "hidden" }}>
+                              <div style={{ width: `${pct}%`, height: "100%", background: tag.color, borderRadius: "4px" }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </div>
         )}
