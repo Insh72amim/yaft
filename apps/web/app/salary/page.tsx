@@ -379,6 +379,22 @@ export default function SalaryPage() {
                 </select>
               </div>
             )}
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Link
+                href="/import?kind=SALARY_PAYSLIP&source=STANDARD_PAYSLIP"
+                className="secondary compact"
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <Upload size={14} /> Upload Payslip
+              </Link>
+              <button
+                type="button"
+                className="primary compact"
+                onClick={() => setShowManualModal(true)}
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <BadgeIndianRupee size={14} /> + Manual Entry
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -568,13 +584,23 @@ export default function SalaryPage() {
                 <BadgeIndianRupee />
                 <strong>No verified salary months yet</strong>
                 <p>
-                  Use Import records to validate and review your first payslip.
+                  Upload your monthly payslip PDF or enter your salary breakdown manually to track your net pay, taxes, and EPF savings.
                 </p>
-                <Link
-                  className="primary"
-                  href="/import?kind=SALARY_PAYSLIP&source=STANDARD_PAYSLIP">
-                  Import first payslip
-                </Link>
+                <div style={{ display: "flex", gap: "10px", marginTop: "12px", justifyContent: "center" }}>
+                  <Link
+                    className="primary"
+                    href="/import?kind=SALARY_PAYSLIP&source=STANDARD_PAYSLIP"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                    <Upload size={16} /> Upload Payslip PDF
+                  </Link>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setShowManualModal(true)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                    <BadgeIndianRupee size={16} /> + Add Manual Entry
+                  </button>
+                </div>
               </div>
             )}
           </section>
