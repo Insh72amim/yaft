@@ -198,8 +198,9 @@ export class GoogleGmailService {
 
         const snippet = msgDetail.data.snippet || '';
         const bodyText = this.extractMessageBody(msgDetail.data.payload) || snippet;
-        const subject = msgDetail.data.payload?.headers?.find((h) => h.name?.toLowerCase() === 'subject')?.value || '';
-        const from = msgDetail.data.payload?.headers?.find((h) => h.name?.toLowerCase() === 'from')?.value || '';
+        const headers = msgDetail.data.payload?.headers || [];
+        const subject = headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value || '';
+        const from = headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value || '';
 
         const alerts = parseMultipleEmailAlerts(bodyText + ' ' + snippet, `${from} ${subject}`);
         for (const alert of alerts) {
