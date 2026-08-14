@@ -492,9 +492,10 @@ export class UnifiedImportsService {
       let receivedSum = 0n;
       const catMap = new Map<string, { name: string; color: string; amount: bigint; count: number }>();
 
-      const rows = b.transactions.length > 0 ? b.transactions : b.staged;
+      const rows = (b.transactions && b.transactions.length > 0) ? b.transactions : (b.staged || []);
       for (const r of rows) {
-        const amt = r.amount;
+        if (!r || r.amount === undefined || r.amount === null) continue;
+        const amt = typeof r.amount === 'bigint' ? r.amount : BigInt(r.amount);
         if (amt < 0n) spentSum += -amt;
         else receivedSum += amt;
 
@@ -515,17 +516,21 @@ export class UnifiedImportsService {
         }))
         .sort((a, b) => b.amount - a.amount);
 
+      const accType = b.account?.type ?? 'SAVINGS';
+      const accName = b.account?.name ?? 'Statement Account';
+      const accInst = b.account?.institution ?? null;
+
       items.push({
         id: b.id,
-        sourceType: b.account.type === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'BANK_STATEMENT',
-        filename: b.filename,
-        status: b.status,
+        sourceType: accType === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'BANK_STATEMENT',
+        filename: b.filename || 'statement.pdf',
+        status: b.status || 'COMMITTED',
         rowCount: b.rowCount || rows.length,
-        createdAt: b.createdAt.toISOString(),
+        createdAt: b.createdAt ? b.createdAt.toISOString() : new Date().toISOString(),
         committedAt: b.committedAt ? b.committedAt.toISOString() : null,
-        accountName: b.account.name,
-        accountType: b.account.type,
-        accountInstitution: b.account.institution,
+        accountName: accName,
+        accountType: accType,
+        accountInstitution: accInst,
         totalSpent: Number(spentSum) / 100,
         totalReceived: Number(receivedSum) / 100,
         categories,
@@ -533,22 +538,26 @@ export class UnifiedImportsService {
     }
 
     for (const s of salaryStatements) {
+      const grossE = s.grossEarnings ? BigInt(s.grossEarnings) : 0n;
+      const grossD = s.grossDeductions ? BigInt(s.grossDeductions) : 0n;
+      const netP = s.netPay ? BigInt(s.netPay) : 0n;
+
       items.push({
         id: s.id,
         sourceType: 'SALARY_PAYSLIP',
-        filename: s.filename,
-        status: s.status,
-        rowCount: s.lineItems.length,
-        createdAt: s.createdAt.toISOString(),
+        filename: s.filename || 'payslip.pdf',
+        status: s.status || 'COMMITTED',
+        rowCount: s.lineItems ? s.lineItems.length : 0,
+        createdAt: s.createdAt ? s.createdAt.toISOString() : new Date().toISOString(),
         committedAt: s.committedAt ? s.committedAt.toISOString() : null,
         accountName: s.employer || 'Salary Statement',
         accountType: 'SALARY',
         accountInstitution: 'Goldman Sachs',
-        totalSpent: Number(s.grossDeductions) / 100,
-        totalReceived: Number(s.netPay) / 100,
+        totalSpent: Number(grossD) / 100,
+        totalReceived: Number(netP) / 100,
         categories: [
-          { name: 'Gross Earnings', color: '#10b981', amount: Number(s.grossEarnings) / 100, count: 1 },
-          { name: 'Deductions', color: '#ef4444', amount: Number(s.grossDeductions) / 100, count: 1 },
+          { name: 'Gross Earnings', color: '#10b981', amount: Number(grossE) / 100, count: 1 },
+          { name: 'Deductions', color: '#ef4444', amount: Number(grossD) / 100, count: 1 },
         ],
       });
     }
@@ -557,14 +566,14 @@ export class UnifiedImportsService {
       items.push({
         id: d.id,
         sourceType: 'DOCUMENT',
-        filename: d.name,
+        filename: d.name || 'document.pdf',
         status: 'COMMITTED',
         rowCount: 1,
-        createdAt: d.createdAt.toISOString(),
-        committedAt: d.createdAt.toISOString(),
-        accountName: d.account.name,
-        accountType: d.account.type,
-        accountInstitution: d.account.institution,
+        createdAt: d.createdAt ? d.createdAt.toISOString() : new Date().toISOString(),
+        committedAt: d.createdAt ? d.createdAt.toISOString() : new Date().toISOString(),
+        accountName: d.account?.name ?? 'Document Account',
+        accountType: d.account?.type ?? 'DOCUMENT',
+        accountInstitution: d.account?.institution ?? null,
         totalSpent: 0,
         totalReceived: 0,
         categories: [],
