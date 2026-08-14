@@ -1,6 +1,7 @@
 export interface ParsedEmailTransaction {
   bankName: string;
   accountLast4?: string;
+  accountType: 'CREDIT_CARD' | 'BANK';
   type: 'DEBIT' | 'CREDIT';
   amountMinor: bigint; // Signed minor units (negative for debit, positive for credit)
   amountDisplay: number; // Absolute rupees
@@ -119,9 +120,14 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     transactionDate = parseIndianDate(dateMatch[1]);
   }
 
+  // 1.5 Detect Account Type (Credit Card vs Bank Account)
+  const isCreditCard = /credit\s*card|creditcard|card\s*ending|credit\s*a\/c|amex|american express/i.test(fullContext);
+  const accountType: 'CREDIT_CARD' | 'BANK' = isCreditCard ? 'CREDIT_CARD' : 'BANK';
+
   return {
     bankName,
     accountLast4,
+    accountType,
     type,
     amountMinor,
     amountDisplay: rawAmountNum,

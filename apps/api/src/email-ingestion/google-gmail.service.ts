@@ -234,49 +234,90 @@ export class GoogleGmailService {
         };
       }
 
-      // Find or create default account
-      let account = await this.prisma.account.findFirst({
-        where: { userId, archived: false },
-        orderBy: { createdAt: 'asc' },
-      });
-
-      if (!account) {
-        account = await this.prisma.account.create({
-          data: {
-            userId,
-            name: 'Gmail Alert Account',
-            type: 'BANK',
-            institution: extractedAlerts[0].bankName,
-          },
-        });
+      // Group alerts by Bank & Account Type (CREDIT_CARD vs BANK)
+      const groups: Record<string, ParsedEmailTransaction[]> = {};
+      for (const alert of extractedAlerts) {
+        const key = `${alert.bankName}_${alert.accountType}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(alert);
       }
 
-      const fileHash = createHash('sha256').update(JSON.stringify(extractedAlerts, (k, v) => typeof v === 'bigint' ? v.toString() : v) + Date.now().toString()).digest('hex');
+      const createdBatchIds: string[] = [];
+      let totalStaged = 0;
 
-      const batch = await this.prisma.importBatch.create({
-        data: {
-          userId,
-          accountId: account.id,
-          filename: `gmail-alert-${config.email}-${new Date().toISOString().slice(0, 10)}.txt`,
-          fileHash,
-          rowCount: extractedAlerts.length,
-          status: 'REVIEW',
-          staged: {
-            create: extractedAlerts.map((alert, idx) => ({
-              rowNumber: idx + 1,
-              transactionDate: alert.transactionDate,
-              descriptionRaw: `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' A/C ' + alert.accountLast4 : ''}]`,
-              merchant: alert.merchant,
-              amount: alert.amountMinor,
-              reference: alert.referenceNumber || null,
-              fingerprint: `${account.id}-${alert.transactionDate.toISOString()}-${alert.amountMinor}-${idx}`,
-              include: true,
-              confidence: 0.95,
-            })),
-          },
-        },
-        include: { staged: true },
+      // Fetch user's active accounts once for smart matching
+      const userAccounts = await this.prisma.account.findMany({
+        where: { userId, archived: false },
       });
+
+      for (const [groupKey, groupAlerts] of Object.entries(groups)) {
+        const firstAlert = groupAlerts[0];
+        const targetType = firstAlert.accountType;
+        const bankName = firstAlert.bankName;
+
+        // Try to match existing account by type AND institution/name
+        let matchedAccount = userAccounts.find((acc) => {
+          if (acc.type !== targetType) return false;
+          const accInst = (acc.institution || '').toLowerCase();
+          const accName = (acc.name || '').toLowerCase();
+          const targetBank = bankName.toLowerCase();
+          return accInst.includes(targetBank) || targetBank.includes(accInst) || accName.includes(targetBank) || targetBank.includes(accName);
+        });
+
+        // If no institution match found, try matching by account type alone
+        if (!matchedAccount) {
+          matchedAccount = userAccounts.find((acc) => acc.type === targetType);
+        }
+
+        // If still no account found, auto-create a dedicated account for this institution & type
+        if (!matchedAccount) {
+          const newAccountName = `${bankName} ${targetType === 'CREDIT_CARD' ? 'Credit Card' : 'Account'}`;
+          matchedAccount = await this.prisma.account.create({
+            data: {
+              userId,
+              name: newAccountName,
+              type: targetType,
+              institution: bankName,
+            },
+          });
+          userAccounts.push(matchedAccount);
+        }
+
+        const fileHash = createHash('sha256')
+          .update(JSON.stringify(groupAlerts, (k, v) => (typeof v === 'bigint' ? v.toString() : v)) + Date.now().toString() + groupKey)
+          .digest('hex');
+
+        const cleanBankSlug = bankName.replace(/[^a-zA-Z0-9]/g, '-');
+        const batchFilename = `gmail-sync-${cleanBankSlug}-${targetType}-${new Date().toISOString().slice(0, 10)}.txt`;
+
+        const batch = await this.prisma.importBatch.create({
+          data: {
+            userId,
+            accountId: matchedAccount.id,
+            filename: batchFilename,
+            fileHash,
+            rowCount: groupAlerts.length,
+            status: 'REVIEW',
+            staged: {
+              create: groupAlerts.map((alert, idx) => ({
+                rowNumber: idx + 1,
+                transactionDate: alert.transactionDate,
+                descriptionRaw: `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' A/C ' + alert.accountLast4 : ''}]`,
+                merchant: alert.merchant,
+                amount: alert.amountMinor,
+                reference: alert.referenceNumber || null,
+                fingerprint: `${matchedAccount!.id}-${alert.transactionDate.toISOString()}-${alert.amountMinor}-${idx}`,
+                include: true,
+                confidence: 0.95,
+              })),
+            },
+          },
+          include: { staged: true },
+        });
+
+        createdBatchIds.push(batch.id);
+        totalStaged += batch.staged.length;
+      }
 
       await this.prisma.emailSyncLog.create({
         data: {
@@ -284,18 +325,18 @@ export class GoogleGmailService {
           status: 'SUCCESS',
           emailsScanned: messages.length,
           alertsParsed: extractedAlerts.length,
-          transactionsAdded: extractedAlerts.length,
-          sourceSnippet: `Ingested ${extractedAlerts.length} alert(s) from ${config.email}.`,
+          transactionsAdded: totalStaged,
+          sourceSnippet: `Ingested ${extractedAlerts.length} alert(s) across ${Object.keys(groups).length} account batch(es) from ${config.email}.`,
         },
       });
 
       return {
         success: true,
-        message: `Successfully ingested ${extractedAlerts.length} transaction alert(s) from ${config.email}!`,
-        batchId: batch.id,
+        message: `Successfully ingested ${extractedAlerts.length} transaction alert(s) across ${Object.keys(groups).length} account batch(es) from ${config.email}!`,
+        batchIds: createdBatchIds,
         scannedCount: messages.length,
         parsedCount: extractedAlerts.length,
-        stagedRowsCount: batch.staged.length,
+        stagedRowsCount: totalStaged,
       };
     } catch (err: any) {
       this.logger.error(`Gmail sync failed for user ${userId}: ${err.message}`, err.stack);
