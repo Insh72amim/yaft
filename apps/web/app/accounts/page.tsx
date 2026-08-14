@@ -1395,6 +1395,162 @@ function CreditCardDoughnutChart({
   );
 }
 
+function BeautifulCreditCardTile({
+  card,
+  onVaultClick,
+}: {
+  card: CardSummary;
+  onVaultClick: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const localLogo = getLocalLogo(card.institution, card.name);
+  const domain = getDomainForInstitution(card.institution || card.name);
+  const logoUrl = localLogo || `https://logo.clearbit.com/${domain}?size=128`;
+  const isOverLimit = card.utilizationPercent >= 100;
+  const isHighRisk = card.utilizationPercent > 30;
+  const networkClass = cardNetworkClass(card.cardNetwork);
+  const maskedNumber = card.cardLast4
+    ? `••••  ••••  ••••  ${card.cardLast4}`
+    : "••••  ••••  ••••  ••••";
+
+  return (
+    <div
+      className={`account-card credit-account-card credit-network-${networkClass}`}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        position: "relative",
+        minHeight: "240px",
+        padding: "20px",
+        borderRadius: "16px",
+      }}>
+      <div>
+        <div className="credit-account-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="credit-account-card-logo" style={{ width: "36px", height: "36px", borderRadius: "8px", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.15)" }}>
+            {!imgError ? (
+              <img
+                src={logoUrl}
+                alt={card.institution || card.name}
+                onError={() => setImgError(true)}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              <CreditCard size={20} color="#ffffff" />
+            )}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "1px", color: "rgba(255,255,255,0.9)" }}>
+              {card.cardNetwork || "CARD"}
+            </span>
+            <button
+              type="button"
+              onClick={onVaultClick}
+              title="View PDF password in Vault"
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                border: "1px solid rgba(255,255,255,0.3)",
+                color: "#ffffff",
+                borderRadius: "8px",
+                padding: "4px 8px",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "11px",
+                fontWeight: 600,
+                backdropFilter: "blur(4px)",
+              }}>
+              <Lock size={12} /> Password
+            </button>
+          </div>
+        </div>
+
+        <strong
+          className="credit-account-card-number"
+          style={{
+            display: "block",
+            margin: "18px 0 14px 0",
+            fontSize: "1.25rem",
+            letterSpacing: "2px",
+            fontFamily: "monospace",
+            color: "#ffffff",
+            textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+          }}>
+          {maskedNumber}
+        </strong>
+
+        <div className="credit-account-card-identity" style={{ display: "flex", justifyContent: "space-between", marginBottom: "14px" }}>
+          <div>
+            <small style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.5px", color: "rgba(255,255,255,0.7)", display: "block", fontWeight: 700 }}>Card Name</small>
+            <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: 700 }}>{card.name}</strong>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <small style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.5px", color: "rgba(255,255,255,0.7)", display: "block", fontWeight: 700 }}>Bank</small>
+            <strong style={{ fontSize: "13px", color: "#ffffff", fontWeight: 700 }}>{card.institution || "Bank"}</strong>
+          </div>
+        </div>
+      </div>
+
+      {/* Credit Status & Metrics Footer */}
+      <div
+        style={{
+          background: "rgba(0, 0, 0, 0.35)",
+          backdropFilter: "blur(12px)",
+          borderRadius: "12px",
+          padding: "12px 14px",
+          border: "1px solid rgba(255, 255, 255, 0.15)",
+        }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", marginBottom: "6px" }}>
+          <span style={{ color: "rgba(255,255,255,0.9)" }}>Due: <strong style={{ color: card.outstanding > 0 ? "#f87171" : "#ffffff" }}>{money(card.outstanding)}</strong></span>
+          <span style={{ color: "rgba(255,255,255,0.9)" }}>Avail: <strong style={{ color: "#4ade80" }}>{money(card.availableCredit)}</strong></span>
+          <span style={{ fontWeight: 800, color: isHighRisk ? "#f87171" : "#4ade80" }}>{card.utilizationPercent}% Used</span>
+        </div>
+
+        <div style={{ height: "5px", width: "100%", background: "rgba(255,255,255,0.2)", borderRadius: "3px", overflow: "hidden", marginBottom: "10px" }}>
+          <div
+            style={{
+              height: "100%",
+              width: `${Math.min(100, card.utilizationPercent)}%`,
+              background: isOverLimit ? "#ef4444" : isHighRisk ? "#f59e0b" : "#10b981",
+              borderRadius: "3px",
+            }}
+          />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          {(card.statementDate || card.dueDate) ? (
+            <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.75)", fontWeight: 600 }}>
+              {card.statementDate && `Stmt: ${card.statementDate}th`} {card.dueDate && `• Due: ${card.dueDate}th`}
+            </span>
+          ) : (
+            <span />
+          )}
+
+          <Link
+            href={`/accounts?account=${card.id}`}
+            style={{
+              fontSize: "11px",
+              fontWeight: 800,
+              color: "#ffffff",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              background: "rgba(255,255,255,0.2)",
+              padding: "4px 10px",
+              borderRadius: "6px",
+              border: "1px solid rgba(255,255,255,0.25)",
+            }}>
+            View Ledger →
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CreditCardsSection() {
   const router = useRouter();
   const [data, setData] = useState<CreditCardsApiResponse | null>(null);
@@ -1553,94 +1709,14 @@ function CreditCardsSection() {
         {cards.length === 0 ? (
           <p style={{ color: "var(--muted)", fontSize: "13px" }}>No credit card accounts found.</p>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
-            {cards.map((card) => {
-              const isOverLimit = card.utilizationPercent >= 100;
-              const isHighRisk = card.utilizationPercent > 30;
-
-              return (
-                <div
-                  key={card.id}
-                  style={{
-                    background: "var(--card)",
-                    border: "1px solid var(--line)",
-                    borderRadius: "16px",
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    gap: "16px",
-                  }}>
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-                      <div>
-                        <span style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--muted)", fontWeight: 700 }}>
-                          {card.institution || "Credit Card"}
-                        </span>
-                        <h3 style={{ margin: "2px 0 0 0", fontSize: "1.1rem", fontWeight: 700, color: "var(--ink)" }}>{card.name}</h3>
-                        <span style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "monospace" }}>
-                          {card.cardLast4 ? `•••• ${card.cardLast4}` : card.cardNetwork || "Card"}
-                        </span>
-                      </div>
-
-                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                        <button
-                          type="button"
-                          className="secondary compact"
-                          onClick={() => setVaultAccount(card)}
-                          title="View statement PDF password in Vault"
-                          style={{ padding: "6px 8px" }}>
-                          <Lock size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div style={{ marginBottom: "14px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "4px" }}>
-                        <span style={{ color: "var(--muted)" }}>Utilization</span>
-                        <span style={{ fontWeight: 700, color: isHighRisk ? "#ef4444" : "var(--ink)" }}>
-                          {card.utilizationPercent}%
-                        </span>
-                      </div>
-                      <div style={{ height: "6px", width: "100%", background: "var(--background-alt)", borderRadius: "3px", overflow: "hidden" }}>
-                        <div
-                          style={{
-                            height: "100%",
-                            width: `${Math.min(100, card.utilizationPercent)}%`,
-                            background: isOverLimit ? "#ef4444" : isHighRisk ? "#f59e0b" : "var(--green)",
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", padding: "10px 12px", background: "var(--background-alt)", borderRadius: "10px", marginBottom: "12px" }}>
-                      <div>
-                        <span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Outstanding</span>
-                        <strong style={{ color: card.outstanding > 0 ? "#ef4444" : "var(--ink)", fontSize: "13px" }}>{money(card.outstanding)}</strong>
-                      </div>
-                      <div>
-                        <span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Available</span>
-                        <strong style={{ color: "var(--green)", fontSize: "13px" }}>{money(card.availableCredit)}</strong>
-                      </div>
-                    </div>
-
-                    {(card.statementDate || card.dueDate) && (
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)" }}>
-                        {card.statementDate && <span>Statement: Day {card.statementDate}</span>}
-                        {card.dueDate && <span>Due: Day {card.dueDate}</span>}
-                      </div>
-                    )}
-                  </div>
-
-                  <Link
-                    href={`/accounts?account=${card.id}`}
-                    className="button secondary compact"
-                    style={{ width: "100%", justifyContent: "center", fontSize: "12px", fontWeight: 700 }}>
-                    View Card Details &amp; Ledger →
-                  </Link>
-                </div>
-              );
-            })}
+          <div className="credit-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
+            {cards.map((card) => (
+              <BeautifulCreditCardTile
+                key={card.id}
+                card={card}
+                onVaultClick={() => setVaultAccount(card)}
+              />
+            ))}
           </div>
         )}
       </div>
