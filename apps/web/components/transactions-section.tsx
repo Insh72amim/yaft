@@ -516,22 +516,6 @@ export function TransactionsSection({
             <Zap size={18} color="#f59e0b" />
             <span>UPI Lite</span>
           </button>
-
-          <button
-            type="button"
-            className={`secondary ${mode === "ALL" ? "active" : ""}`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "8px 16px",
-              borderRadius: "10px",
-              fontWeight: 600,
-            }}
-            onClick={() => handleModeChange("ALL")}>
-            <Receipt size={18} />
-            <span>All Non-Credit Transactions</span>
-          </button>
         </div>
       )}
 
