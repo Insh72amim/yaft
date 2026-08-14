@@ -179,11 +179,11 @@ Decision authority: <decisions allowed and decisions requiring approval>
 - Resolve conflicts by consulting the owning agent's contract and intent. Do not silently discard either side, weaken validation, or broaden scope to make a conflict disappear.
 - Before proposing `main` integration, inspect the complete diff from the pinned base, confirm migration order and lockfile consistency where applicable, and verify that no private artefacts or credentials are present.
 - A worktree is done only after all retained changes are committed, `git status --short` is empty, the branch and handoff commit hash are recorded, and no agent, command, server, or test process is using the directory.
-- The coordinator removes every done worktree immediately after handoff, even when its branch is still waiting for integration. Worktree removal must not be deferred as routine housekeeping.
+- The coordinator removes every done worktree immediately after handoff or integration into `main`. Worktree removal must not be deferred as routine housekeeping.
 - Remove a done worktree with `git worktree remove <absolute-worktree-path>` from a different checkout. Never use `--force`. If removal reports changes or active use, the task is not done; stop and resolve the condition instead of deleting the directory manually.
-- Removing a worktree does not remove its branch or commits. Retain the branch until its handoff commit is integrated or explicitly abandoned; branch deletion is a separate coordinator action.
+- Immediately after an agent's branch (`agent/<task-slug>`) is merged into `main`, delete both the worktree (`git worktree remove`) and the merged branch (`git branch -d agent/<task-slug>`) as standard default behavior.
 - An integrator worktree follows the same rule and is removed after its committed integration handoff. A later integration or review request gets a newly created worktree from the retained branch or commit.
-- Prune stale worktree metadata only after confirming no active task or process depends on it. Worktree cleanup is not permission to delete private inputs, another agent's directory, branches, or unrelated temporary data.
+- Prune stale worktree metadata (`git worktree prune`) after worktree removal. Worktree cleanup is not permission to delete private inputs, another agent's active directory, or unrelated temporary data.
 
 ## Git and operational safety
 
