@@ -86,7 +86,12 @@ export default function SalaryPage() {
   const loadOrgs = useCallback(async () => {
     try {
       const list = await api<any[]>("/organizations");
-      setOrganizations(list);
+      const orgList = list || [];
+      setOrganizations(orgList);
+      const currentOrg = orgList.find((o) => o.isCurrent) || orgList[0];
+      if (currentOrg) {
+        setSelectedOrgId((prev) => (prev === "ALL" ? currentOrg.id : prev));
+      }
     } catch {
       // ignore
     }
