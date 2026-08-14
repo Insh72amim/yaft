@@ -665,6 +665,15 @@ function PortfolioContent() {
           </button>
           <button
             type="button"
+            className={`secondary compact ${activeTab === "ASSETS" ? "active" : ""}`}
+            onClick={() => setActiveTab("ASSETS")}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
+          >
+            <TrendingUp size={15} color={activeTab === "ASSETS" ? "#3b82f6" : "var(--muted)"} />
+            Assets & Net Worth
+          </button>
+          <button
+            type="button"
             className={`secondary compact ${activeTab === "TRANSACTIONS" ? "active" : ""}`}
             onClick={() => setActiveTab("TRANSACTIONS")}
             style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
@@ -680,15 +689,6 @@ function PortfolioContent() {
           >
             <CreditCard size={15} color={activeTab === "CREDIT_CARDS" ? "#ef4444" : "var(--muted)"} />
             Credit Cards Analytics
-          </button>
-          <button
-            type="button"
-            className={`secondary compact ${activeTab === "ASSETS" ? "active" : ""}`}
-            onClick={() => setActiveTab("ASSETS")}
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
-          >
-            <TrendingUp size={15} color={activeTab === "ASSETS" ? "#3b82f6" : "var(--muted)"} />
-            Assets & Net Worth
           </button>
         </div>
       </div>
