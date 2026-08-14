@@ -172,7 +172,7 @@ export function SalaryTaxDeductionsCard({
             </p>
           </div>
 
-          <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px dashed var(--line)", display: "flex", alignItems: "center", justifyBetween: "space-between", gap: "8px" }}>
+          <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px dashed var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
             <span style={{ fontSize: "11px", color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
               <Calculator size={13} /> Standard Deduction: <strong>{money(STANDARD_DEDUCTION)}</strong> claimed
             </span>

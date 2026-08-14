@@ -84,10 +84,6 @@ export default function SalaryPage() {
     try {
       const list = await api<any[]>("/organizations");
       setOrganizations(list);
-      const current = list.find((o) => o.isCurrent);
-      if (current) {
-        setSelectedOrgId((prev) => (prev === "ALL" ? current.id : prev));
-      }
     } catch {
       // ignore
     }
@@ -165,10 +161,17 @@ export default function SalaryPage() {
   // Compute filtered statements, summary & timeline points based on selectedOrgId and selectedFy
   const targetOrg = organizations.find((o) => o.id === selectedOrgId);
   const filteredStatements = (data.statements || []).filter((statement: any) => {
+    const stmtEmployer = (statement.employer || "").toLowerCase();
+    const orgName = (targetOrg?.name || "").toLowerCase();
+
     const matchesOrg =
       selectedOrgId === "ALL" ||
+      statement.organizationId === selectedOrgId ||
       statement.organization?.id === selectedOrgId ||
-      Boolean(targetOrg && statement.employer.toLowerCase().includes(targetOrg.name.toLowerCase()));
+      Boolean(
+        targetOrg &&
+          (stmtEmployer.includes(orgName) || (orgName.length > 0 && orgName.includes(stmtEmployer)))
+      );
 
     const matchesFy =
       selectedFy === "ALL" || getFinancialYear(statement.payPeriod) === selectedFy;
@@ -176,15 +179,26 @@ export default function SalaryPage() {
     return matchesOrg && matchesFy;
   });
 
+  const filteredLineItems = filteredStatements.flatMap((s: any) => s.lineItems || []);
+  const filteredEmployeePf = filteredLineItems
+    .filter((item: any) => item.type === "DEDUCTION" && /\bpf\b|provident fund/i.test(item.description))
+    .reduce((sum: number, item: any) => sum + (Number(item.currentAmount) || 0), 0);
+  const filteredEmployerPf = filteredLineItems
+    .filter((item: any) => item.type === "EMPLOYER_CONTRIBUTION" && /\bpf\b|provident fund/i.test(item.description))
+    .reduce((sum: number, item: any) => sum + (Number(item.currentAmount) || 0), 0);
+  const filteredTaxes = filteredLineItems
+    .filter((item: any) => item.type === "DEDUCTION" && /tax/i.test(item.description))
+    .reduce((sum: number, item: any) => sum + (Number(item.currentAmount) || 0), 0);
+
   const filteredSummary = {
     statementCount: filteredStatements.length,
     latestNetPay: filteredStatements[0]?.netPay || 0,
     totalNet: filteredStatements.reduce((acc, s) => acc + s.netPay, 0),
     totalGross: filteredStatements.reduce((acc, s) => acc + s.grossEarnings, 0),
     totalDeductions: filteredStatements.reduce((acc, s) => acc + s.grossDeductions, 0),
-    employeePf: data.summary.employeePf,
-    employerPf: data.summary.employerPf,
-    taxes: data.summary.taxes,
+    employeePf: selectedOrgId === "ALL" && selectedFy === "ALL" ? data.summary.employeePf : filteredEmployeePf,
+    employerPf: selectedOrgId === "ALL" && selectedFy === "ALL" ? data.summary.employerPf : filteredEmployerPf,
+    taxes: selectedOrgId === "ALL" && selectedFy === "ALL" ? data.summary.taxes : filteredTaxes,
   };
 
   const filteredTimelineMonths = new Set(
