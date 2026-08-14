@@ -569,10 +569,12 @@ export default function SalaryPage() {
                                   }}>
                                   {statement.employer}
                                 </strong>
-                                {statement.designation && (
-                                  <small style={{ color: "var(--muted)", fontSize: "11px" }}>
-                                    {statement.designation}
-                                  </small>
+                                {statement.designation &&
+                                  statement.designation.trim().toLowerCase() !== statement.employer.trim().toLowerCase() &&
+                                  !statement.employer.toLowerCase().includes(statement.designation.toLowerCase()) && (
+                                    <small style={{ color: "var(--muted)", fontSize: "11px" }}>
+                                      {statement.designation}
+                                    </small>
                                 )}
                               </div>
                             </div>
