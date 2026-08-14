@@ -27,6 +27,7 @@ import {
   Sparkles,
   AlertCircle,
   Loader2,
+  Gauge,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -349,8 +350,14 @@ function AccountCard({
 function PortfolioContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get("tab") === "assets" ? "ASSETS" : "ACCOUNTS";
-  const [activeTab, setActiveTab] = useState<"ACCOUNTS" | "ASSETS">(initialTab);
+  const tabParam = searchParams.get("tab");
+  const initialTab = (tabParam === "credit_cards" || tabParam === "CREDIT_CARDS")
+    ? "CREDIT_CARDS"
+    : (tabParam === "assets" || tabParam === "ASSETS")
+    ? "ASSETS"
+    : "ACCOUNTS";
+
+  const [activeTab, setActiveTab] = useState<"ACCOUNTS" | "CREDIT_CARDS" | "ASSETS">(initialTab);
 
   const [portfolio, setPortfolio] = useState<PortfolioAccount[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -651,17 +658,28 @@ function PortfolioContent() {
           </button>
           <button
             type="button"
+            className={`secondary compact ${activeTab === "CREDIT_CARDS" ? "active" : ""}`}
+            onClick={() => setActiveTab("CREDIT_CARDS")}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
+          >
+            <CreditCard size={15} color={activeTab === "CREDIT_CARDS" ? "#ef4444" : "var(--muted)"} />
+            Credit Cards Analytics
+          </button>
+          <button
+            type="button"
             className={`secondary compact ${activeTab === "ASSETS" ? "active" : ""}`}
             onClick={() => setActiveTab("ASSETS")}
             style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
           >
             <TrendingUp size={15} color={activeTab === "ASSETS" ? "#3b82f6" : "var(--muted)"} />
-            Assets & Net Worth Allocation
+            Assets & Net Worth
           </button>
         </div>
       </div>
 
-      {activeTab === "ASSETS" ? (
+      {activeTab === "CREDIT_CARDS" ? (
+        <CreditCardsSection />
+      ) : activeTab === "ASSETS" ? (
         <AssetsSection />
       ) : (
         <>
@@ -1216,6 +1234,276 @@ function AssetsSection() {
               );
             })
           )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+type CardCategoryItem = {
+  name: string;
+  color: string;
+  amount: number;
+  percentage: number;
+};
+
+type CardRecipientItem = {
+  name: string;
+  amount: number;
+  count: number;
+};
+
+type CardSummary = {
+  id: string;
+  name: string;
+  institution: string | null;
+  cardLast4: string | null;
+  cardNetwork: string | null;
+  creditLimit: number;
+  currentBalance: number;
+  outstanding: number;
+  availableCredit: number;
+  utilizationPercent: number;
+  statementDate: number | null;
+  dueDate: number | null;
+  totalInbound: number;
+  totalOutbound: number;
+  categories: CardCategoryItem[];
+  topRecipients: CardRecipientItem[];
+  otherOutbound: { amount: number; count: number };
+};
+
+type MonthlyFlow = {
+  month: string;
+  spends: number;
+  payments: number;
+};
+
+type RecentTx = {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
+  categoryColor: string;
+  accountName: string;
+};
+
+type CreditCardsApiResponse = {
+  summary: {
+    totalLimit: number;
+    totalOutstanding: number;
+    totalAvailable: number;
+    utilizationRate: number;
+    activeCardCount: number;
+    totalInbound: number;
+    totalOutbound: number;
+  };
+  overallFlow: {
+    categories: CardCategoryItem[];
+    topRecipients: CardRecipientItem[];
+    otherOutbound: { amount: number; count: number };
+  };
+  cards: CardSummary[];
+  monthlySpendsAndPayments: MonthlyFlow[];
+  recentTransactions: RecentTx[];
+};
+
+function CreditCardDoughnutChart({
+  categories,
+  total,
+}: {
+  categories: CardCategoryItem[];
+  total: number;
+}) {
+  const r = 38;
+  const cx = 50;
+  const cy = 50;
+  const circumference = 2 * Math.PI * r;
+
+  let currentOffset = 0;
+  const filtered = categories.filter((c) => c.amount > 0);
+
+  if (total <= 0 || filtered.length === 0) {
+    return (
+      <div style={{ position: "relative", width: "130px", height: "130px", flexShrink: 0 }}>
+        <svg viewBox="0 0 100 100" width="130" height="130">
+          <circle cx={cx} cy={cy} r={r} fill="transparent" stroke="var(--line)" strokeWidth="12" />
+        </svg>
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+          }}>
+          <strong style={{ fontSize: "14px", color: "var(--muted)" }}>₹0</strong>
+          <span style={{ fontSize: "9px", color: "var(--muted)", fontWeight: 600 }}>total spend</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative", width: "130px", height: "130px", flexShrink: 0 }}>
+      <svg viewBox="0 0 100 100" width="130" height="130" style={{ transform: "rotate(-90deg)" }}>
+        {filtered.map((cat, idx) => {
+          const sliceLength = (cat.amount / total) * circumference;
+          const strokeDasharray = `${sliceLength} ${circumference - sliceLength}`;
+          const strokeDashoffset = -currentOffset;
+          currentOffset += sliceLength;
+
+          return (
+            <circle
+              key={idx}
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="transparent"
+              stroke={cat.color || "#3b82f6"}
+              strokeWidth="12"
+              strokeDasharray={strokeDasharray}
+              strokeDashoffset={strokeDashoffset}
+            />
+          );
+        })}
+      </svg>
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}>
+        <strong style={{ fontSize: "13px", color: "var(--ink)", fontWeight: 800 }}>
+          {money(total)}
+        </strong>
+        <span style={{ fontSize: "9px", color: "var(--muted)", fontWeight: 600 }}>
+          total spend
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CreditCardsSection() {
+  const router = useRouter();
+  const [data, setData] = useState<CreditCardsApiResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [vaultAccount, setVaultAccount] = useState<CardSummary | null>(null);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await api<CreditCardsApiResponse>("/credit-cards");
+      setData(res);
+    } catch (err: any) {
+      if (isUnauthorized(err)) {
+        router.replace("/login");
+      } else {
+        setError(errorMessage(err, "Failed to load credit card data."));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="loading" style={{ height: "40vh" }}>
+        <span />
+        <p>Loading Credit Cards Analytics...</p>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="panel" style={{ padding: "40px", textAlign: "center", color: "#ef4444" }}>
+        <AlertCircle size={28} style={{ margin: "0 auto 12px auto", display: "block" }} />
+        <span>{error || "Could not load credit cards data"}</span>
+      </div>
+    );
+  }
+
+  const { summary, overallFlow, cards } = data;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      {/* Overview Cards */}
+      <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+        <div className="kpi-card" style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)" }}>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Total Credit Limit</span>
+          <strong style={{ display: "block", fontSize: "1.4rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{money(summary.totalLimit)}</strong>
+          <small style={{ color: "var(--muted)", fontSize: "11px" }}>Across {summary.activeCardCount} active cards</small>
+        </div>
+
+        <div className="kpi-card" style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)" }}>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: "#ef4444", textTransform: "uppercase" }}>Total Outstanding</span>
+          <strong style={{ display: "block", fontSize: "1.4rem", fontWeight: 800, color: "#ef4444", marginTop: "4px" }}>{money(summary.totalOutstanding)}</strong>
+          <small style={{ color: "var(--muted)", fontSize: "11px" }}>Current bill dues</small>
+        </div>
+
+        <div className="kpi-card" style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)" }}>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--green)", textTransform: "uppercase" }}>Available Credit</span>
+          <strong style={{ display: "block", fontSize: "1.4rem", fontWeight: 800, color: "var(--green)", marginTop: "4px" }}>{money(summary.totalAvailable)}</strong>
+          <small style={{ color: "var(--muted)", fontSize: "11px" }}>Remaining spending power</small>
+        </div>
+
+        <div className="kpi-card" style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)" }}>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: summary.utilizationRate > 30 ? "#ef4444" : "var(--muted)", textTransform: "uppercase" }}>Credit Utilization</span>
+          <strong style={{ display: "block", fontSize: "1.4rem", fontWeight: 800, color: summary.utilizationRate > 30 ? "#ef4444" : "var(--ink)", marginTop: "4px" }}>{summary.utilizationRate}%</strong>
+          <div style={{ height: "6px", width: "100%", background: "var(--background-alt)", borderRadius: "3px", overflow: "hidden", marginTop: "6px" }}>
+            <div style={{ height: "100%", width: `${Math.min(100, summary.utilizationRate)}%`, background: summary.utilizationRate > 30 ? "#ef4444" : "var(--green)" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Credit Cards Directory */}
+      <section className="panel" style={{ padding: "24px" }}>
+        <h3 style={{ margin: "0 0 16px 0", fontSize: "1.05rem", fontWeight: 700, color: "var(--ink)" }}>Active Credit Cards ({cards.length})</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
+          {cards.map((card) => (
+            <div key={card.id} style={{ background: "var(--background-alt)", borderRadius: "12px", padding: "16px", border: "1px solid var(--line)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <div>
+                  <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>{card.institution || "Bank"}</span>
+                  <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>{card.name}</h4>
+                </div>
+                <CreditCard size={20} color="#ef4444" />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "10px 0" }}>
+                <span style={{ color: "var(--muted)" }}>Outstanding Due:</span>
+                <strong style={{ color: "#ef4444" }}>{money(card.outstanding)}</strong>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "8px" }}>
+                <span style={{ color: "var(--muted)" }}>Limit: {money(card.creditLimit)}</span>
+                <span style={{ fontWeight: 700 }}>{card.utilizationPercent}% used</span>
+              </div>
+
+              <div style={{ width: "100%", height: "4px", background: "var(--line)", borderRadius: "4px", overflow: "hidden" }}>
+                <div style={{ width: `${Math.min(100, card.utilizationPercent)}%`, height: "100%", background: card.utilizationPercent > 30 ? "#ef4444" : "var(--green)" }} />
+              </div>
+            </div>
+          ))}
         </div>
       </section>
     </div>

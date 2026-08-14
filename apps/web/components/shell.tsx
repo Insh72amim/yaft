@@ -25,7 +25,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const links = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: Receipt },
-  { href: "/accounts", label: "Accounts & Assets", icon: BriefcaseBusiness },
+  { href: "/accounts", label: "Accounts", icon: BriefcaseBusiness },
   { href: "/budgets", label: "Budgets", icon: Target },
   { href: "/salary", label: "Salary", icon: BadgeIndianRupee },
   { href: "/import", label: "Import", icon: Upload },
