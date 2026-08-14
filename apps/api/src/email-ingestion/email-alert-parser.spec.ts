@@ -51,6 +51,57 @@ describe('EmailAlertParser', () => {
     expect(list[1].amountDisplay).toBe(1299);
   });
 
+  it('should parse ICICI Credit Card with Available Limit and ending with syntax', () => {
+    const text = 'Dear Customer, INR 2,450.00 has been spent on your ICICI Bank Credit Card ending with 1004 on 12-Aug-26 at AMAZON INDIA. Available Limit: INR 1,47,550.00.';
+    const result = parseEmailAlertSnippet(text, 'credit_cards@icicibank.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('ICICI Bank');
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('1004');
+    expect(result?.type).toBe('DEBIT');
+    expect(result?.amountDisplay).toBe(2450);
+    expect(result?.amountMinor).toBe(-245000n);
+    expect(result?.merchant).toContain('AMAZON');
+  });
+
+  it('should parse ICICI Credit Card with Merchant Name label and 16-digit masked card number', () => {
+    const text = 'Dear Customer, Transaction on ICICI Bank Credit Card 4000XXXXXXXX0005 for INR 450.00 on 10-Aug-2026. Merchant Name: STARBUCKS COFFEE. Ref: TXN12345678. Available Credit Limit: INR 1,25,000.00.';
+    const result = parseEmailAlertSnippet(text, 'alerts@icicibank.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('ICICI Bank');
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('0005');
+    expect(result?.amountDisplay).toBe(450);
+    expect(result?.merchant).toContain('STARBUCKS');
+    expect(result?.referenceNumber).toBe('TXN12345678');
+  });
+
+  it('should parse ICICI Credit Card spend alert with timestamp before merchant', () => {
+    const text = 'Dear Customer, Your ICICI Bank Credit Card XX0005 has been used for a transaction of INR 3,450.00 on 12-Aug-2026 at 15:30:20 at SWIGGY BANGALORE. Total Due: INR 12,000.00.';
+    const result = parseEmailAlertSnippet(text);
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('ICICI Bank');
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('0005');
+    expect(result?.amountDisplay).toBe(3450);
+    expect(result?.merchant).toContain('SWIGGY');
+  });
+
+  it('should parse ICICI Amazon Pay Card with 4XXX format', () => {
+    const text = 'Dear Customer, INR 899.00 was spent on your ICICI Bank Amazon Pay Card 4XXX1234 on 11-Aug-26 at ZOMATO. Total Credit Limit is INR 2,00,000.00.';
+    const result = parseEmailAlertSnippet(text);
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('ICICI Bank');
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('1234');
+    expect(result?.amountDisplay).toBe(899);
+    expect(result?.merchant).toContain('ZOMATO');
+  });
+
   it('should correctly parse Indian date formats', () => {
     const d1 = parseIndianDate('14-08-26');
     expect(d1.getUTCFullYear()).toBe(2026);

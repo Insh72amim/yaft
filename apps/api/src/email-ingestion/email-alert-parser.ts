@@ -71,14 +71,33 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   else if (/standard chartered|scb/i.test(fullContext)) bankName = 'Standard Chartered';
   else if (/citi/i.test(fullContext)) bankName = 'Citi';
 
+  // 1.5 Detect Account Type (Credit Card vs Bank Account)
+  const isCreditCard = /credit\s*card|creditcard|card\s*ending|card\s*no|card\s*xx|\bcard\b|amazon\s*pay|amex|american express/i.test(fullContext);
+  const accountType: 'CREDIT_CARD' | 'BANK' = isCreditCard ? 'CREDIT_CARD' : 'BANK';
+
   // 2. Detect Debit vs Credit
-  const isCredit = /credited|received|deposited|added/i.test(text) && !/debited/i.test(text);
+  const isCredit = /credited|received|deposited|added/i.test(text) && !/debited|spent|used|charged/i.test(text);
   const type: 'DEBIT' | 'CREDIT' = isCredit ? 'CREDIT' : 'DEBIT';
 
   // 3. Extract Amount
-  const amountMatch = text.match(/(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i);
-  if (!amountMatch) return null;
-  const rawAmountNum = parseFloat(amountMatch[1].replace(/,/g, ''));
+  // Remove distracting "Available Limit", "Credit Limit", "Total Due", "Total Outstanding" balances before searching
+  const textWithoutLimits = text.replace(/(?:available\s*(?:credit)?\s*limit|credit\s*limit|total\s*due|total\s*outstanding|balance)\s*(?:is|:)?\s*(?:rs\.?|inr|₹)?\s*[\d,]+(?:\.\d{1,2})?/gi, '');
+
+  let rawAmountNum = 0;
+
+  // Try targeted spend/transaction amount patterns first
+  const targetedAmountMatch = textWithoutLimits.match(/(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of)\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i)
+    || textWithoutLimits.match(/(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid)/i);
+
+  if (targetedAmountMatch) {
+    rawAmountNum = parseFloat(targetedAmountMatch[1].replace(/,/g, ''));
+  } else {
+    const fallbackAmountMatch = textWithoutLimits.match(/(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if (fallbackAmountMatch) {
+      rawAmountNum = parseFloat(fallbackAmountMatch[1].replace(/,/g, ''));
+    }
+  }
+
   if (isNaN(rawAmountNum) || rawAmountNum <= 0) return null;
 
   const rawMinor = BigInt(Math.round(rawAmountNum * 100));
@@ -86,35 +105,48 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
 
   // 4. Extract Account / Card Last 4 Digits
   let accountLast4: string | undefined;
-  const accMatch = text.match(/(?:a\/c|account|card|ending|xx+)\s*[*x-]*(\d{4})/i);
+  const accMatch = text.match(/(?:a\/c|account|card|ending|ending\s+with|ending\s+in|no\.?|num\.?)\s*(?:with|in|is|no\.?|:)?\s*[*xX\d-]*(\d{4})\b/i)
+    || text.match(/(?:\b\d{4}|\b[xX]{4}|\b[*]{4})[*xX\d-]*(\d{4})\b/i)
+    || text.match(/\b[xX]{2,}(\d{4})\b/i);
+
   if (accMatch) {
     accountLast4 = accMatch[1];
   }
 
   // 5. Extract Merchant / Payee
   let merchant = 'General Merchant';
-  const upiMatch = text.match(/(?:to\s+(?:vpa\s+)?|vpa\s+)([a-zA-Z0-9._\-@&]{3,40})/i);
-  if (upiMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank)$/i.test(upiMatch[1].trim())) {
-    merchant = upiMatch[1].replace(/@.*$/, '').replace(/[^a-zA-Z0-9\s]/g, ' ').trim().toUpperCase();
+
+  // Check explicit merchant label
+  const explicitMerchantMatch = text.match(/(?:merchant\s*name|merchant|payee|vpa|paid\s*to|info)[:\s]+([a-zA-Z0-9\s._\-@&]{2,40})/i);
+  if (explicitMerchantMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank|txn)$/i.test(explicitMerchantMatch[1].trim())) {
+    merchant = explicitMerchantMatch[1].trim();
   } else {
-    const atMatch = text.match(/(?:at|to|info:)\s+([A-Z0-9\s.\-_]{3,30})/i);
-    if (atMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank)$/i.test(atMatch[1].trim())) {
-      merchant = atMatch[1].trim().toUpperCase();
+    const upiMatch = text.match(/(?:to\s+(?:vpa\s+)?|vpa\s+)([a-zA-Z0-9._\-@&]{3,40})/i);
+    if (upiMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank)$/i.test(upiMatch[1].trim())) {
+      merchant = upiMatch[1].replace(/@.*$/, '').replace(/[^a-zA-Z0-9\s]/g, ' ').trim();
+    } else {
+      // Match "at <merchant>" or "for <merchant>", avoiding time formats like "at 15:30" or dates like "on 14-Aug-26"
+      const atMatch = text.match(/(?:\bat\b|\bfor\b)\s+(?!\d{1,2}:\d{2})(?!\d{1,2}[-/]\d{1,2})([A-Za-z0-9\s.\-_]{2,35}?)(?=\s*(?:\.|\bon\b|\bat\b|\binfo\b|\bavail|\btotal|\bref|\bcard|\ba\/c|$))/i);
+      if (atMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank|purchase|transaction)$/i.test(atMatch[1].trim())) {
+        merchant = atMatch[1].trim();
+      }
     }
   }
 
   // Clean up merchant name prefix/suffixes
   merchant = merchant
-    .replace(/^(VPA|UPI|VPS|POS|INF|NEFT|IMPS)\s+/i, '')
+    .replace(/^(VPA|UPI|VPS|POS|INF|NEFT|IMPS)\s*[\/:\*]?\s*/i, '')
     .replace(/\s+/g, ' ')
-    .trim();
-  if (!merchant || merchant.length < 2 || /^(vpa|account|bank|ref)$/i.test(merchant)) {
+    .trim()
+    .toUpperCase();
+
+  if (!merchant || merchant.length < 2 || /^(VPA|ACCOUNT|BANK|REF|TRANSACTION|PURCHASE|CUSTOMER)$/i.test(merchant)) {
     merchant = 'General Merchant';
   }
 
   // 6. Extract Reference / UTR Number
   let referenceNumber: string | undefined;
-  const refMatch = text.match(/(?:ref|txn|utr|id)[:\s]*([a-zA-Z0-9]{8,20})/i);
+  const refMatch = text.match(/(?:ref|txn|utr|id)[:\s]*([a-zA-Z0-9]{8,22})/i);
   if (refMatch) {
     referenceNumber = refMatch[1];
   }
@@ -125,10 +157,6 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   if (dateMatch) {
     transactionDate = parseIndianDate(dateMatch[1]);
   }
-
-  // 1.5 Detect Account Type (Credit Card vs Bank Account)
-  const isCreditCard = /credit\s*card|creditcard|card\s*ending|credit\s*a\/c|amex|american express/i.test(fullContext);
-  const accountType: 'CREDIT_CARD' | 'BANK' = isCreditCard ? 'CREDIT_CARD' : 'BANK';
 
   return {
     bankName,

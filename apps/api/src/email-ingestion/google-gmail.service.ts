@@ -183,8 +183,8 @@ export class GoogleGmailService {
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
       // Fast server-side filtered search for transaction emails across all major Indian banks & cards within the time window
-      const baseBankFilter = 'from:(hdfcbank.net OR icicibank.com OR sbi.co.in OR axisbank.com OR kotak.com OR americanexpress.com OR pnb.co.in OR indusind.com OR idfcfirstbank.com OR rblbank.com OR standardchartered.co.in OR citibank.com)';
-      const keywordsFilter = '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c")';
+      const baseBankFilter = 'from:(hdfcbank.net OR hdfcbank.com OR icicibank.com OR icicibank.co.in OR icici.com OR sbi.co.in OR axisbank.com OR kotak.com OR americanexpress.com OR pnb.co.in OR indusind.com OR idfcfirstbank.com OR rblbank.com OR standardchartered.co.in OR citibank.com OR "ICICI Bank")';
+      const keywordsFilter = '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "ending with" OR "XX")';
       const query = `${baseBankFilter} ${keywordsFilter} after:${afterDateStr}`;
 
       const listRes = await gmail.users.messages.list({
@@ -434,20 +434,58 @@ export class GoogleGmailService {
 
   private extractMessageBody(payload: any): string {
     if (!payload) return '';
+    let rawContent = '';
+
     if (payload.body && payload.body.data) {
-      return Buffer.from(payload.body.data, 'base64').toString('utf-8');
-    }
-    if (payload.parts && Array.isArray(payload.parts)) {
+      rawContent = Buffer.from(payload.body.data, 'base64').toString('utf-8');
+    } else if (payload.parts && Array.isArray(payload.parts)) {
+      // Look for text/plain part first
       for (const part of payload.parts) {
         if (part.mimeType === 'text/plain' && part.body && part.body.data) {
-          return Buffer.from(part.body.data, 'base64').toString('utf-8');
+          rawContent = Buffer.from(part.body.data, 'base64').toString('utf-8');
+          break;
         }
       }
-      for (const part of payload.parts) {
-        const nested = this.extractMessageBody(part);
-        if (nested) return nested;
+      // If no text/plain, look for text/html part
+      if (!rawContent) {
+        for (const part of payload.parts) {
+          if (part.mimeType === 'text/html' && part.body && part.body.data) {
+            rawContent = Buffer.from(part.body.data, 'base64').toString('utf-8');
+            break;
+          }
+        }
+      }
+      // If still empty, recurse into nested multipart
+      if (!rawContent) {
+        for (const part of payload.parts) {
+          const nested = this.extractMessageBody(part);
+          if (nested) {
+            rawContent = nested;
+            break;
+          }
+        }
       }
     }
-    return '';
+
+    if (!rawContent) return '';
+
+    return this.cleanHtml(rawContent);
+  }
+
+  private cleanHtml(content: string): string {
+    return content
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<br\s*[\/]?>/gi, '\n')
+      .replace(/<\/(?:p|div|tr|td|li|h\d)>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 }
