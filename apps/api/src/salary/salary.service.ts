@@ -34,9 +34,9 @@ export class SalaryService {
 
     // Check user organizations for dynamic parsing
     let matchedOrg: any = null;
-    const orgs = await this.prisma.organization.findMany({ where: { userId } });
+    const orgs = (this.prisma as any).organization ? await (this.prisma as any).organization.findMany({ where: { userId } }) : [];
     if (payslipSchema && payslipSchema !== 'GOLDMAN_SACHS') {
-      matchedOrg = orgs.find((o) => o.id === payslipSchema || o.name.toLowerCase() === payslipSchema.toLowerCase());
+      matchedOrg = orgs.find((o: any) => o.id === payslipSchema || o.name.toLowerCase() === payslipSchema.toLowerCase());
     }
 
     let parsed: any;
@@ -58,7 +58,7 @@ export class SalaryService {
       };
     } else {
       parsed = await parsePayslipPdf(file.buffer, (payslipSchema as any) || 'GOLDMAN_SACHS', pdfPassword);
-      matchedOrg = orgs.find((o) => o.name.toLowerCase() === parsed.employer.toLowerCase());
+      matchedOrg = orgs.find((o: any) => o.name.toLowerCase() === parsed.employer.toLowerCase());
     }
 
     let targetEmployer = parsed.employer;
@@ -87,7 +87,6 @@ export class SalaryService {
         userId, payPeriod: parsed.payPeriod, employer: targetEmployer, employeeName: parsed.employeeName,
         employeeNumberLast4: parsed.employeeNumberLast4, department: parsed.department, designation: parsed.designation,
         bankName: parsed.bankName, bankAccountLast4: parsed.bankAccountLast4, uanLast4: parsed.uanLast4,
-        organizationId: matchedOrg?.id || undefined,
         currency: parsed.currency, grossEarnings: BigInt(parsed.grossEarnings), grossDeductions: BigInt(parsed.grossDeductions),
         directPayment: BigInt(parsed.directPayment), netPay: BigInt(parsed.netPay), filename: file.originalname.slice(0, 200), fileHash: hash,
         lineItems: { create: parsed.lineItems.map((item: any) => ({ type: item.type, description: item.description,

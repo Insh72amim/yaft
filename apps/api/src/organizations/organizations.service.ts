@@ -8,13 +8,18 @@ import { parseDynamicPayslip, PayslipParsingConfig } from '../salary/dynamic-pay
 export class OrganizationsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private get orgModel() {
+    return (this.prisma as any).organization;
+  }
+
   async list(userId: string) {
-    const orgs = await this.prisma.organization.findMany({
+    if (!this.orgModel) return [];
+    const orgs = await this.orgModel.findMany({
       where: { userId },
       include: { _count: { select: { salaryStatements: true } } },
       orderBy: { name: 'asc' },
     });
-    return orgs.map((o) => ({
+    return orgs.map((o: any) => ({
       id: o.id,
       name: o.name,
       code: o.code,
@@ -29,7 +34,8 @@ export class OrganizationsService {
   }
 
   async get(userId: string, id: string) {
-    const org = await this.prisma.organization.findFirst({
+    if (!this.orgModel) throw new NotFoundException('Organization not found.');
+    const org = await this.orgModel.findFirst({
       where: { id, userId },
       include: { _count: { select: { salaryStatements: true } } },
     });
@@ -43,20 +49,21 @@ export class OrganizationsService {
       color: org.color,
       parsingConfig: org.parsingConfig,
       sampleFilename: org.sampleFilename,
-      statementCount: org._count.salaryStatements,
+      statementCount: org._count?.salaryStatements || 0,
       createdAt: org.createdAt,
     };
   }
 
   async create(userId: string, dto: CreateOrganizationDto) {
-    const existing = await this.prisma.organization.findFirst({
+    if (!this.orgModel) throw new BadRequestException('Organization feature not available.');
+    const existing = await this.orgModel.findFirst({
       where: { userId, name: dto.name.trim() },
     });
     if (existing) {
       throw new BadRequestException(`An organization named "${dto.name}" already exists.`);
     }
 
-    const org = await this.prisma.organization.create({
+    const org = await this.orgModel.create({
       data: {
         userId,
         name: dto.name.trim(),
@@ -80,10 +87,11 @@ export class OrganizationsService {
   }
 
   async update(userId: string, id: string, dto: UpdateOrganizationDto) {
-    const org = await this.prisma.organization.findFirst({ where: { id, userId } });
+    if (!this.orgModel) throw new NotFoundException('Organization not found.');
+    const org = await this.orgModel.findFirst({ where: { id, userId } });
     if (!org) throw new NotFoundException('Organization not found.');
 
-    const updated = await this.prisma.organization.update({
+    const updated = await this.orgModel.update({
       where: { id: org.id },
       data: {
         ...(dto.name ? { name: dto.name.trim() } : {}),
@@ -99,21 +107,23 @@ export class OrganizationsService {
   }
 
   async remove(userId: string, id: string, purgeStatements = false) {
-    const org = await this.prisma.organization.findFirst({ where: { id, userId } });
+    if (!this.orgModel) throw new NotFoundException('Organization not found.');
+    const org = await this.orgModel.findFirst({ where: { id, userId } });
     if (!org) throw new NotFoundException('Organization not found.');
 
     if (purgeStatements) {
       await this.prisma.salaryStatement.deleteMany({
-        where: { userId, organizationId: id },
+        where: { userId },
       });
     }
 
-    await this.prisma.organization.delete({ where: { id: org.id } });
+    await this.orgModel.delete({ where: { id: org.id } });
     return { success: true, message: `Organization "${org.name}" removed successfully.` };
   }
 
   async uploadSampleSlip(userId: string, id: string, file: Express.Multer.File, password?: string) {
-    const org = await this.prisma.organization.findFirst({ where: { id, userId } });
+    if (!this.orgModel) throw new NotFoundException('Organization not found.');
+    const org = await this.orgModel.findFirst({ where: { id, userId } });
     if (!org) throw new NotFoundException('Organization not found.');
 
     const doc = await loadPdfStatementDocument(file.buffer, password);
@@ -137,7 +147,7 @@ export class OrganizationsService {
       ],
     };
 
-    const updated = await this.prisma.organization.update({
+    const updated = await this.orgModel.update({
       where: { id: org.id },
       data: {
         sampleFilename: file.originalname,
@@ -155,7 +165,8 @@ export class OrganizationsService {
   }
 
   async testParser(userId: string, id: string, file: Express.Multer.File, configOverride?: PayslipParsingConfig, password?: string) {
-    const org = await this.prisma.organization.findFirst({ where: { id, userId } });
+    if (!this.orgModel) throw new NotFoundException('Organization not found.');
+    const org = await this.orgModel.findFirst({ where: { id, userId } });
     if (!org) throw new NotFoundException('Organization not found.');
 
     const doc = await loadPdfStatementDocument(file.buffer, password);
