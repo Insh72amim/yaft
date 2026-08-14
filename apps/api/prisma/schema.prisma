@@ -53,6 +53,7 @@ model User {
   activeSips   ActiveSip[]
   tags         Tag[]
   emailSyncLogs EmailSyncLog[]
+  googleEmailConfigs GoogleEmailConfig[]
 }
 
 model SalaryStatement {
@@ -463,6 +464,24 @@ model EmailSyncLog {
   createdAt         DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+model GoogleEmailConfig {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email               String
+  refreshCipher       Bytes
+  refreshIv           Bytes
+  refreshTag          Bytes
+  refreshKeyVersion   Int       @default(1)
+  lastSyncAt          DateTime?
+  syncStatus          String    @default("ACTIVE") // ACTIVE, ERROR, DISCONNECTED
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([userId, email])
+  @@index([userId])
 }
 
 model Organization {

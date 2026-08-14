@@ -12,3 +12,12 @@ export class ParseEmailSnippetDto {
   @IsOptional()
   targetAccountId?: string;
 }
+
+export class GoogleOAuthCallbackDto {
+  @IsString()
+  code!: string;
+
+  @IsString()
+  @IsOptional()
+  redirectUri?: string;
+}
