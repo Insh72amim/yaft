@@ -40,8 +40,8 @@ export class EmailIngestionController {
   }
 
   @Post('google/sync')
-  async syncGmailInbox(@CurrentUser() user: { id: string }) {
-    return this.googleGmailService.syncGmail(user.id);
+  async syncGmailInbox(@CurrentUser() user: { id: string }, @Body() body?: { days?: number }) {
+    return this.googleGmailService.syncGmail(user.id, body?.days);
   }
 
   @Delete('google/disconnect')

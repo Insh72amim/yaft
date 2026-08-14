@@ -1,5 +1,5 @@
 'use client';
-import { AlertTriangle, ArrowLeft, BadgeIndianRupee, BriefcaseBusiness, Building2, Check, CreditCard, FileSpreadsheet, KeyRound, Landmark,
+import { AlertTriangle, ArrowLeft, BadgeIndianRupee, BriefcaseBusiness, Building2, Calendar, Check, CreditCard, FileSpreadsheet, KeyRound, Landmark,
   Mail, RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -111,6 +111,8 @@ function ImportWorkspace() {
   const [loadingGoogleConfig, setLoadingGoogleConfig] = useState(false);
   const [syncingGmail, setSyncingGmail] = useState(false);
   const [connectingGoogle, setConnectingGoogle] = useState(false);
+  const [syncDays, setSyncDays] = useState(90);
+  const [lastSyncMeta, setLastSyncMeta] = useState<any>(null);
 
   const [catalog, setCatalog] = useState<Catalog>();
   const [pending, setPending] = useState<PendingImport[]>([]);
@@ -170,11 +172,18 @@ function ImportWorkspace() {
     }
   };
 
-  const handleSyncGmailNow = async () => {
+  const handleSyncGmailNow = async (customDays?: number) => {
+    const daysToSync = typeof customDays === 'number' ? customDays : syncDays;
     setSyncingGmail(true); setError(''); setNotice('');
     try {
-      const res = await api<any>('/email-ingestion/google/sync', { method: 'POST' });
+      const res = await api<any>('/email-ingestion/google/sync', {
+        method: 'POST',
+        body: JSON.stringify({ days: daysToSync }),
+      });
       setNotice(res.message);
+      if (res.dateRange) {
+        setLastSyncMeta(res.dateRange);
+      }
       await loadGoogleConfig();
       const firstBatchId = res.batchIds?.[0] || res.batchId;
       await refreshPending(firstBatchId);
@@ -762,23 +771,25 @@ function ImportWorkspace() {
               </div>
 
               {googleConfig?.connected ? (
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    className="primary compact"
-                    onClick={handleSyncGmailNow}
-                    disabled={syncingGmail}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <RefreshCw size={14} className={syncingGmail ? 'spin' : ''} />
-                    <span>{syncingGmail ? 'Scanning Gmail…' : 'Sync Inbox Now'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary compact"
-                    onClick={handleDisconnectGoogle}
-                    style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
-                    Disconnect
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="primary compact"
+                      onClick={() => handleSyncGmailNow()}
+                      disabled={syncingGmail}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <RefreshCw size={14} className={syncingGmail ? 'spin' : ''} />
+                      <span>{syncingGmail ? `Scanning Past ${syncDays} Days…` : `Sync Inbox (${syncDays === 90 ? '3 Months' : `${syncDays} Days`})`}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      onClick={handleDisconnectGoogle}
+                      style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+                      Disconnect
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
@@ -812,6 +823,28 @@ function ImportWorkspace() {
 
             {googleConfig?.connected ? (
               <div style={{ marginTop: '20px', background: 'var(--background-alt)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+                {/* Time Range Selector */}
+                <div style={{ marginBottom: '14px', paddingBottom: '14px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Calendar size={14} /> Scan Time Window:
+                  </span>
+                  {[
+                    { days: 7, label: 'Past 7 Days' },
+                    { days: 30, label: 'Past 30 Days' },
+                    { days: 90, label: 'Past 90 Days (3 Months)' },
+                    { days: 180, label: 'Past 180 Days (6 Months)' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.days}
+                      type="button"
+                      className={`secondary compact ${syncDays === preset.days ? 'active' : ''}`}
+                      onClick={() => setSyncDays(preset.days)}
+                      style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '6px' }}>
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                   <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     ✓ Connected
@@ -833,6 +866,15 @@ function ImportWorkspace() {
                     <strong>Read-Only (`gmail.readonly`)</strong>
                   </div>
                 </div>
+
+                {lastSyncMeta && (
+                  <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Calendar size={14} color="#3b82f6" />
+                    <span style={{ color: 'var(--ink)' }}>
+                      <strong>Latest Synced Alerts Range:</strong> {lastSyncMeta.label || `Past ${lastSyncMeta.daysSynced} days`}
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ marginTop: '20px', background: 'var(--background-alt)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)', fontSize: '13px', lineHeight: 1.5, color: 'var(--muted)' }}>

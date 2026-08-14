@@ -159,7 +159,7 @@ export class GoogleGmailService {
     };
   }
 
-  async syncGmail(userId: string) {
+  async syncGmail(userId: string, days?: number) {
     const config = await this.prisma.googleEmailConfig.findFirst({ where: { userId } });
     if (!config) {
       throw new BadRequestException('No connected Gmail account found. Please click "Connect Gmail" first.');
@@ -174,37 +174,61 @@ export class GoogleGmailService {
 
     oauth2Client.setCredentials({ refresh_token: refreshToken });
 
+    const syncDays = typeof days === 'number' && days > 0 ? days : 90;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - syncDays);
+    const afterDateStr = `${cutoffDate.getFullYear()}/${String(cutoffDate.getMonth() + 1).padStart(2, '0')}/${String(cutoffDate.getDate()).padStart(2, '0')}`;
+
     try {
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-      // Search for transaction emails from Indian banks & cards
-      const query = 'from:(hdfcbank.net OR icicibank.com OR sbi.co.in OR axisbank.com OR kotak.com OR americanexpress.com OR pnb.co.in) (debited OR credited OR spent OR alert OR transaction)';
+      // Fast server-side filtered search for transaction emails across all major Indian banks & cards within the time window
+      const baseBankFilter = 'from:(hdfcbank.net OR icicibank.com OR sbi.co.in OR axisbank.com OR kotak.com OR americanexpress.com OR pnb.co.in OR indusind.com OR idfcfirstbank.com OR rblbank.com OR standardchartered.co.in OR citibank.com)';
+      const keywordsFilter = '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c")';
+      const query = `${baseBankFilter} ${keywordsFilter} after:${afterDateStr}`;
+
       const listRes = await gmail.users.messages.list({
         userId: 'me',
         q: query,
-        maxResults: 20,
+        maxResults: 100,
       });
 
       const messages = listRes.data.messages || [];
       const extractedAlerts: ParsedEmailTransaction[] = [];
 
-      for (const msgRef of messages) {
-        if (!msgRef.id) continue;
-        const msgDetail = await gmail.users.messages.get({
-          userId: 'me',
-          id: msgRef.id,
-          format: 'full',
-        });
+      // Parallel batch fetching in chunks of 10 for maximum throughput without rate limiting
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < messages.length; i += BATCH_SIZE) {
+        const chunk = messages.slice(i, i + BATCH_SIZE);
+        const details = await Promise.all(
+          chunk.map((msgRef) =>
+            msgRef.id
+              ? gmail.users.messages
+                  .get({
+                    userId: 'me',
+                    id: msgRef.id,
+                    format: 'full',
+                  })
+                  .catch((e) => {
+                    this.logger.warn(`Failed to fetch message ${msgRef.id}: ${e.message}`);
+                    return null;
+                  })
+              : null,
+          ),
+        );
 
-        const snippet = msgDetail.data.snippet || '';
-        const bodyText = this.extractMessageBody(msgDetail.data.payload) || snippet;
-        const headers = msgDetail.data.payload?.headers || [];
-        const subject = headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value || '';
-        const from = headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value || '';
+        for (const msgDetail of details) {
+          if (!msgDetail || !msgDetail.data) continue;
+          const snippet = msgDetail.data.snippet || '';
+          const bodyText = this.extractMessageBody(msgDetail.data.payload) || snippet;
+          const headers = msgDetail.data.payload?.headers || [];
+          const subject = headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value || '';
+          const from = headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value || '';
 
-        const alerts = parseMultipleEmailAlerts(bodyText + ' ' + snippet, `${from} ${subject}`);
-        for (const alert of alerts) {
-          extractedAlerts.push(alert);
+          const alerts = parseMultipleEmailAlerts(bodyText + ' ' + snippet, `${from} ${subject}`);
+          for (const alert of alerts) {
+            extractedAlerts.push(alert);
+          }
         }
       }
 
@@ -215,6 +239,7 @@ export class GoogleGmailService {
       });
 
       if (extractedAlerts.length === 0) {
+        const emptySnippet = `Scanned ${messages.length} email(s) for the past ${syncDays} days (since ${cutoffDate.toLocaleDateString('en-IN')}). No new financial alerts found.`;
         await this.prisma.emailSyncLog.create({
           data: {
             userId,
@@ -222,17 +247,34 @@ export class GoogleGmailService {
             emailsScanned: messages.length,
             alertsParsed: 0,
             transactionsAdded: 0,
-            sourceSnippet: `Scanned ${messages.length} emails. No new financial transaction alerts found.`,
+            sourceSnippet: emptySnippet,
           },
         });
 
         return {
           success: true,
-          message: `Scanned ${messages.length} email(s) from ${config.email}. No new transaction alerts detected.`,
+          message: `Scanned ${messages.length} email(s) from ${config.email} for the past ${syncDays} days. No new transaction alerts detected.`,
           scannedCount: messages.length,
           parsedCount: 0,
+          dateRange: {
+            earliest: null,
+            latest: null,
+            daysSynced: syncDays,
+          },
         };
       }
+
+      // Compute earliest and latest alert dates
+      const validDates = extractedAlerts
+        .map((a) => a.transactionDate)
+        .filter((d) => !isNaN(d.getTime()))
+        .sort((a, b) => a.getTime() - b.getTime());
+      const earliestAlertDate = validDates[0] || null;
+      const latestAlertDate = validDates[validDates.length - 1] || null;
+
+      const dateRangeLabel = earliestAlertDate && latestAlertDate
+        ? `${earliestAlertDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} to ${latestAlertDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+        : `Past ${syncDays} days`;
 
       // Group alerts by granular Account Category: Institution + Type + Account Last 4
       const groups: Record<string, ParsedEmailTransaction[]> = {};
@@ -339,17 +381,23 @@ export class GoogleGmailService {
           emailsScanned: messages.length,
           alertsParsed: extractedAlerts.length,
           transactionsAdded: totalStaged,
-          sourceSnippet: `Ingested ${extractedAlerts.length} alert(s) across ${Object.keys(groups).length} account batch(es) from ${config.email}.`,
+          sourceSnippet: `Ingested ${extractedAlerts.length} alert(s) across ${Object.keys(groups).length} account batch(es) from ${config.email} (${dateRangeLabel}).`,
         },
       });
 
       return {
         success: true,
-        message: `Successfully ingested ${extractedAlerts.length} transaction alert(s) across ${Object.keys(groups).length} account batch(es) from ${config.email}!`,
+        message: `Successfully ingested ${extractedAlerts.length} transaction alert(s) across ${Object.keys(groups).length} account batch(es) from ${config.email} (${dateRangeLabel})!`,
         batchIds: createdBatchIds,
         scannedCount: messages.length,
         parsedCount: extractedAlerts.length,
         stagedRowsCount: totalStaged,
+        dateRange: {
+          earliest: earliestAlertDate?.toISOString() || null,
+          latest: latestAlertDate?.toISOString() || null,
+          daysSynced: syncDays,
+          label: dateRangeLabel,
+        },
       };
     } catch (err: any) {
       this.logger.error(`Gmail sync failed for user ${userId}: ${err.message}`, err.stack);
