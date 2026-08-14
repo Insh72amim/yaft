@@ -29,6 +29,7 @@ import {
   Loader2,
   Gauge,
   Pencil,
+  Receipt,
   Search,
   X,
 } from "lucide-react";
@@ -42,6 +43,7 @@ import { AddAccountModal } from "@/components/add-account-modal";
 import { VaultModal } from "@/components/vault-modal";
 import { AccountDocuments } from "@/components/account-documents";
 import { LoanSchedule } from "@/components/loan-schedule";
+import { TransactionsSection } from "@/components/transactions-section";
 
 type Holding = {
   id: string;
@@ -352,14 +354,17 @@ function AccountCard({
 function PortfolioContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab");
-  const initialTab = (tabParam === "credit_cards" || tabParam === "CREDIT_CARDS")
-    ? "CREDIT_CARDS"
-    : (tabParam === "assets" || tabParam === "ASSETS")
-    ? "ASSETS"
-    : "ACCOUNTS";
+  const tabParam = searchParams.get("tab")?.toUpperCase();
+  const initialTab: "ACCOUNTS" | "TRANSACTIONS" | "CREDIT_CARDS" | "ASSETS" =
+    tabParam === "TRANSACTIONS"
+      ? "TRANSACTIONS"
+      : tabParam === "CREDIT_CARDS"
+      ? "CREDIT_CARDS"
+      : tabParam === "ASSETS"
+      ? "ASSETS"
+      : "ACCOUNTS";
 
-  const [activeTab, setActiveTab] = useState<"ACCOUNTS" | "CREDIT_CARDS" | "ASSETS">(initialTab);
+  const [activeTab, setActiveTab] = useState<"ACCOUNTS" | "TRANSACTIONS" | "CREDIT_CARDS" | "ASSETS">(initialTab);
 
   const [portfolio, setPortfolio] = useState<PortfolioAccount[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -660,6 +665,15 @@ function PortfolioContent() {
           </button>
           <button
             type="button"
+            className={`secondary compact ${activeTab === "TRANSACTIONS" ? "active" : ""}`}
+            onClick={() => setActiveTab("TRANSACTIONS")}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
+          >
+            <Receipt size={15} color={activeTab === "TRANSACTIONS" ? "var(--green)" : "var(--muted)"} />
+            Transactions Ledger
+          </button>
+          <button
+            type="button"
             className={`secondary compact ${activeTab === "CREDIT_CARDS" ? "active" : ""}`}
             onClick={() => setActiveTab("CREDIT_CARDS")}
             style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
@@ -679,7 +693,9 @@ function PortfolioContent() {
         </div>
       </div>
 
-      {activeTab === "CREDIT_CARDS" ? (
+      {activeTab === "TRANSACTIONS" ? (
+        <TransactionsSection embedded={true} />
+      ) : activeTab === "CREDIT_CARDS" ? (
         <CreditCardsSection />
       ) : activeTab === "ASSETS" ? (
         <AssetsSection />
