@@ -95,9 +95,15 @@ type TransactionsApiResponse = {
   pagination: Pagination;
 };
 
-export function TransactionsSection({ embedded }: { embedded?: boolean }) {
+export function TransactionsSection({
+  embedded,
+  forceMode,
+}: {
+  embedded?: boolean;
+  forceMode?: Mode;
+}) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("CREDIT_CARD");
+  const [mode, setMode] = useState<Mode>(forceMode || "BANK");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "EXPENSE" | "INCOME">(
@@ -468,64 +474,66 @@ export function TransactionsSection({ embedded }: { embedded?: boolean }) {
         </div>
       )}
 
-      {/* Mode Sub-Tabs */}
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          marginBottom: "24px",
-          borderBottom: "1px solid var(--line)",
-          paddingBottom: "12px",
-          overflowX: "auto",
-        }}>
-        <button
-          type="button"
-          className={`secondary ${mode === "CREDIT_CARD" ? "active" : ""}`}
+      {/* Mode Sub-Tabs (hidden if forceMode is supplied) */}
+      {!forceMode && (
+        <div
           style={{
             display: "flex",
-            alignItems: "center",
             gap: "8px",
-            padding: "8px 16px",
-            borderRadius: "10px",
-            fontWeight: 600,
-          }}
-          onClick={() => handleModeChange("CREDIT_CARD")}>
-          <CreditCard size={18} />
-          <span>All Credit Cards</span>
-        </button>
+            marginBottom: "24px",
+            borderBottom: "1px solid var(--line)",
+            paddingBottom: "12px",
+            overflowX: "auto",
+          }}>
+          <button
+            type="button"
+            className={`secondary ${mode === "BANK" ? "active" : ""}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "10px",
+              fontWeight: 600,
+            }}
+            onClick={() => handleModeChange("BANK")}>
+            <Landmark size={18} />
+            <span>Bank Accounts</span>
+          </button>
 
-        <button
-          type="button"
-          className={`secondary ${mode === "BANK" ? "active" : ""}`}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "8px 16px",
-            borderRadius: "10px",
-            fontWeight: 600,
-          }}
-          onClick={() => handleModeChange("BANK")}>
-          <Landmark size={18} />
-          <span>Bank Accounts</span>
-        </button>
+          <button
+            type="button"
+            className={`secondary ${mode === "UPI_LITE" ? "active" : ""}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "10px",
+              fontWeight: 600,
+            }}
+            onClick={() => handleModeChange("UPI_LITE")}>
+            <Zap size={18} color="#f59e0b" />
+            <span>UPI Lite</span>
+          </button>
 
-        <button
-          type="button"
-          className={`secondary ${mode === "UPI_LITE" ? "active" : ""}`}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "8px 16px",
-            borderRadius: "10px",
-            fontWeight: 600,
-          }}
-          onClick={() => handleModeChange("UPI_LITE")}>
-          <Zap size={18} color="#f59e0b" />
-          <span>UPI Lite</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            className={`secondary ${mode === "ALL" ? "active" : ""}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "10px",
+              fontWeight: 600,
+            }}
+            onClick={() => handleModeChange("ALL")}>
+            <Receipt size={18} />
+            <span>All Non-Credit Transactions</span>
+          </button>
+        </div>
+      )}
 
       {error && (
         <p className="error" role="alert" style={{ marginBottom: "16px" }}>

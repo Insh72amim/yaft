@@ -2583,70 +2583,13 @@ function CreditCardsSection() {
         )}
       </div>
 
-      {/* Recent Activity Table */}
-      <div className="panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-          <div>
-            <span className="eyebrow">Recent Feed</span>
-            <h2>Recent Credit Card Activity</h2>
-          </div>
-          <Link href="/transactions?mode=CREDIT_CARD" style={{ fontSize: "13px", fontWeight: 600, color: "var(--accent)" }}>
-            View All Credit Card Transactions →
-          </Link>
+      {/* Complete All Credit Cards Transactions Ledger */}
+      <div className="panel" style={{ padding: "24px" }}>
+        <div style={{ marginBottom: "16px" }}>
+          <span className="eyebrow" style={{ color: "#ef4444" }}>Credit Card Activity Ledger</span>
+          <h2 style={{ margin: "4px 0 0 0", fontSize: "1.2rem", fontWeight: 700, color: "var(--ink)" }}>All Credit Card Transactions</h2>
         </div>
-
-        {data.recentTransactions.length === 0 ? (
-          <p style={{ color: "var(--muted)", fontSize: "13px" }}>No transactions logged for credit cards.</p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--line)", textAlign: "left" }}>
-                  <th style={{ padding: "10px", color: "var(--muted)" }}>Date</th>
-                  <th style={{ padding: "10px", color: "var(--muted)" }}>Card</th>
-                  <th style={{ padding: "10px", color: "var(--muted)" }}>Description</th>
-                  <th style={{ padding: "10px", color: "var(--muted)" }}>Category</th>
-                  <th style={{ padding: "10px", color: "var(--muted)", textAlign: "right" }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.recentTransactions.map((tx) => (
-                  <tr key={tx.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                    <td style={{ padding: "10px", whiteSpace: "nowrap" }}>
-                      {new Date(tx.date).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td style={{ padding: "10px", fontWeight: 600 }}>{tx.accountName}</td>
-                    <td style={{ padding: "10px" }}>{tx.description}</td>
-                    <td style={{ padding: "10px" }}>
-                      <span
-                        style={{
-                          padding: "3px 8px",
-                          borderRadius: "12px",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          background: "var(--background-alt)",
-                          color: tx.categoryColor,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}>
-                        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: tx.categoryColor }} />
-                        {tx.category}
-                      </span>
-                    </td>
-                    <td style={{ padding: "10px", textAlign: "right", fontWeight: 700, color: tx.amount < 0 ? "#ef4444" : "var(--green)" }}>
-                      {tx.amount < 0 ? `-${money(Math.abs(tx.amount))}` : `+${money(tx.amount)}`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <TransactionsSection embedded={true} forceMode="CREDIT_CARD" />
       </div>
 
       {/* Vault Password Modal */}
