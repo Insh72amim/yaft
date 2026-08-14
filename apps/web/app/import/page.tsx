@@ -57,6 +57,27 @@ const SOURCE_URLS: Record<string, string> = {
   PAYTM: 'https://paytm.com/',
 };
 
+type HistoryImportItem = {
+  id: string;
+  sourceType: 'BANK_STATEMENT' | 'CREDIT_CARD' | 'SALARY_PAYSLIP' | 'DOCUMENT';
+  filename: string;
+  status: string;
+  rowCount: number;
+  createdAt: string;
+  committedAt: string | null;
+  accountName: string;
+  accountType: string;
+  accountInstitution: string | null;
+  totalSpent: number;
+  totalReceived: number;
+  categories: Array<{
+    name: string;
+    color: string;
+    amount: number;
+    count: number;
+  }>;
+};
+
 export default function ImportPage() {
   return <Suspense fallback={<Shell><div className="loading"><span/><p>Preparing the unified importer…</p></div></Shell>}>
     <ImportWorkspace />
@@ -69,6 +90,16 @@ function ImportWorkspace() {
   const requestedKind = searchParams.get('kind') as ImportKind | null;
   const requestedSource = searchParams.get('source');
   const requestedAccount = searchParams.get('accountId');
+
+  // Sub-tab state
+  const [activeTab, setActiveTab] = useState<'UPLOAD' | 'HISTORY'>('UPLOAD');
+  const [historyItems, setHistoryItems] = useState<HistoryImportItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historyCategoryFilter, setHistoryCategoryFilter] = useState<'ALL' | 'BANK' | 'CREDIT_CARD' | 'SALARY' | 'DOCUMENT'>('ALL');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | 'COMMITTED' | 'REVIEW'>('ALL');
+  const [historySearch, setHistorySearch] = useState('');
+
   const [catalog, setCatalog] = useState<Catalog>();
   const [pending, setPending] = useState<PendingImport[]>([]);
   const [selectedReviewId, setSelectedReviewId] = useState('');
@@ -85,6 +116,19 @@ function ImportWorkspace() {
   const [notice, setNotice] = useState('');
   const [syncWarning, setSyncWarning] = useState('');
   const [salaryType, setSalaryType] = useState('SALARY');
+
+  const loadHistory = useCallback(async () => {
+    try {
+      setLoadingHistory(true);
+      const items = await api<HistoryImportItem[]>('/imports/unified/history');
+      setHistoryItems(items || []);
+      setHistoryLoaded(true);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not load import history timeline.'));
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
 
   const refreshPending = useCallback(async (preferredId?: string) => {
     const reviews = await api<PendingImport[]>('/imports/unified/pending');
@@ -308,7 +352,214 @@ function ImportWorkspace() {
   return <Shell><header className="page-header"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={15}/>Overview</Link>
     <span className="eyebrow">Unified import workspace</span><h1>Import financial records</h1><p>Choose what you are importing and who issued it. YAFT applies the matching validator and never guesses an unknown layout.</p></div></header>
 
-    <section className="unified-import-card panel"><form onSubmit={upload}><fieldset className="import-kind-picker"><legend>1. What are you importing?</legend>
+    {/* Sub-Tab Navigation */}
+    <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--line)', paddingBottom: '12px' }}>
+      <button
+        type="button"
+        className={`secondary ${activeTab === 'UPLOAD' ? 'active' : ''}`}
+        onClick={() => setActiveTab('UPLOAD')}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', fontWeight: 600 }}>
+        <UploadCloud size={16} />
+        <span>New Upload & Pending Queue</span>
+        {pending.length > 0 && <span style={{ background: '#f59e0b', color: '#ffffff', fontSize: '11px', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>{pending.length}</span>}
+      </button>
+
+      <button
+        type="button"
+        className={`secondary ${activeTab === 'HISTORY' ? 'active' : ''}`}
+        onClick={() => {
+          setActiveTab('HISTORY');
+          if (!historyLoaded) loadHistory();
+        }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', fontWeight: 600 }}>
+        <RefreshCw size={16} color="var(--green)" />
+        <span>Past Uploads & Timeline</span>
+        {historyItems.length > 0 && <span style={{ background: 'var(--card-hover)', color: 'var(--ink)', fontSize: '11px', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>{historyItems.length}</span>}
+      </button>
+    </div>
+
+    {activeTab === 'HISTORY' ? (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* KPI Summary Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+          <div style={{ background: 'var(--card)', border: '1px solid var(--line)', padding: '14px 18px', borderRadius: '12px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Total Uploaded Files</span>
+            <strong style={{ display: 'block', fontSize: '1.4rem', fontWeight: 800, color: 'var(--ink)', marginTop: '4px' }}>{historyItems.length}</strong>
+          </div>
+          <div style={{ background: 'var(--card)', border: '1px solid var(--line)', padding: '14px 18px', borderRadius: '12px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Total Rows Processed</span>
+            <strong style={{ display: 'block', fontSize: '1.4rem', fontWeight: 800, color: 'var(--green)', marginTop: '4px' }}>
+              {historyItems.reduce((sum, item) => sum + item.rowCount, 0)}
+            </strong>
+          </div>
+          <div style={{ background: 'var(--card)', border: '1px solid var(--line)', padding: '14px 18px', borderRadius: '12px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Committed Imports</span>
+            <strong style={{ display: 'block', fontSize: '1.4rem', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>
+              {historyItems.filter((item) => item.status === 'COMMITTED').length}
+            </strong>
+          </div>
+        </div>
+
+        {/* Filters Bar */}
+        <div className="panel" style={{ padding: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)' }}>Account Category:</span>
+            {[
+              { id: 'ALL', label: 'All Categories' },
+              { id: 'BANK', label: 'Bank Statements' },
+              { id: 'CREDIT_CARD', label: 'Credit Cards' },
+              { id: 'SALARY', label: 'Salary Payslips' },
+              { id: 'DOCUMENT', label: 'Documents' },
+            ].map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                className={`secondary compact ${historyCategoryFilter === cat.id ? 'active' : ''}`}
+                onClick={() => setHistoryCategoryFilter(cat.id as any)}
+                style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px' }}>
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Search filename or account..."
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              style={{ height: '34px', fontSize: '12px', padding: '0 10px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
+            />
+          </div>
+        </div>
+
+        {/* Timeline Content */}
+        {loadingHistory ? (
+          <div className="loading" style={{ padding: '40px' }}>
+            <span />
+            <p>Loading import timeline...</p>
+          </div>
+        ) : historyItems.length === 0 ? (
+          <div className="panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
+            <FileSpreadsheet size={36} style={{ margin: '0 auto 10px auto', opacity: 0.5, display: 'block' }} />
+            <strong style={{ display: 'block', color: 'var(--ink)' }}>No past uploads found</strong>
+            <span style={{ fontSize: '12px' }}>Upload your first bank statement or payslip to see it in your timeline.</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {Object.entries(
+              historyItems
+                .filter((item) => {
+                  if (historyCategoryFilter === 'BANK' && item.sourceType !== 'BANK_STATEMENT') return false;
+                  if (historyCategoryFilter === 'CREDIT_CARD' && item.sourceType !== 'CREDIT_CARD') return false;
+                  if (historyCategoryFilter === 'SALARY' && item.sourceType !== 'SALARY_PAYSLIP') return false;
+                  if (historyCategoryFilter === 'DOCUMENT' && item.sourceType !== 'DOCUMENT') return false;
+                  if (historyStatusFilter !== 'ALL' && item.status !== historyStatusFilter) return false;
+                  if (historySearch.trim()) {
+                    const q = historySearch.toLowerCase();
+                    if (!item.filename.toLowerCase().includes(q) && !item.accountName.toLowerCase().includes(q)) return false;
+                  }
+                  return true;
+                })
+                .reduce((groups: Record<string, HistoryImportItem[]>, item) => {
+                  const monthKey = new Date(item.createdAt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                  if (!groups[monthKey]) groups[monthKey] = [];
+                  groups[monthKey].push(item);
+                  return groups;
+                }, {})
+            ).map(([monthYear, groupItems]) => (
+              <section key={monthYear} className="panel" style={{ padding: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', borderBottom: '1px solid var(--line)', paddingBottom: '8px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--green)' }} />
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--ink)' }}>{monthYear}</h3>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600 }}>({groupItems.length} upload{groupItems.length === 1 ? '' : 's'})</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {groupItems.map((item) => {
+                    const Icon = item.sourceType === 'CREDIT_CARD' ? CreditCard : item.sourceType === 'SALARY_PAYSLIP' ? BadgeIndianRupee : Landmark;
+                    return (
+                      <div
+                        key={item.id}
+                        style={{
+                          background: 'var(--background-alt)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '12px',
+                          padding: '14px 16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ background: 'var(--card)', border: '1px solid var(--line)', padding: '8px', borderRadius: '8px' }}>
+                              <Icon size={18} color="var(--green)" />
+                            </div>
+                            <div>
+                              <strong style={{ fontSize: '14px', color: 'var(--ink)', display: 'block' }}>{item.filename}</strong>
+                              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                                {item.accountName} {item.accountInstitution ? `· ${item.accountInstitution}` : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              padding: '2px 8px',
+                              borderRadius: '10px',
+                              background: item.status === 'COMMITTED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                              color: item.status === 'COMMITTED' ? '#10b981' : '#f59e0b',
+                            }}>
+                              {item.status}
+                            </span>
+                            <small style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                              {new Date(item.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </small>
+                          </div>
+                        </div>
+
+                        {/* Totals & Category Breakdown */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', background: 'var(--card)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                          <div style={{ fontSize: '12px', display: 'flex', gap: '12px' }}>
+                            <span><strong>{item.rowCount}</strong> <small style={{ color: 'var(--muted)' }}>rows</small></span>
+                            {item.totalSpent > 0 && <span style={{ color: '#ef4444', fontWeight: 700 }}>Outflow: {money(item.totalSpent * 100)}</span>}
+                            {item.totalReceived > 0 && <span style={{ color: '#10b981', fontWeight: 700 }}>Inflow: {money(item.totalReceived * 100)}</span>}
+                          </div>
+
+                          {item.categories.length > 0 && (
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                              <span style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600 }}>Categories:</span>
+                              {item.categories.slice(0, 4).map((c) => (
+                                <span
+                                  key={c.name}
+                                  style={{
+                                    fontSize: '10px',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    background: `${c.color}20`,
+                                    color: c.color,
+                                    fontWeight: 700,
+                                  }}>
+                                  {c.name} ({money(c.amount * 100)})
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
+    ) : (
+      <>
+        <section className="unified-import-card panel"><form onSubmit={upload}><fieldset className="import-kind-picker"><legend>1. What are you importing?</legend>
       <div>{catalog.options.map((option) => { const Icon = kindIcon(option.kind); return <button type="button" key={option.kind}
         className={kind === option.kind ? 'selected' : ''} aria-pressed={kind === option.kind} onClick={() => chooseKind(option.kind)}><Icon/><span><strong>{option.label}</strong><small>{option.description}</small></span></button>; })}</div></fieldset>
       <div className="unified-fields"><label>2. Source<select value={sourceOption.source} onChange={(event) => chooseSource(event.target.value)}>
@@ -385,7 +636,9 @@ function ImportWorkspace() {
         {selectedPending?.kind === 'BANK_STATEMENT' || selectedPending?.kind === 'CREDIT_CARD_STATEMENT' ? <BankReviewPanel item={selectedPending as BankPending} busy={busy} update={updateBank} finish={finishReview}/>
           : selectedPending?.kind === 'SALARY_PAYSLIP' ? <SalaryReviewPanel item={selectedPending} busy={busy} finish={finishReview} download={downloadReview}/> : null}</>
         : <div className="unified-empty panel"><ShieldCheck/><strong>No reviews waiting</strong><p>Validated bank statements and payslips will appear here before they are committed.</p></div>}
-    </section>
+      </section>
+      </>
+    )}
   </Shell>;
 }
 

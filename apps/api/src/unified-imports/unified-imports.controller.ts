@@ -17,6 +17,9 @@ export class UnifiedImportsController {
   @Get('pending')
   pending(@CurrentUser() user: { id: string }) { return this.unifiedImports.pending(user.id); }
 
+  @Get('history')
+  history(@CurrentUser() user: { id: string }) { return this.unifiedImports.getHistory(user.id); }
+
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 8 * 1024 * 1024, files: 1 } }))
   upload(@CurrentUser() user: { id: string }, @UploadedFile() file: Express.Multer.File, @Body() dto: UnifiedImportUploadDto) {

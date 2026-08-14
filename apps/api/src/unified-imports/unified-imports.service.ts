@@ -428,4 +428,150 @@ export class UnifiedImportsService {
 
     return newAccount;
   }
+
+  async getHistory(userId: string) {
+    const [batches, salaryStatements, documents] = await Promise.all([
+      this.prisma.importBatch.findMany({
+        where: { userId },
+        include: {
+          account: { select: { id: true, name: true, type: true, institution: true } },
+          transactions: {
+            select: {
+              amount: true,
+              category: { select: { name: true, color: true } },
+            },
+          },
+          staged: {
+            select: {
+              amount: true,
+              category: { select: { name: true, color: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.salaryStatement.findMany({
+        where: { userId },
+        include: {
+          lineItems: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.accountDocument.findMany({
+        where: { account: { userId } },
+        include: {
+          account: { select: { id: true, name: true, type: true, institution: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    const items: Array<{
+      id: string;
+      sourceType: 'BANK_STATEMENT' | 'CREDIT_CARD' | 'SALARY_PAYSLIP' | 'DOCUMENT';
+      filename: string;
+      status: string;
+      rowCount: number;
+      createdAt: string;
+      committedAt: string | null;
+      accountName: string;
+      accountType: string;
+      accountInstitution: string | null;
+      totalSpent: number;
+      totalReceived: number;
+      categories: Array<{
+        name: string;
+        color: string;
+        amount: number;
+        count: number;
+      }>;
+    }> = [];
+
+    for (const b of batches) {
+      let spentSum = 0n;
+      let receivedSum = 0n;
+      const catMap = new Map<string, { name: string; color: string; amount: bigint; count: number }>();
+
+      const rows = b.transactions.length > 0 ? b.transactions : b.staged;
+      for (const r of rows) {
+        const amt = r.amount;
+        if (amt < 0n) spentSum += -amt;
+        else receivedSum += amt;
+
+        const catName = r.category?.name || 'Uncategorised';
+        const catColor = r.category?.color || '#94a3b8';
+        const existing = catMap.get(catName) || { name: catName, color: catColor, amount: 0n, count: 0 };
+        existing.amount += amt < 0n ? -amt : amt;
+        existing.count += 1;
+        catMap.set(catName, existing);
+      }
+
+      const categories = Array.from(catMap.values())
+        .map((c) => ({
+          name: c.name,
+          color: c.color,
+          amount: Number(c.amount) / 100,
+          count: c.count,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      items.push({
+        id: b.id,
+        sourceType: b.account.type === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'BANK_STATEMENT',
+        filename: b.filename,
+        status: b.status,
+        rowCount: b.rowCount || rows.length,
+        createdAt: b.createdAt.toISOString(),
+        committedAt: b.committedAt ? b.committedAt.toISOString() : null,
+        accountName: b.account.name,
+        accountType: b.account.type,
+        accountInstitution: b.account.institution,
+        totalSpent: Number(spentSum) / 100,
+        totalReceived: Number(receivedSum) / 100,
+        categories,
+      });
+    }
+
+    for (const s of salaryStatements) {
+      items.push({
+        id: s.id,
+        sourceType: 'SALARY_PAYSLIP',
+        filename: s.filename,
+        status: s.status,
+        rowCount: s.lineItems.length,
+        createdAt: s.createdAt.toISOString(),
+        committedAt: s.committedAt ? s.committedAt.toISOString() : null,
+        accountName: s.employer || 'Salary Statement',
+        accountType: 'SALARY',
+        accountInstitution: 'Goldman Sachs',
+        totalSpent: Number(s.grossDeductions) / 100,
+        totalReceived: Number(s.netPay) / 100,
+        categories: [
+          { name: 'Gross Earnings', color: '#10b981', amount: Number(s.grossEarnings) / 100, count: 1 },
+          { name: 'Deductions', color: '#ef4444', amount: Number(s.grossDeductions) / 100, count: 1 },
+        ],
+      });
+    }
+
+    for (const d of documents) {
+      items.push({
+        id: d.id,
+        sourceType: 'DOCUMENT',
+        filename: d.name,
+        status: 'COMMITTED',
+        rowCount: 1,
+        createdAt: d.createdAt.toISOString(),
+        committedAt: d.createdAt.toISOString(),
+        accountName: d.account.name,
+        accountType: d.account.type,
+        accountInstitution: d.account.institution,
+        totalSpent: 0,
+        totalReceived: 0,
+        categories: [],
+      });
+    }
+
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return items;
+  }
 }
