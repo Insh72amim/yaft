@@ -4,7 +4,7 @@ import { createHash } from 'crypto';
 import { google } from 'googleapis';
 import { PrismaService } from '../common/prisma.service';
 import { StatementCredentialCipher } from '../common/statement-credentials.service';
-import { parseMultipleEmailAlerts, ParsedEmailTransaction } from './email-alert-parser';
+import { parseMultipleEmailAlerts, ParsedEmailTransaction, getAccountCategoryKey, getAccountCategoryDisplayName } from './email-alert-parser';
 
 @Injectable()
 export class GoogleGmailService {
@@ -234,12 +234,12 @@ export class GoogleGmailService {
         };
       }
 
-      // Group alerts by Bank & Account Type (CREDIT_CARD vs BANK)
+      // Group alerts by granular Account Category: Institution + Type + Account Last 4
       const groups: Record<string, ParsedEmailTransaction[]> = {};
       for (const alert of extractedAlerts) {
-        const key = `${alert.bankName}_${alert.accountType}`;
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(alert);
+        const categoryKey = getAccountCategoryKey(alert);
+        if (!groups[categoryKey]) groups[categoryKey] = [];
+        groups[categoryKey].push(alert);
       }
 
       const createdBatchIds: string[] = [];
@@ -251,31 +251,44 @@ export class GoogleGmailService {
       });
 
       for (const [groupKey, groupAlerts] of Object.entries(groups)) {
-        const firstAlert = groupAlerts[0];
-        const targetType = firstAlert.accountType;
-        const bankName = firstAlert.bankName;
+        const sampleAlert = groupAlerts[0];
+        const targetType = sampleAlert.accountType;
+        const bankName = sampleAlert.bankName;
+        const last4 = sampleAlert.accountLast4;
+        const displayName = getAccountCategoryDisplayName(sampleAlert);
 
-        // Try to match existing account by type AND institution/name
+        // 1. Precise Match: Same account type + (matches last4 in name/number OR matches exact institution + last4)
         let matchedAccount = userAccounts.find((acc) => {
           if (acc.type !== targetType) return false;
-          const accInst = (acc.institution || '').toLowerCase();
           const accName = (acc.name || '').toLowerCase();
+          const accInst = (acc.institution || '').toLowerCase();
           const targetBank = bankName.toLowerCase();
-          return accInst.includes(targetBank) || targetBank.includes(accInst) || accName.includes(targetBank) || targetBank.includes(accName);
+
+          // Check if last4 matches
+          if (last4 && (accName.includes(last4) || accName.includes(`••${last4}`) || accName.includes(`xx${last4}`))) {
+            return accInst.includes(targetBank) || targetBank.includes(accInst) || accName.includes(targetBank);
+          }
+
+          return false;
         });
 
-        // If no institution match found, try matching by account type alone
+        // 2. Secondary Match: Same type and institution name
         if (!matchedAccount) {
-          matchedAccount = userAccounts.find((acc) => acc.type === targetType);
+          matchedAccount = userAccounts.find((acc) => {
+            if (acc.type !== targetType) return false;
+            const accInst = (acc.institution || '').toLowerCase();
+            const accName = (acc.name || '').toLowerCase();
+            const targetBank = bankName.toLowerCase();
+            return (accInst && (accInst.includes(targetBank) || targetBank.includes(accInst))) || accName.includes(targetBank);
+          });
         }
 
-        // If still no account found, auto-create a dedicated account for this institution & type
+        // 3. Fallback: If no account matched, auto-create a clearly labeled Account profile for this exact category
         if (!matchedAccount) {
-          const newAccountName = `${bankName} ${targetType === 'CREDIT_CARD' ? 'Credit Card' : 'Account'}`;
           matchedAccount = await this.prisma.account.create({
             data: {
               userId,
-              name: newAccountName,
+              name: displayName,
               type: targetType,
               institution: bankName,
             },
@@ -288,7 +301,7 @@ export class GoogleGmailService {
           .digest('hex');
 
         const cleanBankSlug = bankName.replace(/[^a-zA-Z0-9]/g, '-');
-        const batchFilename = `gmail-sync-${cleanBankSlug}-${targetType}-${new Date().toISOString().slice(0, 10)}.txt`;
+        const batchFilename = `gmail-sync-${cleanBankSlug}-${targetType}-${last4 || 'all'}-${new Date().toISOString().slice(0, 10)}.txt`;
 
         const batch = await this.prisma.importBatch.create({
           data: {
@@ -302,7 +315,7 @@ export class GoogleGmailService {
               create: groupAlerts.map((alert, idx) => ({
                 rowNumber: idx + 1,
                 transactionDate: alert.transactionDate,
-                descriptionRaw: `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' A/C ' + alert.accountLast4 : ''}]`,
+                descriptionRaw: `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' ••' + alert.accountLast4 : ''}]`,
                 merchant: alert.merchant,
                 amount: alert.amountMinor,
                 reference: alert.referenceNumber || null,

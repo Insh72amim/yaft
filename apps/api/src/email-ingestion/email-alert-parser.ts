@@ -64,6 +64,12 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   else if (/pnb|punjab national/i.test(fullContext)) bankName = 'Punjab National Bank';
   else if (/kotak/i.test(fullContext)) bankName = 'Kotak Mahindra Bank';
   else if (/amex|american express/i.test(fullContext)) bankName = 'American Express';
+  else if (/indusind/i.test(fullContext)) bankName = 'IndusInd Bank';
+  else if (/idfc/i.test(fullContext)) bankName = 'IDFC First Bank';
+  else if (/rbl/i.test(fullContext)) bankName = 'RBL Bank';
+  else if (/yes bank/i.test(fullContext)) bankName = 'Yes Bank';
+  else if (/standard chartered|scb/i.test(fullContext)) bankName = 'Standard Chartered';
+  else if (/citi/i.test(fullContext)) bankName = 'Citi';
 
   // 2. Detect Debit vs Credit
   const isCredit = /credited|received|deposited|added/i.test(text) && !/debited/i.test(text);
@@ -161,4 +167,17 @@ export function parseMultipleEmailAlerts(emailTextContent: string, senderOrSubje
   }
 
   return results;
+}
+
+export function getAccountCategoryKey(alert: ParsedEmailTransaction): string {
+  const last4 = alert.accountLast4 ? alert.accountLast4 : 'GENERAL';
+  return `${alert.bankName}::${alert.accountType}::${last4}`;
+}
+
+export function getAccountCategoryDisplayName(alert: ParsedEmailTransaction): string {
+  const last4Suffix = alert.accountLast4 ? ` (••${alert.accountLast4})` : '';
+  if (alert.accountType === 'CREDIT_CARD') {
+    return `${alert.bankName} Credit Card${last4Suffix}`;
+  }
+  return `${alert.bankName} Account${alert.accountLast4 ? ` (A/C ••${alert.accountLast4})` : ''}`;
 }
