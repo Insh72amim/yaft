@@ -251,7 +251,7 @@ export class GoogleGmailService {
         });
       }
 
-      const fileHash = createHash('sha256').update(JSON.stringify(extractedAlerts) + Date.now().toString()).digest('hex');
+      const fileHash = createHash('sha256').update(JSON.stringify(extractedAlerts, (k, v) => typeof v === 'bigint' ? v.toString() : v) + Date.now().toString()).digest('hex');
 
       const batch = await this.prisma.importBatch.create({
         data: {
