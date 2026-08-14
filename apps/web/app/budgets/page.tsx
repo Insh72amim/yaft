@@ -195,6 +195,7 @@ function BudgetsContent() {
   const [editCatName, setEditCatName] = useState("");
   const [editCatType, setEditCatType] = useState<"EXPENSE" | "INCOME" | "INVESTMENT">("EXPENSE");
   const [editCatColor, setEditCatColor] = useState("");
+  const [editCatBudgetLimit, setEditCatBudgetLimit] = useState("");
   const [updatingCat, setUpdatingCat] = useState(false);
 
   // Rule Builder States
@@ -420,6 +421,51 @@ function BudgetsContent() {
       setError(errorMessage(err, "Failed to create category."));
     } finally {
       setCreatingCat(false);
+    }
+  };
+
+  const handleUpdateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory || !editCatName.trim()) return;
+
+    setUpdatingCat(true);
+    setError("");
+    setSuccessMsg("");
+
+    try {
+      await api(`/categories/${editingCategory.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name: editCatName.trim(), type: editCatType, color: editCatColor }),
+      });
+
+      const budgetVal = parseFloat(editCatBudgetLimit);
+      if (!isNaN(budgetVal) && budgetVal > 0) {
+        await api("/budgets", {
+          method: "POST",
+          body: JSON.stringify({ categoryId: editingCategory.id, monthlyLimit: budgetVal }),
+        });
+      }
+
+      setSuccessMsg(`Updated category "${editCatName.trim()}".`);
+      setEditingCategory(null);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to update category."));
+    } finally {
+      setUpdatingCat(false);
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete category "${name}"? Transactions assigned to this category will become unassigned.`)) return;
+    setError("");
+    setSuccessMsg("");
+    try {
+      await api(`/categories/${catId}`, { method: "DELETE" });
+      setSuccessMsg(`Deleted category "${name}".`);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to delete category."));
     }
   };
 
@@ -683,19 +729,33 @@ function BudgetsContent() {
                             <strong style={{ fontSize: "14px", color: "var(--ink)" }}>{cat.name}</strong>
                           </div>
 
-                          {budget && (
-                            <div style={{ display: "flex", gap: "4px" }}>
+                          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              title="Edit Monthly Limit Target"
+                              onClick={() => {
+                                setSelectedCatId(cat.id);
+                                setLimitInput(budget ? String(budget.monthlyLimit) : "");
+                                window.scrollTo({ top: 300, behavior: "smooth" });
+                              }}
+                              style={{ background: "transparent", border: "1px solid var(--line)", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px", color: "var(--ink)" }}>
+                              <Edit2 size={12} />
+                              <span>{budget ? "Edit" : "Set Target"}</span>
+                            </button>
+
+                            {budget && (
                               <button
                                 type="button"
                                 className="icon-button danger"
                                 title="Remove Envelope Target"
                                 onClick={() => handleDeleteBudget(budget.id)}
                                 disabled={deletingBudgetId === budget.id}
-                              >
+                                style={{ background: "transparent", border: "1px solid var(--line)", borderRadius: "6px", padding: "6px", cursor: "pointer", color: "#ef4444" }}>
                                 {deletingBudgetId === budget.id ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
                               </button>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
 
                         {budget ? (
@@ -1094,6 +1154,158 @@ function BudgetsContent() {
                   {creatingCat ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
                   <span>Create Category</span>
                 </button>
+              </form>
+            </section>
+
+            {/* Categories Directory & Management Panel */}
+            <section className="panel" style={{ padding: "20px" }}>
+              <div className="panel-title" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                <div>
+                  <span className="eyebrow" style={{ color: "var(--green)" }}>Categories Directory</span>
+                  <h2>All System & Custom Categories ({categories.length})</h2>
+                </div>
+
+                {/* Filter Pills */}
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                  {(["ALL", "EXPENSE", "INCOME", "INVESTMENT"] as const).map((filterType) => (
+                    <button
+                      key={filterType}
+                      type="button"
+                      className={`secondary compact ${directoryCatFilter === filterType ? "active" : ""}`}
+                      onClick={() => setDirectoryCatFilter(filterType)}
+                      style={{ fontSize: "12px", padding: "4px 12px" }}>
+                      {filterType === "ALL" ? "All" : filterType === "EXPENSE" ? "Expenses" : filterType === "INCOME" ? "Income" : "Investments"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "14px" }}>
+                {categories
+                  .filter((c) => directoryCatFilter === "ALL" || (c.type || "EXPENSE") === directoryCatFilter)
+                  .map((cat) => {
+                    const budget = budgets.find((b) => b.categoryId === cat.id);
+                    return (
+                      <div
+                        key={cat.id}
+                        style={{
+                          background: "var(--background-alt)",
+                          border: "1px solid var(--line)",
+                          borderRadius: "12px",
+                          padding: "14px 16px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: cat.color || "#3b82f6", flexShrink: 0 }} />
+                          <div>
+                            <strong style={{ fontSize: "14px", color: "var(--ink)", display: "block" }}>{cat.name}</strong>
+                            <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>
+                              {cat.type || "EXPENSE"} • {budget ? `Envelope limit: ${money(budget.monthlyLimit * 100)}/mo` : "No envelope limit"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            title="Edit Category Name, Color & Envelope Limit"
+                            onClick={() => {
+                              setEditingCategory(cat);
+                              setEditCatName(cat.name);
+                              setEditCatType((cat.type as any) || "EXPENSE");
+                              setEditCatColor(cat.color || "#3b82f6");
+                              setEditCatBudgetLimit(budget ? String(budget.monthlyLimit) : "");
+                            }}
+                            style={{ background: "transparent", border: "1px solid var(--line)", borderRadius: "6px", padding: "6px", cursor: "pointer", color: "var(--ink)" }}>
+                            <Edit2 size={14} />
+                          </button>
+
+                          <button
+                            type="button"
+                            className="icon-button danger"
+                            title="Delete Category"
+                            onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                            style={{ background: "transparent", border: "1px solid var(--line)", borderRadius: "6px", padding: "6px", cursor: "pointer", color: "#ef4444" }}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* EDIT CATEGORY MODAL */}
+        {editingCategory && (
+          <div className="modal-wrap" style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", zIndex: 99999, background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(4px)", padding: "20px" }}>
+            <button type="button" className="backdrop" onClick={() => setEditingCategory(null)} aria-label="Close modal" style={{ position: "absolute", inset: 0, background: "transparent", border: 0, width: "100%", height: "100%", cursor: "pointer" }} />
+            <section className="modal" style={{ position: "relative", zIndex: 10, width: "min(500px, 92vw)", padding: "28px", borderRadius: "16px", background: "var(--card)", border: "1px solid var(--line)", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>Edit Category &amp; Envelope Target</h2>
+                <button type="button" className="icon-button" onClick={() => setEditingCategory(null)} style={{ background: "transparent", border: "none", cursor: "pointer" }}><X size={18}/></button>
+              </div>
+
+              <form onSubmit={handleUpdateCategory} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Category Name</label>
+                  <input
+                    type="text"
+                    value={editCatName}
+                    onChange={(e) => setEditCatName(e.target.value)}
+                    required
+                    style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 12px", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Group / Type</label>
+                  <select
+                    value={editCatType}
+                    onChange={(e: any) => setEditCatType(e.target.value)}
+                    style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 12px", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}
+                  >
+                    <option value="EXPENSE">Expense</option>
+                    <option value="INCOME">Income</option>
+                    <option value="INVESTMENT">Investment & Wealth</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Badge Color</label>
+                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                    <input
+                      type="color"
+                      value={editCatColor || "#3b82f6"}
+                      onChange={(e) => setEditCatColor(e.target.value)}
+                      style={{ width: "40px", height: "38px", padding: "2px", borderRadius: "8px", border: "1px solid var(--line)", cursor: "pointer", background: "var(--background)" }}
+                    />
+                    <span style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "monospace" }}>{editCatColor}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Monthly Target Envelope (₹, Optional)</label>
+                  <input
+                    type="number"
+                    value={editCatBudgetLimit}
+                    onChange={(e) => setEditCatBudgetLimit(e.target.value)}
+                    placeholder="e.g. 15000"
+                    step="100"
+                    style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 12px", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                  <button type="button" className="secondary compact" onClick={() => setEditingCategory(null)}>Cancel</button>
+                  <button type="submit" disabled={updatingCat} className="secondary compact" style={{ background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700 }}>
+                    {updatingCat ? <Loader2 className="spin" size={16} /> : "Save Changes"}
+                  </button>
+                </div>
               </form>
             </section>
           </div>
