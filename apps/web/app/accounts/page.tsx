@@ -1471,15 +1471,41 @@ function BeautifulCreditCardTile({
           className="credit-account-card-number"
           style={{
             display: "block",
-            margin: "18px 0 14px 0",
+            margin: "12px 0 10px 0",
             fontSize: "1.25rem",
             letterSpacing: "2px",
             fontFamily: "monospace",
             color: "#ffffff",
-            textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+            textShadow: "0 2px 4px rgba(0,0,0,0.35)",
           }}>
           {maskedNumber}
         </strong>
+
+        {/* Realistic Metallic Golden EMV Chip & Contactless Wave Symbol */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "0 0 14px 0" }}>
+          <div
+            style={{
+              width: "34px",
+              height: "25px",
+              borderRadius: "5px",
+              background: "linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #d97706 100%)",
+              border: "1px solid rgba(255,255,255,0.4)",
+              boxShadow: "inset 0 1px 2px rgba(255,255,255,0.6), 0 2px 4px rgba(0,0,0,0.3)",
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+            <div style={{ width: "70%", height: "1px", background: "rgba(0,0,0,0.3)" }} />
+            <div style={{ height: "70%", width: "1px", background: "rgba(0,0,0,0.3)", position: "absolute" }} />
+          </div>
+
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2.2" strokeLinecap="round" style={{ transform: "rotate(90deg)" }}>
+            <path d="M12 2a10 10 0 0 1 10 10" />
+            <path d="M12 6a6 6 0 0 1 6 6" />
+            <path d="M12 10a2 2 0 0 1 2 2" />
+          </svg>
+        </div>
 
         <div className="credit-account-card-identity" style={{ display: "flex", justifyContent: "space-between", marginBottom: "14px" }}>
           <div>
@@ -1598,6 +1624,19 @@ function CreditCardsSection() {
   }
 
   const { summary, overallFlow, cards } = data;
+  const [cardFilter, setCardFilter] = useState<string>("ALL");
+
+  const filteredCards = cards.filter((c) => {
+    if (cardFilter === "HIGH_UTIL") return c.utilizationPercent > 30;
+    if (cardFilter === "DUES_PENDING") return c.outstanding > 0;
+    if (cardFilter !== "ALL") {
+      const inst = (c.institution || c.name).toLowerCase();
+      return inst.includes(cardFilter.toLowerCase());
+    }
+    return true;
+  });
+
+  const cardsWithDues = cards.filter((c) => c.outstanding > 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
@@ -1699,18 +1738,42 @@ function CreditCardsSection() {
 
       {/* Credit Cards Directory Panel */}
       <div className="panel">
-        <div className="panel-title" style={{ marginBottom: "20px" }}>
+        <div className="panel-title" style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
           <div>
-            <span className="eyebrow">Cards List</span>
-            <h2>Active Credit Cards ({cards.length})</h2>
+            <span className="eyebrow" style={{ color: "#ef4444" }}>Cards List</span>
+            <h2>Active Credit Cards ({filteredCards.length})</h2>
+          </div>
+
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className={`secondary compact ${cardFilter === "ALL" ? "active" : ""}`}
+              onClick={() => setCardFilter("ALL")}
+              style={{ fontSize: "12px", padding: "4px 12px" }}>
+              All ({cards.length})
+            </button>
+            <button
+              type="button"
+              className={`secondary compact ${cardFilter === "DUES_PENDING" ? "active" : ""}`}
+              onClick={() => setCardFilter("DUES_PENDING")}
+              style={{ fontSize: "12px", padding: "4px 12px" }}>
+              Dues Pending ({cardsWithDues.length})
+            </button>
+            <button
+              type="button"
+              className={`secondary compact ${cardFilter === "HIGH_UTIL" ? "active" : ""}`}
+              onClick={() => setCardFilter("HIGH_UTIL")}
+              style={{ fontSize: "12px", padding: "4px 12px" }}>
+              High Utilization (&gt;30%)
+            </button>
           </div>
         </div>
 
-        {cards.length === 0 ? (
-          <p style={{ color: "var(--muted)", fontSize: "13px" }}>No credit card accounts found.</p>
+        {filteredCards.length === 0 ? (
+          <p style={{ color: "var(--muted)", fontSize: "13px", padding: "20px 0" }}>No credit card accounts match the selected filter.</p>
         ) : (
           <div className="credit-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
-            {cards.map((card) => (
+            {filteredCards.map((card) => (
               <BeautifulCreditCardTile
                 key={card.id}
                 card={card}
