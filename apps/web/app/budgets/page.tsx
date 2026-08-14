@@ -503,11 +503,14 @@ function BudgetsContent() {
       });
 
       const budgetVal = parseFloat(editCatBudgetLimit);
+      const existingBudget = budgets.find((b) => b.categoryId === editingCategory.id);
       if (!isNaN(budgetVal) && budgetVal > 0) {
         await api("/budgets", {
           method: "POST",
           body: JSON.stringify({ categoryId: editingCategory.id, monthlyLimit: budgetVal }),
         });
+      } else if (existingBudget && (editCatBudgetLimit === "" || budgetVal === 0)) {
+        await api(`/budgets/${existingBudget.id}`, { method: "DELETE" });
       }
 
       setSuccessMsg(`Updated category "${editCatName.trim()}".`);
@@ -855,11 +858,13 @@ function BudgetsContent() {
                             <button
                               type="button"
                               className="icon-button"
-                              title="Edit Monthly Limit Target"
+                              title="Edit Category & Monthly Envelope Limit"
                               onClick={() => {
-                                setSelectedCatId(cat.id);
-                                setLimitInput(budget ? String(budget.monthlyLimit) : "");
-                                window.scrollTo({ top: 300, behavior: "smooth" });
+                                setEditingCategory(cat);
+                                setEditCatName(cat.name);
+                                setEditCatType((cat.type as any) || "EXPENSE");
+                                setEditCatColor(cat.color || "#3b82f6");
+                                setEditCatBudgetLimit(budget ? String(budget.monthlyLimit) : "");
                               }}
                               style={{ background: "transparent", border: "1px solid var(--line)", borderRadius: "6px", padding: "4px 8px", cursor: "pointer", fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px", color: "var(--ink)" }}>
                               <Edit2 size={12} />
