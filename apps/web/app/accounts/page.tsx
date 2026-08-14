@@ -10,6 +10,7 @@ import {
   PiggyBank,
   ChartPie,
   TrendingUp,
+  TrendingDown,
   ChevronLeft,
   ChevronDown,
   ChevronRight,
@@ -18,6 +19,14 @@ import {
   EyeOff,
   Files,
   ArrowUpRight,
+  ArrowDownRight,
+  ShieldAlert,
+  PieChart,
+  Wallet,
+  Layers,
+  Sparkles,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -340,6 +349,9 @@ function AccountCard({
 function PortfolioContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") === "assets" ? "ASSETS" : "ACCOUNTS";
+  const [activeTab, setActiveTab] = useState<"ACCOUNTS" | "ASSETS">(initialTab);
+
   const [portfolio, setPortfolio] = useState<PortfolioAccount[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -626,7 +638,34 @@ function PortfolioContent() {
   // Accounts Overview View
   return (
     <Shell>
-      <header className="page-header accounts-page-header">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "16px" }}>
+        <div style={{ display: "flex", gap: "6px", background: "var(--background-alt)", padding: "4px", borderRadius: "10px", border: "1px solid var(--line)" }}>
+          <button
+            type="button"
+            className={`secondary compact ${activeTab === "ACCOUNTS" ? "active" : ""}`}
+            onClick={() => setActiveTab("ACCOUNTS")}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
+          >
+            <BriefcaseBusiness size={15} color={activeTab === "ACCOUNTS" ? "var(--green)" : "var(--muted)"} />
+            Accounts & Portfolios
+          </button>
+          <button
+            type="button"
+            className={`secondary compact ${activeTab === "ASSETS" ? "active" : ""}`}
+            onClick={() => setActiveTab("ASSETS")}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
+          >
+            <TrendingUp size={15} color={activeTab === "ASSETS" ? "#3b82f6" : "var(--muted)"} />
+            Assets & Net Worth Allocation
+          </button>
+        </div>
+      </div>
+
+      {activeTab === "ASSETS" ? (
+        <AssetsSection />
+      ) : (
+        <>
+          <header className="page-header accounts-page-header">
         <div>
           <span className="eyebrow">Portfolio & Accounts</span>
           <h1>My accounts</h1>
@@ -901,7 +940,285 @@ function PortfolioContent() {
           }}
         />
       )}
+        </>
+      )}
     </Shell>
+  );
+}
+
+interface HoldingAsset {
+  symbol: string;
+  name: string;
+  category: string;
+  quantity: number;
+  currentValue: number | null;
+}
+
+interface AccountAsset {
+  id: string;
+  name: string;
+  type: string;
+  institution: string;
+  balance: number;
+  holdingCount: number;
+  holdings: HoldingAsset[];
+}
+
+interface AssetsHistoryData {
+  netWorth: number;
+  liquidCashTotal: number;
+  equitiesTotal: number;
+  epfoTotal: number;
+  debtTotal: number;
+  totalAssets: number;
+  allocation: {
+    liquidCash: { amount: number; percentage: number };
+    equities: { amount: number; percentage: number };
+    epfo: { amount: number; percentage: number };
+    debt: { amount: number; percentage: number };
+  };
+  accounts: AccountAsset[];
+  history: {
+    month: string;
+    liquid: number;
+    equities: number;
+    epfo: number;
+    debt: number;
+    netWorth: number;
+  }[];
+}
+
+function AssetsSection() {
+  const [data, setData] = useState<AssetsHistoryData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [hidePrivacy, setHidePrivacy] = useState(true);
+  const [selectedAssetCategory, setSelectedAssetCategory] = useState<"ALL" | "CASH" | "EQUITIES" | "EPFO" | "DEBT">("ALL");
+
+  useEffect(() => {
+    setLoading(true);
+    api<AssetsHistoryData>("/dashboard/assets-history")
+      .then((res) => {
+        setData(res);
+        setLoading(false);
+      })
+      .catch((err: any) => {
+        setError(err.message || "Failed to load assets history");
+        setLoading(false);
+      });
+  }, []);
+
+  const formatAmount = (val: number) => {
+    if (hidePrivacy) return "••••••";
+    return money(val);
+  };
+
+  if (loading) {
+    return (
+      <div className="loading" style={{ height: "40vh" }}>
+        <span />
+        <p>Loading Assets & Net Worth Portfolio...</p>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="panel" style={{ padding: "40px", textAlign: "center", color: "#ef4444" }}>
+        <AlertCircle size={28} style={{ margin: "0 auto 12px auto", display: "block" }} />
+        <span>{error || "Could not load assets data"}</span>
+      </div>
+    );
+  }
+
+  const { netWorth, liquidCashTotal, equitiesTotal, epfoTotal, debtTotal, totalAssets, allocation, accounts, history } = data;
+
+  const filteredAccounts = accounts.filter((acc) => {
+    if (selectedAssetCategory === "CASH") return ["SAVINGS", "BANK", "CASH", "FD", "FIXED_DEPOSIT"].includes(acc.type);
+    if (selectedAssetCategory === "EQUITIES") return ["INVESTMENT", "STOCKS", "MUTUAL_FUND"].includes(acc.type);
+    if (selectedAssetCategory === "EPFO") return acc.type === "EPFO";
+    if (selectedAssetCategory === "DEBT") return ["LOAN", "CREDIT_CARD"].includes(acc.type);
+    return true;
+  });
+
+  const firstWorth = history.length > 0 ? history[0].netWorth : netWorth;
+  const lastWorth = history.length > 0 ? history[history.length - 1].netWorth : netWorth;
+  const netWorthDelta = lastWorth - firstWorth;
+  const growthPct = firstWorth !== 0 ? Math.round(((lastWorth - firstWorth) / Math.abs(firstWorth)) * 1000) / 10 : 0;
+  const isPositiveGrowth = netWorthDelta >= 0;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      {/* 1. Hero Card */}
+      <div className="hero-card assets-hero">
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "1px", opacity: 0.85, fontWeight: 700 }}>
+              Total Net Worth & Assets
+            </span>
+            <span
+              style={{
+                background: isPositiveGrowth ? "rgba(255, 255, 255, 0.18)" : "rgba(239, 68, 68, 0.25)",
+                padding: "3px 8px",
+                borderRadius: "12px",
+                fontSize: "11px",
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+              }}>
+              {isPositiveGrowth ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+              {growthPct > 0 ? `+${growthPct}%` : `${growthPct}%`} (12M)
+            </span>
+          </div>
+          <strong style={{ margin: "4px 0" }}>{formatAmount(netWorth)}</strong>
+          <small>
+            <Sparkles size={14} />
+            Total Assets: {formatAmount(totalAssets)} • Liabilities: {formatAmount(debtTotal)}
+          </small>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", position: "relative", zIndex: 10 }}>
+          <button
+            type="button"
+            onClick={() => setHidePrivacy(!hidePrivacy)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "20px",
+              background: hidePrivacy ? "rgba(255, 255, 255, 0.2)" : "rgba(16, 185, 129, 0.3)",
+              border: `1px solid ${hidePrivacy ? "rgba(255, 255, 255, 0.35)" : "rgba(16, 185, 129, 0.6)"}`,
+              color: "#ffffff",
+              fontWeight: 600,
+              fontSize: "12px",
+              backdropFilter: "blur(12px)",
+              cursor: "pointer",
+            }}>
+            {hidePrivacy ? <Eye size={15} /> : <EyeOff size={15} />}
+            <span>{hidePrivacy ? "Show Amounts" : "Hide Amounts"}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Asset Allocation Breakdown */}
+      <section className="panel" style={{ padding: "24px" }}>
+        <div className="panel-title" style={{ marginBottom: "16px" }}>
+          <div>
+            <span className="eyebrow" style={{ color: "var(--green)" }}>Portfolio Distribution</span>
+            <h2>Asset Allocation & Diversification</h2>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ height: "14px", width: "100%", background: "var(--line)", borderRadius: "8px", overflow: "hidden", display: "flex" }}>
+            <div style={{ width: `${allocation.liquidCash.percentage}%`, background: "#3b82f6" }} title={`Liquid Cash: ${allocation.liquidCash.percentage}%`} />
+            <div style={{ width: `${allocation.equities.percentage}%`, background: "#8b5cf6" }} title={`Equities: ${allocation.equities.percentage}%`} />
+            <div style={{ width: `${allocation.epfo.percentage}%`, background: "#f59e0b" }} title={`EPFO: ${allocation.epfo.percentage}%`} />
+          </div>
+
+          <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", fontSize: "12px" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+              <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#3b82f6" }} />
+              Liquid Cash & FDs: {formatAmount(liquidCashTotal)} ({allocation.liquidCash.percentage}%)
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+              <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#8b5cf6" }} />
+              Equities & Stocks: {formatAmount(equitiesTotal)} ({allocation.equities.percentage}%)
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+              <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#f59e0b" }} />
+              EPFO Provident Fund: {formatAmount(epfoTotal)} ({allocation.epfo.percentage}%)
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "8px", fontWeight: 600, color: "#ef4444" }}>
+              <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#ef4444" }} />
+              Liabilities & Debt: {formatAmount(debtTotal)}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Account Holdings Breakdown */}
+      <section className="panel" style={{ padding: "24px" }}>
+        <div className="panel-title" style={{ flexWrap: "wrap", gap: "16px", alignItems: "center", marginBottom: "20px", display: "flex", justifyContent: "space-between" }}>
+          <div>
+            <span className="eyebrow" style={{ color: "var(--green)" }}>Holdings & Accounts Portfolio</span>
+            <h2>Account Assets Breakdown</h2>
+          </div>
+
+          <div className="asset-filter-bar" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            {(["ALL", "CASH", "EQUITIES", "EPFO", "DEBT"] as const).map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                className={`secondary compact ${selectedAssetCategory === cat ? "active" : ""}`}
+                onClick={() => setSelectedAssetCategory(cat)}
+                style={{ fontSize: "12px", padding: "4px 12px" }}>
+                {cat === "ALL" ? "All" : cat === "CASH" ? "Cash & FDs" : cat === "EQUITIES" ? "Equities" : cat === "EPFO" ? "EPFO" : "Loans & Debt"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: "16px" }}>
+          {filteredAccounts.length === 0 ? (
+            <div style={{ padding: "40px", textAlign: "center", color: "var(--muted)", fontSize: "13px" }}>
+              No active accounts or holdings found under this category filter.
+            </div>
+          ) : (
+            filteredAccounts.map((acc) => {
+              const isNegative = acc.balance < 0;
+              const pctOfAssets = totalAssets > 0 && !isNegative ? Math.round((acc.balance / totalAssets) * 1000) / 10 : 0;
+              return (
+                <div key={acc.id} className="account-asset-card" style={{ background: "var(--background-alt)", border: "1px solid var(--line)", borderRadius: "12px", padding: "16px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <Landmark size={18} />
+                      <div>
+                        <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
+                          {acc.institution} • {acc.type}
+                        </span>
+                        <h3 style={{ margin: "2px 0 0 0", fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>{acc.name}</h3>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      <strong style={{ fontSize: "1.2rem", fontWeight: 700, color: isNegative ? "#ef4444" : "var(--ink)" }}>
+                        {formatAmount(acc.balance)}
+                      </strong>
+                      {!isNegative && totalAssets > 0 && (
+                        <small style={{ display: "block", color: "var(--muted)", fontSize: "11px" }}>
+                          {pctOfAssets}% of total assets
+                        </small>
+                      )}
+                    </div>
+                  </div>
+
+                  {acc.holdings.length > 0 && (
+                    <div style={{ background: "var(--card)", borderRadius: "10px", padding: "12px", border: "1px solid var(--line)", marginTop: "10px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: "8px" }}>
+                        Holdings Positions ({acc.holdingCount} assets)
+                      </span>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        {acc.holdings.slice(0, 8).map((h, hIdx) => (
+                          <span key={hIdx} style={{ background: "var(--background-alt)", border: "1px solid var(--line)", padding: "4px 8px", borderRadius: "6px", fontSize: "11px" }}>
+                            <strong style={{ color: "var(--ink)", marginRight: "4px" }}>{h.symbol}</strong>
+                            <span style={{ color: "var(--muted)" }}>
+                              {h.currentValue !== null ? formatAmount(h.currentValue) : `${h.quantity} units`}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
