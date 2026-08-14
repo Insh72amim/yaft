@@ -1146,27 +1146,6 @@ function BudgetsContent() {
                   />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                  <div>
-                    <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Start Date (Optional)</label>
-                    <input
-                      type="date"
-                      value={tagStart}
-                      onChange={(e) => setTagStart(e.target.value)}
-                      style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>End Date (Optional)</label>
-                    <input
-                      type="date"
-                      value={tagEnd}
-                      onChange={(e) => setTagEnd(e.target.value)}
-                      style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
-                    />
-                  </div>
-                </div>
-
                 <div>
                   <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Tag Budget Limit (₹, Optional)</label>
                   <input
