@@ -412,54 +412,6 @@ export default function SalaryPage() {
 
       {activeTab === "statements" ? (
         <>
-          <section className="salary-summary">
-            <article>
-              <span className="summary-icon income">
-                <WalletCards />
-              </span>
-              <small>Latest net pay</small>
-              <strong>{money(filteredSummary.latestNetPay)}</strong>
-              <em>
-                {filteredSummary.statementCount} verified statement
-                {filteredSummary.statementCount === 1 ? "" : "s"}
-              </em>
-            </article>
-            <article>
-              <span className="summary-icon saved">
-                <BadgeIndianRupee />
-              </span>
-              <small>Cumulative net pay</small>
-              <strong>{money(filteredSummary.totalNet)}</strong>
-              <em>After all deductions</em>
-            </article>
-            <article>
-              <span className="summary-icon saved">
-                <ArrowUpRight />
-              </span>
-              <small>Cumulative gross</small>
-              <strong>{money(filteredSummary.totalGross)}</strong>
-              <em>Across imported months</em>
-            </article>
-            <article>
-              <span className="summary-icon expense">
-                <ArrowDownRight />
-              </span>
-              <small>Tax deducted</small>
-              <strong>{money(filteredSummary.taxes)}</strong>
-              <em>Income + professional tax</em>
-            </article>
-            <article>
-              <span className="summary-icon epfo">
-                <Building2 />
-              </span>
-              <small>Total PF additions</small>
-              <strong>
-                {money(filteredSummary.employeePf + filteredSummary.employerPf)}
-              </strong>
-              <em>Employee + employer share</em>
-            </article>
-          </section>
-
           <section className="panel salary-history salary-history-wide" style={{ padding: "24px" }}>
             <div className="panel-title" style={{ marginBottom: "20px" }}>
               <div>
@@ -719,6 +671,54 @@ export default function SalaryPage() {
         </>
       ) : activeTab === "analytics" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <section className="salary-summary" style={{ margin: 0 }}>
+            <article>
+              <span className="summary-icon income">
+                <WalletCards />
+              </span>
+              <small>Latest net pay</small>
+              <strong>{money(filteredSummary.latestNetPay)}</strong>
+              <em>
+                {filteredSummary.statementCount} verified statement
+                {filteredSummary.statementCount === 1 ? "" : "s"}
+              </em>
+            </article>
+            <article>
+              <span className="summary-icon saved">
+                <BadgeIndianRupee />
+              </span>
+              <small>Cumulative net pay</small>
+              <strong>{money(filteredSummary.totalNet)}</strong>
+              <em>After all deductions</em>
+            </article>
+            <article>
+              <span className="summary-icon saved">
+                <ArrowUpRight />
+              </span>
+              <small>Cumulative gross</small>
+              <strong>{money(filteredSummary.totalGross)}</strong>
+              <em>Across imported months</em>
+            </article>
+            <article>
+              <span className="summary-icon expense">
+                <ArrowDownRight />
+              </span>
+              <small>Tax deducted</small>
+              <strong>{money(filteredSummary.taxes)}</strong>
+              <em>Income + professional tax</em>
+            </article>
+            <article>
+              <span className="summary-icon epfo">
+                <Building2 />
+              </span>
+              <small>Total PF additions</small>
+              <strong>
+                {money(filteredSummary.employeePf + filteredSummary.employerPf)}
+              </strong>
+              <em>Employee + employer share</em>
+            </article>
+          </section>
+
           <SalaryAnalyticsCard
             statementCount={filteredSummary.statementCount}
             totalGross={filteredSummary.totalGross}
