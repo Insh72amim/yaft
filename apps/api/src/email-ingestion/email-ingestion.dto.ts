@@ -1,30 +1,4 @@
-import { IsBoolean, IsEmail, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-
-export class SaveEmailConfigDto {
-  @IsEmail()
-  email!: string;
-
-  @IsString()
-  @IsOptional()
-  host?: string;
-
-  @IsInt()
-  @Min(1)
-  @Max(65535)
-  @IsOptional()
-  port?: number;
-
-  @IsBoolean()
-  @IsOptional()
-  tls?: boolean;
-
-  @IsString()
-  password!: string;
-
-  @IsBoolean()
-  @IsOptional()
-  autoSync?: boolean;
-}
+import { IsOptional, IsString } from 'class-validator';
 
 export class ParseEmailSnippetDto {
   @IsString()

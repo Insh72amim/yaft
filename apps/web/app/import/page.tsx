@@ -101,16 +101,12 @@ function ImportWorkspace() {
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | 'COMMITTED' | 'REVIEW'>('ALL');
   const [historySearch, setHistorySearch] = useState('');
 
-  // Email Ingestion State
-  const [emailSubTab, setEmailSubTab] = useState<'SNIPPET' | 'SETTINGS' | 'LOGS'>('SNIPPET');
+  // Email Transaction Alert Ingestion States
+  const [emailSubTab, setEmailSubTab] = useState<'SNIPPET' | 'LOGS'>('SNIPPET');
   const [emailSnippet, setEmailSnippet] = useState('');
   const [emailSnippetAccount, setEmailSnippetAccount] = useState('');
   const [snippetParsing, setSnippetParsing] = useState(false);
   const [snippetResult, setSnippetResult] = useState<any>(null);
-  const [emailConfig, setEmailConfig] = useState<any>(null);
-  const [emailForm, setEmailForm] = useState({ email: '', host: 'imap.gmail.com', port: 993, tls: true, password: '', autoSync: false });
-  const [savingConfig, setSavingConfig] = useState(false);
-  const [syncingInbox, setSyncingInbox] = useState(false);
   const [emailLogs, setEmailLogs] = useState<any[]>([]);
   const [loadingEmailLogs, setLoadingEmailLogs] = useState(false);
 
@@ -144,23 +140,6 @@ function ImportWorkspace() {
     }
   }, []);
 
-  const loadEmailConfig = useCallback(async () => {
-    try {
-      const cfg = await api<any>('/email-ingestion/config');
-      setEmailConfig(cfg);
-      if (cfg && cfg.configured) {
-        setEmailForm({
-          email: cfg.email || '',
-          host: cfg.host || 'imap.gmail.com',
-          port: cfg.port || 993,
-          tls: cfg.tls !== undefined ? cfg.tls : true,
-          password: '',
-          autoSync: cfg.autoSync || false,
-        });
-      }
-    } catch {}
-  }, []);
-
   const loadEmailLogs = useCallback(async () => {
     try {
       setLoadingEmailLogs(true);
@@ -187,40 +166,6 @@ function ImportWorkspace() {
       setError(errorMessage(err, 'Could not parse email snippet.'));
     } finally {
       setSnippetParsing(false);
-    }
-  };
-
-  const handleSaveEmailConfig = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!emailForm.email || !emailForm.password) {
-      setError('Please enter your email address and password.');
-      return;
-    }
-    setSavingConfig(true); setError(''); setNotice('');
-    try {
-      const res = await api<any>('/email-ingestion/config', {
-        method: 'POST',
-        body: JSON.stringify(emailForm),
-      });
-      setNotice(res.message);
-      await loadEmailConfig();
-    } catch (err) {
-      setError(errorMessage(err, 'Could not save email configuration.'));
-    } finally {
-      setSavingConfig(false);
-    }
-  };
-
-  const handleSyncInboxNow = async () => {
-    setSyncingInbox(true); setError(''); setNotice('');
-    try {
-      const res = await api<any>('/email-ingestion/sync', { method: 'POST' });
-      setNotice(res.message);
-      await loadEmailLogs();
-    } catch (err) {
-      setError(errorMessage(err, 'Could not trigger email inbox sync.'));
-    } finally {
-      setSyncingInbox(false);
     }
   };
 
@@ -487,7 +432,6 @@ function ImportWorkspace() {
         className={`secondary ${activeTab === 'EMAIL_SYNC' ? 'active' : ''}`}
         onClick={() => {
           setActiveTab('EMAIL_SYNC');
-          loadEmailConfig();
           loadEmailLogs();
         }}
         style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', fontWeight: 600 }}>
@@ -688,7 +632,7 @@ function ImportWorkspace() {
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--ink)' }}>Email Transaction Alert Ingestion</h3>
                 <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--muted)' }}>
-                  Parse transaction emails (HDFC, ICICI, SBI, Axis, Amex) instantly or configure local IMAP auto-sync.
+                  Parse bank transaction alert emails &amp; SMS text instantly (HDFC, ICICI, SBI, Axis, Amex, Kotak).
                 </p>
               </div>
             </div>
@@ -698,12 +642,6 @@ function ImportWorkspace() {
                 className={`secondary compact ${emailSubTab === 'SNIPPET' ? 'active' : ''}`}
                 onClick={() => setEmailSubTab('SNIPPET')}>
                 <Sparkles size={14} /> Quick Alert Text Parser
-              </button>
-              <button
-                type="button"
-                className={`secondary compact ${emailSubTab === 'SETTINGS' ? 'active' : ''}`}
-                onClick={() => setEmailSubTab('SETTINGS')}>
-                <KeyRound size={14} /> IMAP Credentials
               </button>
               <button
                 type="button"
@@ -773,87 +711,6 @@ function ImportWorkspace() {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {emailSubTab === 'SETTINGS' && (
-          <div className="panel" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--ink)' }}>IMAP Email Connector Settings</h4>
-                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--muted)' }}>
-                  Credentials are encrypted using local AES-256-GCM. Never stored in plaintext.
-                </p>
-              </div>
-              {emailConfig?.configured && (
-                <button
-                  type="button"
-                  className="secondary compact"
-                  onClick={handleSyncInboxNow}
-                  disabled={syncingInbox}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <RefreshCw size={14} className={syncingInbox ? 'spin' : ''} />
-                  <span>{syncingInbox ? 'Syncing...' : 'Sync Inbox Now'}</span>
-                </button>
-              )}
-            </div>
-
-            <form onSubmit={handleSaveEmailConfig} style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '500px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Email Address</label>
-                <input
-                  type="email"
-                  value={emailForm.email}
-                  onChange={(e) => setEmailForm({ ...emailForm, email: e.target.value })}
-                  placeholder="your-email@gmail.com"
-                  required
-                  style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid var(--line)', padding: '0 10px', background: 'var(--background-alt)', color: 'var(--ink)' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>IMAP Host</label>
-                  <input
-                    type="text"
-                    value={emailForm.host}
-                    onChange={(e) => setEmailForm({ ...emailForm, host: e.target.value })}
-                    placeholder="imap.gmail.com"
-                    style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid var(--line)', padding: '0 10px', background: 'var(--background-alt)', color: 'var(--ink)' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Port</label>
-                  <input
-                    type="number"
-                    value={emailForm.port}
-                    onChange={(e) => setEmailForm({ ...emailForm, port: parseInt(e.target.value, 10) || 993 })}
-                    style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid var(--line)', padding: '0 10px', background: 'var(--background-alt)', color: 'var(--ink)' }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '4px' }}>App Password / Token</label>
-                <input
-                  type="password"
-                  value={emailForm.password}
-                  onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
-                  placeholder="Generate a Gmail App Password in Google Account settings"
-                  required
-                  style={{ width: '100%', height: '36px', borderRadius: '6px', border: '1px solid var(--line)', padding: '0 10px', background: 'var(--background-alt)', color: 'var(--ink)' }}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="primary"
-                disabled={savingConfig}
-                style={{ alignSelf: 'flex-start', marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldCheck size={16} />
-                <span>{savingConfig ? 'Encrypting & Saving…' : 'Save Encrypted Connection'}</span>
-              </button>
-            </form>
           </div>
         )}
 

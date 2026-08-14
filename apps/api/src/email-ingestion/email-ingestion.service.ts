@@ -1,79 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
-import { StatementCredentialCipher } from '../common/statement-credentials.service';
 import { parseMultipleEmailAlerts } from './email-alert-parser';
-import { ParseEmailSnippetDto, SaveEmailConfigDto } from './email-ingestion.dto';
+import { ParseEmailSnippetDto } from './email-ingestion.dto';
 
 @Injectable()
 export class EmailIngestionService {
-  private readonly cipher = new StatementCredentialCipher();
-
   constructor(private readonly prisma: PrismaService) {}
-
-  async getConfig(userId: string) {
-    const config = await this.prisma.emailConfig.findFirst({
-      where: { userId },
-      select: {
-        id: true,
-        email: true,
-        host: true,
-        port: true,
-        tls: true,
-        enabled: true,
-        autoSync: true,
-        syncIntervalMinutes: true,
-        lastSyncAt: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    if (!config) {
-      return { configured: false };
-    }
-
-    return {
-      configured: true,
-      ...config,
-    };
-  }
-
-  async saveConfig(userId: string, dto: SaveEmailConfigDto) {
-    const encrypted = this.cipher.encrypt(userId, dto.password);
-    const existing = await this.prisma.emailConfig.findFirst({ where: { userId } });
-
-    const dataPayload = {
-      email: dto.email.trim(),
-      host: dto.host?.trim() || 'imap.gmail.com',
-      port: dto.port || 993,
-      tls: dto.tls !== undefined ? dto.tls : true,
-      autoSync: dto.autoSync !== undefined ? dto.autoSync : false,
-      passwordCipher: new Uint8Array(encrypted.ciphertext),
-      passwordIv: new Uint8Array(encrypted.iv),
-      passwordTag: new Uint8Array(encrypted.authTag),
-      passwordKeyVersion: encrypted.keyVersion,
-      enabled: true,
-    };
-
-    if (existing) {
-      const updated = await this.prisma.emailConfig.update({
-        where: { id: existing.id },
-        data: dataPayload,
-      });
-
-      return { success: true, message: 'Email configuration updated.', email: updated.email };
-    }
-
-    const created = await this.prisma.emailConfig.create({
-      data: {
-        userId,
-        ...dataPayload,
-      },
-    });
-
-    return { success: true, message: 'Email configuration saved.', email: created.email };
-  }
 
   async parseSnippet(userId: string, dto: ParseEmailSnippetDto) {
     const parsedAlerts = parseMultipleEmailAlerts(dto.snippet, dto.senderOrSubject);
@@ -149,36 +82,6 @@ export class EmailIngestionService {
       accountId: account.id,
       parsedAlerts,
       stagedRowsCount: batch.staged.length,
-    };
-  }
-
-  async syncInbox(userId: string) {
-    const config = await this.prisma.emailConfig.findFirst({ where: { userId } });
-    if (!config || !config.enabled || !config.passwordCipher || !config.passwordIv || !config.passwordTag) {
-      throw new BadRequestException('No configured email account found. Please configure IMAP settings first.');
-    }
-
-    await this.prisma.emailConfig.update({
-      where: { id: config.id },
-      data: { lastSyncAt: new Date() },
-    });
-
-    const log = await this.prisma.emailSyncLog.create({
-      data: {
-        userId,
-        configId: config.id,
-        status: 'SUCCESS',
-        emailsScanned: 0,
-        alertsParsed: 0,
-        transactionsAdded: 0,
-      },
-    });
-
-    return {
-      success: true,
-      message: `Email sync triggered for ${config.email}. Ready for incoming transaction alerts.`,
-      syncLogId: log.id,
-      email: config.email,
     };
   }
 
