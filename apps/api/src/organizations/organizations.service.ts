@@ -206,7 +206,13 @@ export class OrganizationsService {
 
     if (purgeStatements) {
       await this.prisma.salaryStatement.deleteMany({
-        where: { userId },
+        where: {
+          userId,
+          OR: [
+            { organizationId: org.id },
+            { employer: { equals: org.name, mode: 'insensitive' } },
+          ],
+        },
       });
     }
 
