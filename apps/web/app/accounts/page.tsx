@@ -980,7 +980,7 @@ interface AccountAsset {
   id: string;
   name: string;
   type: string;
-  category: "SAVINGS" | "DEPOSITS" | "STOCKS" | "MUTUAL_FUNDS" | "EPFO";
+  category: "SAVINGS" | "DEPOSITS" | "STOCKS" | "MUTUAL_FUNDS" | "EPFO" | "DEBT";
   institution: string | null;
   balance: number;
   investedValue: number | null;
@@ -990,18 +990,21 @@ interface AccountAsset {
 }
 
 interface AssetsHistoryData {
+  netWorth: number;
   totalAssets: number;
   savingsTotal: number;
   depositsTotal: number;
   stocksTotal: number;
   mutualFundsTotal: number;
   epfoTotal: number;
+  debtTotal: number;
   allocation: {
     savings: { amount: number; percentage: number };
     deposits: { amount: number; percentage: number };
     stocks: { amount: number; percentage: number };
     mutualFunds: { amount: number; percentage: number };
     epfo: { amount: number; percentage: number };
+    debt: { amount: number; percentage: number };
   };
   accounts: AccountAsset[];
   history: {
@@ -1011,22 +1014,25 @@ interface AssetsHistoryData {
     stocks: number;
     mutualFunds: number;
     epfo: number;
+    debt: number;
     totalAssets: number;
+    netWorth: number;
   }[];
 }
 
-type AssetCategoryFilter = "ALL" | "SAVINGS" | "DEPOSITS" | "STOCKS" | "MUTUAL_FUNDS" | "EPFO";
+type AssetCategoryFilter = "ALL" | "SAVINGS" | "DEPOSITS" | "STOCKS" | "MUTUAL_FUNDS" | "EPFO" | "DEBT";
 
 const ASSET_CATEGORY_CONFIG: Record<
   AssetCategoryFilter,
   { label: string; shortLabel: string; color: string; bg: string; icon: any }
 > = {
-  ALL: { label: "All Assets", shortLabel: "All", color: "var(--ink)", bg: "var(--card)", icon: Layers },
+  ALL: { label: "All Accounts", shortLabel: "All", color: "var(--ink)", bg: "var(--card)", icon: Layers },
   SAVINGS: { label: "Savings & Cash", shortLabel: "Savings", color: "#0ea5e9", bg: "rgba(14, 165, 233, 0.12)", icon: PiggyBank },
   DEPOSITS: { label: "Fixed & Term Deposits", shortLabel: "FD / RD", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.12)", icon: Landmark },
   STOCKS: { label: "Stocks & Equities", shortLabel: "Stocks", color: "#10b981", bg: "rgba(16, 185, 129, 0.12)", icon: TrendingUp },
   MUTUAL_FUNDS: { label: "Mutual Funds & SIPs", shortLabel: "Mutual Funds", color: "#8b5cf6", bg: "rgba(139, 92, 246, 0.12)", icon: ChartPie },
   EPFO: { label: "EPFO Retirement", shortLabel: "EPFO", color: "#f97316", bg: "rgba(249, 115, 22, 0.12)", icon: Building2 },
+  DEBT: { label: "Loans & Liabilities", shortLabel: "Loans & Debt", color: "#ef4444", bg: "rgba(239, 68, 68, 0.12)", icon: Landmark },
 };
 
 function AssetsSection() {
@@ -1160,7 +1166,7 @@ function AssetsSection() {
     );
   }
 
-  const { totalAssets, savingsTotal, depositsTotal, stocksTotal, mutualFundsTotal, epfoTotal, allocation, accounts, history } = data!;
+  const { netWorth, totalAssets, savingsTotal, depositsTotal, stocksTotal, mutualFundsTotal, epfoTotal, debtTotal, allocation, accounts, history } = data!;
 
   // Strict client-side filtering by category & search query
   const filteredAccounts = accounts.filter((acc) => {
@@ -1179,8 +1185,8 @@ function AssetsSection() {
     return matchesCat && matchesSearch;
   });
 
-  const firstWorth = history.length > 0 ? history[0].totalAssets : totalAssets;
-  const lastWorth = history.length > 0 ? history[history.length - 1].totalAssets : totalAssets;
+  const firstWorth = history.length > 0 ? history[0].netWorth : netWorth;
+  const lastWorth = history.length > 0 ? history[history.length - 1].netWorth : netWorth;
   const netWorthDelta = lastWorth - firstWorth;
   const growthPct = firstWorth !== 0 ? Math.round(((lastWorth - firstWorth) / Math.abs(firstWorth)) * 1000) / 10 : 0;
   const isPositiveGrowth = netWorthDelta >= 0;
@@ -1193,6 +1199,7 @@ function AssetsSection() {
     STOCKS: accounts.filter((a) => a.category === "STOCKS").length,
     MUTUAL_FUNDS: accounts.filter((a) => a.category === "MUTUAL_FUNDS").length,
     EPFO: accounts.filter((a) => a.category === "EPFO").length,
+    DEBT: accounts.filter((a) => a.category === "DEBT").length,
   };
 
   return (
@@ -1214,7 +1221,7 @@ function AssetsSection() {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             <span style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "1px", opacity: 0.85, fontWeight: 700 }}>
-              Total Asset Wealth
+              Total Net Worth
             </span>
             <span
               style={{
@@ -1234,9 +1241,9 @@ function AssetsSection() {
               💎 {accounts.length} Active Accounts
             </span>
           </div>
-          <strong style={{ margin: "6px 0", display: "block", fontSize: "2.2rem", fontWeight: 800 }}>{formatAmount(totalAssets)}</strong>
+          <strong style={{ margin: "6px 0", display: "block", fontSize: "2.2rem", fontWeight: 800 }}>{formatAmount(netWorth)}</strong>
           <small style={{ opacity: 0.9 }}>
-            Across Savings, Fixed Deposits, Stocks, Mutual Funds &amp; EPFO Provident Funds
+            Total Assets: {formatAmount(totalAssets)} • Total Debt &amp; Loans: {formatAmount(debtTotal)}
           </small>
         </div>
 
@@ -1438,6 +1445,34 @@ function AssetsSection() {
               </div>
               <span style={{ fontSize: "12px", fontWeight: 700, color: "#f97316" }}>{allocation.epfo.percentage}%</span>
             </button>
+
+            {debtTotal > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory(selectedCategory === "DEBT" ? "ALL" : "DEBT")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 14px",
+                  background: selectedCategory === "DEBT" ? "rgba(239, 68, 68, 0.15)" : "var(--card)",
+                  border: `1px solid ${selectedCategory === "DEBT" ? "#ef4444" : "var(--line)"}`,
+                  borderRadius: "10px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#ef4444", flexShrink: 0 }} />
+                  <div>
+                    <small style={{ display: "block", fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>Loans &amp; Debt</small>
+                    <strong style={{ fontSize: "13px", color: "#ef4444" }}>{formatAmount(debtTotal)}</strong>
+                  </div>
+                </div>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#ef4444" }}>
+                  {categoryCounts.DEBT} {categoryCounts.DEBT === 1 ? "loan" : "loans"}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -1446,9 +1481,9 @@ function AssetsSection() {
       <section className="panel" style={{ padding: "24px" }}>
         <div className="panel-title" style={{ flexWrap: "wrap", gap: "16px", alignItems: "center", marginBottom: "20px", display: "flex", justifyContent: "space-between" }}>
           <div>
-            <span className="eyebrow" style={{ color: "var(--green)" }}>Wealth Holdings &amp; Balances</span>
+            <span className="eyebrow" style={{ color: "var(--green)" }}>Holdings, Balances &amp; Debt</span>
             <h2 style={{ fontSize: "1.2rem", margin: 0 }}>
-              {selectedCategory === "ALL" ? "All Wealth Assets" : ASSET_CATEGORY_CONFIG[selectedCategory].label} ({filteredAccounts.length})
+              {selectedCategory === "ALL" ? "All Accounts Portfolio" : ASSET_CATEGORY_CONFIG[selectedCategory].label} ({filteredAccounts.length})
             </h2>
           </div>
 
@@ -1458,7 +1493,7 @@ function AssetsSection() {
               <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
               <input
                 type="text"
-                placeholder="Search assets, stocks, symbols..."
+                placeholder="Search assets, loans, stocks..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -1477,7 +1512,7 @@ function AssetsSection() {
 
             {/* Category Filter Bar */}
             <div className="asset-filter-bar" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-              {(["ALL", "SAVINGS", "DEPOSITS", "STOCKS", "MUTUAL_FUNDS", "EPFO"] as const).map((cat) => {
+              {(["ALL", "SAVINGS", "DEPOSITS", "STOCKS", "MUTUAL_FUNDS", "EPFO", "DEBT"] as const).map((cat) => {
                 const conf = ASSET_CATEGORY_CONFIG[cat];
                 const Icon = conf.icon;
                 const count = categoryCounts[cat];
@@ -1514,7 +1549,7 @@ function AssetsSection() {
           {filteredAccounts.length === 0 ? (
             <div style={{ padding: "48px 20px", textAlign: "center", color: "var(--muted)", fontSize: "13px", background: "var(--card)", borderRadius: "12px", border: "1px dashed var(--line)" }}>
               <Layers size={32} style={{ margin: "0 auto 10px auto", opacity: 0.4 }} />
-              <p style={{ margin: "0 0 12px 0", fontWeight: 600 }}>No assets found matching this filter.</p>
+              <p style={{ margin: "0 0 12px 0", fontWeight: 600 }}>No accounts found matching this filter.</p>
               <button
                 type="button"
                 className="secondary compact"
@@ -1527,6 +1562,7 @@ function AssetsSection() {
             </div>
           ) : (
             filteredAccounts.map((acc) => {
+              const isDebt = acc.category === "DEBT" || acc.balance < 0;
               const pctOfAssets = totalAssets > 0 && acc.balance > 0 ? Math.round((acc.balance / totalAssets) * 1000) / 10 : 0;
               const logo = getLocalLogo(acc.institution, acc.name);
               const conf = ASSET_CATEGORY_CONFIG[acc.category];
@@ -1539,7 +1575,7 @@ function AssetsSection() {
                   className="account-asset-card"
                   style={{
                     background: "var(--card)",
-                    border: "1px solid var(--line)",
+                    border: `1px solid ${isDebt ? "rgba(239, 68, 68, 0.3)" : "var(--line)"}`,
                     borderRadius: "14px",
                     padding: "18px 20px",
                     transition: "border-color 0.2s ease, box-shadow 0.2s ease",
@@ -1552,8 +1588,8 @@ function AssetsSection() {
                           width: "44px",
                           height: "44px",
                           borderRadius: "12px",
-                          background: "var(--background-alt)",
-                          border: "1px solid var(--line)",
+                          background: isDebt ? "rgba(239, 68, 68, 0.08)" : "var(--background-alt)",
+                          border: `1px solid ${isDebt ? "rgba(239, 68, 68, 0.25)" : "var(--line)"}`,
                           display: "grid",
                           placeItems: "center",
                           overflow: "hidden",
@@ -1605,14 +1641,20 @@ function AssetsSection() {
                     {/* Right: Balance & Actions */}
                     <div style={{ display: "flex", alignItems: "center", gap: "16px", marginLeft: "auto" }}>
                       <div style={{ textAlign: "right" }}>
-                        <strong style={{ fontSize: "1.3rem", fontWeight: 800, color: "var(--ink)", display: "block" }}>
+                        <strong style={{ fontSize: "1.3rem", fontWeight: 800, color: isDebt ? "#ef4444" : "var(--ink)", display: "block" }}>
                           {formatAmount(acc.balance)}
                         </strong>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end", marginTop: "2px" }}>
-                          {totalAssets > 0 && (
-                            <small style={{ color: "var(--muted)", fontSize: "11px", fontWeight: 600 }}>
-                              {pctOfAssets}% of total wealth
+                          {isDebt ? (
+                            <small style={{ color: "#ef4444", fontSize: "11px", fontWeight: 600 }}>
+                              Outstanding Loan Principal
                             </small>
+                          ) : (
+                            totalAssets > 0 && (
+                              <small style={{ color: "var(--muted)", fontSize: "11px", fontWeight: 600 }}>
+                                {pctOfAssets}% of total assets
+                              </small>
+                            )
                           )}
                           {acc.unrealizedPnl !== null && acc.unrealizedPnl !== 0 && (
                             <span
@@ -1640,7 +1682,7 @@ function AssetsSection() {
                             setEditingAsset(acc);
                             setEditAssetName(acc.name);
                             setEditAssetInstitution(acc.institution || "");
-                            setEditValuationInput(String(acc.balance / 100));
+                            setEditValuationInput(String(Math.abs(acc.balance) / 100));
                           }}
                           style={{
                             background: "var(--background-alt)",
@@ -1662,7 +1704,7 @@ function AssetsSection() {
                         <button
                           type="button"
                           className="icon-button"
-                          title="Open Account Ledger & Documents"
+                          title={isDebt ? "Open Loan Schedule & Ledger" : "Open Account Ledger & Documents"}
                           onClick={() => router.push(`/accounts?account=${acc.id}`)}
                           style={{
                             background: "var(--background-alt)",
@@ -1678,7 +1720,7 @@ function AssetsSection() {
                             fontWeight: 600,
                           }}>
                           <ArrowUpRight size={13} />
-                          <span>Ledger</span>
+                          <span>{isDebt ? "Loan Details" : "Ledger"}</span>
                         </button>
                       </div>
                     </div>

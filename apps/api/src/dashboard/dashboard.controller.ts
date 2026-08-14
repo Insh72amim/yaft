@@ -518,7 +518,7 @@ export class DashboardController {
 
   @Get('assets-history')
   async getAssetsHistory(@CurrentUser() user: { id: string }) {
-    // Exclude UPI_LITE, CREDIT_CARD, and LOAN accounts from Assets
+    // Include Asset accounts + LOAN accounts (Exclude UPI_LITE and CREDIT_CARD)
     const accounts = await this.prisma.account.findMany({
       where: {
         userId: user.id,
@@ -532,6 +532,7 @@ export class DashboardController {
             AccountType.INVESTMENT,
             AccountType.STOCKS,
             AccountType.EPFO,
+            AccountType.LOAN,
           ],
         },
       },
@@ -542,6 +543,13 @@ export class DashboardController {
         },
         holdings: {
           include: { asset: true },
+        },
+        loans: {
+          include: {
+            installments: {
+              orderBy: { dueDate: 'asc' },
+            },
+          },
         },
       },
     });
@@ -564,20 +572,43 @@ export class DashboardController {
     let stocksTotal = 0;
     let mutualFundsTotal = 0;
     let epfoTotal = 0;
+    let debtTotal = 0;
 
     const accountBreakdown = accounts.map((account: any) => {
-      const ledgerBalance = Number(account.openingBalance) + (account.transactions || []).reduce((sum: number, row: any) => sum + Number(row.amount), 0);
+      let balance = 0;
+      const isLoan = account.type === 'LOAN';
       const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
       const holdingsList = account.holdings || [];
-      const hasCompleteValuation = holdingsList.length > 0 && holdingsList.every((holding: any) => holding.currentValue !== null);
-      const balance = isPortfolio && hasCompleteValuation
-        ? holdingsList.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0)
-        : ledgerBalance;
+
+      if (isLoan) {
+        const loan = (account.loans || [])[0];
+        if (loan) {
+          const paidInsts = (loan.installments || []).filter((i: any) => i.status === 'PAID');
+          let loanOutstanding = Number(loan.principal);
+          if (paidInsts.length > 0) {
+            const lastPaid = paidInsts[paidInsts.length - 1];
+            loanOutstanding = Number(lastPaid.balance);
+          }
+          balance = -loanOutstanding;
+        } else {
+          const ledgerBalance = Number(account.openingBalance) + (account.transactions || []).reduce((sum: number, row: any) => sum + Number(row.amount), 0);
+          balance = ledgerBalance < 0 ? ledgerBalance : -ledgerBalance;
+        }
+      } else {
+        const ledgerBalance = Number(account.openingBalance) + (account.transactions || []).reduce((sum: number, row: any) => sum + Number(row.amount), 0);
+        const hasCompleteValuation = holdingsList.length > 0 && holdingsList.every((holding: any) => holding.currentValue !== null);
+        balance = isPortfolio && hasCompleteValuation
+          ? holdingsList.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0)
+          : ledgerBalance;
+      }
 
       // Classify asset category
       let category = 'SAVINGS';
       const nameLower = (account.name + ' ' + (account.institution || '')).toLowerCase();
-      if (account.type === 'FIXED_DEPOSIT' || nameLower.includes('fixed deposit') || nameLower.includes('fd-') || nameLower.includes('-fd')) {
+      if (isLoan) {
+        category = 'DEBT';
+        debtTotal += Math.abs(balance);
+      } else if (account.type === 'FIXED_DEPOSIT' || nameLower.includes('fixed deposit') || nameLower.includes('fd-') || nameLower.includes('-fd')) {
         category = 'DEPOSITS';
         if (balance > 0) depositsTotal += balance;
       } else if (account.type === 'EPFO' || nameLower.includes('epfo') || nameLower.includes('provident')) {
@@ -629,6 +660,7 @@ export class DashboardController {
     });
 
     const totalAssets = savingsTotal + depositsTotal + stocksTotal + mutualFundsTotal + epfoTotal;
+    const netWorth = totalAssets - debtTotal;
 
     const history = months.map((m) => {
       let savings = 0;
@@ -636,8 +668,29 @@ export class DashboardController {
       let stocks = 0;
       let mutualFunds = 0;
       let epfo = 0;
+      let debt = 0;
 
       accounts.forEach((account: any) => {
+        if (account.type === 'LOAN') {
+          const loan = (account.loans || [])[0];
+          if (loan) {
+            const paidUpToMonth = (loan.installments || []).filter(
+              (i: any) => i.status === 'PAID' && ((i.confirmedAt && new Date(i.confirmedAt) < m.end) || new Date(i.dueDate) < m.end)
+            );
+            let out = Number(loan.principal);
+            if (paidUpToMonth.length > 0) {
+              const lastPaid = paidUpToMonth[paidUpToMonth.length - 1];
+              out = Number(lastPaid.balance);
+            }
+            debt += out;
+          } else {
+            const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
+            const cumLedger = Number(account.openingBalance) + txsUpToMonth.reduce((sum: number, row: any) => sum + Number(row.amount), 0);
+            debt += Math.abs(cumLedger);
+          }
+          return;
+        }
+
         const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
         const cumLedger = Number(account.openingBalance) + txsUpToMonth.reduce((sum: number, row: any) => sum + Number(row.amount), 0);
         const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
@@ -676,7 +729,9 @@ export class DashboardController {
         stocks,
         mutualFunds,
         epfo,
+        debt,
         totalAssets: monthTotalAssets,
+        netWorth: monthTotalAssets - debt,
       };
     });
 
@@ -686,15 +741,18 @@ export class DashboardController {
       stocks: { amount: stocksTotal, percentage: totalAssets > 0 ? Math.round((stocksTotal / totalAssets) * 1000) / 10 : 0 },
       mutualFunds: { amount: mutualFundsTotal, percentage: totalAssets > 0 ? Math.round((mutualFundsTotal / totalAssets) * 1000) / 10 : 0 },
       epfo: { amount: epfoTotal, percentage: totalAssets > 0 ? Math.round((epfoTotal / totalAssets) * 1000) / 10 : 0 },
+      debt: { amount: debtTotal, percentage: totalAssets > 0 ? Math.round((debtTotal / totalAssets) * 1000) / 10 : 0 },
     };
 
     return {
+      netWorth,
       totalAssets,
       savingsTotal,
       depositsTotal,
       stocksTotal,
       mutualFundsTotal,
       epfoTotal,
+      debtTotal,
       allocation,
       accounts: accountBreakdown,
       history,
