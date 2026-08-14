@@ -1583,6 +1583,7 @@ function CreditCardsSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [vaultAccount, setVaultAccount] = useState<CardSummary | null>(null);
+  const [cardFilter, setCardFilter] = useState<string>("ALL");
 
   const loadData = async () => {
     try {
@@ -1624,7 +1625,6 @@ function CreditCardsSection() {
   }
 
   const { summary, overallFlow, cards } = data;
-  const [cardFilter, setCardFilter] = useState<string>("ALL");
 
   const filteredCards = cards.filter((c) => {
     if (cardFilter === "HIGH_UTIL") return c.utilizationPercent > 30;
