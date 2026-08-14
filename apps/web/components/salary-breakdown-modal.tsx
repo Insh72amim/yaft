@@ -12,8 +12,9 @@ import {
   ShieldCheck,
   User,
   X,
+  Download,
 } from "lucide-react";
-import { money } from "@/lib/api";
+import { money, downloadFile } from "@/lib/api";
 
 export type SalaryLineItem = {
   id?: string;
@@ -133,6 +134,21 @@ export function SalaryBreakdownModal({
             </h2>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {statement.filename !== "Manual Entry" && (
+              <button
+                type="button"
+                className="secondary compact"
+                onClick={async () => {
+                  const ext = statement.filename.toLowerCase().split('.').pop() || 'pdf';
+                  await downloadFile(
+                    `/salary-statements/${statement.id}/download`,
+                    `payslip-${new Date(statement.payPeriod).toISOString().slice(0, 10)}.${ext}`
+                  );
+                }}
+                style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                <Download size={14} /> Download Slip
+              </button>
+            )}
             {statement.filename !== "Manual Entry" && onViewPdf && (
               <button
                 type="button"

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw, Maximize, Minimize, X, Loader2, FileText } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Maximize, Minimize, X, Loader2, FileText, Download } from 'lucide-react';
+import { downloadFile } from '@/lib/api';
 
 interface PdfViewerModalProps {
   statementId: string;
@@ -24,6 +25,18 @@ export function PdfViewerModal({ statementId, title, payPeriod, onClose }: PdfVi
   const handleZoomIn = () => setScale(prev => Math.min(prev + 0.15, 2.0));
   const handleZoomOut = () => setScale(prev => Math.max(prev - 0.15, 0.6));
   const handleResetZoom = () => setScale(1.0);
+
+  const handleDownload = async () => {
+    try {
+      const extDate = new Date(payPeriod).toISOString().slice(0, 10);
+      await downloadFile(
+        `/salary-statements/${statementId}/download`,
+        `payslip-${extDate}.pdf`
+      );
+    } catch (err) {
+      console.error('Failed to download payslip', err);
+    }
+  };
 
   const toggleFullscreen = () => {
     if (!modalRef.current) return;
@@ -92,6 +105,14 @@ export function PdfViewerModal({ statementId, title, payPeriod, onClose }: PdfVi
               <RotateCcw size={15} />
             </button>
             <div className="control-divider" />
+            <button 
+              type="button" 
+              className="control-btn" 
+              onClick={handleDownload}
+              title="Download Payslip PDF"
+            >
+              <Download size={16} />
+            </button>
             <button 
               type="button" 
               className="control-btn" 

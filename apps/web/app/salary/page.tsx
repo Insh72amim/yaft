@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Calendar,
   Check,
+  Download,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -586,20 +587,37 @@ export default function SalaryPage() {
                                 Breakdown
                               </button>
                               {statement.filename !== "Manual Entry" ? (
-                                <button
-                                  type="button"
-                                  className="secondary compact"
-                                  onClick={() => setViewingStatement(statement)}
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "4px",
-                                    fontSize: "11.5px",
-                                    padding: "4px 9px",
-                                  }}>
-                                  <FileText size={13} />
-                                  PDF
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    className="secondary compact"
+                                    onClick={() => setViewingStatement(statement)}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      fontSize: "11.5px",
+                                      padding: "4px 9px",
+                                    }}>
+                                    <FileText size={13} />
+                                    PDF
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="secondary compact"
+                                    onClick={() => void handleDownload(statement)}
+                                    title="Download payslip"
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      fontSize: "11.5px",
+                                      padding: "4px 9px",
+                                    }}>
+                                    <Download size={13} />
+                                    Download
+                                  </button>
+                                </>
                               ) : (
                                 <span
                                   style={{
