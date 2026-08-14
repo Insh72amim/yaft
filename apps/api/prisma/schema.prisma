@@ -49,6 +49,7 @@ model User {
   categoryBudgets CategoryBudget[]
   imports      ImportBatch[]
   salaryStatements SalaryStatement[]
+  organizations Organization[]
   activeSips   ActiveSip[]
   tags         Tag[]
   emailConfigs EmailConfig[]
@@ -84,6 +85,9 @@ model SalaryStatement {
   pdfPasswordIv         Bytes?
   pdfPasswordTag        Bytes?
   pdfPasswordKeyVersion Int?              @default(1)
+
+  organizationId        String?
+  organization          Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   lineItems             SalaryLineItem[]
 
@@ -488,4 +492,23 @@ model EmailSyncLog {
   @@index([userId, createdAt])
 }
 
+model Organization {
+  id               String            @id @default(cuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  code             String?
+  taxId            String?
+  currency         String            @default("INR")
+  color            String?
+  parsingConfig    Json?
+  sampleFilename   String?
+  isCurrent        Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  salaryStatements SalaryStatement[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
 

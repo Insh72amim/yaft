@@ -28,6 +28,7 @@ export class OrganizationsService {
       color: o.color,
       parsingConfig: o.parsingConfig,
       sampleFilename: o.sampleFilename,
+      isCurrent: o.isCurrent,
       statementCount: o._count.salaryStatements,
       createdAt: o.createdAt,
     }));
@@ -49,6 +50,7 @@ export class OrganizationsService {
       color: org.color,
       parsingConfig: org.parsingConfig,
       sampleFilename: org.sampleFilename,
+      isCurrent: org.isCurrent,
       statementCount: org._count?.salaryStatements || 0,
       createdAt: org.createdAt,
     };
@@ -63,6 +65,16 @@ export class OrganizationsService {
       throw new BadRequestException(`An organization named "${dto.name}" already exists.`);
     }
 
+    const count = this.orgModel ? await this.orgModel.count({ where: { userId } }) : 0;
+    const isCurrent = dto.isCurrent ?? (count === 0);
+
+    if (isCurrent && this.orgModel) {
+      await this.orgModel.updateMany({
+        where: { userId },
+        data: { isCurrent: false },
+      });
+    }
+
     const org = await this.orgModel.create({
       data: {
         userId,
@@ -71,6 +83,7 @@ export class OrganizationsService {
         taxId: dto.taxId?.trim(),
         currency: dto.currency?.trim() || 'INR',
         color: dto.color || '#4f46e5',
+        isCurrent,
         parsingConfig: dto.parsingConfig || {
           documentAnchors: [dto.name.trim().toUpperCase()],
           fields: {
@@ -91,6 +104,13 @@ export class OrganizationsService {
     const org = await this.orgModel.findFirst({ where: { id, userId } });
     if (!org) throw new NotFoundException('Organization not found.');
 
+    if (dto.isCurrent) {
+      await this.orgModel.updateMany({
+        where: { userId },
+        data: { isCurrent: false },
+      });
+    }
+
     const updated = await this.orgModel.update({
       where: { id: org.id },
       data: {
@@ -99,6 +119,7 @@ export class OrganizationsService {
         ...(dto.taxId !== undefined ? { taxId: dto.taxId.trim() } : {}),
         ...(dto.currency ? { currency: dto.currency.trim() } : {}),
         ...(dto.color ? { color: dto.color } : {}),
+        ...(dto.isCurrent !== undefined ? { isCurrent: dto.isCurrent } : {}),
         ...(dto.parsingConfig ? { parsingConfig: dto.parsingConfig } : {}),
       },
     });

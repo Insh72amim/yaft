@@ -15,7 +15,7 @@ YAFT turns Indian bank statements, credit-card statements, salary payslips, EPFO
 - **📄 Verified statement parsing:** Fail-closed PDF parsing for Axis Bank, Punjab National Bank and State Bank of India statements, plus Axis Bank credit-card statements and EPFO passbooks.
 - **🕵️ Duplicate protection:** Exact-file and transaction-level checks keep repeat imports out of the ledger.
 - **🔄 Transfer matching:** Equal-and-opposite movements across owned accounts can be linked and excluded from spending totals.
-- **💼 Salary history:** Import Goldman Sachs payslips, record manual salary or variable payments, retain supporting documents and explore monthly and cumulative pay timelines.
+- **💼 Salary history:** Import employer payslips, record manual salary or variable payments, retain supporting documents and explore monthly and cumulative pay timelines.
 - **📈 Investments:** Import reconciled Zerodha Kite and Groww holdings snapshots with portfolio totals, sector tags and gain/loss indicators.
 - **💳 Debt tracking:** Monitor credit limits, utilisation, loans, amortisation schedules and confirmed EMIs.
 - **🔒 Credential vault:** Optionally retain document-opening passwords using account-bound AES-256-GCM encryption.

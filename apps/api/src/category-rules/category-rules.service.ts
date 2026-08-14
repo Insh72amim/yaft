@@ -31,7 +31,7 @@ export class CategoryRulesService {
       }
     }
 
-    return this.prisma.categoryRule.create({
+    const rule = await this.prisma.categoryRule.create({
       data: {
         userId,
         pattern: dto.pattern.trim(),
@@ -42,6 +42,9 @@ export class CategoryRulesService {
       },
       include: { category: { select: { id: true, name: true, color: true } } },
     });
+
+    void this.applyRetroactively(userId);
+    return rule;
   }
 
   async update(userId: string, id: string, dto: UpdateCategoryRuleDto) {
@@ -72,7 +75,7 @@ export class CategoryRulesService {
       }
     }
 
-    return this.prisma.categoryRule.update({
+    const updatedRule = await this.prisma.categoryRule.update({
       where: { id },
       data: {
         pattern,
@@ -83,6 +86,9 @@ export class CategoryRulesService {
       },
       include: { category: { select: { id: true, name: true, color: true } } },
     });
+
+    void this.applyRetroactively(userId);
+    return updatedRule;
   }
 
   async delete(userId: string, id: string) {
@@ -293,6 +299,129 @@ export class CategoryRulesService {
     return { success: true, message: 'Category deleted.' };
   }
 
+  async seedDefaultRules(userId: string) {
+    const categories = await this.listCategories(userId);
+
+    const DEFAULT_SYSTEM_RULES = [
+      { categoryName: 'Food & Dining', pattern: 'SWIGGY|ZOMATO|INSTAMART|STARBUCKS|CHAAYOS|DOMINOS|MCDONALDS|KFC|SUBWAY|PIZZA|REST|CAFE|DINER|BAKERY', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Groceries', pattern: 'BLINKIT|ZEPTO|BIGBASKET|BBDAILY|DMART|SPAR|GROCERY|SUPERMARKET|KIRANA', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Shopping & Clothing', pattern: 'AMAZON|FLIPKART|MYNTRA|TATACLIQ|AJIO|NYKAA|ZARA|UNIQLO|DECATHLON|WESTSIDE|RELIANCE', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Transport & Fuel', pattern: 'UBER|OLA|RAPIDO|BLUSMART|PETROL|SHELL|HPCL|BPCL|IOCL|FUEL|IRCTC|INDIGO|AIR INDIA|VISTARA|FASTAG|METRO|TOLL', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Bills & Utilities', pattern: 'BESCOM|TATA POWER|MSEDCL|BSES|CESC|AIRTEL|JIO|VI |ACTFIBERNET|TATA PLAY|DISH TV|INDANE|BHARAT GAS|HP GAS', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Entertainment & OTT', pattern: 'NETFLIX|SPOTIFY|PRIME VIDEO|HOTSTAR|YOUTUBE|APPLE.COM|BOOKMYSHOW|PVR|INOX', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Mutual Fund SIP', pattern: 'ZERODHA|GROWW|KFINTECH|CAMS|COIN|MF CENTRAL|SIP|SGB|NPS|EPFO|PPF', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Medical & Health', pattern: 'APOLLO|NETMEDS|PHARMEASY|1MG|MEDPLUS|HOSPITAL|CLINIC|LAB|DIAGNOSTICS', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Housing & Rent', pattern: 'RENT|CRED RENT|NOBROKER|SOCIETY MAINTENANCE', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Salary & Wages', pattern: 'SALARY|PAYROLL|STIPEND', matchType: MatchType.REGEX, priority: 10 },
+    ];
+
+    let createdCount = 0;
+    for (const ruleDef of DEFAULT_SYSTEM_RULES) {
+      const cat = categories.find((c) => c.name.toLowerCase() === ruleDef.categoryName.toLowerCase()) || categories[0];
+      if (!cat) continue;
+
+      const existing = await this.prisma.categoryRule.findFirst({
+        where: { userId, pattern: ruleDef.pattern },
+      });
+      if (!existing) {
+        await this.prisma.categoryRule.create({
+          data: {
+            userId,
+            pattern: ruleDef.pattern,
+            matchField: MatchField.DESCRIPTION,
+            matchType: ruleDef.matchType,
+            categoryId: cat.id,
+            priority: ruleDef.priority,
+          },
+        });
+        createdCount++;
+      }
+    }
+
+    const { updatedCount } = await this.applyRetroactively(userId);
+    return { createdCount, appliedCount: updatedCount };
+  }
+
+  async getUnverifiedByCategory(userId: string) {
+    const transactions = await this.prisma.transaction.findMany({
+      where: {
+        account: { userId },
+        categoryId: { not: null },
+      },
+      select: {
+        id: true,
+        transactionDate: true,
+        descriptionRaw: true,
+        merchant: true,
+        amount: true,
+        userVerified: true,
+        category: { select: { id: true, name: true, color: true } },
+      },
+      orderBy: { transactionDate: 'desc' },
+      take: 200,
+    });
+
+    const categoryMap = new Map<
+      string,
+      {
+        category: { id: string; name: string; color: string };
+        totalCount: number;
+        unverifiedCount: number;
+        transactions: Array<{
+          id: string;
+          transactionDate: Date;
+          descriptionRaw: string;
+          merchant: string | null;
+          amount: number;
+          userVerified: boolean;
+        }>;
+      }
+    >();
+
+    transactions.forEach((tx) => {
+      if (!tx.category) return;
+      const catId = tx.category.id;
+      const existing = categoryMap.get(catId) || {
+        category: tx.category,
+        totalCount: 0,
+        unverifiedCount: 0,
+        transactions: [],
+      };
+
+      existing.totalCount++;
+      if (!tx.userVerified) existing.unverifiedCount++;
+      existing.transactions.push({
+        id: tx.id,
+        transactionDate: tx.transactionDate,
+        descriptionRaw: tx.descriptionRaw,
+        merchant: tx.merchant,
+        amount: Number(tx.amount),
+        userVerified: tx.userVerified,
+      });
+
+      categoryMap.set(catId, existing);
+    });
+
+    return [...categoryMap.values()].sort((a, b) => b.unverifiedCount - a.unverifiedCount);
+  }
+
+  async confirmTransactions(userId: string, transactionIds: string[]) {
+    if (!transactionIds || transactionIds.length === 0) return { updatedCount: 0 };
+    const res = await this.prisma.transaction.updateMany({
+      where: { id: { in: transactionIds }, account: { userId } },
+      data: { userVerified: true },
+    });
+    return { updatedCount: res.count };
+  }
+
+  async confirmCategory(userId: string, categoryId: string) {
+    const res = await this.prisma.transaction.updateMany({
+      where: { categoryId, account: { userId } },
+      data: { userVerified: true },
+    });
+    return { updatedCount: res.count };
+  }
+
   async batchUpdate(userId: string, transactionIds: string[], categoryId: string | null) {
     if (!transactionIds || transactionIds.length === 0) {
       return { updatedCount: 0 };
@@ -314,6 +443,7 @@ export class CategoryRulesService {
       },
       data: {
         categoryId: categoryId || null,
+        userVerified: true,
       },
     });
 

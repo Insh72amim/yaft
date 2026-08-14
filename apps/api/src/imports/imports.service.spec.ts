@@ -20,13 +20,14 @@ function setup() {
       archived: false, institution: 'SBI' }) },
     importBatch: { findFirst: jest.fn().mockResolvedValue(null) },
     category: { findMany: jest.fn().mockResolvedValue([]) },
+    categoryRule: { findMany: jest.fn().mockResolvedValue([]) },
     transaction: { findMany: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
   } as unknown as PrismaService;
   const credentials = { getPassword: jest.fn().mockResolvedValue(undefined),
     encrypt: jest.fn().mockReturnValue({ ciphertext: Buffer.from('cipher'), iv: Buffer.alloc(12), authTag: Buffer.alloc(16), keyVersion: 1 }) } as unknown as StatementCredentialsService;
   const transfersService = { reconcileTransfers: jest.fn().mockResolvedValue({ matchedPairsCount: 0 }) } as any;
-  const service = new ImportsService(prisma, credentials, transfersService);
+  const service = new ImportsService(prisma, credentials, transfersService, { matchRules: jest.fn().mockReturnValue(null) } as any);
   jest.spyOn(service, 'get').mockResolvedValue({ id: 'batch-1' } as never);
   parseStatement.mockResolvedValue({ rows: [row], parserId: 'SBI' });
   return { service, prisma: prisma as any, credentials: credentials as any, transfersService, tx };
@@ -135,7 +136,7 @@ describe('ImportsService safe review serialization', () => {
         { id: 'category-1', userId: 'private-owner', name: 'Synthetic category', color: '#123456' },
       ]) },
     } as unknown as PrismaService;
-    const service = new ImportsService(prisma, {} as StatementCredentialsService, {} as any);
+    const service = new ImportsService(prisma, {} as StatementCredentialsService, {} as any, { matchRules: jest.fn().mockReturnValue(null) } as any);
     const result = await service.get('user-1', 'batch-safe');
     expect(result).toMatchObject({ id: 'batch-safe', account: { id: 'account-1', name: 'Synthetic bank' },
       staged: [{ id: 'row-safe', amount: -12500, category: { id: 'category-1', name: 'Synthetic category', color: '#123456' } }],

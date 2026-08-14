@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import type { PrismaService } from '../common/prisma.service';
-import type { ImportsService } from '../imports/imports.service';
-import type { InvestmentsService } from '../investments/investments.service';
-import type { SalaryService } from '../salary/salary.service';
+import { PrismaService } from '../common/prisma.service';
+import { ImportsService } from '../imports/imports.service';
+import { InvestmentsService } from '../investments/investments.service';
+import { SalaryService } from '../salary/salary.service';
 import { UnifiedImportsService } from './unified-imports.service';
 
 jest.mock('../imports/pdf-statement-registry', () => ({
@@ -34,7 +34,7 @@ const bankReview = {
 
 const salaryReview = {
   id: 'salary-review', userId: 'private-user-id', fileHash: 'private-salary-hash', filename: 'synthetic-payslip.pdf',
-  payPeriod: new Date('2026-07-01T00:00:00.000Z'), employer: 'Goldman Sachs', employeeName: 'Synthetic Employee',
+  payPeriod: new Date('2026-07-01T00:00:00.000Z'), employer: 'Acme Employer', employeeName: 'Synthetic Employee',
   employeeNumberLast4: '1234', department: 'Synthetic', designation: 'Analyst', bankName: 'Synthetic Bank',
   bankAccountLast4: '5678', uanLast4: '4321', currency: 'INR', grossEarnings: 100000, grossDeductions: 10000,
   directPayment: 0, netPay: 90000, status: 'REVIEW', createdAt: new Date('2026-07-18T13:00:00.000Z'), committedAt: null,
@@ -48,6 +48,9 @@ function setup() {
       findMany: jest.fn().mockResolvedValue([]),
       findFirst: jest.fn().mockResolvedValue({ id: 'bank-account', name: 'Synthetic SBI', type: 'SAVINGS',
         institution: 'State Bank of India', currency: 'INR' }),
+    },
+    organization: {
+      findMany: jest.fn().mockResolvedValue([]),
     },
   } as unknown as PrismaService;
   const imports = { create: jest.fn().mockResolvedValue(bankReview), pendingAll: jest.fn().mockResolvedValue([]) } as unknown as ImportsService;
@@ -86,9 +89,9 @@ describe('UnifiedImportsService catalog and dispatch', () => {
       { pdfPassword: undefined, rememberPassword: undefined }, 'SBI');
 
     const salary = setup();
-    await expect(salary.service.upload('user-1', salaryFile, { kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS' }))
-      .resolves.toMatchObject({ kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS', mode: 'REVIEW_REQUIRED' });
-    expect(salary.salary.upload).toHaveBeenCalledWith('user-1', salaryFile, 'GOLDMAN_SACHS', undefined, undefined);
+    await expect(salary.service.upload('user-1', salaryFile, { kind: 'SALARY_PAYSLIP', source: 'STANDARD_PAYSLIP' }))
+      .resolves.toMatchObject({ kind: 'SALARY_PAYSLIP', source: 'STANDARD_PAYSLIP', mode: 'REVIEW_REQUIRED' });
+    expect(salary.salary.upload).toHaveBeenCalledWith('user-1', salaryFile, 'STANDARD_PAYSLIP', undefined, undefined);
 
     const holdings = setup();
     holdings.prisma.account.findFirst.mockResolvedValue({ id: 'stocks-account', name: 'Synthetic Zerodha', type: 'STOCKS', institution: 'Zerodha', currency: 'INR' });
@@ -101,7 +104,7 @@ describe('UnifiedImportsService catalog and dispatch', () => {
 describe('UnifiedImportsService fail-closed validation', () => {
   it.each([
     [{ kind: 'BANK_STATEMENT', source: 'ZERODHA_KITE', accountId: 'bank-account' }, bankFile, 'supported import type and source'],
-    [{ kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS', accountId: 'bank-account' }, salaryFile, 'does not use a destination account'],
+    [{ kind: 'SALARY_PAYSLIP', source: 'STANDARD_PAYSLIP', accountId: 'bank-account' }, salaryFile, 'does not use a destination account'],
     [{ kind: 'BROKER_HOLDINGS', source: 'ZERODHA_KITE', accountId: 'bank-account', rememberPassword: false }, holdingsFile, 'Password fields do not apply'],
     [{ kind: 'BANK_STATEMENT', source: 'SBI', accountId: 'bank-account' },
       { ...bankFile, originalname: 'synthetic.csv' }, 'accepts only PDF'],
@@ -120,7 +123,7 @@ describe('UnifiedImportsService fail-closed validation', () => {
       { kind: 'BANK_STATEMENT', source: 'SBI', accountId: 'bank-account' })).rejects.toThrow('limited to 5 MB');
     const empty = setup();
     await expect(empty.service.upload('user-1', { ...salaryFile, buffer: Buffer.alloc(0) },
-      { kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS' })).rejects.toThrow('empty');
+      { kind: 'SALARY_PAYSLIP', source: 'STANDARD_PAYSLIP' })).rejects.toThrow('empty');
     const missing = setup();
     await expect(missing.service.upload('user-1', holdingsFile, { kind: 'BROKER_HOLDINGS', source: 'ZERODHA_KITE' })).rejects.toThrow('eligible destination');
     const unavailable = setup();

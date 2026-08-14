@@ -27,7 +27,7 @@ This file maintains the running inventory of completed, verified features inside
 ---
 
 ## 3. Salary Payslip Workflows & Timelines
-* **Employer-Aware Payslip Parsing**: Reconciled parsing of payslip details (e.g. Goldman Sachs salary slips).
+* **Employer-Aware Payslip Parsing**: Reconciled parsing of payslip details (e.g. employer salary slips).
 * **Password-Free Inline Payslip Viewer**: Decrypts password-protected payslips on-the-fly via backend `qpdf` integration, rendering payslip PDFs in a zoomable inline modal without prompting the user for passwords (password prompts reserved exclusively for file downloads).
 * **Manual Salary Entry with Optional Proof**: Support for entering salary details manually with optional proof document (PDF/image) attachment, dynamic MIME-type inline viewing/downloading, and automatic Net Pay calculation.
 * **Cumulative Net Pay Overview**: Aggregate net earnings display card on the Salary overview dashboard.
@@ -80,6 +80,8 @@ This file maintains the running inventory of completed, verified features inside
 - [x] **Spend Analyser**:
   - [x] Implement custom rules for spend analyser auto-categorization.
   - [x] Extract and analyse external/outbound transfers specifically in multi-bank Sankey flow diagram.
+  - [x] Custom Category Rules & Automated Engine: Auto-categorize both Bank and Credit Card transactions during statement upload & sync across all account types.
+  - [x] Refund & Reversal Netting: Excludes merchant refunds/cashbacks from Income, while netting them against Category Expenses in Sankey & Pie charts (leaving rows intact in ledger table).
 
 ### 9.2 Import Page
 - [x] **Credit Card Parsers**:
@@ -95,8 +97,8 @@ This file maintains the running inventory of completed, verified features inside
   - [x] Interactive sample payslip upload & visual test sandbox with math equation verification.
 
 ### 9.4 Data Security & Backups
-- [ ] **Encrypted Local Backup & Restore**:
-  - [ ] One-click AES-256-GCM encrypted export and restore of database records and S3 document files (`.yaft-backup`).
+- [x] **Encrypted Local Backup & Restore**:
+  - [x] One-click AES-256-GCM encrypted export and restore of database records and S3 document files (`.yaft-backup`).
 
 ### 9.5 Parser Engine & Organization Onboarding
 - [x] **Organization Onboarding for Salary**:

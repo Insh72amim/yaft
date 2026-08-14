@@ -43,13 +43,28 @@ type CategoryRuleItem = {
   category: { id: string; name: string; color: string };
 };
 
+type UnverifiedCategoryGroup = {
+  category: { id: string; name: string; color: string };
+  totalCount: number;
+  unverifiedCount: number;
+  transactions: Array<{
+    id: string;
+    transactionDate: string;
+    descriptionRaw: string;
+    merchant: string | null;
+    amount: number;
+    userVerified: boolean;
+  }>;
+};
+
 export default function BudgetsPage() {
-  const [activeTab, setActiveTab] = useState<"ENVELOPES" | "CATEGORIES" | "RULES">("ENVELOPES");
+  const [activeTab, setActiveTab] = useState<"ENVELOPES" | "CATEGORIES" | "RULES" | "CONFIRMATIONS">("ENVELOPES");
 
   // Main Data States
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [budgets, setBudgets] = useState<CategoryBudgetItem[]>([]);
   const [rules, setRules] = useState<CategoryRuleItem[]>([]);
+  const [unverifiedCategories, setUnverifiedCategories] = useState<UnverifiedCategoryGroup[]>([]);
   const [summary, setSummary] = useState({ totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0 });
 
   const [loading, setLoading] = useState(true);
@@ -87,15 +102,27 @@ export default function BudgetsPage() {
   const [rulePriority, setRulePriority] = useState(0);
   const [creatingRule, setCreatingRule] = useState(false);
   const [applyingRules, setApplyingRules] = useState(false);
+  const [seedingRules, setSeedingRules] = useState(false);
+  const [confirmingCatId, setConfirmingCatId] = useState<string | null>(null);
+
+  // Edit Rule Modal States
+  const [editingRule, setEditingRule] = useState<CategoryRuleItem | null>(null);
+  const [editRulePattern, setEditRulePattern] = useState("");
+  const [editRuleMatchField, setEditRuleMatchField] = useState<"DESCRIPTION" | "MERCHANT" | "REFERENCE">("DESCRIPTION");
+  const [editRuleMatchType, setEditRuleMatchType] = useState<"CONTAINS" | "EXACT" | "STARTS_WITH" | "REGEX">("CONTAINS");
+  const [editRuleCategoryId, setEditRuleCategoryId] = useState("");
+  const [editRulePriority, setEditRulePriority] = useState(0);
+  const [updatingRule, setUpdatingRule] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const [catRes, budgetRes, ruleRes] = await Promise.all([
+      const [catRes, budgetRes, ruleRes, unverifiedRes] = await Promise.all([
         api<any>("/categories").catch(() => []),
         api<{ summary: any; budgets: CategoryBudgetItem[] }>("/budgets").catch(() => ({ summary: { totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0 }, budgets: [] })),
-        api<CategoryRuleItem[]>("/categories/rules").catch(() => []),
+        api<CategoryRuleItem[]>("/category-rules").catch(() => []),
+        api<UnverifiedCategoryGroup[]>("/category-rules/unverified").catch(() => []),
       ]);
 
       const catList: CategoryOption[] = Array.isArray(catRes)
@@ -107,6 +134,7 @@ export default function BudgetsPage() {
       setBudgets(budgetRes.budgets || []);
       if (budgetRes.summary) setSummary(budgetRes.summary);
       setRules(ruleRes || []);
+      setUnverifiedCategories(unverifiedRes || []);
 
       if (!selectedCatId && catList.length > 0) setSelectedCatId(catList[0].id);
       if (!ruleCategoryId && catList.length > 0) setRuleCategoryId(catList[0].id);
@@ -120,6 +148,49 @@ export default function BudgetsPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const totalUnverifiedCount = unverifiedCategories.reduce((sum, g) => sum + g.unverifiedCount, 0);
+
+  const handleSeedDefaultRules = async () => {
+    setSeedingRules(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const res = await api<{ createdCount: number; appliedCount: number }>("/category-rules/seed-defaults", { method: "POST" });
+      setSuccessMsg(`Successfully loaded ${res.createdCount} standard category rules & re-categorized ${res.appliedCount} transactions!`);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to seed standard category rules."));
+    } finally {
+      setSeedingRules(false);
+    }
+  };
+
+  const handleConfirmCategory = async (catId: string, catName: string) => {
+    setConfirmingCatId(catId);
+    setError("");
+    try {
+      const res = await api<{ updatedCount: number }>(`/category-rules/confirm-category/${catId}`, { method: "POST" });
+      setSuccessMsg(`Confirmed ${res.updatedCount} transaction categorizations for "${catName}"!`);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, `Failed to confirm categorizations for ${catName}.`));
+    } finally {
+      setConfirmingCatId(null);
+    }
+  };
+
+  const handleConfirmTx = async (txId: string) => {
+    try {
+      await api<{ updatedCount: number }>("/category-rules/confirm", {
+        method: "POST",
+        body: JSON.stringify({ transactionIds: [txId] }),
+      });
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to confirm transaction."));
+    }
+  };
 
   // 1. Envelope Budget Handlers
   const handleSaveBudget = async (e: React.FormEvent) => {
@@ -262,11 +333,46 @@ export default function BudgetsPage() {
   const handleDeleteRule = async (id: string) => {
     try {
       setError("");
-      await api(`/categories/rules/${id}`, { method: "DELETE" });
+      await api(`/category-rules/${id}`, { method: "DELETE" });
       setSuccessMsg("Rule deleted.");
       loadData();
     } catch (err) {
       setError(errorMessage(err, "Could not delete rule."));
+    }
+  };
+
+  const handleOpenEditRule = (rule: CategoryRuleItem) => {
+    setEditingRule(rule);
+    setEditRulePattern(rule.pattern);
+    setEditRuleMatchField(rule.matchField);
+    setEditRuleMatchType(rule.matchType);
+    setEditRuleCategoryId(rule.category?.id || categories[0]?.id || "");
+    setEditRulePriority(rule.priority || 0);
+  };
+
+  const handleUpdateRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRule || !editRulePattern.trim()) return;
+    setUpdatingRule(true);
+    setError("");
+    try {
+      await api(`/category-rules/${editingRule.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          pattern: editRulePattern.trim(),
+          matchField: editRuleMatchField,
+          matchType: editRuleMatchType,
+          categoryId: editRuleCategoryId,
+          priority: Number(editRulePriority) || 0,
+        }),
+      });
+      setSuccessMsg(`Updated rule for pattern "${editRulePattern.trim()}"!`);
+      setEditingRule(null);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Could not update categorization rule."));
+    } finally {
+      setUpdatingRule(false);
     }
   };
 
@@ -333,6 +439,20 @@ export default function BudgetsPage() {
             >
               <SlidersHorizontal size={15} color={activeTab === "RULES" ? "var(--green)" : "var(--muted)"} />
               Auto-Rules ({rules.length})
+            </button>
+            <button
+              type="button"
+              className={`secondary compact ${activeTab === "CONFIRMATIONS" ? "active" : ""}`}
+              onClick={() => setActiveTab("CONFIRMATIONS")}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
+            >
+              <CheckCircle2 size={15} color={activeTab === "CONFIRMATIONS" ? "var(--green)" : "var(--muted)"} />
+              Confirm Categorizations
+              {totalUnverifiedCount > 0 && (
+                <span style={{ background: "#f59e0b", color: "#000000", fontSize: "10px", fontWeight: 800, padding: "1px 6px", borderRadius: "10px" }}>
+                  {totalUnverifiedCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -760,16 +880,29 @@ export default function BudgetsPage() {
                   <span className="eyebrow" style={{ color: "var(--green)" }}>Automation Engine</span>
                   <h2>Create Auto-Categorization Rule</h2>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleApplyRulesRetroactively}
-                  disabled={applyingRules}
-                  className="secondary compact"
-                  style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 700 }}
-                >
-                  <Zap size={14} className={applyingRules ? "spin" : ""} color="var(--green)" />
-                  {applyingRules ? "Applying..." : "Apply Rules to Past Transactions"}
-                </button>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={handleSeedDefaultRules}
+                    disabled={seedingRules}
+                    className="secondary compact"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 700, background: "rgba(139, 92, 246, 0.15)", color: "#8b5cf6", border: "1px solid rgba(139, 92, 246, 0.3)" }}
+                  >
+                    <Sparkles size={14} className={seedingRules ? "spin" : ""} color="#8b5cf6" />
+                    {seedingRules ? "Loading Rules..." : "✨ Seed Standard Category Rules"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleApplyRulesRetroactively}
+                    disabled={applyingRules}
+                    className="secondary compact"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 700 }}
+                  >
+                    <Zap size={14} className={applyingRules ? "spin" : ""} color="var(--green)" />
+                    {applyingRules ? "Applying..." : "Apply Rules to Past Transactions"}
+                  </button>
+                </div>
               </div>
 
               <form onSubmit={handleCreateRule} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px", alignItems: "end" }}>
@@ -900,6 +1033,16 @@ export default function BudgetsPage() {
 
                         <button
                           type="button"
+                          onClick={() => handleOpenEditRule(r)}
+                          className="ghost compact"
+                          style={{ color: "var(--muted)", padding: "4px" }}
+                          title="Edit rule"
+                        >
+                          <Pencil size={14} />
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => handleDeleteRule(r.id)}
                           className="ghost compact"
                           style={{ color: "#ef4444", padding: "4px" }}
@@ -907,6 +1050,146 @@ export default function BudgetsPage() {
                         >
                           <Trash2 size={14} />
                         </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* TAB 4: CONFIRM CATEGORIZATIONS (CATEGORY-WISE VERIFICATION) */}
+        {activeTab === "CONFIRMATIONS" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <section className="panel" style={{ padding: "20px" }}>
+              <div className="panel-title" style={{ flexWrap: "wrap", gap: "12px", alignItems: "center", marginBottom: "16px" }}>
+                <div>
+                  <span className="eyebrow" style={{ color: "var(--green)" }}>Auto-Categorization Review</span>
+                  <h2>Confirm Categorized Transactions ({totalUnverifiedCount} Pending)</h2>
+                </div>
+
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={handleSeedDefaultRules}
+                    disabled={seedingRules}
+                    className="secondary compact"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 700, background: "rgba(139, 92, 246, 0.15)", color: "#8b5cf6", border: "1px solid rgba(139, 92, 246, 0.3)" }}
+                  >
+                    <Sparkles size={14} className={seedingRules ? "spin" : ""} color="#8b5cf6" />
+                    {seedingRules ? "Loading..." : "✨ Seed Common Rules"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleApplyRulesRetroactively}
+                    disabled={applyingRules}
+                    className="secondary compact"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 700 }}
+                  >
+                    <Zap size={14} className={applyingRules ? "spin" : ""} color="var(--green)" />
+                    {applyingRules ? "Applying..." : "Re-Sync All Rules"}
+                  </button>
+                </div>
+              </div>
+
+              {unverifiedCategories.length === 0 ? (
+                <div style={{ padding: "30px", textAlign: "center", background: "var(--background-alt)", borderRadius: "12px", border: "1px dashed var(--line)", color: "var(--muted)", fontSize: "13px" }}>
+                  <CheckCircle2 size={32} color="var(--green)" style={{ margin: "0 auto 10px auto", display: "block" }} />
+                  <span>All transactions are confirmed! No pending auto-categorization reviews.</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                  {unverifiedCategories.map((group) => (
+                    <div
+                      key={group.category.id}
+                      style={{
+                        background: "var(--background-alt)",
+                        border: "1px solid var(--line)",
+                        borderRadius: "14px",
+                        padding: "16px 20px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
+                      }}
+                    >
+                      {/* Category Header Bar */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: group.category.color }} />
+                          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>{group.category.name}</h3>
+                          {group.unverifiedCount > 0 ? (
+                            <span style={{ background: "rgba(245, 158, 11, 0.15)", border: "1px solid rgba(245, 158, 11, 0.3)", color: "#f59e0b", fontSize: "11px", fontWeight: 800, padding: "2px 8px", borderRadius: "10px" }}>
+                              {group.unverifiedCount} Unconfirmed
+                            </span>
+                          ) : (
+                            <span style={{ background: "rgba(34, 197, 94, 0.15)", border: "1px solid rgba(34, 197, 94, 0.3)", color: "#22c55e", fontSize: "11px", fontWeight: 800, padding: "2px 8px", borderRadius: "10px" }}>
+                              ✓ All Confirmed
+                            </span>
+                          )}
+                        </div>
+
+                        {group.unverifiedCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmCategory(group.category.id, group.category.name)}
+                            disabled={confirmingCatId === group.category.id}
+                            className="secondary compact"
+                            style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 700, background: "var(--green)", color: "#ffffff", border: "none", borderRadius: "8px" }}
+                          >
+                            <CheckCircle2 size={14} className={confirmingCatId === group.category.id ? "spin" : ""} />
+                            {confirmingCatId === group.category.id ? "Confirming..." : `✓ Confirm All in ${group.category.name}`}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Transaction List under this Category */}
+                      <div style={{ display: "grid", gap: "8px" }}>
+                        {group.transactions.map((tx) => (
+                          <div
+                            key={tx.id}
+                            style={{
+                              background: "var(--card)",
+                              border: "1px solid var(--line)",
+                              borderRadius: "10px",
+                              padding: "10px 14px",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                              gap: "10px",
+                            }}
+                          >
+                            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)" }}>{tx.merchant || tx.descriptionRaw}</span>
+                              <small style={{ color: "var(--muted)", fontSize: "11px" }}>
+                                {new Date(tx.transactionDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                              </small>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                              <strong style={{ fontSize: "13px", fontWeight: 700, color: tx.amount < 0 ? "#ef4444" : "#22c55e" }}>
+                                {money(tx.amount)}
+                              </strong>
+
+                              {tx.userVerified ? (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "11px", fontWeight: 700, color: "#22c55e", background: "rgba(34, 197, 94, 0.1)", padding: "3px 8px", borderRadius: "6px" }}>
+                                  <CheckCircle2 size={12} /> Confirmed
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleConfirmTx(tx.id)}
+                                  className="secondary compact"
+                                  style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "11px", fontWeight: 700, padding: "4px 10px", borderRadius: "6px", background: "var(--background-alt)", border: "1px solid var(--line)" }}
+                                >
+                                  <CheckCircle2 size={12} color="var(--green)" /> Confirm
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -968,6 +1251,91 @@ export default function BudgetsPage() {
                 </button>
                 <button type="submit" disabled={updatingCat} className="secondary compact" style={{ background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700 }}>
                   {updatingCat ? <Loader2 size={14} className="spin" /> : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {/* Edit Rule Modal Dialog */}
+      {editingRule && (
+        <div className="modal-wrap" style={{ zIndex: 99999 }}>
+          <button className="backdrop" onClick={() => setEditingRule(null)} aria-label="Close edit rule modal" />
+          <section className="modal" style={{ width: "min(480px, 90vw)", padding: "20px", borderRadius: "14px", background: "var(--card)", border: "1px solid var(--line)" }}>
+            <h3 style={{ margin: "0 0 14px 0", fontSize: "1.1rem", fontWeight: 700 }}>Edit Auto-Categorization Rule</h3>
+
+            <form onSubmit={handleUpdateRule} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Pattern Keyword / Regex</label>
+                <input
+                  type="text"
+                  value={editRulePattern}
+                  onChange={(e) => setEditRulePattern(e.target.value)}
+                  style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontFamily: "monospace" }}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Match Field</label>
+                  <select
+                    value={editRuleMatchField}
+                    onChange={(e: any) => setEditRuleMatchField(e.target.value)}
+                    style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  >
+                    <option value="DESCRIPTION">Description</option>
+                    <option value="MERCHANT">Merchant</option>
+                    <option value="REFERENCE">Reference</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Match Type</label>
+                  <select
+                    value={editRuleMatchType}
+                    onChange={(e: any) => setEditRuleMatchType(e.target.value)}
+                    style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  >
+                    <option value="CONTAINS">Contains</option>
+                    <option value="EXACT">Exact Match</option>
+                    <option value="STARTS_WITH">Starts With</option>
+                    <option value="REGEX">Regular Expression</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Target Category</label>
+                <select
+                  value={editRuleCategoryId}
+                  onChange={(e) => setEditRuleCategoryId(e.target.value)}
+                  style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Priority (0 = Normal)</label>
+                <input
+                  type="number"
+                  value={editRulePriority}
+                  onChange={(e) => setEditRulePriority(parseInt(e.target.value, 10) || 0)}
+                  style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "10px" }}>
+                <button type="button" className="ghost compact" onClick={() => setEditingRule(null)}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={updatingRule} className="secondary compact" style={{ background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700 }}>
+                  {updatingRule ? <Loader2 size={14} className="spin" /> : "Save Rule Changes"}
                 </button>
               </div>
             </form>

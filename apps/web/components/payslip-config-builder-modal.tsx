@@ -6,6 +6,7 @@ import { api, errorMessage, money } from "@/lib/api";
 type Organization = {
   id: string;
   name: string;
+  color?: string | null;
   parsingConfig?: any;
   sampleFilename?: string | null;
 };
@@ -122,16 +123,54 @@ export function PayslipConfigBuilderModal({
   }
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card" style={{ maxWidth: "840px", width: "90vw" }}>
-        <header className="modal-header">
-          <div>
-            <h3 style={{ margin: 0 }}>Payslip Parser Config — {org.name}</h3>
-            <small style={{ color: "var(--muted)" }}>
-              Upload sample slip & inspect database JSON rules for parsing future slips.
-            </small>
+    <div className="modal-wrap">
+      <button className="backdrop" onClick={onClose} aria-label="Close modal" />
+      <section
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        style={{
+          maxWidth: "880px",
+          width: "92vw",
+          padding: "28px",
+          borderRadius: "20px",
+          maxHeight: "90vh",
+          overflowY: "auto",
+        }}>
+        <header
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "16px",
+            paddingBottom: "14px",
+            borderBottom: "1px solid var(--line)",
+          }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <span
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "12px",
+                background: org.color || "#4f46e5",
+                color: "#fff",
+                display: "grid",
+                placeItems: "center",
+                fontWeight: 700,
+                boxShadow: "0 6px 14px rgba(0,0,0,0.15)",
+              }}>
+              {org.name.slice(0, 2).toUpperCase()}
+            </span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: "18px" }}>
+                Payslip Parser Config — {org.name}
+              </h3>
+              <p style={{ margin: "2px 0 0 0", color: "var(--muted)", fontSize: "12px" }}>
+                Upload sample slip &amp; inspect database JSON rules for parsing future slips.
+              </p>
+            </div>
           </div>
-          <button type="button" className="close-btn" onClick={onClose}>
+          <button type="button" className="ghost icon-only" onClick={onClose} style={{ borderRadius: "50%", padding: "6px" }}>
             <X size={18} />
           </button>
         </header>
@@ -264,7 +303,7 @@ export function PayslipConfigBuilderModal({
             {busy ? "Saving config…" : "Save DB Config"}
           </button>
         </footer>
-      </div>
+      </section>
     </div>
   );
 }

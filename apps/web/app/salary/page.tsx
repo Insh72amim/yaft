@@ -72,18 +72,24 @@ export default function SalaryPage() {
     useState<SalaryStatement | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);
 
-  // Organizations state
+  // Organizations state & Filter state
   const [organizations, setOrganizations] = useState<any[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>("ALL");
   const [editingOrg, setEditingOrg] = useState<any | null>(null);
   const [showOrgModal, setShowOrgModal] = useState(false);
   const [builderOrg, setBuilderOrg] = useState<any | null>(null);
   const [deletingOrg, setDeletingOrg] = useState<any | null>(null);
   const [purgeStatements, setPurgeStatements] = useState(false);
   const [orgBusy, setOrgBusy] = useState(false);
+
   const loadOrgs = useCallback(async () => {
     try {
       const list = await api<any[]>("/organizations");
       setOrganizations(list);
+      const current = list.find((o) => o.isCurrent);
+      if (current) {
+        setSelectedOrgId((prev) => (prev === "ALL" ? current.id : prev));
+      }
     } catch {
       // ignore
     }
@@ -102,6 +108,7 @@ export default function SalaryPage() {
         setError(errorMessage(reason, "Could not load your salary history."));
     }
   }, [loadOrgs, router]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -140,6 +147,35 @@ export default function SalaryPage() {
       </Shell>
     );
 
+  // Compute filtered statements, summary & timeline points based on selectedOrgId
+  const targetOrg = organizations.find((o) => o.id === selectedOrgId);
+  const filteredStatements = (data.statements || []).filter((statement: any) => {
+    if (selectedOrgId === "ALL") return true;
+    return (
+      statement.organization?.id === selectedOrgId ||
+      (targetOrg && statement.employer.toLowerCase().includes(targetOrg.name.toLowerCase()))
+    );
+  });
+
+  const filteredSummary = {
+    statementCount: filteredStatements.length,
+    latestNetPay: filteredStatements[0]?.netPay || 0,
+    totalNet: filteredStatements.reduce((acc, s) => acc + s.netPay, 0),
+    totalGross: filteredStatements.reduce((acc, s) => acc + s.grossEarnings, 0),
+    totalDeductions: filteredStatements.reduce((acc, s) => acc + s.grossDeductions, 0),
+    employeePf: data.summary.employeePf,
+    employerPf: data.summary.employerPf,
+    taxes: data.summary.taxes,
+  };
+
+  const filteredTimelineMonths = new Set(
+    filteredStatements.map((s) => new Date(s.payPeriod).toISOString().slice(0, 7))
+  );
+
+  const filteredTimeline = (data.timeline || []).filter((point) =>
+    selectedOrgId === "ALL" ? true : filteredTimelineMonths.has(point.month)
+  );
+
   return (
     <Shell>
       <header className="page-header">
@@ -165,7 +201,7 @@ export default function SalaryPage() {
           </button>
           <Link
             className="primary"
-            href="/import?kind=SALARY_PAYSLIP&source=GOLDMAN_SACHS"
+            href="/import?kind=SALARY_PAYSLIP&source=STANDARD_PAYSLIP"
           >
             <Upload />
             Import payslip
@@ -177,32 +213,55 @@ export default function SalaryPage() {
           {error}
         </p>
       )}
-      <div className="salary-tabs" role="tablist" aria-label="Salary views">
-        <button
-          role="tab"
-          aria-selected={activeTab === "statements"}
-          className={activeTab === "statements" ? "active" : ""}
-          onClick={() => setActiveTab("statements")}>
-          <FileText />
-          Statements
-        </button>
-        <button
-          role="tab"
-          aria-selected={activeTab === "timeline"}
-          className={activeTab === "timeline" ? "active" : ""}
-          onClick={() => setActiveTab("timeline")}>
-          <ArrowUpRight />
-          Earnings &amp; tax timeline
-        </button>
-        <button
-          role="tab"
-          aria-selected={activeTab === "organizations"}
-          className={activeTab === "organizations" ? "active" : ""}
-          onClick={() => setActiveTab("organizations")}>
-          <Building2 size={16} />
-          Organizations &amp; Parser Configs ({organizations.length})
-        </button>
+
+      {/* Top Filter and Tabs Bar */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
+        <div className="salary-tabs" role="tablist" aria-label="Salary views" style={{ margin: 0 }}>
+          <button
+            role="tab"
+            aria-selected={activeTab === "statements"}
+            className={activeTab === "statements" ? "active" : ""}
+            onClick={() => setActiveTab("statements")}>
+            <FileText />
+            Statements
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === "timeline"}
+            className={activeTab === "timeline" ? "active" : ""}
+            onClick={() => setActiveTab("timeline")}>
+            <ArrowUpRight />
+            Earnings &amp; tax timeline
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === "organizations"}
+            className={activeTab === "organizations" ? "active" : ""}
+            onClick={() => setActiveTab("organizations")}>
+            <Building2 size={16} />
+            Organizations &amp; Parser Configs ({organizations.length})
+          </button>
+        </div>
+
+        {organizations.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--muted)" }}>Employer:</span>
+            <select
+              value={selectedOrgId}
+              onChange={(e) => setSelectedOrgId(e.target.value)}
+              className="text-input"
+              style={{ minWidth: "160px", maxWidth: "220px", padding: "6px 12px", borderRadius: "10px", fontSize: "13px" }}>
+              <option value="ALL">All Employers ({organizations.length})</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name} {org.isCurrent ? "★ (Current)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
+
       {activeTab === "statements" ? (
         <>
           <section className="salary-summary">
@@ -211,10 +270,10 @@ export default function SalaryPage() {
                 <WalletCards />
               </span>
               <small>Latest net pay</small>
-              <strong>{money(data.summary.latestNetPay)}</strong>
+              <strong>{money(filteredSummary.latestNetPay)}</strong>
               <em>
-                {data.summary.statementCount} verified statement
-                {data.summary.statementCount === 1 ? "" : "s"}
+                {filteredSummary.statementCount} verified statement
+                {filteredSummary.statementCount === 1 ? "" : "s"}
               </em>
             </article>
             <article>
@@ -222,7 +281,7 @@ export default function SalaryPage() {
                 <BadgeIndianRupee />
               </span>
               <small>Cumulative net pay</small>
-              <strong>{money(data.summary.totalNet)}</strong>
+              <strong>{money(filteredSummary.totalNet)}</strong>
               <em>After all deductions</em>
             </article>
             <article>
@@ -230,7 +289,7 @@ export default function SalaryPage() {
                 <ArrowUpRight />
               </span>
               <small>Cumulative gross</small>
-              <strong>{money(data.summary.totalGross)}</strong>
+              <strong>{money(filteredSummary.totalGross)}</strong>
               <em>Across imported months</em>
             </article>
             <article>
@@ -238,7 +297,7 @@ export default function SalaryPage() {
                 <ArrowDownRight />
               </span>
               <small>Tax deducted</small>
-              <strong>{money(data.summary.taxes)}</strong>
+              <strong>{money(filteredSummary.taxes)}</strong>
               <em>Income + professional tax</em>
             </article>
             <article>
@@ -247,7 +306,7 @@ export default function SalaryPage() {
               </span>
               <small>Total PF additions</small>
               <strong>
-                {money(data.summary.employeePf + data.summary.employerPf)}
+                {money(filteredSummary.employeePf + filteredSummary.employerPf)}
               </strong>
               <em>Employee + employer share</em>
             </article>
@@ -260,14 +319,14 @@ export default function SalaryPage() {
               </div>
               <Link
                 className="secondary compact"
-                href="/import?kind=SALARY_PAYSLIP&source=GOLDMAN_SACHS">
+                href="/import?kind=SALARY_PAYSLIP&source=STANDARD_PAYSLIP">
                 <Upload />
                 Unified importer
               </Link>
             </div>
-            {data.statements.length ? (
+            {filteredStatements.length ? (
               <div className="salary-history-list">
-                {data.statements.map((statement) => (
+                {filteredStatements.map((statement: any) => (
                   <article key={statement.id}>
                     <time>
                       {new Date(statement.payPeriod).toLocaleDateString(
@@ -276,8 +335,32 @@ export default function SalaryPage() {
                       )}
                     </time>
                     <div>
-                      <strong>{statement.employer}</strong>
-                      <small>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <strong>{statement.employer}</strong>
+                        {statement.organization && (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              padding: "2px 8px",
+                              borderRadius: "12px",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              background: statement.organization.color ? `${statement.organization.color}22` : "var(--paper)",
+                              color: statement.organization.color || "var(--ink)",
+                              border: `1px solid ${statement.organization.color ? `${statement.organization.color}44` : "var(--line)"}`,
+                              maxWidth: "180px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}>
+                            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: statement.organization.color || "var(--indigo)" }} />
+                            {statement.organization.name}
+                          </span>
+                        )}
+                      </div>
+                      <small style={{ color: "var(--muted)" }}>
                         Gross {money(statement.grossEarnings)} · deductions{" "}
                         {money(statement.grossDeductions)}
                       </small>
@@ -339,7 +422,7 @@ export default function SalaryPage() {
                 </p>
                 <Link
                   className="primary"
-                  href="/import?kind=SALARY_PAYSLIP&source=GOLDMAN_SACHS">
+                  href="/import?kind=SALARY_PAYSLIP&source=STANDARD_PAYSLIP">
                   Import first payslip
                 </Link>
               </div>
@@ -397,8 +480,24 @@ export default function SalaryPage() {
                         {org.name.slice(0, 2).toUpperCase()}
                       </span>
                       <div>
-                        <strong style={{ fontSize: "15px", display: "block" }}>{org.name}</strong>
-                        {org.taxId && <small style={{ color: "var(--muted)" }}>Tax ID: {org.taxId}</small>}
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <strong style={{ fontSize: "15px" }}>{org.name}</strong>
+                          {org.isCurrent && (
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                fontWeight: 700,
+                                padding: "2px 6px",
+                                borderRadius: "6px",
+                                background: "rgba(99,102,241,0.2)",
+                                color: "#6366f1",
+                                border: "1px solid rgba(99,102,241,0.4)",
+                              }}>
+                              Current Employer
+                            </span>
+                          )}
+                        </div>
+                        {org.taxId && <small style={{ color: "var(--muted)", display: "block" }}>Tax ID: {org.taxId}</small>}
                       </div>
                     </div>
                     <span
@@ -476,7 +575,7 @@ export default function SalaryPage() {
           </div>
         </section>
       ) : (
-        <SalaryTimeline points={data.timeline} />
+        <SalaryTimeline points={filteredTimeline} />
       )}
       {deletingId && (
         <div className="modal-wrap">
@@ -1104,7 +1203,7 @@ function ManualSalaryModal({
                 required
                 value={employer}
                 onChange={(e) => setEmployer(e.target.value)}
-                placeholder="e.g. Goldman Sachs"
+                placeholder="e.g. Acme Corp"
               />
             </label>
             <label>

@@ -83,6 +83,12 @@ type AccountFlow = {
     totalCreditCardPayments?: number;
     totalInvestments?: number;
     totalInternalTransfers: number;
+    categoryFlow?: {
+      outboundCategories: Array<{ name: string; color: string; amount: number }>;
+      creditCardCategories: Array<{ name: string; color: string; amount: number }>;
+      investmentCategories: Array<{ name: string; color: string; amount: number }>;
+      overallCategories: Array<{ name: string; color: string; amount: number }>;
+    };
   };
 };
 
@@ -1337,15 +1343,16 @@ function MultiBankSankeyDiagram({
   };
 
   // ── Layout & Exact Flow Conservation Scale ─────────────────────────────
-  const SVG_W = 1080;
+  const SVG_W = 1280;
   const PAD_V = 48;
   const NODE_W = 16;
   const NODE_GAP = 32;
-  const MIN_BANK_H = 50;
-  const LEFT_X = 138;
-  const MID_X = 450;
-  const RIGHT_X = 790;
-  const ARC_X = MID_X + NODE_W + 56;
+  const MIN_BANK_H = 46;
+  const LEFT_X = 160;
+  const MID_X = 410;
+  const RIGHT_X = 720;
+  const CAT_X = 1030;
+  const ARC_X = MID_X + NODE_W + 48;
 
   // 1. Calculate per-bank volume totals
   const bankVolumes = accounts.map((a) => {
@@ -1378,10 +1385,10 @@ function MultiBankSankeyDiagram({
   const maxSystemVolume = Math.max(totalInboundVolume, totalRightVolume, totalBankVolume, 1);
 
   const minHeightNeeded = accounts.length * MIN_BANK_H + (accounts.length - 1) * NODE_GAP;
-  const usableH = Math.max(380, minHeightNeeded);
+  const usableH = Math.max(420, minHeightNeeded);
 
   // Unified Scale factor: pixels per rupee
-  const scale = (usableH * 0.75) / maxSystemVolume;
+  const scale = (usableH * 0.72) / maxSystemVolume;
   const flowH = (amt: number) => (amt > 0 ? Math.max(4, Math.round(amt * scale)) : 0);
 
   // 3. Compute Inbound Slices & External Inbound Bar Height
@@ -1392,7 +1399,7 @@ function MultiBankSankeyDiagram({
   const inboundH = Math.max(40, inSlicesData.reduce((s, h) => s + h, 0));
   const inStartY = PAD_V + (usableH - inboundH) / 2;
 
-  // 4. Compute Right Destination Node Heights & Y Positions
+  // 4. Compute Stage 3 Hub Node Heights & Y Positions
   const hasCc = totalCcVolume > 0;
   const hasInv = totalInvVolume > 0;
 
@@ -1405,14 +1412,14 @@ function MultiBankSankeyDiagram({
   const invSlicesData = bankVolumes.filter((b) => (b.investments ?? 0) > 0).map((b) => flowH(b.investments ?? 0));
   const invH = hasInv ? Math.max(32, invSlicesData.reduce((s, h) => s + h, 0)) : 0;
 
-  const dGap = 26;
+  const dGap = 36;
   const totalRightBlockH = outboundH + (hasCc ? ccH + dGap : 0) + (hasInv ? invH + dGap : 0);
 
   const outY = PAD_V + (usableH - totalRightBlockH) / 2;
   const ccY = outY + outboundH + (hasCc ? dGap : 0);
   const invY = ccY + (hasCc ? ccH : 0) + (hasInv ? dGap : 0);
 
-  // 5. Position Bank Nodes (Middle)
+  // 5. Position Bank Nodes (Stage 2 - Middle)
   const bankNodes = bankVolumes.map((acc, idx) => {
     const extInH = flowH(acc.externalInbound);
     const bankTransInH = aggregatedBankTransfers
@@ -1445,15 +1452,110 @@ function MultiBankSankeyDiagram({
     return n;
   });
 
-  const finalSvgH = Math.max(usableH + PAD_V * 2, curY + PAD_V);
+  // 6. Stage 4 Category Nodes Positioning & Intelligent Ordering to minimize ribbon crossings
+  const rawCategories = overall.categoryFlow?.overallCategories ?? [];
+  const invCatNames = new Set(
+    (overall.categoryFlow?.investmentCategories ?? []).map((c) => c.name)
+  );
 
-  // 6. Ribbon path helper
+  const generalCats = rawCategories.filter((c) => !invCatNames.has(c.name) && !/invest|mutual|sip|stock|broker/i.test(c.name));
+  let invCatsList = rawCategories.filter((c) => invCatNames.has(c.name) || /invest|mutual|sip|stock|broker/i.test(c.name));
+
+  if (invCatsList.length === 0 && (overall.totalInvestments ?? 0) > 0) {
+    invCatsList = [{ name: 'Investment', color: '#8b5cf6', amount: overall.totalInvestments ?? 0 }];
+  }
+
+  const sortedGeneral = generalCats.sort((a, b) => b.amount - a.amount);
+  const topGeneral = sortedGeneral.slice(0, 5);
+  const remainingGeneral = sortedGeneral.slice(5);
+  const otherGeneralTotal = remainingGeneral.reduce((sum, c) => sum + c.amount, 0);
+
+  const displayCategories = [
+    ...topGeneral,
+    ...(otherGeneralTotal > 0 ? [{ name: 'Other Categories', color: '#94a3b8', amount: otherGeneralTotal }] : []),
+    ...invCatsList.sort((a, b) => b.amount - a.amount),
+  ];
+
+  // Helper to match category to display node name
+  const getDisplayNodeName = (catName: string) => {
+    const directMatch = displayCategories.find((d) => d.name.toLowerCase() === catName.toLowerCase());
+    if (directMatch) return directMatch.name;
+    const invMatch = /invest|mutual|sip|stock|broker/i.test(catName) ? displayCategories.find((d) => /invest|mutual|sip|stock|broker/i.test(d.name)) : null;
+    if (invMatch) return invMatch.name;
+    const otherMatch = displayCategories.find((d) => d.name === 'Other Categories');
+    if (otherMatch) return otherMatch.name;
+    return displayCategories[0]?.name ?? catName;
+  };
+
+  const outboundCats = overall.categoryFlow?.outboundCategories ?? [];
+  const ccCats = overall.categoryFlow?.creditCardCategories ?? [];
+  const rawInvCats = overall.categoryFlow?.investmentCategories ?? [];
+  const invCats = rawInvCats.length > 0
+    ? rawInvCats
+    : ((overall.totalInvestments ?? 0) > 0 ? [{ name: 'Investment', color: '#8b5cf6', amount: overall.totalInvestments ?? 0 }] : []);
+
+  // Pre-calculate exact incoming ribbon height & total amount per display node
+  const categoryIncomingHeightMap = new Map<string, number>();
+  const categoryIncomingAmountMap = new Map<string, number>();
+  displayCategories.forEach((c) => {
+    categoryIncomingHeightMap.set(c.name, 0);
+    categoryIncomingAmountMap.set(c.name, 0);
+  });
+
+  outboundCats.forEach((cat) => {
+    if (cat.amount <= 0) return;
+    const targetName = getDisplayNodeName(cat.name);
+    const sliceH = flowH(cat.amount);
+    categoryIncomingHeightMap.set(targetName, (categoryIncomingHeightMap.get(targetName) || 0) + sliceH);
+    categoryIncomingAmountMap.set(targetName, (categoryIncomingAmountMap.get(targetName) || 0) + cat.amount);
+  });
+
+  ccCats.forEach((cat) => {
+    if (cat.amount <= 0) return;
+    const targetName = getDisplayNodeName(cat.name);
+    const sliceH = flowH(cat.amount);
+    categoryIncomingHeightMap.set(targetName, (categoryIncomingHeightMap.get(targetName) || 0) + sliceH);
+    categoryIncomingAmountMap.set(targetName, (categoryIncomingAmountMap.get(targetName) || 0) + cat.amount);
+  });
+
+  invCats.forEach((cat) => {
+    if (cat.amount <= 0) return;
+    const targetName = getDisplayNodeName(cat.name);
+    const sliceH = flowH(cat.amount);
+    categoryIncomingHeightMap.set(targetName, (categoryIncomingHeightMap.get(targetName) || 0) + sliceH);
+    categoryIncomingAmountMap.set(targetName, (categoryIncomingAmountMap.get(targetName) || 0) + cat.amount);
+  });
+
+  const catNodesData = displayCategories.map((cat) => {
+    const incH = categoryIncomingHeightMap.get(cat.name) || 0;
+    const incAmt = categoryIncomingAmountMap.get(cat.name) || cat.amount;
+    return {
+      ...cat,
+      amount: incAmt,
+      height: Math.max(20, incH > 0 ? incH : flowH(cat.amount)),
+    };
+  });
+
+  const catGap = 16;
+  const totalCatBlockH = catNodesData.reduce((sum, c) => sum + c.height, 0) + (catNodesData.length - 1) * catGap;
+  const catStartY = PAD_V + (usableH - Math.max(usableH, totalCatBlockH)) / 2;
+
+  let catCurY = Math.max(PAD_V, catStartY);
+  const categoryNodesWithY = catNodesData.map((node) => {
+    const n = { ...node, x: CAT_X, y: catCurY };
+    catCurY += node.height + catGap;
+    return n;
+  });
+
+  const finalSvgH = Math.max(usableH + PAD_V * 2, curY + PAD_V, catCurY + PAD_V);
+
+  // 7. Ribbon path helper
   const ribbon = (x1: number, yT1: number, yB1: number, x2: number, yT2: number, yB2: number) => {
     const cp = (x2 - x1) * 0.42;
     return `M ${x1} ${yT1} C ${x1+cp} ${yT1},${x2-cp} ${yT2},${x2} ${yT2} L ${x2} ${yB2} C ${x2-cp} ${yB2},${x1+cp} ${yB1},${x1} ${yB1} Z`;
   };
 
-  // 7. Build Inbound Ribbons
+  // 8. Build Inbound Ribbons
   let currInSrcY = inStartY;
   const bankInboundOffset = new Map<string, number>();
   bankNodesWithY.forEach((b) => bankInboundOffset.set(b.id, 0));
@@ -1479,7 +1581,7 @@ function MultiBankSankeyDiagram({
     bankInboundOffset.set(bank.id, dstOff + dstH);
   }
 
-  // 8. Build Outbound Ribbons
+  // 9. Build Outbound Ribbons (Bank -> Stage 3 Hubs)
   let currOutDstY = outY;
   let currCcDstY = ccY;
   let currInvDstY = invY;
@@ -1546,9 +1648,104 @@ function MultiBankSankeyDiagram({
     }
   }
 
+  // 10. Build Stage 3 Hubs -> Stage 4 Category Ribbons
+  type CatSlice = {
+    categoryName: string;
+    categoryColor: string;
+    amount: number;
+    srcT: number;
+    srcB: number;
+    dstT: number;
+    dstB: number;
+    channel: 'outbound' | 'creditCard' | 'investment';
+  };
+  const categoryRibbons: CatSlice[] = [];
+
+  let hubOutSrcY = outY;
+  let hubCcSrcY = ccY;
+  let hubInvSrcY = invY;
+
+  const catTargetOffset = new Map<string, number>();
+  categoryNodesWithY.forEach((c) => catTargetOffset.set(c.name, 0));
+
+  // Connect External Outbound -> Categories
+  for (const cat of outboundCats) {
+    if (cat.amount <= 0) continue;
+    const targetName = getDisplayNodeName(cat.name);
+    const matchedNode = categoryNodesWithY.find((n) => n.name === targetName);
+    if (!matchedNode) continue;
+
+    const sliceH = flowH(cat.amount);
+    const currDstOff = catTargetOffset.get(matchedNode.name)!;
+
+    categoryRibbons.push({
+      categoryName: matchedNode.name,
+      categoryColor: matchedNode.color,
+      amount: cat.amount,
+      srcT: hubOutSrcY,
+      srcB: hubOutSrcY + sliceH,
+      dstT: matchedNode.y + currDstOff,
+      dstB: matchedNode.y + currDstOff + sliceH,
+      channel: 'outbound',
+    });
+
+    hubOutSrcY += sliceH;
+    catTargetOffset.set(matchedNode.name, currDstOff + sliceH);
+  }
+
+  // Connect Credit Card Payments -> Categories
+  for (const cat of ccCats) {
+    if (cat.amount <= 0) continue;
+    const targetName = getDisplayNodeName(cat.name);
+    const matchedNode = categoryNodesWithY.find((n) => n.name === targetName);
+    if (!matchedNode) continue;
+
+    const sliceH = flowH(cat.amount);
+    const currDstOff = catTargetOffset.get(matchedNode.name)!;
+
+    categoryRibbons.push({
+      categoryName: matchedNode.name,
+      categoryColor: matchedNode.color,
+      amount: cat.amount,
+      srcT: hubCcSrcY,
+      srcB: hubCcSrcY + sliceH,
+      dstT: matchedNode.y + currDstOff,
+      dstB: matchedNode.y + currDstOff + sliceH,
+      channel: 'creditCard',
+    });
+
+    hubCcSrcY += sliceH;
+    catTargetOffset.set(matchedNode.name, currDstOff + sliceH);
+  }
+
+  // Connect Investments & SIPs -> Categories
+  for (const cat of invCats) {
+    if (cat.amount <= 0) continue;
+    const targetName = getDisplayNodeName(cat.name);
+    const matchedNode = categoryNodesWithY.find((n) => n.name === targetName);
+    if (!matchedNode) continue;
+
+    const sliceH = flowH(cat.amount);
+    const currDstOff = catTargetOffset.get(matchedNode.name)!;
+
+    categoryRibbons.push({
+      categoryName: matchedNode.name,
+      categoryColor: matchedNode.color,
+      amount: cat.amount,
+      srcT: hubInvSrcY,
+      srcB: hubInvSrcY + sliceH,
+      dstT: matchedNode.y + currDstOff,
+      dstB: matchedNode.y + currDstOff + sliceH,
+      channel: 'investment',
+    });
+
+    hubInvSrcY += sliceH;
+    catTargetOffset.set(matchedNode.name, currDstOff + sliceH);
+  }
+
   return (
     <div style={{ padding: 0, width: '100%', overflow: 'hidden', position: 'relative' }}>
-      {/* HTML tooltip — floats above the SVG, never overlaps ribbons */}
+      {/* HTML tooltip — floats above the SVG */}
       {hoveredFlow && (
         <div style={{
           position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)',
@@ -1585,9 +1782,24 @@ function MultiBankSankeyDiagram({
               <stop offset="0%" stopColor={b.color} /><stop offset="100%" stopColor="#8b5cf6" />
             </linearGradient>
           ))}
+          {categoryNodesWithY.map(c => (
+            <linearGradient key={`gcat-out-${c.name.replace(/\s+/g, '-')}`} id={`gcat-out-${c.name.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#ef4444" /><stop offset="100%" stopColor={c.color} />
+            </linearGradient>
+          ))}
+          {categoryNodesWithY.map(c => (
+            <linearGradient key={`gcat-cc-${c.name.replace(/\s+/g, '-')}`} id={`gcat-cc-${c.name.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#f59e0b" /><stop offset="100%" stopColor={c.color} />
+            </linearGradient>
+          ))}
+          {categoryNodesWithY.map(c => (
+            <linearGradient key={`gcat-inv-${c.name.replace(/\s+/g, '-')}`} id={`gcat-inv-${c.name.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#8b5cf6" /><stop offset="100%" stopColor={c.color} />
+            </linearGradient>
+          ))}
         </defs>
 
-        {/* ── Inbound ribbons ─────────────────────────────────── */}
+        {/* ── Stage 1 -> Stage 2: Inbound ribbons ─────────────────── */}
         {inSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
           const act = !hoveredBankId || hoveredBankId === bank.id;
           return (
@@ -1601,7 +1813,7 @@ function MultiBankSankeyDiagram({
           );
         })}
 
-        {/* ── External Outbound ribbons ───────────────────────── */}
+        {/* ── Stage 2 -> Stage 3: External Outbound ribbons ───────── */}
         {outSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
           const act = !hoveredBankId || hoveredBankId === bank.id;
           return (
@@ -1615,7 +1827,7 @@ function MultiBankSankeyDiagram({
           );
         })}
 
-        {/* ── Credit Card Payment ribbons ─────────────────────── */}
+        {/* ── Stage 2 -> Stage 3: Credit Card Payment ribbons ─────── */}
         {hasCc && ccSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
           const act = !hoveredBankId || hoveredBankId === bank.id;
           return (
@@ -1629,7 +1841,7 @@ function MultiBankSankeyDiagram({
           );
         })}
 
-        {/* ── Investment ribbons ──────────────────────────────── */}
+        {/* ── Stage 2 -> Stage 3: Investment ribbons ──────────────── */}
         {hasInv && invSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
           const act = !hoveredBankId || hoveredBankId === bank.id;
           return (
@@ -1643,7 +1855,30 @@ function MultiBankSankeyDiagram({
           );
         })}
 
-        {/* ── Internal bank-to-bank arcs (loop to the RIGHT of bank bars) */}
+        {/* ── Stage 3 -> Stage 4: Outflow Hubs to Category Ribbons ── */}
+        {categoryRibbons.map((cr, idx) => {
+          const gradId = cr.channel === 'outbound'
+            ? `gcat-out-${cr.categoryName.replace(/\s+/g, '-')}`
+            : cr.channel === 'creditCard'
+            ? `gcat-cc-${cr.categoryName.replace(/\s+/g, '-')}`
+            : `gcat-inv-${cr.categoryName.replace(/\s+/g, '-')}`;
+          const channelName = cr.channel === 'outbound'
+            ? 'External Outbound'
+            : cr.channel === 'creditCard'
+            ? 'Credit Card Payments'
+            : 'Investments & SIPs';
+          return (
+            <path key={`cat-ribbon-${idx}`}
+              d={ribbon(RIGHT_X + NODE_W, cr.srcT, cr.srcB, CAT_X, cr.dstT, cr.dstB)}
+              fill={`url(#${gradId})`} opacity={0.55}
+              style={{ transition: 'opacity .18s', cursor: 'pointer' }}
+              onMouseEnter={() => { setHoveredFlow({ title: `${channelName} → ${cr.categoryName}`, amount: money(cr.amount), color: cr.categoryColor }); }}
+              onMouseLeave={() => { setHoveredFlow(null); }}
+            />
+          );
+        })}
+
+        {/* ── Internal bank-to-bank arcs ───────────────────────── */}
         {aggregatedBankTransfers.map((it, idx) => {
           const fromNode = bankNodesWithY.find(b => b.id === it.fromAccountId);
           const toNode   = bankNodesWithY.find(b => b.id === it.toAccountId);
@@ -1672,15 +1907,18 @@ function MultiBankSankeyDiagram({
                 points={`${MID_X + NODE_W},${toY} ${MID_X + NODE_W - 7},${toY - 5} ${MID_X + NODE_W - 7},${toY + 5}`}
                 fill={fromNode.color} opacity={0.85}
               />
-              {/* label at arc peak */}
-              <text x={peakX + 8} y={midY + 4} fill={fromNode.color} fontSize="10.5" fontWeight="700" textAnchor="start">
-                {label}
-              </text>
+              {/* label at arc peak inside a glassmorphic pill */}
+              <g transform={`translate(${peakX + 8}, ${midY - 9})`}>
+                <rect x="0" y="0" width={label.length * 6.5 + 10} height="18" rx="4" fill="rgba(15, 23, 42, 0.88)" stroke={fromNode.color} strokeWidth="0.8" />
+                <text x="5" y="13" fill={fromNode.color} fontSize="10.5" fontWeight="700">
+                  {label}
+                </text>
+              </g>
             </g>
           );
         })}
 
-        {/* ── Left node: External Inbound ────────────────────── */}
+        {/* ── Stage 1 Node: External Inbound ─────────────────── */}
         <rect x={LEFT_X} y={inStartY} width={NODE_W} height={inboundH} fill="#10b981" rx="4" />
         <text x={LEFT_X - 12} y={inStartY + inboundH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="end">
           External Inbound
@@ -1689,7 +1927,7 @@ function MultiBankSankeyDiagram({
           +{money(overall.totalExternalInbound)}
         </text>
 
-        {/* ── Middle nodes: Bank bars + labels to the RIGHT of ribbons */}
+        {/* ── Stage 2 Nodes: Bank Bars ───────────────────────── */}
         {bankNodesWithY.map((bank) => {
           const act  = !hoveredBankId || hoveredBankId === bank.id;
           const lx   = MID_X + NODE_W + 10;
@@ -1714,40 +1952,52 @@ function MultiBankSankeyDiagram({
           );
         })}
 
-        {/* ── Right node 1: External Outbound ───────────────── */}
+        {/* ── Stage 3 Nodes: Outflow Hubs ───────────────────── */}
         <rect x={RIGHT_X} y={outY} width={NODE_W} height={outboundH} fill="#ef4444" rx="4" />
-        <text x={RIGHT_X + NODE_W + 12} y={outY + outboundH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="start">
-          External Outbound
-        </text>
-        <text x={RIGHT_X + NODE_W + 12} y={outY + outboundH / 2 + 10} fill="#dc2626" fontSize="12" fontWeight="700" textAnchor="start">
-          -{money(overall.totalExternalOutbound)}
-        </text>
+        <g transform={`translate(${RIGHT_X + NODE_W + 10}, ${outY + Math.max(0, outboundH / 2 - 17)})`}>
+          <rect x="0" y="0" width="144" height="34" rx="6" fill="rgba(15,23,42,0.85)" stroke="#ef4444" strokeWidth="1" />
+          <text x="8" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">External Outbound</text>
+          <text x="8" y="27" fill="#ef4444" fontSize="10.5" fontWeight="700">-{money(overall.totalExternalOutbound)}</text>
+        </g>
 
-        {/* ── Right node 2: Credit Card Payments ────────────── */}
         {hasCc && (
           <g>
             <rect x={RIGHT_X} y={ccY} width={NODE_W} height={ccH} fill="#f59e0b" rx="4" />
-            <text x={RIGHT_X + NODE_W + 12} y={ccY + ccH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="start">
-              Credit Card Payments
-            </text>
-            <text x={RIGHT_X + NODE_W + 12} y={ccY + ccH / 2 + 10} fill="#d97706" fontSize="12" fontWeight="700" textAnchor="start">
-              -{money(overall.totalCreditCardPayments ?? 0)}
-            </text>
+            <g transform={`translate(${RIGHT_X + NODE_W + 10}, ${ccY + Math.max(0, ccH / 2 - 17)})`}>
+              <rect x="0" y="0" width="144" height="34" rx="6" fill="rgba(15,23,42,0.85)" stroke="#f59e0b" strokeWidth="1" />
+              <text x="8" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">Credit Card Payments</text>
+              <text x="8" y="27" fill="#f59e0b" fontSize="10.5" fontWeight="700">-{money(overall.totalCreditCardPayments ?? 0)}</text>
+            </g>
           </g>
         )}
 
-        {/* ── Right node 3: Mutual Funds & Investments ──────── */}
         {hasInv && (
           <g>
             <rect x={RIGHT_X} y={invY} width={NODE_W} height={invH} fill="#8b5cf6" rx="4" />
-            <text x={RIGHT_X + NODE_W + 12} y={invY + invH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="start">
-              Mutual Funds & Investments
-            </text>
-            <text x={RIGHT_X + NODE_W + 12} y={invY + invH / 2 + 10} fill="#7c3aed" fontSize="12" fontWeight="700" textAnchor="start">
-              +{money(overall.totalInvestments ?? 0)}
-            </text>
+            <g transform={`translate(${RIGHT_X + NODE_W + 10}, ${invY + Math.max(0, invH / 2 - 17)})`}>
+              <rect x="0" y="0" width="144" height="34" rx="6" fill="rgba(15,23,42,0.85)" stroke="#8b5cf6" strokeWidth="1" />
+              <text x="8" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">Investments & SIPs</text>
+              <text x="8" y="27" fill="#8b5cf6" fontSize="10.5" fontWeight="700">+{money(overall.totalInvestments ?? 0)}</text>
+            </g>
           </g>
         )}
+
+        {/* ── Stage 4 Nodes: Spending Categories ────────────── */}
+        {categoryNodesWithY.map((catNode) => {
+          const midY = catNode.y + catNode.height / 2;
+          return (
+            <g key={`cat-node-${catNode.name}`}>
+              <rect x={catNode.x} y={catNode.y} width={NODE_W} height={catNode.height} fill={catNode.color} rx="4" />
+              <rect x={CAT_X + NODE_W + 8} y={midY - 5} width={6} height={6} rx="3" fill={catNode.color} />
+              <text x={CAT_X + NODE_W + 18} y={midY - 1} fill="var(--ink)" fontSize="12" fontWeight="700">
+                {catNode.name}
+              </text>
+              <text x={CAT_X + NODE_W + 18} y={midY + 13} fill="var(--muted)" fontSize="11" fontWeight="600">
+                {money(catNode.amount)}
+              </text>
+            </g>
+          );
+        })}
       </svg>
     </div>
   );

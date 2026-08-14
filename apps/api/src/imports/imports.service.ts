@@ -7,6 +7,8 @@ import { UpdateStagedDto, UploadStatementDto } from './imports.dto';
 import { parseStatementWithMetadata } from './statement-parser';
 
 import { TransfersService } from '../transfers/transfers.service';
+import { CategoryRulesService } from '../category-rules/category-rules.service';
+import { CategoryRule } from '@prisma/client';
 
 const categoryRules: Array<[RegExp, string]> = [
   [/salary|payroll/i, 'Salary'], [/swiggy|zomato|restaurant|cafe/i, 'Food & dining'],
@@ -21,6 +23,7 @@ export class ImportsService {
     private readonly prisma: PrismaService,
     private readonly credentials: StatementCredentialsService,
     private readonly transfersService: TransfersService,
+    private readonly categoryRulesService: CategoryRulesService,
   ) {}
 
   private async parseWithPasswordFallback(
@@ -155,9 +158,12 @@ export class ImportsService {
     if (isPdf && expectedParserId && parsed.parserId !== expectedParserId) {
       throw new BadRequestException(`The uploaded PDF does not match the selected ${expectedParserId} statement source.`);
     }
-    const categories = await this.prisma.category.findMany({ where: { userId } });
+    const [categories, userRules] = await Promise.all([
+      this.prisma.category.findMany({ where: { userId } }),
+      this.prisma.categoryRule.findMany({ where: { userId }, orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }] }),
+    ]);
     const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
-    const staged = parsed.rows.map((row) => this.enrich(accountId, row, categories, existingFingerprints));
+    const staged = parsed.rows.map((row) => this.enrich(accountId, row, categories, existingFingerprints, userRules));
     const encrypted = dto.rememberPassword && explicitPassword && parsed.parserId === 'SBI'
       ? this.credentials.encrypt(accountId, explicitPassword) : undefined;
     const batch = await this.prisma.$transaction(async (tx) => {
@@ -201,9 +207,12 @@ export class ImportsService {
         targetAccountId = matchingAccount.id;
       }
     }
-    const categories = await this.prisma.category.findMany({ where: { userId } });
+    const [categories, userRules] = await Promise.all([
+      this.prisma.category.findMany({ where: { userId } }),
+      this.prisma.categoryRule.findMany({ where: { userId }, orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }] }),
+    ]);
     const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId: targetAccountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
-    const staged = parsed.rows.map((row) => this.enrich(targetAccountId, row, categories, existingFingerprints));
+    const staged = parsed.rows.map((row) => this.enrich(targetAccountId, row, categories, existingFingerprints, userRules));
     const batch = await this.prisma.importBatch.create({ data: { userId, accountId: targetAccountId, filename: file.originalname.slice(0, 200),
       fileHash: hash, rowCount: staged.length, statementBalance: parsed.closingBalanceMinor, staged: { create: staged } } });
     return this.get(userId, batch.id);
@@ -353,10 +362,34 @@ export class ImportsService {
     await this.prisma.importBatch.delete({ where: { id: batch.id } });
   }
 
-  private enrich(accountId: string, row: ParsedRow, categories: { id: string; name: string }[], existing: Set<string>) {
+  private enrich(
+    accountId: string,
+    row: ParsedRow,
+    categories: { id: string; name: string }[],
+    existing: Set<string>,
+    userRules: CategoryRule[] = [],
+  ) {
     const merchant = row.description.replace(/\b(UPI|POS|NEFT|IMPS|REF|TXN)\b/gi, ' ').replace(/[\d@/_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
-    const match = categoryRules.find(([pattern]) => pattern.test(row.description));
-    const categoryName = match?.[1] ?? 'Uncategorised';
+    
+    // 1. Try matching user custom category rules first (highest priority)
+    let categoryId: string | undefined;
+    let matchConfidence = 90;
+    if (userRules.length > 0) {
+      const matchedUserCatId = this.categoryRulesService.matchRules(userRules, row.description, merchant, row.reference);
+      if (matchedUserCatId) {
+        categoryId = matchedUserCatId;
+        matchConfidence = 95;
+      }
+    }
+
+    // 2. Fall back to default regex pattern matching if no user rule matched
+    if (!categoryId) {
+      const match = categoryRules.find(([pattern]) => pattern.test(row.description));
+      const categoryName = match?.[1] ?? 'Uncategorised';
+      categoryId = categories.find((category) => category.name === categoryName)?.id;
+      matchConfidence = match ? 70 : 20;
+    }
+
     const stableIdentity = row.dedupeKey || row.reference?.toLowerCase().trim() || row.description.toLowerCase().replace(/\s+/g, ' ').trim();
     const fingerprintSeed = row.postedDate || row.dedupeKey
       ? `${accountId}|${row.date.toISOString().slice(0, 10)}|${row.postedDate?.toISOString().slice(0, 10) ?? ''}|${stableIdentity}|${row.amountMinor}`
@@ -366,6 +399,6 @@ export class ImportsService {
     existing.add(fingerprint);
     return { rowNumber: row.rowNumber, transactionDate: row.date, postedDate: row.postedDate, descriptionRaw: row.description.slice(0, 500), merchant,
       amount: BigInt(row.amountMinor), reference: row.reference?.slice(0, 100), fingerprint, isDuplicate,
-      include: !isDuplicate, confidence: match ? 90 : 20, categoryId: categories.find((category) => category.name === categoryName)?.id };
+      include: !isDuplicate, confidence: matchConfidence, categoryId };
   }
 }

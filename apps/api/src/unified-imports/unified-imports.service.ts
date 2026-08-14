@@ -12,7 +12,13 @@ export type UnifiedImportKind = (typeof UNIFIED_IMPORT_KINDS)[number];
 export type BankImportSource = 'SBI' | 'PNB' | 'AXIS' | 'EPFO';
 export type CreditCardImportSource = 'HDFC_CC' | 'ICICI_CC' | 'SBI_CC' | 'AXIS_CC';
 export type UPIImportSource = 'GPAY' | 'PHONEPE' | 'PAYTM';
-export type UnifiedImportSource = BankImportSource | CreditCardImportSource | UPIImportSource | 'GOLDMAN_SACHS' | 'ZERODHA_KITE' | 'GROWW';
+export type UnifiedImportSource = BankImportSource | CreditCardImportSource | UPIImportSource | 'STANDARD_PAYSLIP' | 'ZERODHA_KITE' | 'GROWW';
+
+/** Prefix used in the unified options catalog for per-organisation salary sources */
+const ORG_SOURCE_PREFIX = 'ORG_';
+function orgSource(orgId: string) { return `${ORG_SOURCE_PREFIX}${orgId}`; }
+function isOrgSource(source: string) { return source.startsWith(ORG_SOURCE_PREFIX); }
+function orgIdFromSource(source: string) { return source.slice(ORG_SOURCE_PREFIX.length); }
 
 type SourceSpec = {
   kind: UnifiedImportKind;
@@ -36,8 +42,8 @@ const SOURCE_SPECS: readonly SourceSpec[] = [
   { kind: 'BANK_STATEMENT', source: 'AXIS', label: 'Axis Bank',
     description: 'Machine-generated Axis statement PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
     accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
-  { kind: 'SALARY_PAYSLIP', source: 'GOLDMAN_SACHS', label: 'Goldman Sachs',
-    description: 'Goldman Sachs payslip PDF.', extensions: ['.pdf'], maxBytes: 8 * MIB,
+  { kind: 'SALARY_PAYSLIP', source: 'STANDARD_PAYSLIP', label: 'Employer Payslip',
+    description: 'Employer payslip PDF.', extensions: ['.pdf'], maxBytes: 8 * MIB,
     accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'BROKER_HOLDINGS', source: 'ZERODHA_KITE', label: 'Zerodha / Kite',
     description: 'Zerodha Console holdings XLSX report.', extensions: ['.xlsx'], maxBytes: 5 * MIB,
@@ -88,23 +94,65 @@ export class UnifiedImportsService {
     private readonly salary: SalaryService, private readonly investments: InvestmentsService) {}
 
   async options(userId: string) {
-    const accounts = await this.prisma.account.findMany({ where: { userId, archived: false },
-      select: { id: true, name: true, type: true, institution: true, currency: true,
-        statementCredential: { select: { accountId: true } } }, orderBy: { createdAt: 'desc' } });
+    const [accounts, orgs] = await Promise.all([
+      this.prisma.account.findMany({ where: { userId, archived: false },
+        select: { id: true, name: true, type: true, institution: true, currency: true,
+          statementCredential: { select: { accountId: true } } }, orderBy: { createdAt: 'desc' } }),
+      this.prisma.organization.findMany({ where: { userId }, orderBy: [{ isCurrent: 'desc' }, { name: 'asc' }] }),
+    ]);
     const safeAccounts = accounts.map(({ statementCredential, ...account }) => ({ ...account,
       hasStatementPassword: Boolean(statementCredential) }));
+
+    // Build per-org source specs for SALARY_PAYSLIP so each employer appears as
+    // its own dropdown option. Fall back to the generic STANDARD_PAYSLIP entry
+    // when the user has no organisations yet.
+    const payslipSpec = SOURCE_SPECS.find((s) => s.source === 'STANDARD_PAYSLIP')!;
+    const salarySources = orgs.length > 0
+      ? orgs.map((org) => ({
+          source: orgSource(org.id),
+          label: org.name,
+          description: `Payslip from ${org.name}.`,
+          extensions: payslipSpec.extensions,
+          maxBytes: payslipSpec.maxBytes,
+          accountRequired: false,
+          commitMode: payslipSpec.commitMode,
+          pdfPasswordSupported: true,
+          rememberPasswordSupported: false,
+          eligibleAccountIds: [] as string[],
+          isCurrent: org.isCurrent,
+        }))
+      : [{
+          source: payslipSpec.source,
+          label: payslipSpec.label,
+          description: payslipSpec.description,
+          extensions: payslipSpec.extensions,
+          maxBytes: payslipSpec.maxBytes,
+          accountRequired: payslipSpec.accountRequired,
+          commitMode: payslipSpec.commitMode,
+          pdfPasswordSupported: true,
+          rememberPasswordSupported: false,
+          eligibleAccountIds: [] as string[],
+          isCurrent: false,
+        }];
+
     return {
       accounts: safeAccounts,
-      options: UNIFIED_IMPORT_KINDS.map((kind) => ({ kind, ...KIND_LABELS[kind],
-        sources: SOURCE_SPECS.filter((spec) => spec.kind === kind).map((spec) => ({
-          source: spec.source, label: spec.label, description: spec.description,
-          extensions: spec.extensions, maxBytes: spec.maxBytes, accountRequired: spec.accountRequired,
-          commitMode: spec.commitMode,
-          pdfPasswordSupported: spec.kind === 'BANK_STATEMENT' || spec.kind === 'CREDIT_CARD_STATEMENT' || spec.kind === 'SALARY_PAYSLIP',
-          rememberPasswordSupported: spec.kind === 'BANK_STATEMENT' && spec.source === 'SBI',
-          eligibleAccountIds: safeAccounts.filter((account) => this.accountIsEligible(account, spec)).map((account) => account.id),
-        })),
-      })),
+      organizations: orgs.map((o) => ({ id: o.id, name: o.name, code: o.code, isCurrent: o.isCurrent })),
+      options: UNIFIED_IMPORT_KINDS.map((kind) => {
+        if (kind === 'SALARY_PAYSLIP') {
+          return { kind, ...KIND_LABELS[kind], sources: salarySources };
+        }
+        return { kind, ...KIND_LABELS[kind],
+          sources: SOURCE_SPECS.filter((spec) => spec.kind === kind).map((spec) => ({
+            source: spec.source, label: spec.label, description: spec.description,
+            extensions: spec.extensions, maxBytes: spec.maxBytes, accountRequired: spec.accountRequired,
+            commitMode: spec.commitMode,
+            pdfPasswordSupported: spec.kind === 'BANK_STATEMENT' || spec.kind === 'CREDIT_CARD_STATEMENT',
+            rememberPasswordSupported: spec.kind === 'BANK_STATEMENT' && spec.source === 'SBI',
+            eligibleAccountIds: safeAccounts.filter((account) => this.accountIsEligible(account, spec)).map((account) => account.id),
+          })),
+        };
+      }),
     };
   }
 
@@ -129,7 +177,7 @@ export class UnifiedImportsService {
       }),
       ...salaryReviews.map((review) => ({
         kind: 'SALARY_PAYSLIP' as const,
-        source: 'GOLDMAN_SACHS' as const,
+        source: 'STANDARD_PAYSLIP' as const,
         mode: 'REVIEW_REQUIRED' as const,
         createdAt: review.createdAt,
         review: this.safeSalaryReview(review as SalaryReview),
@@ -140,7 +188,17 @@ export class UnifiedImportsService {
   }
 
   async upload(userId: string, file: Express.Multer.File, dto: UnifiedImportUploadDto) {
-    const spec = SOURCE_SPECS.find((candidate) => candidate.kind === dto.kind && candidate.source === dto.source);
+    // Per-org salary sources arrive as ORG_<uuid>. Resolve to the base STANDARD_PAYSLIP spec.
+    const resolvedSource = isOrgSource(dto.source) ? 'STANDARD_PAYSLIP' : dto.source;
+    const resolvedOrgId = isOrgSource(dto.source) ? orgIdFromSource(dto.source) : undefined;
+
+    if (resolvedOrgId) {
+      // Validate that the organisation belongs to this user.
+      const orgExists = await this.prisma.organization.findFirst({ where: { id: resolvedOrgId, userId }, select: { id: true } });
+      if (!orgExists) throw new BadRequestException('The selected employer was not found.');
+    }
+
+    const spec = SOURCE_SPECS.find((candidate) => candidate.kind === dto.kind && candidate.source === resolvedSource);
     if (!spec) throw new BadRequestException('Choose a supported import type and source combination.');
     this.validateFile(file, spec);
 
@@ -185,8 +243,11 @@ export class UnifiedImportsService {
         review: this.safeBankReview(review), actions: this.bankActions(review.id) };
     }
     if (spec.kind === 'SALARY_PAYSLIP') {
-      const review = await this.salary.upload(userId, file, spec.source, dto.pdfPassword, dto.salaryType);
-      return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
+      // Pass the org ID (if an employer was explicitly selected) so the dynamic
+      // payslip parser uses that employer's config.
+      const payslipSource = resolvedOrgId ?? spec.source;
+      const review = await this.salary.upload(userId, file, payslipSource, dto.pdfPassword, dto.salaryType);
+      return { kind: spec.kind, source: dto.source, mode: spec.commitMode,
         review: this.safeSalaryReview(review as SalaryReview), actions: this.salaryActions(review.id) };
     }
     if (spec.kind === 'UPI_STATEMENT') {
@@ -297,7 +358,7 @@ export class UnifiedImportsService {
       currency: review.currency, grossEarnings: review.grossEarnings, grossDeductions: review.grossDeductions,
       directPayment: review.directPayment, netPay: review.netPay, filename: review.filename,
       status: review.status, createdAt: review.createdAt, committedAt: review.committedAt,
-      lineItems: review.lineItems.map((item) => ({ id: item.id, type: item.type, description: item.description,
+      lineItems: review.lineItems.map((item: any) => ({ id: item.id, type: item.type, description: item.description,
         currentAmount: item.currentAmount, ytdAmount: item.ytdAmount })),
     };
   }

@@ -1,6 +1,6 @@
 import { parsePayslipText } from './payslip-parser';
 
-const validPayslip = `123-Goldman Sachs Services Private Limited
+const validPayslip = `123-Acme Technologies Private Limited
 Payslip for the month of March 2026
 Employee Name Person Number Date of Joining
 Test Employee 12345678 01-01-2024
@@ -27,9 +27,9 @@ Employer PF Contribution 5,000.00 15,000.00`;
 
 describe('payslip parser', () => {
   it('extracts reconciled payroll facts and masks identifiers', () => {
-    const result = parsePayslipText(validPayslip, 'GOLDMAN_SACHS');
+    const result = parsePayslipText(validPayslip, 'STANDARD_PAYSLIP');
     expect(result.payPeriod.toISOString().slice(0, 7)).toBe('2026-03');
-    expect(result.employer).toBe('Goldman Sachs Services Private Limited');
+    expect(result.employer).toBe('Acme Technologies Private Limited');
     expect(result.grossEarnings).toBe(10_000_000);
     expect(result.grossDeductions).toBe(1_000_000);
     expect(result.netPay).toBe(9_000_000);
@@ -40,15 +40,11 @@ describe('payslip parser', () => {
   });
 
   it('rejects line items that do not match the stated totals', () => {
-    expect(() => parsePayslipText(validPayslip.replace('40,000.00 120,000.00', '30,000.00 120,000.00'), 'GOLDMAN_SACHS')).toThrow('did not reconcile');
-  });
-
-  it('rejects a payslip that does not match the selected employer', () => {
-    expect(() => parsePayslipText(validPayslip.replace('Goldman Sachs', 'Example Employer'), 'GOLDMAN_SACHS')).toThrow('does not match the selected Goldman Sachs employer');
+    expect(() => parsePayslipText(validPayslip.replace('40,000.00 120,000.00', '30,000.00 120,000.00'), 'STANDARD_PAYSLIP')).toThrow('did not reconcile');
   });
 
   it('recognises the employer when PDF metadata is extracted before the company name', () => {
-    const result = parsePayslipText(`Private payroll document\n${validPayslip}`, 'GOLDMAN_SACHS');
-    expect(result.employer).toBe('Goldman Sachs Services Private Limited');
+    const result = parsePayslipText(`Doc ID: 998822\n${validPayslip}`, 'STANDARD_PAYSLIP');
+    expect(result.employer).toBe('Acme Technologies Private Limited');
   });
 });
