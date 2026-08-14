@@ -28,6 +28,7 @@ import { OrganizationModal } from "@/components/organization-modal";
 import { PayslipConfigBuilderModal } from "@/components/payslip-config-builder-modal";
 import { SalaryBreakdownModal, DetailedSalaryStatement } from "@/components/salary-breakdown-modal";
 import { SalaryAnalyticsCard } from "@/components/salary-analytics-card";
+import { SalaryTaxDeductionsCard } from "@/components/salary-tax-deductions-card";
 
 type SalaryStatement = DetailedSalaryStatement;
 type SalaryTimelinePoint = {
@@ -193,6 +194,72 @@ export default function SalaryPage() {
   const filteredTimeline = (data.timeline || []).filter((point) =>
     selectedOrgId === "ALL" && selectedFy === "ALL" ? true : filteredTimelineMonths.has(point.month)
   );
+
+  // Group statements by Financial Year for Multi-Year comparison
+  const fyGroups: Record<string, any[]> = {};
+  (data.statements || []).forEach((s: any) => {
+    const fy = getFinancialYear(s.payPeriod);
+    if (!fyGroups[fy]) fyGroups[fy] = [];
+    fyGroups[fy].push(s);
+  });
+
+  const fyComparisons = Object.keys(fyGroups)
+    .sort()
+    .reverse()
+    .map((fy) => {
+      const slips = fyGroups[fy];
+      const totalGross = slips.reduce((sum, s) => sum + s.netPay + s.grossDeductions, 0);
+      const totalNet = slips.reduce((sum, s) => sum + s.netPay, 0);
+      const taxes = slips.reduce(
+        (sum, s) =>
+          sum +
+          (s.lineItems || [])
+            .filter((li: any) => li.itemType === "DEDUCTION" && (li.name.toLowerCase().includes("tax") || li.name.toLowerCase().includes("tds")))
+            .reduce((lSum: number, li: any) => lSum + li.amount, 0),
+        0
+      );
+      const employeePf = slips.reduce(
+        (sum, s) =>
+          sum +
+          (s.lineItems || [])
+            .filter((li: any) => li.itemType === "DEDUCTION" && (li.name.toLowerCase().includes("pf") || li.name.toLowerCase().includes("provident")))
+            .reduce((lSum: number, li: any) => lSum + li.amount, 0),
+        0
+      );
+
+      return {
+        fy,
+        statementCount: slips.length,
+        totalGross,
+        totalNet,
+        taxes,
+        totalPf: employeePf,
+        employeePf,
+      };
+    });
+
+  const handleExportCsv = () => {
+    if (!filteredStatements.length) return;
+    const headers = ["Pay Period", "Employer", "Gross Earnings", "Gross Deductions", "Net Pay", "Filename"];
+    const rows = filteredStatements.map((s: any) => [
+      new Date(s.payPeriod).toISOString().slice(0, 7),
+      `"${s.employer.replace(/"/g, '""')}"`,
+      s.grossEarnings,
+      s.grossDeductions,
+      s.netPay,
+      `"${s.filename.replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Salary_Summary_${selectedFy}_${selectedOrgId}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <Shell>
@@ -362,6 +429,14 @@ export default function SalaryPage() {
             taxes={filteredSummary.taxes}
             latestNetPay={filteredSummary.latestNetPay}
             selectedFy={selectedFy}
+          />
+
+          <SalaryTaxDeductionsCard
+            selectedFy={selectedFy}
+            currentFyEmployeePf={filteredSummary.employeePf}
+            currentFyTaxes={filteredSummary.taxes}
+            fyComparisons={fyComparisons}
+            onExportCsv={handleExportCsv}
           />
 
           <section className="panel salary-history salary-history-wide">
