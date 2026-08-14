@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Tag as TagIcon,
   Plus,
@@ -23,6 +24,8 @@ import {
   Sliders,
   ChevronRight,
   Filter,
+  Target,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { api, errorMessage, money } from "@/lib/api";
@@ -91,6 +94,43 @@ type TagAnalytics = {
   }>;
 };
 
+type CategoryOption = { id: string; name: string; type?: "EXPENSE" | "INCOME" | "INVESTMENT"; color: string };
+
+type CategoryBudgetItem = {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  categoryColor: string;
+  monthlyLimit: number;
+  spentAmount: number;
+  remainingAmount: number;
+  percentage: number;
+  status: "OK" | "WARNING" | "EXCEEDED";
+};
+
+type CategoryRuleItem = {
+  id: string;
+  pattern: string;
+  matchField: "DESCRIPTION" | "MERCHANT" | "REFERENCE";
+  matchType: "CONTAINS" | "EXACT" | "STARTS_WITH" | "REGEX";
+  priority: number;
+  category: { id: string; name: string; color: string };
+};
+
+type UnverifiedCategoryGroup = {
+  category: { id: string; name: string; color: string };
+  totalCount: number;
+  unverifiedCount: number;
+  transactions: Array<{
+    id: string;
+    transactionDate: string;
+    descriptionRaw: string;
+    merchant: string | null;
+    amount: number;
+    userVerified: boolean;
+  }>;
+};
+
 const COLOR_PRESETS = [
   "#3b82f6", // Blue
   "#ef4444", // Red
@@ -103,31 +143,39 @@ const COLOR_PRESETS = [
 ];
 
 export default function TagsPage() {
+  return (
+    <Suspense fallback={<Shell><div className="loading"><span/><p>Loading Tags & Budgets…</p></div></Shell>}>
+      <TagsPageContent />
+    </Suspense>
+  );
+}
+
+function TagsPageContent() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") === "category_budgets" ? "BUDGETS" : "TAGS";
+
+  const [activeTab, setActiveTab] = useState<"TAGS" | "BUDGETS" | "UNVERIFIED">(initialTab);
+
+  // TAGS STATE
   const [tags, setTags] = useState<TagItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingTags, setLoadingTags] = useState(true);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Selected Tag for Detailed Analytics Inspection
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<TagAnalytics | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
-  // Modal States
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createTagModalOpen, setCreateTagModalOpen] = useState(false);
   const [editingTag, setEditingTag] = useState<TagItem | null>(null);
-
-  // Form Inputs
   const [tagName, setTagName] = useState("");
   const [tagColor, setTagColor] = useState("#3b82f6");
   const [tagDescription, setTagDescription] = useState("");
   const [tagStartDate, setTagStartDate] = useState("");
   const [tagEndDate, setTagEndDate] = useState("");
   const [tagBudgetLimit, setTagBudgetLimit] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingTag, setSubmittingTag] = useState(false);
 
-  // Auto-Tag Modal States
-  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [autoTagModalId, setAutoTagModalId] = useState<string | null>(null);
   const [autoStartDate, setAutoStartDate] = useState("");
   const [autoEndDate, setAutoEndDate] = useState("");
@@ -135,20 +183,65 @@ export default function TagsPage() {
   const [autoCategoryId, setAutoCategoryId] = useState("");
   const [autoTagging, setAutoTagging] = useState(false);
 
-  const loadTags = useCallback(async () => {
+  // BUDGETS & CATEGORIES STATE
+  const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
+  const [budgets, setBudgets] = useState<CategoryBudgetItem[]>([]);
+  const [rules, setRules] = useState<CategoryRuleItem[]>([]);
+  const [unverifiedGroups, setUnverifiedGroups] = useState<UnverifiedCategoryGroup[]>([]);
+  const [loadingBudgets, setLoadingBudgets] = useState(false);
+
+  const [budgetCategoryId, setBudgetCategoryId] = useState("");
+  const [budgetMonthlyLimit, setBudgetMonthlyLimit] = useState("");
+  const [savingBudget, setSavingBudget] = useState(false);
+
+  const [rulePattern, setRulePattern] = useState("");
+  const [ruleMatchField, setRuleMatchField] = useState<"DESCRIPTION" | "MERCHANT" | "REFERENCE">("DESCRIPTION");
+  const [ruleMatchType, setRuleMatchType] = useState<"CONTAINS" | "EXACT" | "STARTS_WITH" | "REGEX">("CONTAINS");
+  const [ruleCategoryId, setRuleCategoryId] = useState("");
+  const [savingRule, setSavingRule] = useState(false);
+
+  const [editingRule, setEditingRule] = useState<CategoryRuleItem | null>(null);
+  const [editRulePattern, setEditRulePattern] = useState("");
+  const [editRuleCategoryId, setEditRuleCategoryId] = useState("");
+
+  const [selectedTxIds, setSelectedTxIds] = useState<Record<string, boolean>>({});
+  const [batchTargetCatId, setBatchTargetCatId] = useState("");
+  const [batchProcessing, setBatchProcessing] = useState(false);
+
+  // LOAD DATA
+  const loadTagsData = useCallback(async () => {
     try {
-      setLoading(true);
+      setLoadingTags(true);
       setError("");
       const [tagsRes, catRes] = await Promise.all([
         api<TagItem[]>("/tags"),
-        api<Array<{ id: string; name: string }>>("/categories").catch(() => []),
+        api<CategoryOption[]>("/categories").catch(() => []),
       ]);
       setTags(tagsRes || []);
-      setCategories(catRes || []);
+      setAllCategories(catRes || []);
     } catch (err) {
       setError(errorMessage(err, "Could not load tags."));
     } finally {
-      setLoading(false);
+      setLoadingTags(false);
+    }
+  }, []);
+
+  const loadBudgetsData = useCallback(async () => {
+    try {
+      setLoadingBudgets(true);
+      setError("");
+      const [budgetsRes, rulesRes, unverifiedRes] = await Promise.all([
+        api<CategoryBudgetItem[]>("/budgets").catch(() => []),
+        api<CategoryRuleItem[]>("/category-rules").catch(() => []),
+        api<UnverifiedCategoryGroup[]>("/category-rules/unverified").catch(() => []),
+      ]);
+      setBudgets(budgetsRes || []);
+      setRules(rulesRes || []);
+      setUnverifiedGroups(unverifiedRes || []);
+    } catch (err) {
+      setError(errorMessage(err, "Could not load budget management data."));
+    } finally {
+      setLoadingBudgets(false);
     }
   }, []);
 
@@ -165,8 +258,9 @@ export default function TagsPage() {
   }, []);
 
   useEffect(() => {
-    loadTags();
-  }, [loadTags]);
+    loadTagsData();
+    loadBudgetsData();
+  }, [loadTagsData, loadBudgetsData]);
 
   useEffect(() => {
     if (selectedTagId) {
@@ -176,678 +270,739 @@ export default function TagsPage() {
     }
   }, [selectedTagId, loadTagAnalytics]);
 
-  const handleOpenCreateModal = () => {
-    setEditingTag(null);
-    setTagName("");
-    setTagColor("#3b82f6");
-    setTagDescription("");
-    setTagStartDate("");
-    setTagEndDate("");
-    setTagBudgetLimit("");
-    setCreateModalOpen(true);
-  };
-
-  const handleOpenEditModal = (tag: TagItem) => {
-    setEditingTag(tag);
-    setTagName(tag.name);
-    setTagColor(tag.color);
-    setTagDescription(tag.description || "");
-    setTagStartDate(tag.startDate ? tag.startDate.split("T")[0] : "");
-    setTagEndDate(tag.endDate ? tag.endDate.split("T")[0] : "");
-    setTagBudgetLimit(tag.budgetLimit ? String(tag.budgetLimit) : "");
-    setCreateModalOpen(true);
-  };
-
+  // TAG HANDLERS
   const handleSaveTag = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tagName.trim()) {
-      setError("Please enter a tag or event name.");
-      return;
-    }
-    setSubmitting(true);
-    setError("");
-    setSuccessMsg("");
-
-    const payload = {
-      name: tagName.trim(),
-      color: tagColor,
-      description: tagDescription.trim() || null,
-      startDate: tagStartDate || null,
-      endDate: tagEndDate || null,
-      budgetLimit: tagBudgetLimit ? parseFloat(tagBudgetLimit) : null,
-    };
-
+    if (!tagName.trim()) return;
     try {
-      if (editingTag) {
-        await api(`/tags/${editingTag.id}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-        setSuccessMsg(`Updated tag "${payload.name}"!`);
-      } else {
-        await api("/tags", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        setSuccessMsg(`Created new tag "#${payload.name}"!`);
-      }
+      setSubmittingTag(true);
+      setError("");
+      const payload = {
+        name: tagName.trim(),
+        color: tagColor,
+        description: tagDescription.trim() || null,
+        startDate: tagStartDate ? new Date(tagStartDate).toISOString() : null,
+        endDate: tagEndDate ? new Date(tagEndDate).toISOString() : null,
+        budgetLimit: tagBudgetLimit ? parseFloat(tagBudgetLimit) : null,
+      };
 
-      setCreateModalOpen(false);
-      loadTags();
-      if (selectedTagId && editingTag && selectedTagId === editingTag.id) {
+      if (editingTag) {
+        await api(`/tags/${editingTag.id}`, { method: "PUT", body: JSON.stringify(payload) });
+        setSuccessMsg(`Tag "${tagName}" updated.`);
+      } else {
+        await api("/tags", { method: "POST", body: JSON.stringify(payload) });
+        setSuccessMsg(`Tag "${tagName}" created.`);
+      }
+      setCreateTagModalOpen(false);
+      loadTagsData();
+      if (selectedTagId === editingTag?.id) {
         loadTagAnalytics(selectedTagId);
       }
     } catch (err) {
-      setError(errorMessage(err, "Could not save tag."));
+      setError(errorMessage(err, "Failed to save tag."));
     } finally {
-      setSubmitting(false);
+      setSubmittingTag(false);
     }
   };
 
   const handleDeleteTag = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete tag "#${name}"? Transactions will remain but untagged.`)) return;
+    if (!confirm(`Are you sure you want to delete the tag "${name}"? Transactions will remain but won't have this tag.`)) return;
     try {
-      setError("");
       await api(`/tags/${id}`, { method: "DELETE" });
-      setSuccessMsg(`Deleted tag "#${name}".`);
       if (selectedTagId === id) setSelectedTagId(null);
-      loadTags();
+      setSuccessMsg(`Tag "${name}" removed.`);
+      loadTagsData();
     } catch (err) {
       setError(errorMessage(err, "Could not delete tag."));
     }
   };
 
-  const handleUntagTransaction = async (txId: string) => {
-    if (!selectedTagId) return;
-    try {
-      await api("/tags/assign", {
-        method: "POST",
-        body: JSON.stringify({
-          transactionIds: [txId],
-          tagIds: [selectedTagId],
-          action: "REMOVE",
-        }),
-      });
-      loadTagAnalytics(selectedTagId);
-      loadTags();
-    } catch (err) {
-      setError(errorMessage(err, "Failed to remove tag from transaction."));
-    }
-  };
-
-  const handleOpenAutoTagModal = (tag: TagItem) => {
-    setAutoTagModalId(tag.id);
-    setAutoStartDate(tag.startDate ? tag.startDate.split("T")[0] : "");
-    setAutoEndDate(tag.endDate ? tag.endDate.split("T")[0] : "");
-    setAutoKeywords("");
-    setAutoCategoryId("");
-  };
-
-  const handleRunAutoTag = async (e: React.FormEvent) => {
+  const handleAutoApplyTag = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!autoTagModalId) return;
-    setAutoTagging(true);
-    setError("");
-    setSuccessMsg("");
-
-    const keywordsArray = autoKeywords
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
-
     try {
-      const res = await api<{ matchedCount: number; newlyTaggedCount: number; newlyCategorizedCount?: number }>(`/tags/${autoTagModalId}/auto-apply`, {
+      setAutoTagging(true);
+      setError("");
+      const res = await api<{ matchedCount: number; assignedCount: number }>(`/tags/${autoTagModalId}/auto-apply`, {
         method: "POST",
         body: JSON.stringify({
-          startDate: autoStartDate || null,
-          endDate: autoEndDate || null,
-          keywords: keywordsArray.length > 0 ? keywordsArray : null,
+          startDate: autoStartDate ? new Date(autoStartDate).toISOString() : undefined,
+          endDate: autoEndDate ? new Date(autoEndDate).toISOString() : undefined,
+          keywords: autoKeywords.trim() || undefined,
           categoryId: autoCategoryId || undefined,
         }),
       });
-
-      const catInfo = res.newlyCategorizedCount ? ` and categorized ${res.newlyCategorizedCount}` : "";
-      setSuccessMsg(`Auto-tagged ${res.newlyTaggedCount}${catInfo} transaction${res.newlyTaggedCount === 1 ? "" : "s"}! (${res.matchedCount} matched in date/time range)`);
+      setSuccessMsg(`Auto-applied tag to ${res.assignedCount} matching transactions!`);
       setAutoTagModalId(null);
-      loadTags();
-      if (selectedTagId === autoTagModalId) loadTagAnalytics(selectedTagId);
+      loadTagsData();
+      if (selectedTagId === autoTagModalId) {
+        loadTagAnalytics(autoTagModalId);
+      }
     } catch (err) {
-      setError(errorMessage(err, "Failed to auto-apply tag."));
+      setError(errorMessage(err, "Auto-tagging failed."));
     } finally {
       setAutoTagging(false);
     }
   };
 
-  const totalAllTagsSpent = tags.reduce((sum, t) => sum + t.totalSpent, 0);
+  // BUDGET HANDLERS
+  const handleSaveBudget = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!budgetCategoryId || !budgetMonthlyLimit) return;
+    try {
+      setSavingBudget(true);
+      setError("");
+      await api("/budgets", {
+        method: "POST",
+        body: JSON.stringify({
+          categoryId: budgetCategoryId,
+          monthlyLimit: parseFloat(budgetMonthlyLimit),
+        }),
+      });
+      setSuccessMsg("Category budget limit updated.");
+      setBudgetCategoryId("");
+      setBudgetMonthlyLimit("");
+      loadBudgetsData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to set budget limit."));
+    } finally {
+      setSavingBudget(false);
+    }
+  };
 
-  if (loading && tags.length === 0) {
-    return (
-      <Shell>
-        <div className="panel" style={{ padding: "40px", textAlign: "center", color: "var(--muted)" }}>
-          <Loader2 className="spin" size={28} style={{ margin: "0 auto 12px auto", display: "block", color: "var(--green)" }} />
-          <span>Loading Tags & Trips Dashboard...</span>
-        </div>
-      </Shell>
-    );
-  }
+  const handleDeleteBudget = async (budgetId: string) => {
+    try {
+      await api(`/budgets/${budgetId}`, { method: "DELETE" });
+      setSuccessMsg("Budget limit removed.");
+      loadBudgetsData();
+    } catch (err) {
+      setError(errorMessage(err, "Could not delete budget."));
+    }
+  };
+
+  const handleCreateRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rulePattern.trim() || !ruleCategoryId) return;
+    try {
+      setSavingRule(true);
+      setError("");
+      await api("/category-rules", {
+        method: "POST",
+        body: JSON.stringify({
+          pattern: rulePattern.trim(),
+          matchField: ruleMatchField,
+          matchType: ruleMatchType,
+          categoryId: ruleCategoryId,
+        }),
+      });
+      setSuccessMsg("Category auto-rule created.");
+      setRulePattern("");
+      setRuleCategoryId("");
+      loadBudgetsData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to create rule."));
+    } finally {
+      setSavingRule(false);
+    }
+  };
+
+  const handleDeleteRule = async (id: string) => {
+    try {
+      await api(`/category-rules/${id}`, { method: "DELETE" });
+      setSuccessMsg("Rule deleted.");
+      loadBudgetsData();
+    } catch (err) {
+      setError(errorMessage(err, "Could not delete rule."));
+    }
+  };
+
+  const handleVerifyBatch = async (transactionIds: string[], verified: boolean, targetCatId?: string) => {
+    try {
+      setBatchProcessing(true);
+      setError("");
+      await api("/category-rules/batch-update", {
+        method: "POST",
+        body: JSON.stringify({
+          transactionIds,
+          userVerified: verified,
+          categoryId: targetCatId || undefined,
+        }),
+      });
+      setSuccessMsg(`Updated ${transactionIds.length} transactions.`);
+      setSelectedTxIds({});
+      loadBudgetsData();
+    } catch (err) {
+      setError(errorMessage(err, "Batch verification failed."));
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
 
   return (
     <Shell>
-      <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-        {/* Header Action Bar */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-          <div>
-            <span className="eyebrow" style={{ color: "var(--green)", fontWeight: 700 }}>Event & Trip Tracker</span>
-            <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Transaction Tags & Trips</h1>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="secondary compact"
-            style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700, padding: "8px 16px", borderRadius: "10px" }}
-          >
-            <Plus size={16} />
-            <span>Create New Tag / Trip</span>
-          </button>
+      <header className="page-header">
+        <div>
+          <span className="eyebrow">Financial Categorization & Tracking</span>
+          <h1>Tags, Trips & Budget Management</h1>
+          <p>Organize transactions with custom tags, track vacation/trip budgets, and set category monthly spending limits.</p>
         </div>
+      </header>
 
-        {/* Global Error & Success Alerts */}
-        {error && (
-          <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#ef4444", padding: "12px 16px", borderRadius: "10px", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
-            <AlertCircle size={16} /> {error}
-          </div>
-        )}
-        {successMsg && (
-          <div style={{ background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", color: "#10b981", padding: "12px 16px", borderRadius: "10px", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
-            <CheckCircle2 size={16} /> {successMsg}
-          </div>
-        )}
+      {/* Primary Sub-Tab Selector */}
+      <div style={{ display: "flex", gap: "10px", marginBottom: "24px", borderBottom: "1px solid var(--line)", paddingBottom: "12px" }}>
+        <button
+          type="button"
+          className={`secondary ${activeTab === "TAGS" ? "active" : ""}`}
+          onClick={() => setActiveTab("TAGS")}
+          style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 18px", borderRadius: "10px", fontWeight: 700 }}>
+          <TagIcon size={18} color="#3b82f6" />
+          <span>Custom Tags & Trip Budgets</span>
+          <span style={{ background: "#3b82f6", color: "#fff", fontSize: "11px", padding: "1px 7px", borderRadius: "10px", fontWeight: 800 }}>
+            {tags.length}
+          </span>
+        </button>
 
-        {/* KPI Overview Cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Active Tags / Events</span>
-            <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{tags.length}</strong>
-            <small style={{ color: "var(--muted)", fontSize: "11px" }}>Created event trackers</small>
+        <button
+          type="button"
+          className={`secondary ${activeTab === "BUDGETS" ? "active" : ""}`}
+          onClick={() => setActiveTab("BUDGETS")}
+          style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 18px", borderRadius: "10px", fontWeight: 700 }}>
+          <Target size={18} color="#10b981" />
+          <span>Category Budgets & Auto-Rules</span>
+          <span style={{ background: "var(--card-hover)", color: "var(--ink)", fontSize: "11px", padding: "1px 7px", borderRadius: "10px", fontWeight: 800 }}>
+            {budgets.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className={`secondary ${activeTab === "UNVERIFIED" ? "active" : ""}`}
+          onClick={() => setActiveTab("UNVERIFIED")}
+          style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 18px", borderRadius: "10px", fontWeight: 700 }}>
+          <Zap size={18} color="#f59e0b" />
+          <span>Rule Verification Queue</span>
+          {unverifiedGroups.reduce((acc, g) => acc + g.unverifiedCount, 0) > 0 && (
+            <span style={{ background: "#f59e0b", color: "#fff", fontSize: "11px", padding: "1px 7px", borderRadius: "10px", fontWeight: 800 }}>
+              {unverifiedGroups.reduce((acc, g) => acc + g.unverifiedCount, 0)}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Global Alerts */}
+      {error && <div className="error-banner" style={{ marginBottom: "16px" }}><AlertCircle size={16}/><span>{error}</span></div>}
+      {successMsg && <div className="notice-banner" style={{ marginBottom: "16px", background: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "12px 16px", borderRadius: "8px", border: "1px solid rgba(16, 185, 129, 0.2)" }}><CheckCircle2 size={16}/><span>{successMsg}</span></div>}
+
+      {/* TAB 1: TAGS & TRIPS */}
+      {activeTab === "TAGS" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          {/* Header Action Bar */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--ink)" }}>All Active Tags & Trip Budgets</h3>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => { setEditingTag(null); setTagName(""); setTagColor("#3b82f6"); setTagDescription(""); setTagStartDate(""); setTagEndDate(""); setTagBudgetLimit(""); setCreateTagModalOpen(true); }}
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <Plus size={16} />
+              <span>Create New Tag / Trip</span>
+            </button>
           </div>
 
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Total Tagged Spending</span>
-            <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: "#ef4444", marginTop: "4px" }}>{money(totalAllTagsSpent * 100)}</strong>
-            <small style={{ color: "var(--muted)", fontSize: "11px" }}>Sum across all tags</small>
-          </div>
-
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Top Event by Spend</span>
-            <strong style={{ display: "block", fontSize: "1.2rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {tags.length > 0 ? tags.reduce((max, t) => (t.totalSpent > max.totalSpent ? t : max), tags[0]).name : "None"}
-            </strong>
-            <small style={{ color: "var(--muted)", fontSize: "11px" }}>Highest volume tag</small>
-          </div>
-        </div>
-
-        {/* Main Grid: Tags Cards (Left) + Detail Analytics Inspector (Right) */}
-        <div style={{ display: "grid", gridTemplateColumns: selectedTagId ? "1fr 1.2fr" : "1fr", gap: "20px", alignItems: "start" }}>
-          {/* Tags Cards Grid */}
-          <section className="panel" style={{ padding: "20px" }}>
-            <div className="panel-title" style={{ marginBottom: "16px" }}>
-              <div>
-                <span className="eyebrow" style={{ color: "var(--green)" }}>Event Registry</span>
-                <h2>All Tags & Trips ({tags.length})</h2>
-              </div>
+          {loadingTags ? (
+            <div className="loading"><span/><p>Loading tags and trip budgets...</p></div>
+          ) : tags.length === 0 ? (
+            <div className="panel empty-state" style={{ padding: "40px", textAlign: "center" }}>
+              <TagIcon size={40} style={{ color: "var(--muted)", marginBottom: "12px" }} />
+              <h4>No Tags Created Yet</h4>
+              <p style={{ color: "var(--muted)", fontSize: "13px", maxWidth: "420px", margin: "0 auto 20px auto" }}>
+                Tags let you group transactions across accounts for special events, vacations (Trips), projects, or tax deduction tracking.
+              </p>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setCreateTagModalOpen(true)}>
+                Create Your First Tag
+              </button>
             </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
+              {tags.map((tag) => {
+                const isSelected = selectedTagId === tag.id;
+                const hasBudget = tag.budgetLimit !== null && tag.budgetLimit > 0;
+                const spentPercentage = hasBudget ? Math.min(100, Math.round((tag.totalSpent / tag.budgetLimit!) * 100)) : 0;
+                const isOverBudget = hasBudget && tag.totalSpent > tag.budgetLimit!;
 
-            {tags.length === 0 ? (
-              <div style={{ padding: "40px 20px", textAlign: "center", background: "var(--background-alt)", borderRadius: "12px", border: "1px dashed var(--line)", color: "var(--muted)" }}>
-                <TagIcon size={32} style={{ margin: "0 auto 12px auto", opacity: 0.5, display: "block" }} />
-                <strong style={{ display: "block", fontSize: "14px", color: "var(--ink)", marginBottom: "4px" }}>No tags or trips created yet</strong>
-                <span style={{ fontSize: "12px" }}>Create your first tag like "#TripToKerala" or "#DiwaliShopping" to group transactions across categories.</span>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: selectedTagId ? "1fr" : "repeat(auto-fill, minmax(280px, 1fr))", gap: "14px" }}>
-                {tags.map((tag) => {
-                  const isSelected = selectedTagId === tag.id;
-                  const hasBudget = tag.budgetLimit && tag.budgetLimit > 0;
-                  const budgetPercentage = hasBudget ? Math.min(100, Math.round((tag.totalSpent / tag.budgetLimit!) * 100)) : 0;
-                  const budgetExceeded = hasBudget && tag.totalSpent > tag.budgetLimit!;
-
-                  return (
-                    <div
-                      key={tag.id}
-                      onClick={() => setSelectedTagId(isSelected ? null : tag.id)}
-                      style={{
-                        background: isSelected ? "var(--background-alt)" : "var(--card)",
-                        border: `1.5px solid ${isSelected ? tag.color : "var(--line)"}`,
-                        borderRadius: "14px",
-                        padding: "16px",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease-in-out",
-                        boxShadow: isSelected ? `0 4px 20px ${tag.color}22` : "none",
-                        position: "relative",
-                      }}
-                    >
-                      {/* Tag Name Header & Color Pill */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: tag.color, flexShrink: 0 }} />
-                          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "var(--ink)" }}>#{tag.name}</h3>
-                        </div>
-
-                        <div style={{ display: "flex", gap: "4px" }} onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAutoTagModal(tag)}
-                            className="ghost compact"
-                            style={{ padding: "4px", color: "var(--green)" }}
-                            title="Auto-tag by date range / keywords"
-                          >
-                            <Zap size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(tag)}
-                            className="ghost compact"
-                            style={{ padding: "4px", color: "var(--muted)" }}
-                            title="Edit tag"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTag(tag.id, tag.name)}
-                            className="ghost compact"
-                            style={{ padding: "4px", color: "#ef4444" }}
-                            title="Delete tag"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                return (
+                  <div
+                    key={tag.id}
+                    className={`panel ${isSelected ? "selected-card" : ""}`}
+                    style={{
+                      padding: "20px",
+                      borderRadius: "14px",
+                      border: isSelected ? `2px solid ${tag.color}` : "1px solid var(--line)",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      background: isSelected ? `${tag.color}08` : "var(--card)",
+                    }}
+                    onClick={() => setSelectedTagId(isSelected ? null : tag.id)}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <span style={{ width: "14px", height: "14px", borderRadius: "50%", background: tag.color, display: "inline-block" }} />
+                        <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: "var(--ink)" }}>{tag.name}</h4>
                       </div>
-
-                      {/* Description & Date Range */}
-                      {tag.description && (
-                        <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                          {tag.description}
-                        </p>
-                      )}
-
-                      {(tag.startDate || tag.endDate) && (
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: "5px", fontSize: "11px", color: "var(--muted)", background: "var(--background-alt)", padding: "3px 8px", borderRadius: "6px", marginBottom: "12px", border: "1px solid var(--line)" }}>
-                          <Calendar size={12} />
-                          <span>
-                            {tag.startDate ? new Date(tag.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "Start"}
-                            {" – "}
-                            {tag.endDate ? new Date(tag.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "Ongoing"}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Total Spent Amount */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: "4px" }}>
-                        <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted)", textTransform: "uppercase" }}>Total Spend</span>
-                        <strong style={{ fontSize: "1.2rem", fontWeight: 800, color: "#ef4444" }}>{money(tag.totalSpent * 100)}</strong>
+                      <div style={{ display: "flex", gap: "6px" }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          title="Auto-Apply Tag"
+                          onClick={() => { setAutoTagModalId(tag.id); setAutoStartDate(tag.startDate ? tag.startDate.split("T")[0] : ""); setAutoEndDate(tag.endDate ? tag.endDate.split("T")[0] : ""); setAutoKeywords(tag.name); }}>
+                          <Sparkles size={14} color="var(--primary)" />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          title="Edit Tag"
+                          onClick={() => { setEditingTag(tag); setTagName(tag.name); setTagColor(tag.color); setTagDescription(tag.description || ""); setTagStartDate(tag.startDate ? tag.startDate.split("T")[0] : ""); setTagEndDate(tag.endDate ? tag.endDate.split("T")[0] : ""); setTagBudgetLimit(tag.budgetLimit ? String(tag.budgetLimit) : ""); setCreateTagModalOpen(true); }}>
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button danger"
+                          title="Delete Tag"
+                          onClick={() => handleDeleteTag(tag.id, tag.name)}>
+                          <Trash2 size={14} />
+                        </button>
                       </div>
+                    </div>
 
-                      {/* Budget Progress Bar */}
-                      {hasBudget && (
-                        <div style={{ marginTop: "10px" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>
-                            <span>Budget: {money(tag.budgetLimit! * 100)}</span>
-                            <span style={{ fontWeight: 700, color: budgetExceeded ? "#ef4444" : "var(--ink)" }}>{budgetPercentage}%</span>
-                          </div>
-                          <div style={{ height: "6px", background: "var(--line)", borderRadius: "3px", overflow: "hidden" }}>
-                            <div style={{ width: `${budgetPercentage}%`, height: "100%", background: budgetExceeded ? "#ef4444" : tag.color, borderRadius: "3px" }} />
-                          </div>
-                        </div>
-                      )}
+                    {tag.description && <p style={{ fontSize: "12px", color: "var(--muted)", margin: "0 0 12px 0" }}>{tag.description}</p>}
 
-                      {/* Bottom Footer Details */}
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--line)", fontSize: "11px", color: "var(--muted)" }}>
-                        <span>{tag.transactionCount} transaction{tag.transactionCount === 1 ? "" : "s"}</span>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontWeight: 700, color: isSelected ? tag.color : "var(--muted)" }}>
-                          {isSelected ? "Inspecting" : "View Breakdown"} <ChevronRight size={12} />
+                    {(tag.startDate || tag.endDate) && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "var(--muted)", marginBottom: "12px", background: "var(--background-alt)", padding: "4px 8px", borderRadius: "6px" }}>
+                        <Calendar size={12} />
+                        <span>
+                          {tag.startDate ? new Date(tag.startDate).toLocaleDateString("en-IN") : "Start"} — {tag.endDate ? new Date(tag.endDate).toLocaleDateString("en-IN") : "Present"}
                         </span>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                    )}
 
-          {/* Tag Detail Inspector Drawer (Right Panel) */}
-          {selectedTagId && (
-            <section className="panel" style={{ padding: "20px", position: "sticky", top: "20px" }}>
-              {loadingAnalytics ? (
-                <div style={{ padding: "40px", textAlign: "center", color: "var(--muted)" }}>
-                  <Loader2 className="spin" size={24} style={{ margin: "0 auto 10px auto", display: "block" }} />
-                  <span>Loading event analytics...</span>
-                </div>
-              ) : analytics ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                  {/* Header */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 800, padding: "3px 10px", borderRadius: "12px", background: `${analytics.tag.color}20`, color: analytics.tag.color, marginBottom: "6px" }}>
-                        #{analytics.tag.name}
-                      </span>
-                      <h2 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800 }}>Event Analytics</h2>
+                    {/* Stats Grid */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "12px", marginBottom: "12px" }}>
+                      <div style={{ background: "var(--background-alt)", padding: "8px 10px", borderRadius: "8px" }}>
+                        <span style={{ color: "var(--muted)", fontSize: "10px", display: "block" }}>Total Outflow</span>
+                        <strong style={{ color: "#ef4444", fontSize: "13px" }}>{money(tag.totalSpent * 100)}</strong>
+                      </div>
+                      <div style={{ background: "var(--background-alt)", padding: "8px 10px", borderRadius: "8px" }}>
+                        <span style={{ color: "var(--muted)", fontSize: "10px", display: "block" }}>Tagged Count</span>
+                        <strong style={{ color: "var(--ink)", fontSize: "13px" }}>{tag.transactionCount} transactions</strong>
+                      </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTagId(null)}
-                      className="ghost compact"
-                      style={{ padding: "6px" }}
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-
-                  {/* Summary Bar */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", background: "var(--background-alt)", padding: "14px", borderRadius: "12px", border: "1px solid var(--line)" }}>
-                    <div>
-                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>Total Spent</span>
-                      <strong style={{ display: "block", fontSize: "1.25rem", color: "#ef4444", fontWeight: 800 }}>{money(analytics.summary.totalSpent * 100)}</strong>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 600 }}>Transactions</span>
-                      <strong style={{ display: "block", fontSize: "1.25rem", color: "var(--ink)", fontWeight: 800 }}>{analytics.summary.totalCount}</strong>
-                    </div>
-                  </div>
-
-                  {/* Category Breakdown Progress Bars */}
-                  <div>
-                    <h3 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 12px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <PieChart size={16} color="var(--green)" /> Spending Breakdown by Category
-                    </h3>
-
-                    {analytics.categories.length === 0 ? (
-                      <small style={{ color: "var(--muted)" }}>No expense categories recorded for this tag yet.</small>
-                    ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                        {analytics.categories.map((cat) => (
-                          <div key={cat.id}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "4px" }}>
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
-                                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: cat.color }} />
-                                {cat.name}
-                              </span>
-                              <span style={{ fontWeight: 700, color: "var(--ink)" }}>
-                                {money(cat.amount * 100)} <small style={{ color: "var(--muted)", fontWeight: 500 }}>({cat.percentage}%)</small>
-                              </span>
-                            </div>
-                            <div style={{ height: "6px", background: "var(--background-alt)", borderRadius: "3px", overflow: "hidden" }}>
-                              <div style={{ width: `${cat.percentage}%`, height: "100%", background: cat.color, borderRadius: "3px" }} />
-                            </div>
-                          </div>
-                        ))}
+                    {/* Budget Progress Bar */}
+                    {hasBudget && (
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "4px" }}>
+                          <span style={{ color: isOverBudget ? "#ef4444" : "var(--muted)", fontWeight: 600 }}>
+                            {isOverBudget ? "⚠️ Budget Exceeded" : "Trip / Tag Budget"}
+                          </span>
+                          <span style={{ fontWeight: 700, color: "var(--ink)" }}>
+                            {money(tag.totalSpent * 100)} / {money(tag.budgetLimit! * 100)}
+                          </span>
+                        </div>
+                        <div style={{ width: "100%", height: "6px", background: "var(--line)", borderRadius: "10px", overflow: "hidden" }}>
+                          <div
+                            style={{
+                              width: `${spentPercentage}%`,
+                              height: "100%",
+                              background: isOverBudget ? "#ef4444" : spentPercentage > 85 ? "#f59e0b" : tag.color,
+                              borderRadius: "10px",
+                              transition: "width 0.3s ease",
+                            }}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  {/* Account Breakdown */}
-                  <div>
-                    <h3 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 10px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <Layers size={16} color="var(--green)" /> Payment Methods Used
-                    </h3>
+          {/* Selected Tag Analytics View */}
+          {selectedTagId && analytics && (
+            <div className="panel" style={{ padding: "24px", marginTop: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span style={{ width: "16px", height: "16px", borderRadius: "50%", background: analytics.tag.color }} />
+                  <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--ink)" }}>
+                    Analytics & Breakdown for "{analytics.tag.name}"
+                  </h3>
+                </div>
+                <button type="button" className="secondary compact" onClick={() => setSelectedTagId(null)}>
+                  Close Inspection
+                </button>
+              </div>
 
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                      {analytics.accounts.map((acc) => (
-                        <div key={acc.id} style={{ background: "var(--background-alt)", border: "1px solid var(--line)", padding: "8px 12px", borderRadius: "8px", fontSize: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span style={{ fontWeight: 700, color: "var(--ink)" }}>{acc.name}</span>
-                          <span style={{ color: "#ef4444", fontWeight: 700 }}>{money(acc.amount * 100)}</span>
-                        </div>
-                      ))}
+              {loadingAnalytics ? (
+                <div className="loading"><span/><p>Loading analytics...</p></div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  {/* Category Distribution */}
+                  {analytics.categories.length > 0 && (
+                    <div>
+                      <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", fontWeight: 700, color: "var(--ink)" }}>Category Breakdown</h4>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        {analytics.categories.map((c) => (
+                          <span key={c.id} style={{ padding: "6px 12px", borderRadius: "8px", background: `${c.color}20`, color: c.color, fontSize: "12px", fontWeight: 700 }}>
+                            {c.name}: {money(c.amount * 100)} ({c.percentage}%)
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Attached Transactions Ledger */}
+                  {/* Transactions Table */}
                   <div>
-                    <h3 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 12px 0", display: "flex", alignItems: "center", gap: "6px" }}>
-                      <TagIcon size={16} color="var(--green)" /> Tagged Transactions ({analytics.transactions.length})
-                    </h3>
-
-                    {analytics.transactions.length === 0 ? (
-                      <small style={{ color: "var(--muted)" }}>No transactions tagged yet.</small>
-                    ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "320px", overflowY: "auto", paddingRight: "4px" }}>
-                        {analytics.transactions.map((tx) => (
-                          <div
-                            key={tx.id}
-                            style={{
-                              background: "var(--background-alt)",
-                              border: "1px solid var(--line)",
-                              borderRadius: "10px",
-                              padding: "10px 12px",
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              gap: "10px",
-                            }}
-                          >
-                            <div style={{ overflow: "hidden" }}>
-                              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {tx.merchant || tx.description}
-                              </span>
-                              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
-                                <span style={{ fontSize: "10px", padding: "1px 6px", borderRadius: "4px", background: `${tx.categoryColor}20`, color: tx.categoryColor, fontWeight: 700 }}>
+                    <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", fontWeight: 700, color: "var(--ink)" }}>
+                      Tagged Transactions ({analytics.transactions.length})
+                    </h4>
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr style={{ borderBottom: "1px solid var(--line)", textAlign: "left", color: "var(--muted)" }}>
+                            <th style={{ padding: "8px" }}>Date</th>
+                            <th style={{ padding: "8px" }}>Description</th>
+                            <th style={{ padding: "8px" }}>Category</th>
+                            <th style={{ padding: "8px" }}>Account</th>
+                            <th style={{ padding: "8px", textAlign: "right" }}>Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analytics.transactions.map((tx) => (
+                            <tr key={tx.id} style={{ borderBottom: "1px solid var(--line)" }}>
+                              <td style={{ padding: "8px", color: "var(--muted)" }}>{new Date(tx.transactionDate).toLocaleDateString("en-IN")}</td>
+                              <td style={{ padding: "8px", fontWeight: 600 }}>{tx.merchant || tx.description}</td>
+                              <td style={{ padding: "8px" }}>
+                                <span style={{ padding: "2px 6px", borderRadius: "4px", background: `${tx.categoryColor}20`, color: tx.categoryColor, fontWeight: 700, fontSize: "10px" }}>
                                   {tx.category}
                                 </span>
-                                <small style={{ fontSize: "10px", color: "var(--muted)" }}>
-                                  {new Date(tx.transactionDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                                </small>
-                              </div>
-                            </div>
-
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <strong style={{ fontSize: "13px", fontWeight: 700, color: tx.amount < 0 ? "#ef4444" : "#22c55e" }}>
-                                {money(tx.amount * 100)}
-                              </strong>
-
-                              <button
-                                type="button"
-                                onClick={() => handleUntagTransaction(tx.id)}
-                                className="ghost compact"
-                                style={{ color: "var(--muted)", padding: "2px" }}
-                                title="Remove tag from transaction"
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                              </td>
+                              <td style={{ padding: "8px", color: "var(--muted)" }}>{tx.accountName}</td>
+                              <td style={{ padding: "8px", textAlign: "right", fontWeight: 700, color: tx.amount < 0 ? "#ef4444" : "#10b981" }}>
+                                {money(Math.abs(tx.amount))}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
-              ) : null}
-            </section>
+              )}
+            </div>
           )}
         </div>
+      )}
 
-        {/* Create / Edit Tag Modal */}
-        {createModalOpen && (
-          <div className="modal-wrap" style={{ zIndex: 99999 }}>
-            <button className="backdrop" onClick={() => setCreateModalOpen(false)} aria-label="Close modal" />
-            <section className="modal" style={{ width: "min(460px, 90vw)", padding: "20px", borderRadius: "14px", background: "var(--card)", border: "1px solid var(--line)" }}>
-              <h3 style={{ margin: "0 0 14px 0", fontSize: "1.15rem", fontWeight: 700 }}>
-                {editingTag ? `Edit Tag "#${editingTag.name}"` : "Create New Tag / Trip Tracker"}
-              </h3>
-
-              <form onSubmit={handleSaveTag} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+      {/* TAB 2: CATEGORY BUDGETS & RULES */}
+      {activeTab === "BUDGETS" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          {/* Top Form Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "20px" }}>
+            {/* Set Category Monthly Limit */}
+            <div className="panel" style={{ padding: "20px" }}>
+              <h4 style={{ margin: "0 0 6px 0", fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>Set Category Monthly Limit</h4>
+              <p style={{ margin: "0 0 16px 0", fontSize: "12px", color: "var(--muted)" }}>Set budget spending limits for specific expense categories.</p>
+              <form onSubmit={handleSaveBudget} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Tag / Trip Name</label>
-                  <div style={{ position: "relative" }}>
-                    <span style={{ position: "absolute", left: "10px", top: "9px", fontSize: "14px", fontWeight: 800, color: tagColor }}>#</span>
-                    <input
-                      type="text"
-                      placeholder="e.g. TripToKerala, Diwali2026, HomeRenovation..."
-                      value={tagName}
-                      onChange={(e) => setTagName(e.target.value)}
-                      style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px 0 26px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 700 }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "6px" }}>Badge Color</label>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-                    {COLOR_PRESETS.map((hex) => (
-                      <button
-                        key={hex}
-                        type="button"
-                        onClick={() => setTagColor(hex)}
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "50%",
-                          background: hex,
-                          border: tagColor === hex ? "3px solid var(--ink)" : "2px solid transparent",
-                          cursor: "pointer",
-                        }}
-                      />
-                    ))}
-                    <input
-                      type="color"
-                      value={tagColor}
-                      onChange={(e) => setTagColor(e.target.value)}
-                      style={{ width: "32px", height: "32px", padding: "2px", borderRadius: "8px", border: "1px solid var(--line)", cursor: "pointer" }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Description / Notes (Optional)</label>
-                  <textarea
-                    placeholder="e.g. Family vacation expenses across Kochi, Munnar & Alleppey..."
-                    value={tagDescription}
-                    onChange={(e) => setTagDescription(e.target.value)}
-                    rows={2}
-                    style={{ width: "100%", fontSize: "13px", padding: "8px 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", resize: "none" }}
-                  />
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Start Date</label>
-                    <input
-                      type="date"
-                      value={tagStartDate}
-                      onChange={(e) => setTagStartDate(e.target.value)}
-                      style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>End Date</label>
-                    <input
-                      type="date"
-                      value={tagEndDate}
-                      onChange={(e) => setTagEndDate(e.target.value)}
-                      style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Event Budget Cap (Optional ₹)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 50000"
-                    value={tagBudgetLimit}
-                    onChange={(e) => setTagBudgetLimit(e.target.value)}
-                    style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
-                  />
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
-                  <button type="button" className="ghost compact" onClick={() => setCreateModalOpen(false)}>
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={submitting} className="secondary compact" style={{ background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700 }}>
-                    {submitting ? <Loader2 size={14} className="spin" /> : editingTag ? "Save Changes" : "Create Tag"}
-                  </button>
-                </div>
-              </form>
-            </section>
-          </div>
-        )}
-
-        {/* Auto-Tag Trigger Modal */}
-        {autoTagModalId && (
-          <div className="modal-wrap" style={{ zIndex: 99999 }}>
-            <button className="backdrop" onClick={() => setAutoTagModalId(null)} aria-label="Close auto-tag modal" />
-            <section className="modal" style={{ width: "min(420px, 90vw)", padding: "20px", borderRadius: "14px", background: "var(--card)", border: "1px solid var(--line)" }}>
-              <h3 style={{ margin: "0 0 10px 0", fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
-                <Zap size={18} color="var(--green)" /> Auto-Apply Tag Rules
-              </h3>
-              <p style={{ margin: "0 0 14px 0", fontSize: "12px", color: "var(--muted)" }}>
-                Automatically tag past transactions matching date bounds or description keywords.
-              </p>
-
-              <form onSubmit={handleRunAutoTag} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Start Date</label>
-                    <input
-                      type="date"
-                      value={autoStartDate}
-                      onChange={(e) => setAutoStartDate(e.target.value)}
-                      style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>End Date</label>
-                    <input
-                      type="date"
-                      value={autoEndDate}
-                      onChange={(e) => setAutoEndDate(e.target.value)}
-                      style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Keywords (Comma Separated)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Kerala, Kochi, Munnar, Flight..."
-                    value={autoKeywords}
-                    onChange={(e) => setAutoKeywords(e.target.value)}
-                    style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Also Assign Category (Optional)</label>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Category</label>
                   <select
-                    value={autoCategoryId}
-                    onChange={(e) => setAutoCategoryId(e.target.value)}
-                    style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
-                    <option value="">Keep current categories</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
+                    value={budgetCategoryId}
+                    onChange={(e) => setBudgetCategoryId(e.target.value)}
+                    required
+                    style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}>
+                    <option value="">Select Category...</option>
+                    {allCategories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
-
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "6px" }}>
-                  <button type="button" className="ghost compact" onClick={() => setAutoTagModalId(null)}>
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={autoTagging} className="secondary compact" style={{ background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700 }}>
-                    {autoTagging ? <Loader2 size={14} className="spin" /> : "Run Auto-Tag"}
-                  </button>
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Monthly Budget Limit (₹)</label>
+                  <input
+                    type="number"
+                    value={budgetMonthlyLimit}
+                    onChange={(e) => setBudgetMonthlyLimit(e.target.value)}
+                    placeholder="e.g. 15000"
+                    required
+                    style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
                 </div>
+                <button type="submit" className="primary" disabled={savingBudget} style={{ alignSelf: "flex-start", marginTop: "4px" }}>
+                  {savingBudget ? "Saving..." : "Save Budget Limit"}
+                </button>
               </form>
-            </section>
+            </div>
+
+            {/* Create Auto-Categorization Rule */}
+            <div className="panel" style={{ padding: "20px" }}>
+              <h4 style={{ margin: "0 0 6px 0", fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>Create Auto-Categorization Rule</h4>
+              <p style={{ margin: "0 0 16px 0", fontSize: "12px", color: "var(--muted)" }}>Automatically match merchant names or text patterns to categories.</p>
+              <form onSubmit={handleCreateRule} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "8px" }}>
+                  <div>
+                    <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Pattern</label>
+                    <input
+                      type="text"
+                      value={rulePattern}
+                      onChange={(e) => setRulePattern(e.target.value)}
+                      placeholder="e.g. SWIGGY or ZOMATO"
+                      required
+                      style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Match</label>
+                    <select
+                      value={ruleMatchType}
+                      onChange={(e) => setRuleMatchType(e.target.value as any)}
+                      style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 6px", background: "var(--background-alt)", color: "var(--ink)" }}>
+                      <option value="CONTAINS">Contains</option>
+                      <option value="EXACT">Exact</option>
+                      <option value="STARTS_WITH">Starts With</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Target Category</label>
+                  <select
+                    value={ruleCategoryId}
+                    onChange={(e) => setRuleCategoryId(e.target.value)}
+                    required
+                    style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}>
+                    <option value="">Select Target Category...</option>
+                    {allCategories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <button type="submit" className="primary" disabled={savingRule} style={{ alignSelf: "flex-start", marginTop: "4px" }}>
+                  {savingRule ? "Creating Rule..." : "Create Category Rule"}
+                </button>
+              </form>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Active Category Budgets List */}
+          <div className="panel" style={{ padding: "24px" }}>
+            <h4 style={{ margin: "0 0 16px 0", fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>Category Monthly Limits & Spending</h4>
+            {loadingBudgets ? (
+              <div className="loading"><span/><p>Loading budgets...</p></div>
+            ) : budgets.length === 0 ? (
+              <p style={{ color: "var(--muted)", fontSize: "13px" }}>No category budget limits set yet.</p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+                {budgets.map((b) => (
+                  <div key={b.id} style={{ background: "var(--background-alt)", padding: "16px", borderRadius: "10px", border: "1px solid var(--line)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <span style={{ fontWeight: 700, color: b.categoryColor, fontSize: "13px" }}>{b.categoryName}</span>
+                      <button type="button" className="icon-button danger" onClick={() => handleDeleteBudget(b.id)}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
+                      <span style={{ color: "var(--muted)" }}>Spent / Limit</span>
+                      <strong>{money(b.spentAmount * 100)} / {money(b.monthlyLimit * 100)}</strong>
+                    </div>
+                    <div style={{ width: "100%", height: "6px", background: "var(--line)", borderRadius: "6px", overflow: "hidden" }}>
+                      <div style={{ width: `${Math.min(100, b.percentage)}%`, height: "100%", background: b.status === "EXCEEDED" ? "#ef4444" : b.status === "WARNING" ? "#f59e0b" : "#10b981", borderRadius: "6px" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: UNVERIFIED QUEUE */}
+      {activeTab === "UNVERIFIED" && (
+        <div className="panel" style={{ padding: "24px" }}>
+          <h4 style={{ margin: "0 0 12px 0", fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>Rule Verification & Batch Categorization</h4>
+          <p style={{ margin: "0 0 20px 0", fontSize: "12px", color: "var(--muted)" }}>Review transactions auto-categorized by rules and confirm accuracy.</p>
+          {unverifiedGroups.length === 0 ? (
+            <p style={{ color: "var(--muted)", fontSize: "13px" }}>All transactions are verified! No pending auto-categorizations.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {unverifiedGroups.map((group) => (
+                <div key={group.category.id} style={{ background: "var(--background-alt)", padding: "16px", borderRadius: "12px", border: "1px solid var(--line)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <span style={{ fontWeight: 700, color: group.category.color, fontSize: "14px" }}>
+                      {group.category.name} ({group.unverifiedCount} unverified)
+                    </span>
+                    <button
+                      type="button"
+                      className="primary compact"
+                      onClick={() => handleVerifyBatch(group.transactions.map((t) => t.id), true)}>
+                      Confirm All in {group.category.name}
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {group.transactions.map((tx) => (
+                      <div key={tx.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", padding: "6px 0", borderBottom: "1px solid var(--line)" }}>
+                        <span>{new Date(tx.transactionDate).toLocaleDateString("en-IN")} — <strong>{tx.merchant || tx.descriptionRaw}</strong></span>
+                        <strong style={{ color: tx.amount < 0 ? "#ef4444" : "#10b981" }}>{money(Math.abs(tx.amount))}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CREATE / EDIT TAG MODAL */}
+      {createTagModalOpen && (
+        <div className="modal-backdrop" onClick={() => setCreateTagModalOpen(false)}>
+          <div className="modal-content panel" style={{ maxWidth: "480px", width: "100%", padding: "24px" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>{editingTag ? "Edit Tag / Trip" : "Create New Tag or Trip"}</h3>
+              <button type="button" className="icon-button" onClick={() => setCreateTagModalOpen(false)}><X size={18}/></button>
+            </div>
+            <form onSubmit={handleSaveTag} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Tag / Trip Name</label>
+                <input
+                  type="text"
+                  value={tagName}
+                  onChange={(e) => setTagName(e.target.value)}
+                  placeholder="e.g. Goa Trip 2026 or Medical Expenses"
+                  required
+                  style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Color Badge</label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  {COLOR_PRESETS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setTagColor(c)}
+                      style={{ width: "26px", height: "26px", borderRadius: "50%", background: c, border: tagColor === c ? "2px solid var(--ink)" : "none", cursor: "pointer" }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Description (Optional)</label>
+                <input
+                  type="text"
+                  value={tagDescription}
+                  onChange={(e) => setTagDescription(e.target.value)}
+                  placeholder="e.g. Summer vacation flights, hotels & dining"
+                  style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Start Date</label>
+                  <input
+                    type="date"
+                    value={tagStartDate}
+                    onChange={(e) => setTagStartDate(e.target.value)}
+                    style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 8px", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>End Date</label>
+                  <input
+                    type="date"
+                    value={tagEndDate}
+                    onChange={(e) => setTagEndDate(e.target.value)}
+                    style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 8px", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Trip Budget Limit (₹, Optional)</label>
+                <input
+                  type="number"
+                  value={tagBudgetLimit}
+                  onChange={(e) => setTagBudgetLimit(e.target.value)}
+                  placeholder="e.g. 50000"
+                  style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+                <button type="button" className="secondary" onClick={() => setCreateTagModalOpen(false)}>Cancel</button>
+                <button type="submit" className="primary" disabled={submittingTag}>
+                  {submittingTag ? "Saving..." : editingTag ? "Update Tag" : "Create Tag"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* AUTO TAG MODAL */}
+      {autoTagModalId && (
+        <div className="modal-backdrop" onClick={() => setAutoTagModalId(null)}>
+          <div className="modal-content panel" style={{ maxWidth: "440px", width: "100%", padding: "24px" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Auto-Apply Tag to Past Transactions</h3>
+              <button type="button" className="icon-button" onClick={() => setAutoTagModalId(null)}><X size={18}/></button>
+            </div>
+            <form onSubmit={handleAutoApplyTag} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div>
+                <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Keywords (Comma-separated)</label>
+                <input
+                  type="text"
+                  value={autoKeywords}
+                  onChange={(e) => setAutoKeywords(e.target.value)}
+                  placeholder="e.g. Zomato, Swiggy, Uber"
+                  style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>From Date</label>
+                  <input
+                    type="date"
+                    value={autoStartDate}
+                    onChange={(e) => setAutoStartDate(e.target.value)}
+                    style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 8px", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>To Date</label>
+                  <input
+                    type="date"
+                    value={autoEndDate}
+                    onChange={(e) => setAutoEndDate(e.target.value)}
+                    style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 8px", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+                <button type="button" className="secondary" onClick={() => setAutoTagModalId(null)}>Cancel</button>
+                <button type="submit" className="primary" disabled={autoTagging}>
+                  {autoTagging ? "Applying Tag..." : "Apply Tag Now"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </Shell>
   );
 }
