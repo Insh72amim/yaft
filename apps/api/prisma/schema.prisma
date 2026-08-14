@@ -54,7 +54,6 @@ model User {
   tags         Tag[]
   emailConfigs EmailConfig[]
   emailSyncLogs EmailSyncLog[]
-  financialGoals FinancialGoal[]
 }
 
 model SalaryStatement {
@@ -511,38 +510,4 @@ model Organization {
 
   @@unique([userId, name])
   @@index([userId])
-}
-
-enum GoalStatus {
-  ACTIVE
-  ACHIEVED
-  ABANDONED
-}
-
-model FinancialGoal {
-  id            String             @id @default(cuid())
-  userId        String
-  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name          String
-  description   String?
-  targetAmount  BigInt             // paise
-  targetDate    DateTime?
-  status        GoalStatus         @default(ACTIVE)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  contributions GoalContribution[]
-
-  @@index([userId, status])
-}
-
-model GoalContribution {
-  id        String        @id @default(cuid())
-  goalId    String
-  goal      FinancialGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  amount    BigInt        // paise; positive = deposit, negative = withdrawal
-  note      String?
-  date      DateTime      @default(now())
-  createdAt DateTime      @default(now())
-
-  @@index([goalId, date])
 }

@@ -19,7 +19,6 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { BackupModule } from './backup/backup.module';
 import { TagsModule } from './tags/tags.module';
 import { EmailIngestionModule } from './email-ingestion/email-ingestion.module';
-import { GoalsModule } from './goals/goals.module';
 
 @Module({
   imports: [
@@ -42,7 +41,6 @@ import { GoalsModule } from './goals/goals.module';
     BackupModule,
     TagsModule,
     EmailIngestionModule,
-    GoalsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
