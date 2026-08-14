@@ -164,8 +164,19 @@ export default function BudgetsPage() {
 
 function BudgetsContent() {
   const searchParams = useSearchParams();
-  const initialTabParam = searchParams.get("tab");
-  const initialTab = (initialTabParam === "tags" || initialTabParam === "TAGS") ? "TAGS" : "ENVELOPES";
+  const initialTabParam = searchParams.get("tab")?.toUpperCase();
+  const initialTab: "ENVELOPES" | "TAGS" | "CATEGORIES" | "RULES" | "CONFIRMATIONS" | "GOALS" =
+    initialTabParam === "TAGS"
+      ? "TAGS"
+      : initialTabParam === "GOALS"
+      ? "GOALS"
+      : initialTabParam === "CATEGORIES"
+      ? "CATEGORIES"
+      : initialTabParam === "RULES"
+      ? "RULES"
+      : initialTabParam === "CONFIRMATIONS"
+      ? "CONFIRMATIONS"
+      : "ENVELOPES";
 
   const [activeTab, setActiveTab] = useState<"ENVELOPES" | "TAGS" | "CATEGORIES" | "RULES" | "CONFIRMATIONS" | "GOALS">(initialTab);
 
@@ -632,7 +643,7 @@ function BudgetsContent() {
             <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Category Budgets, Tags & Rules</h1>
           </div>
 
-          <div style={{ display: "flex", gap: "6px", background: "var(--background-alt)", padding: "4px", borderRadius: "10px", border: "1px solid var(--line)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", background: "var(--background-alt)", padding: "4px", borderRadius: "10px", border: "1px solid var(--line)" }}>
             <button
               type="button"
               className={`secondary compact ${activeTab === "ENVELOPES" ? "active" : ""}`}
