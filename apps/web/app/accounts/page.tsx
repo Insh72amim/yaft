@@ -119,7 +119,6 @@ const accountSections: AccountSection[] = [
     label: "Debt Accounts",
     subsections: [
       { label: "Loans", types: ["LOAN"] },
-      { label: "Credit cards", types: ["CREDIT_CARD"] },
     ],
   },
 ];
@@ -1446,7 +1445,16 @@ function CreditCardsSection() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      {/* Overview Cards */}
+      {/* Overview Header & KPIs */}
+      <header className="page-header" style={{ marginBottom: "8px" }}>
+        <div>
+          <span className="eyebrow" style={{ color: "#ef4444" }}>Credit Cards Analytics Hub</span>
+          <h1>Credit Cards &amp; Spend Intelligence</h1>
+          <p>Real-time credit limits, utilization risk, billing cycles, and merchant outflow.</p>
+        </div>
+      </header>
+
+      {/* Top Summary Metrics */}
       <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
         <div className="kpi-card" style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)" }}>
           <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Total Credit Limit</span>
@@ -1475,37 +1483,276 @@ function CreditCardsSection() {
         </div>
       </div>
 
-      {/* Credit Cards Directory */}
-      <section className="panel" style={{ padding: "24px" }}>
-        <h3 style={{ margin: "0 0 16px 0", fontSize: "1.05rem", fontWeight: 700, color: "var(--ink)" }}>Active Credit Cards ({cards.length})</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
-          {cards.map((card) => (
-            <div key={card.id} style={{ background: "var(--background-alt)", borderRadius: "12px", padding: "16px", border: "1px solid var(--line)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                <div>
-                  <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>{card.institution || "Bank"}</span>
-                  <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>{card.name}</h4>
-                </div>
-                <CreditCard size={20} color="#ef4444" />
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", margin: "10px 0" }}>
-                <span style={{ color: "var(--muted)" }}>Outstanding Due:</span>
-                <strong style={{ color: "#ef4444" }}>{money(card.outstanding)}</strong>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "8px" }}>
-                <span style={{ color: "var(--muted)" }}>Limit: {money(card.creditLimit)}</span>
-                <span style={{ fontWeight: 700 }}>{card.utilizationPercent}% used</span>
-              </div>
-
-              <div style={{ width: "100%", height: "4px", background: "var(--line)", borderRadius: "4px", overflow: "hidden" }}>
-                <div style={{ width: `${Math.min(100, card.utilizationPercent)}%`, height: "100%", background: card.utilizationPercent > 30 ? "#ef4444" : "var(--green)" }} />
-              </div>
+      {/* Spending Breakdown & Top Merchants */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
+        {/* Category Breakdown Panel */}
+        <div className="panel">
+          <div className="panel-title" style={{ marginBottom: "16px" }}>
+            <div>
+              <span className="eyebrow">Distribution</span>
+              <h2>Overall Spends by Category</h2>
             </div>
-          ))}
+          </div>
+
+          <div style={{ display: "flex", gap: "20px", alignItems: "center", flexWrap: "wrap" }}>
+            <CreditCardDoughnutChart categories={overallFlow.categories} total={summary.totalOutbound} />
+            <div style={{ flex: 1, minWidth: "160px", display: "flex", flexDirection: "column", gap: "8px" }}>
+              {overallFlow.categories.length === 0 ? (
+                <span style={{ fontSize: "12px", color: "var(--muted)" }}>No outbound category spends logged.</span>
+              ) : (
+                overallFlow.categories.slice(0, 5).map((cat, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: cat.color || "#3b82f6" }} />
+                      {cat.name}
+                    </span>
+                    <strong style={{ color: "var(--ink)" }}>{money(cat.amount)} ({cat.percentage}%)</strong>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
-      </section>
+
+        {/* Top Merchants Panel */}
+        <div className="panel">
+          <div className="panel-title" style={{ marginBottom: "16px" }}>
+            <div>
+              <span className="eyebrow">Recipients</span>
+              <h2>Top Merchant Outflows</h2>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {overallFlow.topRecipients.length === 0 ? (
+              <span style={{ fontSize: "12px", color: "var(--muted)" }}>No merchant data available.</span>
+            ) : (
+              overallFlow.topRecipients.map((rec, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--background-alt)", borderRadius: "8px", fontSize: "12px" }}>
+                  <div>
+                    <strong style={{ display: "block", color: "var(--ink)" }}>{rec.name}</strong>
+                    <span style={{ color: "var(--muted)", fontSize: "11px" }}>{rec.count} transactions</span>
+                  </div>
+                  <strong style={{ color: "#ef4444" }}>-{money(rec.amount)}</strong>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Credit Cards Directory Panel */}
+      <div className="panel">
+        <div className="panel-title" style={{ marginBottom: "20px" }}>
+          <div>
+            <span className="eyebrow">Cards List</span>
+            <h2>Active Credit Cards ({cards.length})</h2>
+          </div>
+        </div>
+
+        {cards.length === 0 ? (
+          <p style={{ color: "var(--muted)", fontSize: "13px" }}>No credit card accounts found.</p>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
+            {cards.map((card) => {
+              const isOverLimit = card.utilizationPercent >= 100;
+              const isHighRisk = card.utilizationPercent > 30;
+
+              return (
+                <div
+                  key={card.id}
+                  style={{
+                    background: "var(--card)",
+                    border: "1px solid var(--line)",
+                    borderRadius: "16px",
+                    padding: "20px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                  }}>
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                      <div>
+                        <span style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--muted)", fontWeight: 700 }}>
+                          {card.institution || "Credit Card"}
+                        </span>
+                        <h3 style={{ margin: "2px 0 0 0", fontSize: "1.1rem", fontWeight: 700, color: "var(--ink)" }}>{card.name}</h3>
+                        <span style={{ fontSize: "12px", color: "var(--muted)", fontFamily: "monospace" }}>
+                          {card.cardLast4 ? `•••• ${card.cardLast4}` : card.cardNetwork || "Card"}
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <button
+                          type="button"
+                          className="secondary compact"
+                          onClick={() => setVaultAccount(card)}
+                          title="View statement PDF password in Vault"
+                          style={{ padding: "6px 8px" }}>
+                          <Lock size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: "14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "4px" }}>
+                        <span style={{ color: "var(--muted)" }}>Utilization</span>
+                        <span style={{ fontWeight: 700, color: isHighRisk ? "#ef4444" : "var(--ink)" }}>
+                          {card.utilizationPercent}%
+                        </span>
+                      </div>
+                      <div style={{ height: "6px", width: "100%", background: "var(--background-alt)", borderRadius: "3px", overflow: "hidden" }}>
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${Math.min(100, card.utilizationPercent)}%`,
+                            background: isOverLimit ? "#ef4444" : isHighRisk ? "#f59e0b" : "var(--green)",
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", padding: "10px 12px", background: "var(--background-alt)", borderRadius: "10px", marginBottom: "12px" }}>
+                      <div>
+                        <span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Outstanding</span>
+                        <strong style={{ color: card.outstanding > 0 ? "#ef4444" : "var(--ink)", fontSize: "13px" }}>{money(card.outstanding)}</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: "10px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Available</span>
+                        <strong style={{ color: "var(--green)", fontSize: "13px" }}>{money(card.availableCredit)}</strong>
+                      </div>
+                    </div>
+
+                    {(card.statementDate || card.dueDate) && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)" }}>
+                        {card.statementDate && <span>Statement: Day {card.statementDate}</span>}
+                        {card.dueDate && <span>Due: Day {card.dueDate}</span>}
+                      </div>
+                    )}
+                  </div>
+
+                  <Link
+                    href={`/accounts?account=${card.id}`}
+                    className="button secondary compact"
+                    style={{ width: "100%", justifyContent: "center", fontSize: "12px", fontWeight: 700 }}>
+                    View Card Details &amp; Ledger →
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Monthly Flow Chart Panel */}
+      <div className="panel">
+        <div className="panel-title" style={{ marginBottom: "16px" }}>
+          <div>
+            <span className="eyebrow">Cash Flow Analysis</span>
+            <h2>Monthly Credit Card Flow (Spends vs Payments)</h2>
+          </div>
+        </div>
+
+        {data.monthlySpendsAndPayments.length === 0 ? (
+          <p style={{ color: "var(--muted)", fontSize: "13px" }}>No recent credit card transactions logged.</p>
+        ) : (
+          <div style={{ marginTop: "16px" }}>
+            {data.monthlySpendsAndPayments.map((item) => (
+              <div key={item.month} style={{ marginBottom: "14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "4px" }}>
+                  <span style={{ fontWeight: 600 }}>{item.month}</span>
+                  <span>
+                    <span style={{ color: "#ef4444", marginRight: "12px" }}>Spends: -{money(item.spends)}</span>
+                    <span style={{ color: "var(--green)" }}>Payments: +{money(item.payments)}</span>
+                  </span>
+                </div>
+                <div style={{ display: "flex", height: "8px", gap: "4px", borderRadius: "4px", overflow: "hidden", background: "var(--background-alt)" }}>
+                  <div style={{ height: "100%", width: `${Math.min(100, (item.spends / (item.spends + item.payments || 1)) * 100)}%`, background: "#ef4444", borderRadius: "4px" }} />
+                  <div style={{ height: "100%", width: `${Math.min(100, (item.payments / (item.spends + item.payments || 1)) * 100)}%`, background: "var(--green)", borderRadius: "4px" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent Activity Table */}
+      <div className="panel">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <div>
+            <span className="eyebrow">Recent Feed</span>
+            <h2>Recent Credit Card Activity</h2>
+          </div>
+          <Link href="/transactions?mode=CREDIT_CARD" style={{ fontSize: "13px", fontWeight: 600, color: "var(--accent)" }}>
+            View All Credit Card Transactions →
+          </Link>
+        </div>
+
+        {data.recentTransactions.length === 0 ? (
+          <p style={{ color: "var(--muted)", fontSize: "13px" }}>No transactions logged for credit cards.</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--line)", textAlign: "left" }}>
+                  <th style={{ padding: "10px", color: "var(--muted)" }}>Date</th>
+                  <th style={{ padding: "10px", color: "var(--muted)" }}>Card</th>
+                  <th style={{ padding: "10px", color: "var(--muted)" }}>Description</th>
+                  <th style={{ padding: "10px", color: "var(--muted)" }}>Category</th>
+                  <th style={{ padding: "10px", color: "var(--muted)", textAlign: "right" }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recentTransactions.map((tx) => (
+                  <tr key={tx.id} style={{ borderBottom: "1px solid var(--line)" }}>
+                    <td style={{ padding: "10px", whiteSpace: "nowrap" }}>
+                      {new Date(tx.date).toLocaleDateString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </td>
+                    <td style={{ padding: "10px", fontWeight: 600 }}>{tx.accountName}</td>
+                    <td style={{ padding: "10px" }}>{tx.description}</td>
+                    <td style={{ padding: "10px" }}>
+                      <span
+                        style={{
+                          padding: "3px 8px",
+                          borderRadius: "12px",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          background: "var(--background-alt)",
+                          color: tx.categoryColor,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}>
+                        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: tx.categoryColor }} />
+                        {tx.category}
+                      </span>
+                    </td>
+                    <td style={{ padding: "10px", textAlign: "right", fontWeight: 700, color: tx.amount < 0 ? "#ef4444" : "var(--green)" }}>
+                      {tx.amount < 0 ? `-${money(Math.abs(tx.amount))}` : `+${money(tx.amount)}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Vault Password Modal */}
+      {vaultAccount && (
+        <VaultModal
+          accountId={vaultAccount.id}
+          onClose={() => {
+            setVaultAccount(null);
+            loadData();
+          }}
+        />
+      )}
     </div>
   );
 }
