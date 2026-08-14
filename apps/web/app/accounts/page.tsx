@@ -28,6 +28,9 @@ import {
   AlertCircle,
   Loader2,
   Gauge,
+  Pencil,
+  Search,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -1009,11 +1012,29 @@ function AssetsSection() {
   const [data, setData] = useState<AssetsHistoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [hidePrivacy, setHidePrivacy] = useState(true);
   const [selectedAssetCategory, setSelectedAssetCategory] = useState<"ALL" | "CASH" | "EQUITIES" | "EPFO" | "DEBT">("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
+  // Add Custom Asset Modal
+  const [addAssetModalOpen, setAddAssetModalOpen] = useState(false);
+  const [newAssetName, setNewAssetName] = useState("");
+  const [newAssetType, setNewAssetType] = useState<"SAVINGS" | "FIXED_DEPOSIT" | "STOCKS" | "INVESTMENT" | "EPFO" | "CASH">("SAVINGS");
+  const [newAssetInstitution, setNewAssetInstitution] = useState("");
+  const [newAssetValuation, setNewAssetValuation] = useState("");
+  const [addingAsset, setAddingAsset] = useState(false);
+
+  // Edit Valuation Modal
+  const [editingAsset, setEditingAsset] = useState<{ id: string; name: string; type: string; institution: string | null; balance: number } | null>(null);
+  const [editAssetName, setEditAssetName] = useState("");
+  const [editAssetInstitution, setEditAssetInstitution] = useState("");
+  const [editValuationInput, setEditValuationInput] = useState("");
+  const [updatingValuation, setUpdatingValuation] = useState(false);
+
+  const fetchAssetsData = useCallback(() => {
     setLoading(true);
+    setError("");
     api<AssetsHistoryData>("/dashboard/assets-history")
       .then((res) => {
         setData(res);
@@ -1025,9 +1046,77 @@ function AssetsSection() {
       });
   }, []);
 
+  useEffect(() => {
+    fetchAssetsData();
+  }, [fetchAssetsData]);
+
   const formatAmount = (val: number) => {
     if (hidePrivacy) return "••••••";
     return money(val);
+  };
+
+  const handleAddAssetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAssetName.trim()) return;
+    const val = parseFloat(newAssetValuation);
+    if (isNaN(val) || val < 0) {
+      setError("Please enter a valid valuation amount.");
+      return;
+    }
+
+    setAddingAsset(true);
+    setError("");
+    try {
+      await api("/accounts", {
+        method: "POST",
+        body: JSON.stringify({
+          name: newAssetName.trim(),
+          type: newAssetType,
+          institution: newAssetInstitution.trim() || undefined,
+          openingBalance: Math.round(val * 100),
+        }),
+      });
+      setSuccessMsg(`Added asset "${newAssetName.trim()}"!`);
+      setNewAssetName("");
+      setNewAssetInstitution("");
+      setNewAssetValuation("");
+      setAddAssetModalOpen(false);
+      fetchAssetsData();
+    } catch (err: any) {
+      setError(errorMessage(err, "Failed to add custom asset."));
+    } finally {
+      setAddingAsset(false);
+    }
+  };
+
+  const handleUpdateValuationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAsset) return;
+    const val = parseFloat(editValuationInput);
+    if (isNaN(val)) {
+      setError("Please enter a valid valuation amount.");
+      return;
+    }
+
+    setUpdatingValuation(true);
+    setError("");
+    try {
+      await api(`/accounts/${editingAsset.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          openingBalance: Math.round(val * 100),
+          name: editAssetName.trim() || undefined,
+          institution: editAssetInstitution.trim() || undefined,
+        }),
+      });
+      setSuccessMsg(`Updated valuation for "${editAssetName.trim() || editingAsset.name}"!`);
+      setEditingAsset(null);
+      fetchAssetsData();
+    } catch (err: any) {
+      setError(errorMessage(err, "Failed to update asset valuation."));
+    } finally {
+      setUpdatingValuation(false);
+    }
   };
 
   if (loading) {
@@ -1039,7 +1128,7 @@ function AssetsSection() {
     );
   }
 
-  if (error || !data) {
+  if (error && !data) {
     return (
       <div className="panel" style={{ padding: "40px", textAlign: "center", color: "#ef4444" }}>
         <AlertCircle size={28} style={{ margin: "0 auto 12px auto", display: "block" }} />
@@ -1048,14 +1137,31 @@ function AssetsSection() {
     );
   }
 
-  const { netWorth, liquidCashTotal, equitiesTotal, epfoTotal, debtTotal, totalAssets, allocation, accounts, history } = data;
+  const { netWorth, liquidCashTotal, equitiesTotal, epfoTotal, debtTotal, totalAssets, allocation, accounts, history } = data!;
 
   const filteredAccounts = accounts.filter((acc) => {
-    if (selectedAssetCategory === "CASH") return ["SAVINGS", "BANK", "CASH", "FD", "FIXED_DEPOSIT"].includes(acc.type);
-    if (selectedAssetCategory === "EQUITIES") return ["INVESTMENT", "STOCKS", "MUTUAL_FUND"].includes(acc.type);
-    if (selectedAssetCategory === "EPFO") return acc.type === "EPFO";
-    if (selectedAssetCategory === "DEBT") return ["LOAN", "CREDIT_CARD"].includes(acc.type);
-    return true;
+    const matchesCategory =
+      selectedAssetCategory === "ALL"
+        ? true
+        : selectedAssetCategory === "CASH"
+        ? ["SAVINGS", "BANK", "CASH", "FD", "FIXED_DEPOSIT"].includes(acc.type)
+        : selectedAssetCategory === "EQUITIES"
+        ? ["INVESTMENT", "STOCKS", "MUTUAL_FUND"].includes(acc.type)
+        : selectedAssetCategory === "EPFO"
+        ? acc.type === "EPFO"
+        : selectedAssetCategory === "DEBT"
+        ? ["LOAN", "CREDIT_CARD"].includes(acc.type)
+        : true;
+
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !query ||
+      acc.name.toLowerCase().includes(query) ||
+      (acc.institution && acc.institution.toLowerCase().includes(query)) ||
+      acc.type.toLowerCase().includes(query) ||
+      acc.holdings.some((h) => h.symbol.toLowerCase().includes(query) || h.name.toLowerCase().includes(query));
+
+    return matchesCategory && matchesSearch;
   });
 
   const firstWorth = history.length > 0 ? history[0].netWorth : netWorth;
@@ -1063,13 +1169,26 @@ function AssetsSection() {
   const netWorthDelta = lastWorth - firstWorth;
   const growthPct = firstWorth !== 0 ? Math.round(((lastWorth - firstWorth) / Math.abs(firstWorth)) * 1000) / 10 : 0;
   const isPositiveGrowth = netWorthDelta >= 0;
+  const liquidPct = totalAssets > 0 ? Math.round((liquidCashTotal / totalAssets) * 100) : 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      {/* 1. Hero Card */}
-      <div className="hero-card assets-hero">
+      {/* Notifications */}
+      {error && (
+        <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#ef4444", padding: "12px 16px", borderRadius: "10px", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
+      {successMsg && (
+        <div style={{ background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", color: "#10b981", padding: "12px 16px", borderRadius: "10px", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <Sparkles size={16} /> {successMsg}
+        </div>
+      )}
+
+      {/* 1. Hero Card & Actions Bar */}
+      <div className="hero-card assets-hero" style={{ position: "relative" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             <span style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "1px", opacity: 0.85, fontWeight: 700 }}>
               Total Net Worth & Assets
             </span>
@@ -1087,15 +1206,39 @@ function AssetsSection() {
               {isPositiveGrowth ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
               {growthPct > 0 ? `+${growthPct}%` : `${growthPct}%`} (12M)
             </span>
+            <span style={{ background: "rgba(59, 130, 246, 0.25)", border: "1px solid rgba(59, 130, 246, 0.4)", padding: "3px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 700, color: "#ffffff" }}>
+              💧 {liquidPct}% Liquid Ratio
+            </span>
           </div>
-          <strong style={{ margin: "4px 0" }}>{formatAmount(netWorth)}</strong>
+          <strong style={{ margin: "4px 0", display: "block", fontSize: "2rem" }}>{formatAmount(netWorth)}</strong>
           <small>
             <Sparkles size={14} />
             Total Assets: {formatAmount(totalAssets)} • Liabilities: {formatAmount(debtTotal)}
           </small>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", position: "relative", zIndex: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", zIndex: 10 }}>
+          <button
+            type="button"
+            className="primary compact"
+            onClick={() => setAddAssetModalOpen(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 16px",
+              borderRadius: "20px",
+              background: "var(--green)",
+              color: "#ffffff",
+              fontWeight: 700,
+              fontSize: "12px",
+              border: "none",
+              cursor: "pointer",
+            }}>
+            <Plus size={15} />
+            <span>Add Asset / Holding</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setHidePrivacy(!hidePrivacy)}
@@ -1156,32 +1299,57 @@ function AssetsSection() {
         </div>
       </section>
 
-      {/* 3. Account Holdings Breakdown */}
+      {/* 3. Account Holdings Breakdown & Search */}
       <section className="panel" style={{ padding: "24px" }}>
         <div className="panel-title" style={{ flexWrap: "wrap", gap: "16px", alignItems: "center", marginBottom: "20px", display: "flex", justifyContent: "space-between" }}>
           <div>
             <span className="eyebrow" style={{ color: "var(--green)" }}>Holdings & Accounts Portfolio</span>
-            <h2>Account Assets Breakdown</h2>
+            <h2>Account Assets Breakdown ({filteredAccounts.length})</h2>
           </div>
 
-          <div className="asset-filter-bar" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-            {(["ALL", "CASH", "EQUITIES", "EPFO", "DEBT"] as const).map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                className={`secondary compact ${selectedAssetCategory === cat ? "active" : ""}`}
-                onClick={() => setSelectedAssetCategory(cat)}
-                style={{ fontSize: "12px", padding: "4px 12px" }}>
-                {cat === "ALL" ? "All" : cat === "CASH" ? "Cash & FDs" : cat === "EQUITIES" ? "Equities" : cat === "EPFO" ? "EPFO" : "Loans & Debt"}
-              </button>
-            ))}
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+            {/* Search Box */}
+            <div style={{ position: "relative", minWidth: "200px" }}>
+              <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+              <input
+                type="text"
+                placeholder="Search assets, symbols..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: "100%",
+                  height: "34px",
+                  fontSize: "12px",
+                  paddingLeft: "30px",
+                  paddingRight: "10px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--line)",
+                  background: "var(--background-alt)",
+                  color: "var(--ink)",
+                }}
+              />
+            </div>
+
+            {/* Category Filter Bar */}
+            <div className="asset-filter-bar" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              {(["ALL", "CASH", "EQUITIES", "EPFO", "DEBT"] as const).map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  className={`secondary compact ${selectedAssetCategory === cat ? "active" : ""}`}
+                  onClick={() => setSelectedAssetCategory(cat)}
+                  style={{ fontSize: "12px", padding: "4px 12px" }}>
+                  {cat === "ALL" ? "All" : cat === "CASH" ? "Cash & FDs" : cat === "EQUITIES" ? "Equities" : cat === "EPFO" ? "EPFO" : "Loans & Debt"}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         <div style={{ display: "grid", gap: "16px" }}>
           {filteredAccounts.length === 0 ? (
             <div style={{ padding: "40px", textAlign: "center", color: "var(--muted)", fontSize: "13px" }}>
-              No active accounts or holdings found under this category filter.
+              No active accounts or asset holdings found under this search/category filter.
             </div>
           ) : (
             filteredAccounts.map((acc) => {
@@ -1194,21 +1362,38 @@ function AssetsSection() {
                       <Landmark size={18} />
                       <div>
                         <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700 }}>
-                          {acc.institution} • {acc.type}
+                          {acc.institution || "Personal"} • {acc.type}
                         </span>
                         <h3 style={{ margin: "2px 0 0 0", fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>{acc.name}</h3>
                       </div>
                     </div>
 
-                    <div style={{ textAlign: "right" }}>
-                      <strong style={{ fontSize: "1.2rem", fontWeight: 700, color: isNegative ? "#ef4444" : "var(--ink)" }}>
-                        {formatAmount(acc.balance)}
-                      </strong>
-                      {!isNegative && totalAssets > 0 && (
-                        <small style={{ display: "block", color: "var(--muted)", fontSize: "11px" }}>
-                          {pctOfAssets}% of total assets
-                        </small>
-                      )}
+                    <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                      <div style={{ textAlign: "right" }}>
+                        <strong style={{ fontSize: "1.2rem", fontWeight: 700, color: isNegative ? "#ef4444" : "var(--ink)" }}>
+                          {formatAmount(acc.balance)}
+                        </strong>
+                        {!isNegative && totalAssets > 0 && (
+                          <small style={{ display: "block", color: "var(--muted)", fontSize: "11px" }}>
+                            {pctOfAssets}% of total assets
+                          </small>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        className="icon-button"
+                        title="Edit Asset Valuation / Balance"
+                        onClick={() => {
+                          setEditingAsset(acc);
+                          setEditAssetName(acc.name);
+                          setEditAssetInstitution(acc.institution || "");
+                          setEditValuationInput(String(acc.balance / 100));
+                        }}
+                        style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: "8px", padding: "6px 10px", cursor: "pointer", fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px", color: "var(--ink)" }}>
+                        <Pencil size={12} />
+                        <span>Edit</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1235,6 +1420,137 @@ function AssetsSection() {
           )}
         </div>
       </section>
+
+      {/* 4. ADD CUSTOM ASSET MODAL */}
+      {addAssetModalOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(4px)", zIndex: 10000, display: "grid", placeItems: "center", padding: "16px" }}>
+          <section className="panel" style={{ width: "min(500px, 94vw)", padding: "28px", borderRadius: "16px", position: "relative", background: "var(--card)", border: "1px solid var(--line)" }}>
+            <button type="button" className="icon-button" style={{ position: "absolute", top: "16px", right: "16px" }} onClick={() => setAddAssetModalOpen(false)}>
+              <X size={16} />
+            </button>
+
+            <span className="eyebrow" style={{ color: "var(--green)" }}>Asset Holdings</span>
+            <h2 style={{ margin: "4px 0 20px", fontSize: "1.3rem" }}>Add Custom Asset / Holding</h2>
+
+            <form onSubmit={handleAddAssetSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Asset Sub-Type *</label>
+                <select
+                  value={newAssetType}
+                  onChange={(e: any) => setNewAssetType(e.target.value)}
+                  style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                  <option value="SAVINGS">💰 Savings / Bank Cash</option>
+                  <option value="FIXED_DEPOSIT">🏦 Fixed Deposit (FD / RD)</option>
+                  <option value="STOCKS">📈 Stock Market Portfolio</option>
+                  <option value="INVESTMENT">📊 Mutual Funds & Investments</option>
+                  <option value="EPFO">🏛️ EPFO Provident Fund</option>
+                  <option value="CASH">🪙 Gold, Real Estate & Tangible Asset</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Asset / Account Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Physical Gold 24K, BHK Flat Valuation, HDFC Tax Saver FD"
+                  value={newAssetName}
+                  onChange={(e) => setNewAssetName(e.target.value)}
+                  required
+                  style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Institution / Storage (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. SBI Bank, Zerodha, Home Vault, Self"
+                  value={newAssetInstitution}
+                  onChange={(e) => setNewAssetInstitution(e.target.value)}
+                  style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Current Valuation / Opening Balance (₹) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="e.g. 250000"
+                  value={newAssetValuation}
+                  onChange={(e) => setNewAssetValuation(e.target.value)}
+                  required
+                  style={{ width: "100%", height: "40px", fontSize: "14px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 700 }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+                <button type="button" className="ghost compact" onClick={() => setAddAssetModalOpen(false)}>Cancel</button>
+                <button type="submit" disabled={addingAsset} className="primary compact" style={{ minWidth: "120px" }}>
+                  {addingAsset ? <Loader2 size={14} className="spin" /> : "Save Asset"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {/* 5. EDIT ASSET VALUATION MODAL */}
+      {editingAsset && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(4px)", zIndex: 10000, display: "grid", placeItems: "center", padding: "16px" }}>
+          <section className="panel" style={{ width: "min(480px, 94vw)", padding: "28px", borderRadius: "16px", position: "relative", background: "var(--card)", border: "1px solid var(--line)" }}>
+            <button type="button" className="icon-button" style={{ position: "absolute", top: "16px", right: "16px" }} onClick={() => setEditingAsset(null)}>
+              <X size={16} />
+            </button>
+
+            <span className="eyebrow" style={{ color: "var(--green)" }}>Valuation Calibration</span>
+            <h2 style={{ margin: "4px 0 20px", fontSize: "1.3rem" }}>Edit Valuation / Balance</h2>
+
+            <form onSubmit={handleUpdateValuationSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Asset Name</label>
+                <input
+                  type="text"
+                  value={editAssetName}
+                  onChange={(e) => setEditAssetName(e.target.value)}
+                  required
+                  style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Institution / Storage</label>
+                <input
+                  type="text"
+                  value={editAssetInstitution}
+                  onChange={(e) => setEditAssetInstitution(e.target.value)}
+                  style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Current Asset Valuation / Balance (₹) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editValuationInput}
+                  onChange={(e) => setEditValuationInput(e.target.value)}
+                  required
+                  style={{ width: "100%", height: "40px", fontSize: "14px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 700 }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+                <button type="button" className="ghost compact" onClick={() => setEditingAsset(null)}>Cancel</button>
+                <button type="submit" disabled={updatingValuation} className="primary compact" style={{ minWidth: "120px" }}>
+                  {updatingValuation ? <Loader2 size={14} className="spin" /> : "Update Valuation"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

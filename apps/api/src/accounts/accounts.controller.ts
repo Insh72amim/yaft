@@ -915,6 +915,7 @@ export class AccountsController {
     const updateData: any = {};
     if (dto.name !== undefined) updateData.name = dto.name;
     if (dto.institution !== undefined) updateData.institution = dto.institution;
+    if (dto.openingBalance !== undefined) updateData.openingBalance = BigInt(dto.openingBalance);
     if (dto.creditLimit !== undefined) updateData.creditLimit = dto.creditLimit !== null ? BigInt(dto.creditLimit) : null;
     if (dto.statementDay !== undefined) updateData.statementDay = dto.statementDay;
     if (dto.dueDay !== undefined) updateData.dueDay = dto.dueDay;

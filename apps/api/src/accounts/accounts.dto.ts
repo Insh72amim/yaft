@@ -27,6 +27,7 @@ export class DeleteAccountDto {
 export class UpdateAccountDto {
   @IsOptional() @IsString() @Length(2, 80) name?: string;
   @IsOptional() @IsString() @Length(1, 80) institution?: string;
+  @IsOptional() @IsInt() openingBalance?: number;
   @IsOptional() @IsInt() @Min(0) creditLimit?: number;
   @IsOptional() @IsInt() @Min(1) @Max(31) statementDay?: number;
   @IsOptional() @IsInt() @Min(1) @Max(31) dueDay?: number;

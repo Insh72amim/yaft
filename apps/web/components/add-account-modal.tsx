@@ -10,6 +10,7 @@ export const accountChoices = [
   { group: 'OTHER', type: 'CREDIT_CARD', label: 'Credit card', detail: 'Limit, outstanding and due day', icon: CreditCard },
   { group: 'OTHER', type: 'LOAN', label: 'Loan account', detail: 'Home, vehicle or personal loan', icon: BadgeIndianRupee },
   { group: 'INVESTMENTS', type: 'EPFO', label: 'EPFO account', detail: 'Provident-fund balance', icon: Building2 },
+  { group: 'INVESTMENTS', type: 'CASH', label: 'Cash & Tangible Assets', detail: 'Physical gold, real estate, vault cash & custom holdings', icon: PiggyBank },
 ] as const;
 
 export const accountChoiceGroups = [
