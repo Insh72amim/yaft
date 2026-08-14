@@ -1101,11 +1101,12 @@ function BudgetsContent() {
 
         {/* CREATE / EDIT TAG MODAL */}
         {tagModalOpen && (
-          <div className="modal-backdrop" onClick={() => setTagModalOpen(false)}>
-            <div className="modal-content panel" style={{ maxWidth: "480px", width: "100%", padding: "24px" }} onClick={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>{editingTag ? "Edit Tag" : "Create New Tag"}</h3>
-                <button type="button" className="icon-button" onClick={() => setTagModalOpen(false)}><X size={18}/></button>
+          <div className="modal-wrap" style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", zIndex: 99999, background: "rgba(0, 0, 0, 0.65)", backdropFilter: "blur(4px)", padding: "20px" }}>
+            <button type="button" className="backdrop" onClick={() => setTagModalOpen(false)} aria-label="Close modal" style={{ position: "absolute", inset: 0, background: "transparent", border: 0, width: "100%", height: "100%", cursor: "pointer" }} />
+            <section className="modal" style={{ position: "relative", zIndex: 10, width: "min(500px, 92vw)", padding: "28px", borderRadius: "16px", background: "var(--card)", border: "1px solid var(--line)", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>{editingTag ? "Edit Tag" : "Create New Tag"}</h2>
+                <button type="button" className="icon-button" onClick={() => setTagModalOpen(false)} style={{ background: "transparent", border: "none", cursor: "pointer" }}><X size={18}/></button>
               </div>
               <form onSubmit={handleSaveTag} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div>
@@ -1116,7 +1117,7 @@ function BudgetsContent() {
                     onChange={(e) => setTagName(e.target.value)}
                     placeholder="e.g. Vacation 2026 or Medical Expenses"
                     required
-                    style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
+                    style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 12px", background: "var(--background-alt)", color: "var(--ink)" }}
                   />
                 </div>
 
@@ -1128,7 +1129,7 @@ function BudgetsContent() {
                         key={c}
                         type="button"
                         onClick={() => setTagColor(c)}
-                        style={{ width: "26px", height: "26px", borderRadius: "50%", background: c, border: tagColor === c ? "2px solid var(--ink)" : "none", cursor: "pointer" }}
+                        style={{ width: "28px", height: "28px", borderRadius: "50%", background: c, border: tagColor === c ? "2.5px solid var(--ink)" : "none", cursor: "pointer" }}
                       />
                     ))}
                   </div>
@@ -1141,7 +1142,7 @@ function BudgetsContent() {
                     value={tagDesc}
                     onChange={(e) => setTagDesc(e.target.value)}
                     placeholder="e.g. Summer vacation flights, hotels & dining"
-                    style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
+                    style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 12px", background: "var(--background-alt)", color: "var(--ink)" }}
                   />
                 </div>
 
@@ -1152,7 +1153,7 @@ function BudgetsContent() {
                       type="date"
                       value={tagStart}
                       onChange={(e) => setTagStart(e.target.value)}
-                      style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 8px", background: "var(--background-alt)", color: "var(--ink)" }}
+                      style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
                     />
                   </div>
                   <div>
@@ -1161,7 +1162,7 @@ function BudgetsContent() {
                       type="date"
                       value={tagEnd}
                       onChange={(e) => setTagEnd(e.target.value)}
-                      style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 8px", background: "var(--background-alt)", color: "var(--ink)" }}
+                      style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
                     />
                   </div>
                 </div>
@@ -1173,7 +1174,7 @@ function BudgetsContent() {
                     value={tagBudget}
                     onChange={(e) => setTagBudget(e.target.value)}
                     placeholder="e.g. 50000"
-                    style={{ width: "100%", height: "36px", borderRadius: "6px", border: "1px solid var(--line)", padding: "0 10px", background: "var(--background-alt)", color: "var(--ink)" }}
+                    style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 12px", background: "var(--background-alt)", color: "var(--ink)" }}
                   />
                 </div>
 
@@ -1184,7 +1185,7 @@ function BudgetsContent() {
                   </button>
                 </div>
               </form>
-            </div>
+            </section>
           </div>
         )}
       </div>
