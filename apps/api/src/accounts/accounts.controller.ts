@@ -777,6 +777,24 @@ export class AccountsController {
     const loan = account.loans[0];
     if (!loan) throw new NotFoundException('No active loan found for this account.');
     
+    const now = new Date();
+    const todayYMD = now.toISOString().slice(0, 10);
+    const dueInstallmentIds = loan.installments
+      .filter((i: any) => i.status === InstallmentStatus.FUTURE && (i.dueDate <= now || i.dueDate.toISOString().slice(0, 10) <= todayYMD))
+      .map((i: any) => i.id);
+
+    if (dueInstallmentIds.length > 0) {
+      await this.prisma.loanInstallment.updateMany({
+        where: { id: { in: dueInstallmentIds } },
+        data: { status: InstallmentStatus.PAST_UNCONFIRMED },
+      });
+      for (const inst of loan.installments) {
+        if (dueInstallmentIds.includes(inst.id)) {
+          inst.status = InstallmentStatus.PAST_UNCONFIRMED;
+        }
+      }
+    }
+
     const installments = loan.installments;
     const paidInstallments = installments.filter((i: any) => i.status === InstallmentStatus.PAID);
     
@@ -840,8 +858,16 @@ export class AccountsController {
       where: { id: installmentId, loanId: loan.id }
     });
     if (!installment) throw new NotFoundException('Installment not found.');
-    if (installment.status !== InstallmentStatus.PAST_UNCONFIRMED) {
-      throw new BadRequestException('Only past due installments awaiting confirmation can be confirmed.');
+    if (installment.status === InstallmentStatus.PAID) {
+      throw new BadRequestException('This installment has already been confirmed as paid.');
+    }
+    
+    const now = new Date();
+    const todayYMD = now.toISOString().slice(0, 10);
+    const instYMD = installment.dueDate.toISOString().slice(0, 10);
+    const isDueOrPast = installment.status === InstallmentStatus.PAST_UNCONFIRMED || installment.dueDate <= now || instYMD <= todayYMD;
+    if (!isDueOrPast) {
+      throw new BadRequestException('Future installments cannot be confirmed until their due date.');
     }
     
     const updated = await this.prisma.loanInstallment.update({

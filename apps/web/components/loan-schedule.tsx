@@ -105,7 +105,13 @@ export function LoanSchedule({ accountId, embedded }: { accountId: string; embed
         </span>
       );
     }
-    if (inst.status === 'PAST_UNCONFIRMED') {
+    const due = new Date(inst.dueDate);
+    const now = new Date();
+    const dueYMD = due.toISOString().slice(0, 10);
+    const todayYMD = now.toISOString().slice(0, 10);
+    const isDueOrPast = inst.status === 'PAST_UNCONFIRMED' || dueYMD <= todayYMD || due <= now;
+
+    if (isDueOrPast) {
       return (
         <button 
           className="loan-confirm-btn" 

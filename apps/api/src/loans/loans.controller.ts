@@ -84,6 +84,24 @@ export class LoansController {
     if (loan.account.userId !== user.id) throw new NotFoundException('Loan not found');
 
     const installments = await this.prisma.loanInstallment.findMany({ where: { loanId }, orderBy: { dueDate: 'asc' } });
+    const now = new Date();
+    const todayYMD = now.toISOString().slice(0, 10);
+    const dueIds = installments
+      .filter((i: any) => i.status === 'FUTURE' && (i.dueDate <= now || i.dueDate.toISOString().slice(0, 10) <= todayYMD))
+      .map((i: any) => i.id);
+
+    if (dueIds.length > 0) {
+      await this.prisma.loanInstallment.updateMany({
+        where: { id: { in: dueIds } },
+        data: { status: 'PAST_UNCONFIRMED' },
+      });
+      for (const inst of installments) {
+        if (dueIds.includes(inst.id)) {
+          inst.status = 'PAST_UNCONFIRMED';
+        }
+      }
+    }
+
     return installments.map((i: any) => ({ id: i.id, dueDate: i.dueDate, principalAmount: Number(i.principalAmount), interestAmount: Number(i.interestAmount), emiAmount: Number(i.emiAmount), balance: Number(i.balance), status: i.status, confirmedAt: i.confirmedAt }));
   }
 
@@ -95,6 +113,14 @@ export class LoansController {
     const inst = await this.prisma.loanInstallment.findFirst({ where: { id: instId, loanId } });
     if (!inst) throw new NotFoundException('Installment not found');
     if (inst.status === 'PAID') return { ok: true };
+
+    const now = new Date();
+    const todayYMD = now.toISOString().slice(0, 10);
+    const instYMD = inst.dueDate.toISOString().slice(0, 10);
+    const isDueOrPast = inst.status === 'PAST_UNCONFIRMED' || inst.dueDate <= now || instYMD <= todayYMD;
+    if (!isDueOrPast) {
+      throw new BadRequestException('Future installments cannot be confirmed until their due date.');
+    }
 
     // create transaction and mark installment PAID
     const txResult = await this.prisma.$transaction(async (tx) => {
