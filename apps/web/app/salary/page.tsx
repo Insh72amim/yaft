@@ -11,6 +11,7 @@ import {
   Upload,
   WalletCards,
   Eye,
+  TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -57,7 +58,7 @@ type SalaryOverview = {
 export default function SalaryPage() {
   const router = useRouter();
   const [data, setData] = useState<SalaryOverview>();
-  const [activeTab, setActiveTab] = useState<"statements" | "timeline" | "organizations">(
+  const [activeTab, setActiveTab] = useState<"statements" | "analytics" | "timeline" | "organizations">(
     "statements",
   );
   const [error, setError] = useState("");
@@ -321,15 +322,23 @@ export default function SalaryPage() {
             aria-selected={activeTab === "statements"}
             className={activeTab === "statements" ? "active" : ""}
             onClick={() => setActiveTab("statements")}>
-            <FileText />
-            Statements
+            <FileText size={16} />
+            Verified salary records
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === "analytics"}
+            className={activeTab === "analytics" ? "active" : ""}
+            onClick={() => setActiveTab("analytics")}>
+            <TrendingUp size={16} />
+            Analytics &amp; Tax Deductions
           </button>
           <button
             role="tab"
             aria-selected={activeTab === "timeline"}
             className={activeTab === "timeline" ? "active" : ""}
             onClick={() => setActiveTab("timeline")}>
-            <ArrowUpRight />
+            <ArrowUpRight size={16} />
             Earnings &amp; tax timeline
           </button>
           <button
@@ -449,26 +458,6 @@ export default function SalaryPage() {
             </article>
           </section>
 
-          <SalaryAnalyticsCard
-            statementCount={filteredSummary.statementCount}
-            totalGross={filteredSummary.totalGross}
-            totalDeductions={filteredSummary.totalDeductions}
-            totalNet={filteredSummary.totalNet}
-            employeePf={filteredSummary.employeePf}
-            employerPf={filteredSummary.employerPf}
-            taxes={filteredSummary.taxes}
-            latestNetPay={filteredSummary.latestNetPay}
-            selectedFy={selectedFy}
-          />
-
-          <SalaryTaxDeductionsCard
-            selectedFy={selectedFy}
-            currentFyEmployeePf={filteredSummary.employeePf}
-            currentFyTaxes={filteredSummary.taxes}
-            fyComparisons={fyComparisons}
-            onExportCsv={handleExportCsv}
-          />
-
           <section className="panel salary-history salary-history-wide">
             <div className="panel-title">
               <div>
@@ -518,75 +507,50 @@ export default function SalaryPage() {
                           </span>
                         )}
                       </div>
-                      <small style={{ color: "var(--muted)" }}>
-                        Gross {money(statement.grossEarnings)} · deductions{" "}
-                        {money(statement.grossDeductions)}
+                      <small>
+                        Net: {money(statement.netPay)} | Gross:{" "}
+                        {money(statement.grossEarnings)}
                       </small>
                     </div>
-                    <div className="statement-actions">
-                      <div className="button-group">
-                        <b>{money(statement.netPay)}</b>
-                        <div></div>
-                        <button
-                          type="button"
-                          className="secondary compact"
-                          onClick={() => setBreakdownStatement(statement)}
-                          title="View itemized breakdown"
-                        >
-                          Breakdown
-                        </button>
-                        {statement.filename !== "Manual Entry" ? (
-                          <>
-                            <button
-                              className="secondary compact icon-only"
-                              onClick={() => setViewingStatement(statement)}
-                              title="View inline PDF"
-                            >
-                              <Eye size={14} />
-                            </button>
-                            <button
-                              className="secondary compact"
-                              onClick={() => void handleDownload(statement)}
-                            >
-                              Download
-                            </button>
-                          </>
-                        ) : (
-                          <span
-                            style={{
-                              fontSize: "11px",
-                              color: "var(--text-muted)",
-                              padding: "4px 8px",
-                              backgroundColor: "var(--background-alt)",
-                              borderRadius: "4px",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            Manual
-                          </span>
-                        )}
-                        <button
-                          className="danger compact icon-only"
-                          onClick={() => {
-                            setDeleteError("");
-                            setDeletingId(statement.id);
-                          }}
-                          aria-label="Delete statement">
-                          <Trash2 />
-                        </button>
-                      </div>
+                    <div className="salary-actions">
+                      <button
+                        type="button"
+                        className="secondary compact"
+                        onClick={() => setBreakdownStatement(statement)}
+                      >
+                        <Eye size={14} />
+                        View Breakdown
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary compact"
+                        onClick={() => setViewingStatement(statement)}
+                      >
+                        <FileText size={14} />
+                        View PDF
+                      </button>
+                      <button
+                        type="button"
+                        className="danger compact icon-only"
+                        onClick={() => setDeletingId(statement.id)}
+                        aria-label={`Delete statement for ${statement.employer}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </article>
                 ))}
               </div>
             ) : (
-              <div className="salary-empty">
-                <BadgeIndianRupee />
-                <strong>No verified salary months yet</strong>
-                <p>
-                  Upload your monthly payslip PDF or enter your salary breakdown manually to track your net pay, taxes, and EPF savings.
+              <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center" }}>
+                <FileText size={48} style={{ opacity: 0.3, marginBottom: "16px", color: "var(--muted)" }} />
+                <h3 style={{ margin: "0 0 8px 0" }}>No payslips found</h3>
+                <p style={{ margin: "0 0 20px 0", color: "var(--muted)", maxWidth: "420px" }}>
+                  {selectedFy !== "ALL" || selectedOrgId !== "ALL"
+                    ? "No salary statements match your selected filter criteria."
+                    : "Upload your first PDF payslip or add salary details manually to start tracking your earnings."}
                 </p>
-                <div style={{ display: "flex", gap: "10px", marginTop: "12px", justifyContent: "center" }}>
+                <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
                   <Link
                     className="primary"
                     href="/import?kind=SALARY_PAYSLIP&source=STANDARD_PAYSLIP"
@@ -605,6 +569,28 @@ export default function SalaryPage() {
             )}
           </section>
         </>
+      ) : activeTab === "analytics" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <SalaryAnalyticsCard
+            statementCount={filteredSummary.statementCount}
+            totalGross={filteredSummary.totalGross}
+            totalDeductions={filteredSummary.totalDeductions}
+            totalNet={filteredSummary.totalNet}
+            employeePf={filteredSummary.employeePf}
+            employerPf={filteredSummary.employerPf}
+            taxes={filteredSummary.taxes}
+            latestNetPay={filteredSummary.latestNetPay}
+            selectedFy={selectedFy}
+          />
+
+          <SalaryTaxDeductionsCard
+            selectedFy={selectedFy}
+            currentFyEmployeePf={filteredSummary.employeePf}
+            currentFyTaxes={filteredSummary.taxes}
+            fyComparisons={fyComparisons}
+            onExportCsv={handleExportCsv}
+          />
+        </div>
       ) : activeTab === "organizations" ? (
         <section className="panel" style={{ padding: "20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
