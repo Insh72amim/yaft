@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { PrismaService } from '../common/prisma.service';
+import { AccountType } from '@prisma/client';
 
 function extractBeneficiaryName(description: string): string | null {
   if (!description) return null;
@@ -517,8 +518,23 @@ export class DashboardController {
 
   @Get('assets-history')
   async getAssetsHistory(@CurrentUser() user: { id: string }) {
+    // Exclude UPI_LITE, CREDIT_CARD, and LOAN accounts from Assets
     const accounts = await this.prisma.account.findMany({
-      where: { userId: user.id, archived: false },
+      where: {
+        userId: user.id,
+        archived: false,
+        type: {
+          in: [
+            AccountType.SAVINGS,
+            AccountType.BANK,
+            AccountType.FIXED_DEPOSIT,
+            AccountType.CASH,
+            AccountType.INVESTMENT,
+            AccountType.STOCKS,
+            AccountType.EPFO,
+          ],
+        },
+      },
       include: {
         transactions: {
           select: { id: true, amount: true, transactionDate: true },
@@ -533,7 +549,7 @@ export class DashboardController {
     const now = new Date();
     const months: { label: string; year: number; month: number; start: Date; end: Date }[] = [];
 
-    for (let i = 5; i >= 0; i--) {
+    for (let i = 11; i >= 0; i--) {
       const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
       const year = d.getUTCFullYear();
       const month = d.getUTCMonth();
@@ -543,10 +559,11 @@ export class DashboardController {
       months.push({ label: monthLabel, year, month, start, end });
     }
 
-    let liquidCashTotal = 0;
-    let equitiesTotal = 0;
+    let savingsTotal = 0;
+    let depositsTotal = 0;
+    let stocksTotal = 0;
+    let mutualFundsTotal = 0;
     let epfoTotal = 0;
-    let debtTotal = 0;
 
     const accountBreakdown = accounts.map((account: any) => {
       const ledgerBalance = Number(account.openingBalance) + (account.transactions || []).reduce((sum: number, row: any) => sum + Number(row.amount), 0);
@@ -557,40 +574,68 @@ export class DashboardController {
         ? holdingsList.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0)
         : ledgerBalance;
 
-      if (['SAVINGS', 'BANK', 'CASH', 'FD', 'FIXED_DEPOSIT'].includes(account.type)) {
-        if (balance > 0) liquidCashTotal += balance;
-      } else if (['INVESTMENT', 'STOCKS', 'MUTUAL_FUND'].includes(account.type)) {
-        if (balance > 0) equitiesTotal += balance;
-      } else if (account.type === 'EPFO') {
+      // Classify asset category
+      let category = 'SAVINGS';
+      const nameLower = (account.name + ' ' + (account.institution || '')).toLowerCase();
+      if (account.type === 'FIXED_DEPOSIT' || nameLower.includes('fixed deposit') || nameLower.includes('fd-') || nameLower.includes('-fd')) {
+        category = 'DEPOSITS';
+        if (balance > 0) depositsTotal += balance;
+      } else if (account.type === 'EPFO' || nameLower.includes('epfo') || nameLower.includes('provident')) {
+        category = 'EPFO';
         if (balance > 0) epfoTotal += balance;
-      } else if (['LOAN', 'CREDIT_CARD'].includes(account.type)) {
-        if (balance < 0) debtTotal += Math.abs(balance);
+      } else if (account.type === 'STOCKS' || nameLower.includes('zerodha') || nameLower.includes('demat') || nameLower.includes('stocks')) {
+        if (nameLower.includes('mf') || nameLower.includes('mutual fund') || nameLower.includes('groww')) {
+          category = 'MUTUAL_FUNDS';
+          if (balance > 0) mutualFundsTotal += balance;
+        } else {
+          category = 'STOCKS';
+          if (balance > 0) stocksTotal += balance;
+        }
+      } else if (account.type === 'INVESTMENT' || nameLower.includes('mutual') || nameLower.includes('fund') || nameLower.includes('sip')) {
+        category = 'MUTUAL_FUNDS';
+        if (balance > 0) mutualFundsTotal += balance;
+      } else {
+        category = 'SAVINGS';
+        if (balance > 0) savingsTotal += balance;
       }
+
+      const investedValue = holdingsList.reduce((sum: number, h: any) => {
+        if (h.averagePrice && h.quantity) {
+          return sum + Number(h.averagePrice) * Number(h.quantity);
+        }
+        return sum;
+      }, 0);
 
       return {
         id: account.id,
         name: account.name,
         type: account.type,
+        category,
         institution: account.institution,
         balance,
+        investedValue: investedValue > 0 ? Math.round(investedValue) : null,
+        unrealizedPnl: investedValue > 0 ? balance - Math.round(investedValue) : null,
         holdingCount: holdingsList.length,
         holdings: holdingsList.map((h: any) => ({
           symbol: h.asset?.symbol ?? 'ASSET',
           name: h.asset?.name ?? 'Asset Position',
-          category: h.asset?.sector ?? 'General',
+          category: h.asset?.sector ?? h.asset?.assetType ?? 'Equity',
           quantity: Number(h.quantity),
+          averagePrice: h.averagePrice !== null ? Number(h.averagePrice) : null,
           currentValue: h.currentValue !== null ? Number(h.currentValue) : null,
+          unrealizedPnl: h.unrealizedPnl !== null ? Number(h.unrealizedPnl) : null,
         })),
       };
     });
 
-    const netWorth = liquidCashTotal + equitiesTotal + epfoTotal - debtTotal;
+    const totalAssets = savingsTotal + depositsTotal + stocksTotal + mutualFundsTotal + epfoTotal;
 
     const history = months.map((m) => {
-      let liquid = 0;
-      let equities = 0;
+      let savings = 0;
+      let deposits = 0;
+      let stocks = 0;
+      let mutualFunds = 0;
       let epfo = 0;
-      let debt = 0;
 
       accounts.forEach((account: any) => {
         const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
@@ -602,44 +647,54 @@ export class DashboardController {
           ? holdingsList.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0)
           : cumLedger;
 
-        if (['SAVINGS', 'BANK', 'CASH', 'FD', 'FIXED_DEPOSIT'].includes(account.type)) {
-          if (bal > 0) liquid += bal;
-        } else if (['INVESTMENT', 'STOCKS', 'MUTUAL_FUND'].includes(account.type)) {
-          if (bal > 0) equities += bal;
-        } else if (account.type === 'EPFO') {
-          if (bal > 0) epfo += bal;
-        } else if (['LOAN', 'CREDIT_CARD'].includes(account.type)) {
-          if (bal < 0) debt += Math.abs(bal);
+        if (bal <= 0) return;
+
+        const nameLower = (account.name + ' ' + (account.institution || '')).toLowerCase();
+        if (account.type === 'FIXED_DEPOSIT' || nameLower.includes('fixed deposit') || nameLower.includes('fd-') || nameLower.includes('-fd')) {
+          deposits += bal;
+        } else if (account.type === 'EPFO' || nameLower.includes('epfo') || nameLower.includes('provident')) {
+          epfo += bal;
+        } else if (account.type === 'STOCKS' || nameLower.includes('zerodha') || nameLower.includes('demat') || nameLower.includes('stocks')) {
+          if (nameLower.includes('mf') || nameLower.includes('mutual fund') || nameLower.includes('groww')) {
+            mutualFunds += bal;
+          } else {
+            stocks += bal;
+          }
+        } else if (account.type === 'INVESTMENT' || nameLower.includes('mutual') || nameLower.includes('fund') || nameLower.includes('sip')) {
+          mutualFunds += bal;
+        } else {
+          savings += bal;
         }
       });
 
-      const monthNetWorth = liquid + equities + epfo - debt;
+      const monthTotalAssets = savings + deposits + stocks + mutualFunds + epfo;
 
       return {
         month: m.label,
-        liquid,
-        equities,
+        savings,
+        deposits,
+        stocks,
+        mutualFunds,
         epfo,
-        debt,
-        netWorth: monthNetWorth,
+        totalAssets: monthTotalAssets,
       };
     });
 
-    const totalAssets = liquidCashTotal + equitiesTotal + epfoTotal;
     const allocation = {
-      liquidCash: { amount: liquidCashTotal, percentage: totalAssets > 0 ? Math.round((liquidCashTotal / totalAssets) * 1000) / 10 : 0 },
-      equities: { amount: equitiesTotal, percentage: totalAssets > 0 ? Math.round((equitiesTotal / totalAssets) * 1000) / 10 : 0 },
+      savings: { amount: savingsTotal, percentage: totalAssets > 0 ? Math.round((savingsTotal / totalAssets) * 1000) / 10 : 0 },
+      deposits: { amount: depositsTotal, percentage: totalAssets > 0 ? Math.round((depositsTotal / totalAssets) * 1000) / 10 : 0 },
+      stocks: { amount: stocksTotal, percentage: totalAssets > 0 ? Math.round((stocksTotal / totalAssets) * 1000) / 10 : 0 },
+      mutualFunds: { amount: mutualFundsTotal, percentage: totalAssets > 0 ? Math.round((mutualFundsTotal / totalAssets) * 1000) / 10 : 0 },
       epfo: { amount: epfoTotal, percentage: totalAssets > 0 ? Math.round((epfoTotal / totalAssets) * 1000) / 10 : 0 },
-      debt: { amount: debtTotal, percentage: totalAssets > 0 ? Math.round((debtTotal / totalAssets) * 1000) / 10 : 0 },
     };
 
     return {
-      netWorth,
-      liquidCashTotal,
-      equitiesTotal,
-      epfoTotal,
-      debtTotal,
       totalAssets,
+      savingsTotal,
+      depositsTotal,
+      stocksTotal,
+      mutualFundsTotal,
+      epfoTotal,
       allocation,
       accounts: accountBreakdown,
       history,
