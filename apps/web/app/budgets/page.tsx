@@ -643,7 +643,7 @@ function BudgetsContent() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
           <div>
             <span className="eyebrow" style={{ color: "var(--green)", fontWeight: 700 }}>Financial Governance & Categorization</span>
-            <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Category Budgets, Tags & Rules</h1>
+            <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700 }}>Category Budgets, Savings Goals & Rules</h1>
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", background: "var(--background-alt)", padding: "4px", borderRadius: "10px", border: "1px solid var(--line)" }}>
@@ -664,7 +664,7 @@ function BudgetsContent() {
               style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
             >
               <TagIcon size={15} color={activeTab === "TAGS" ? "#3b82f6" : "var(--muted)"} />
-              Tags ({tags.length})
+              Tags &amp; Savings Goals ({tags.length})
             </button>
 
             <button
@@ -940,14 +940,14 @@ function BudgetsContent() {
           </div>
         )}
 
-        {/* TAB 2: TAGS */}
+        {/* TAB 2: TAGS & GOALS */}
         {activeTab === "TAGS" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
             {/* Action Bar */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--ink)" }}>Custom Tags</h3>
-                <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "var(--muted)" }}>Tag transactions manually or set date-range rules to auto-apply tags across all accounts.</p>
+                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--ink)" }}>Custom Tags &amp; Financial Goals</h3>
+                <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "var(--muted)" }}>Track specific savings goals, vacation budgets, medical expenses, or custom transaction tags.</p>
               </div>
 
               <button
@@ -956,7 +956,7 @@ function BudgetsContent() {
                 onClick={() => { setEditingTag(null); setTagName(""); setTagColor("#3b82f6"); setTagDesc(""); setTagStart(""); setTagEnd(""); setTagBudget(""); setTagModalOpen(true); }}
                 style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
                 <Plus size={16} />
-                <span>Create New Tag</span>
+                <span>Create New Tag or Goal</span>
               </button>
             </div>
 
@@ -1716,17 +1716,17 @@ function BudgetsContent() {
             <button type="button" className="backdrop" onClick={() => setTagModalOpen(false)} aria-label="Close modal" style={{ position: "absolute", inset: 0, background: "transparent", border: 0, width: "100%", height: "100%", cursor: "pointer" }} />
             <section className="modal" style={{ position: "relative", zIndex: 10, width: "min(500px, 92vw)", padding: "28px", borderRadius: "16px", background: "var(--card)", border: "1px solid var(--line)", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)", display: "flex", flexDirection: "column", gap: "16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>{editingTag ? "Edit Tag" : "Create New Tag"}</h2>
+                <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>{editingTag ? "Edit Tag or Savings Goal" : "Create New Tag or Savings Goal"}</h2>
                 <button type="button" className="icon-button" onClick={() => setTagModalOpen(false)} style={{ background: "transparent", border: "none", cursor: "pointer" }}><X size={18}/></button>
               </div>
               <form onSubmit={handleSaveTag} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Tag Name</label>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Tag / Goal Name</label>
                   <input
                     type="text"
                     value={tagName}
                     onChange={(e) => setTagName(e.target.value)}
-                    placeholder="e.g. Vacation 2026 or Medical Expenses"
+                    placeholder="e.g. Vacation 2026, Emergency Fund Goal, New Car Deposit"
                     required
                     style={{ width: "100%", height: "38px", borderRadius: "8px", border: "1px solid var(--line)", padding: "0 12px", background: "var(--background-alt)", color: "var(--ink)" }}
                   />
@@ -1758,7 +1758,7 @@ function BudgetsContent() {
                 </div>
 
                 <div>
-                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Tag Budget Limit (₹, Optional)</label>
+                  <label style={{ fontSize: "12px", fontWeight: 600, display: "block", marginBottom: "4px" }}>Target Savings / Spending Goal Limit (₹, Optional)</label>
                   <input
                     type="number"
                     value={tagBudget}
@@ -1771,7 +1771,7 @@ function BudgetsContent() {
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
                   <button type="button" className="secondary" onClick={() => setTagModalOpen(false)}>Cancel</button>
                   <button type="submit" className="primary" disabled={savingTag}>
-                    {savingTag ? "Saving..." : editingTag ? "Update Tag" : "Create Tag"}
+                    {savingTag ? "Saving..." : editingTag ? "Update Tag / Goal" : "Create Tag / Goal"}
                   </button>
                 </div>
               </form>
