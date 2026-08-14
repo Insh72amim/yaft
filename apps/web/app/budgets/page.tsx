@@ -1505,7 +1505,7 @@ function BudgetsContent() {
                   <span>No custom rules defined yet. Click "Seed Default Rules" to quickly add standard rules!</span>
                 </div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "14px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "16px" }}>
                   {rules.map((rule) => {
                     const catName = rule.category?.name || "Unassigned";
                     const catColor = rule.category?.color || "#3b82f6";
@@ -1515,36 +1515,76 @@ function BudgetsContent() {
                         style={{
                           background: "var(--background-alt)",
                           border: "1px solid var(--line)",
-                          borderRadius: "12px",
-                          padding: "14px 16px",
+                          borderRadius: "14px",
+                          padding: "16px 18px",
                           display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
+                          flexDirection: "column",
+                          gap: "12px",
+                          minWidth: 0,
                         }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <strong style={{ fontSize: "14px", color: "var(--ink)", fontFamily: "monospace" }}>"{rule.pattern}"</strong>
-                            <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "var(--line)", color: "var(--muted)", fontWeight: 700 }}>
-                              {rule.matchField} ({rule.matchType})
+                        {/* Header Row: Badges + Delete Button */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", width: "100%" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", minWidth: 0 }}>
+                            <span style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "6px", background: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", fontWeight: 700, border: "1px solid rgba(59, 130, 246, 0.25)" }}>
+                              {rule.matchField}
+                            </span>
+                            <span style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "6px", background: "var(--line)", color: "var(--muted)", fontWeight: 700 }}>
+                              {rule.matchType}
                             </span>
                           </div>
 
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "var(--muted)" }}>
-                            <span>→</span>
-                            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: catColor, display: "inline-block" }} />
-                            <strong style={{ color: "var(--ink)" }}>{catName}</strong>
-                            <span>(Priority {rule.priority})</span>
-                          </div>
+                          <button
+                            type="button"
+                            className="icon-button danger"
+                            title="Delete Rule"
+                            onClick={() => handleDeleteRule(rule.id)}
+                            style={{
+                              background: "transparent",
+                              border: "1px solid var(--line)",
+                              borderRadius: "8px",
+                              width: "30px",
+                              height: "30px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              color: "#ef4444",
+                              flexShrink: 0,
+                            }}>
+                            <Trash2 size={14} />
+                          </button>
                         </div>
 
-                        <button
-                          type="button"
-                          className="icon-button danger"
-                          title="Delete Rule"
-                          onClick={() => handleDeleteRule(rule.id)}
-                          style={{ background: "transparent", border: "1px solid var(--line)", borderRadius: "6px", padding: "6px", cursor: "pointer", color: "#ef4444" }}>
-                          <Trash2 size={14} />
-                        </button>
+                        {/* Monospace Pattern Box */}
+                        <div style={{
+                          background: "var(--card)",
+                          border: "1px solid var(--line)",
+                          borderRadius: "8px",
+                          padding: "10px 12px",
+                          fontFamily: "var(--font-mono, monospace)",
+                          fontSize: "12px",
+                          color: "var(--ink)",
+                          wordBreak: "break-all",
+                          overflowWrap: "anywhere",
+                          lineHeight: 1.45,
+                          maxHeight: "100px",
+                          overflowY: "auto",
+                        }}>
+                          "{rule.pattern}"
+                        </div>
+
+                        {/* Footer: Target Category + Priority */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", paddingTop: "4px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ color: "var(--muted)" }}>Category:</span>
+                            <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: catColor, display: "inline-block" }} />
+                            <strong style={{ color: "var(--ink)", fontWeight: 700 }}>{catName}</strong>
+                          </div>
+
+                          <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>
+                            Priority <strong style={{ color: "var(--ink)" }}>{rule.priority}</strong>
+                          </span>
+                        </div>
                       </div>
                     );
                   })}
