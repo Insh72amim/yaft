@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
-import { parseMultipleEmailAlerts } from './email-alert-parser';
+import { parseMultipleEmailAlerts, getAlertFingerprint } from './email-alert-parser';
 import { ParseEmailSnippetDto } from './email-ingestion.dto';
 
 @Injectable()
@@ -35,7 +35,33 @@ export class EmailIngestionService {
       });
     }
 
-    const fileHash = createHash('sha256').update(dto.snippet + Date.now().toString()).digest('hex');
+    // Query existing committed transactions and pending review staged transactions for this account
+    const existingTxFingerprints = new Set(
+      (await this.prisma.transaction.findMany({ where: { accountId: account.id }, select: { fingerprint: true } })).map((x) => x.fingerprint)
+    );
+    const existingStagedFingerprints = new Set(
+      (await this.prisma.stagedTransaction.findMany({ where: { batch: { accountId: account.id, status: 'REVIEW' } }, select: { fingerprint: true } })).map((x) => x.fingerprint)
+    );
+
+    const stagedRows = parsedAlerts.map((alert, idx) => {
+      const fingerprint = getAlertFingerprint(account.id, alert);
+      const isDuplicate = existingTxFingerprints.has(fingerprint) || existingStagedFingerprints.has(fingerprint);
+      existingTxFingerprints.add(fingerprint);
+      return {
+        rowNumber: idx + 1,
+        transactionDate: alert.transactionDate,
+        descriptionRaw: `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' A/C ' + alert.accountLast4 : ''}]`,
+        merchant: alert.merchant,
+        amount: alert.amountMinor,
+        reference: alert.referenceNumber || null,
+        fingerprint,
+        isDuplicate,
+        include: !isDuplicate,
+        confidence: isDuplicate ? 100 : 90,
+      };
+    });
+
+    const fileHash = createHash('sha256').update(dto.snippet + stagedRows.map(r => r.fingerprint).join('-')).digest('hex');
 
     const batch = await this.prisma.importBatch.create({
       data: {
@@ -43,20 +69,10 @@ export class EmailIngestionService {
         accountId: account.id,
         filename: `email-alert-${new Date().toISOString().slice(0, 10)}.txt`,
         fileHash,
-        rowCount: parsedAlerts.length,
+        rowCount: stagedRows.length,
         status: 'REVIEW',
         staged: {
-          create: parsedAlerts.map((alert, idx) => ({
-            rowNumber: idx + 1,
-            transactionDate: alert.transactionDate,
-            descriptionRaw: `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' A/C ' + alert.accountLast4 : ''}]`,
-            merchant: alert.merchant,
-            amount: alert.amountMinor,
-            reference: alert.referenceNumber || null,
-            fingerprint: `${account.id}-${alert.transactionDate.toISOString()}-${alert.amountMinor}-${idx}`,
-            include: true,
-            confidence: 0.9,
-          })),
+          create: stagedRows,
         },
       },
       include: {

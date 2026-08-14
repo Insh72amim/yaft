@@ -4,7 +4,7 @@ import { createHash } from 'crypto';
 import { google } from 'googleapis';
 import { PrismaService } from '../common/prisma.service';
 import { StatementCredentialCipher } from '../common/statement-credentials.service';
-import { parseMultipleEmailAlerts, ParsedEmailTransaction, getAccountCategoryKey, getAccountCategoryDisplayName } from './email-alert-parser';
+import { parseMultipleEmailAlerts, ParsedEmailTransaction, getAccountCategoryKey, getAccountCategoryDisplayName, getAlertFingerprint } from './email-alert-parser';
 
 @Injectable()
 export class GoogleGmailService {
@@ -338,9 +338,52 @@ export class GoogleGmailService {
           userAccounts.push(matchedAccount);
         }
 
+        // Query existing committed transactions and pending review staged transactions for this account
+        const existingTxFingerprints = new Set(
+          (await this.prisma.transaction.findMany({ where: { accountId: matchedAccount.id }, select: { fingerprint: true } })).map((x) => x.fingerprint)
+        );
+        const existingStagedFingerprints = new Set(
+          (await this.prisma.stagedTransaction.findMany({ where: { batch: { accountId: matchedAccount.id, status: 'REVIEW' } }, select: { fingerprint: true } })).map((x) => x.fingerprint)
+        );
+
+        const stagedRows = groupAlerts.map((alert, idx) => {
+          const fingerprint = getAlertFingerprint(matchedAccount!.id, alert);
+          const isDuplicate = existingTxFingerprints.has(fingerprint) || existingStagedFingerprints.has(fingerprint);
+          existingTxFingerprints.add(fingerprint);
+          return {
+            rowNumber: idx + 1,
+            transactionDate: alert.transactionDate,
+            descriptionRaw: `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' ••' + alert.accountLast4 : ''}]`,
+            merchant: alert.merchant,
+            amount: alert.amountMinor,
+            reference: alert.referenceNumber || null,
+            fingerprint,
+            isDuplicate,
+            include: !isDuplicate,
+            confidence: isDuplicate ? 100 : 95,
+          };
+        });
+
+        // Count how many new (non-duplicate) items exist
+        const newRowsCount = stagedRows.filter((r) => !r.isDuplicate).length;
+
+        // If every single alert is already committed/staged, we don't need to create a redundant review batch
+        if (newRowsCount === 0 && stagedRows.length > 0) {
+          continue;
+        }
+
         const fileHash = createHash('sha256')
-          .update(JSON.stringify(groupAlerts, (k, v) => (typeof v === 'bigint' ? v.toString() : v)) + Date.now().toString() + groupKey)
+          .update(groupKey + stagedRows.map((r) => r.fingerprint).join(';'))
           .digest('hex');
+
+        // Check if an identical batch with this exact hash is already pending review
+        const existingPendingBatch = await this.prisma.importBatch.findFirst({
+          where: { accountId: matchedAccount.id, fileHash, status: 'REVIEW' },
+        });
+        if (existingPendingBatch) {
+          createdBatchIds.push(existingPendingBatch.id);
+          continue;
+        }
 
         const cleanBankSlug = bankName.replace(/[^a-zA-Z0-9]/g, '-');
         const batchFilename = `gmail-sync-${cleanBankSlug}-${targetType}-${last4 || 'all'}-${new Date().toISOString().slice(0, 10)}.txt`;
@@ -351,27 +394,17 @@ export class GoogleGmailService {
             accountId: matchedAccount.id,
             filename: batchFilename,
             fileHash,
-            rowCount: groupAlerts.length,
+            rowCount: stagedRows.length,
             status: 'REVIEW',
             staged: {
-              create: groupAlerts.map((alert, idx) => ({
-                rowNumber: idx + 1,
-                transactionDate: alert.transactionDate,
-                descriptionRaw: `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' ••' + alert.accountLast4 : ''}]`,
-                merchant: alert.merchant,
-                amount: alert.amountMinor,
-                reference: alert.referenceNumber || null,
-                fingerprint: `${matchedAccount!.id}-${alert.transactionDate.toISOString()}-${alert.amountMinor}-${idx}`,
-                include: true,
-                confidence: 0.95,
-              })),
+              create: stagedRows,
             },
           },
           include: { staged: true },
         });
 
         createdBatchIds.push(batch.id);
-        totalStaged += batch.staged.length;
+        totalStaged += stagedRows.filter((r) => !r.isDuplicate).length;
       }
 
       await this.prisma.emailSyncLog.create({
@@ -381,13 +414,17 @@ export class GoogleGmailService {
           emailsScanned: messages.length,
           alertsParsed: extractedAlerts.length,
           transactionsAdded: totalStaged,
-          sourceSnippet: `Ingested ${extractedAlerts.length} alert(s) across ${Object.keys(groups).length} account batch(es) from ${config.email} (${dateRangeLabel}).`,
+          sourceSnippet: `Ingested ${totalStaged} new alert(s) across ${createdBatchIds.length} account batch(es) from ${config.email} (${dateRangeLabel}).`,
         },
       });
 
+      const message = totalStaged > 0
+        ? `Successfully ingested ${totalStaged} new alert(s) across ${createdBatchIds.length} account batch(es) from ${config.email} (${dateRangeLabel})!`
+        : `Scanned ${messages.length} email(s) (${dateRangeLabel}). Found ${extractedAlerts.length} alert(s), all of which were already previously imported.`;
+
       return {
         success: true,
-        message: `Successfully ingested ${extractedAlerts.length} transaction alert(s) across ${Object.keys(groups).length} account batch(es) from ${config.email} (${dateRangeLabel})!`,
+        message,
         batchIds: createdBatchIds,
         scannedCount: messages.length,
         parsedCount: extractedAlerts.length,

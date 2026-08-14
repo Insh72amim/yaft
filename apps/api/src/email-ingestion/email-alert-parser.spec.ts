@@ -102,7 +102,31 @@ describe('EmailAlertParser', () => {
     expect(result?.merchant).toContain('ZOMATO');
   });
 
-  it('should correctly parse Indian date formats', () => {
+  it('should parse user exact ICICI Credit Card snippet with Month DD, YYYY and Info: label', () => {
+    const text = `Dear Customer,
+
+Your ICICI Bank Credit Card XX0001 has been used for a transaction of INR 500.00 on Aug 09, 2026 at 07:34:01. Info: MAKEMYTRIP INDIA PVT LT.
+
+The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit is INR 1,25,000.00. The above limits are a total of the limits of all the Credit Cards issued to the primary card holder, including any supplementary cards.`;
+    const result = parseEmailAlertSnippet(text, 'credit_cards@icicibank.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('ICICI Bank');
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('0001');
+    expect(result?.type).toBe('DEBIT');
+    expect(result?.amountDisplay).toBe(458);
+    expect(result?.amountMinor).toBe(-50000n);
+    expect(result?.merchant).toBe('MAKEMYTRIP INDIA PVT LT');
+    expect(result?.transactionDate.getUTCFullYear()).toBe(2026);
+    expect(result?.transactionDate.getUTCMonth()).toBe(7); // August
+    expect(result?.transactionDate.getUTCDate()).toBe(9);
+    expect(result?.transactionDate.getUTCHours()).toBe(7);
+    expect(result?.transactionDate.getUTCMinutes()).toBe(34);
+    expect(result?.transactionDate.getUTCSeconds()).toBe(1);
+  });
+
+  it('should correctly parse Indian date formats including Month DD, YYYY and times', () => {
     const d1 = parseIndianDate('14-08-26');
     expect(d1.getUTCFullYear()).toBe(2026);
     expect(d1.getUTCMonth()).toBe(7); // 0-indexed August
@@ -111,5 +135,13 @@ describe('EmailAlertParser', () => {
     const d2 = parseIndianDate('14-Aug-26');
     expect(d2.getUTCFullYear()).toBe(2026);
     expect(d2.getUTCMonth()).toBe(7);
+
+    const d3 = parseIndianDate('Aug 09, 2026', '07:34:01');
+    expect(d3.getUTCFullYear()).toBe(2026);
+    expect(d3.getUTCMonth()).toBe(7);
+    expect(d3.getUTCDate()).toBe(9);
+    expect(d3.getUTCHours()).toBe(7);
+    expect(d3.getUTCMinutes()).toBe(34);
+    expect(d3.getUTCSeconds()).toBe(1);
   });
 });

@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 export interface ParsedEmailTransaction {
   bankName: string;
   accountLast4?: string;
@@ -18,32 +20,64 @@ export function parseMoneyToMinorUnits(amountStr: string): bigint {
   return BigInt(Math.round(num * 100));
 }
 
-export function parseIndianDate(dateStr: string): Date {
+export function parseIndianDate(dateStr: string, timeStr?: string): Date {
   if (!dateStr) return new Date();
   const months: Record<string, number> = {
-    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+    jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
+    apr: 3, april: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6,
+    aug: 7, august: 7, sep: 8, sept: 8, september: 8,
+    oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11,
   };
 
-  // Match DD-MM-YY or DD-MM-YYYY or DD/MM/YYYY
-  const numMatch = dateStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
-  if (numMatch) {
-    let day = parseInt(numMatch[1], 10);
-    let month = parseInt(numMatch[2], 10) - 1;
-    let year = parseInt(numMatch[3], 10);
-    if (year < 100) year += 2000;
-    return new Date(Date.UTC(year, month, day));
+  let hours = 0, minutes = 0, seconds = 0;
+  if (timeStr) {
+    const tMatch = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(am|pm))?/i);
+    if (tMatch) {
+      hours = parseInt(tMatch[1], 10);
+      minutes = parseInt(tMatch[2], 10);
+      if (tMatch[3]) seconds = parseInt(tMatch[3], 10);
+      if (tMatch[4]?.toLowerCase() === 'pm' && hours < 12) hours += 12;
+      if (tMatch[4]?.toLowerCase() === 'am' && hours === 12) hours = 0;
+    }
   }
 
-  // Match DD-Mon-YY or DDMonYY e.g., 14-Aug-26, 14Aug26
-  const alphaMatch = dateStr.match(/^(\d{1,2})[-]?([a-zA-Z]{3})[-]?(\d{2,4})$/);
+  // 1. Match Month DD, YYYY e.g. "Aug 09, 2026", "August 9 2026"
+  const monthFirstMatch = dateStr.match(/^([a-zA-Z]{3,9})\s+(\d{1,2}),?\s+(\d{2,4})$/);
+  if (monthFirstMatch) {
+    const month = months[monthFirstMatch[1].toLowerCase()] ?? 0;
+    const day = parseInt(monthFirstMatch[2], 10);
+    let year = parseInt(monthFirstMatch[3], 10);
+    if (year < 100) year += 2000;
+    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+  }
+
+  // 2. Match DD-Mon-YYYY or DD Mon YYYY e.g. "09-Aug-2026", "09 Aug 2026", "14Aug26"
+  const alphaMatch = dateStr.match(/^(\d{1,2})[-\s]?([a-zA-Z]{3,9})[-\s,]?(\d{2,4})$/);
   if (alphaMatch) {
-    let day = parseInt(alphaMatch[1], 10);
-    let monthStr = alphaMatch[2].toLowerCase();
-    let month = months[monthStr] !== undefined ? months[monthStr] : 0;
+    const day = parseInt(alphaMatch[1], 10);
+    const month = months[alphaMatch[2].toLowerCase()] ?? 0;
     let year = parseInt(alphaMatch[3], 10);
     if (year < 100) year += 2000;
-    return new Date(Date.UTC(year, month, day));
+    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+  }
+
+  // 3. Match DD-MM-YY or DD-MM-YYYY or DD/MM/YYYY
+  const numMatch = dateStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+  if (numMatch) {
+    const day = parseInt(numMatch[1], 10);
+    const month = parseInt(numMatch[2], 10) - 1;
+    let year = parseInt(numMatch[3], 10);
+    if (year < 100) year += 2000;
+    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+  }
+
+  // 4. Match YYYY-MM-DD
+  const isoMatch = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (isoMatch) {
+    const year = parseInt(isoMatch[1], 10);
+    const month = parseInt(isoMatch[2], 10) - 1;
+    const day = parseInt(isoMatch[3], 10);
+    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
   }
 
   const parsed = new Date(dateStr);
@@ -117,7 +151,7 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   let merchant = 'General Merchant';
 
   // Check explicit merchant label
-  const explicitMerchantMatch = text.match(/(?:merchant\s*name|merchant|payee|vpa|paid\s*to|info)[:\s]+([a-zA-Z0-9\s._\-@&]{2,40})/i);
+  const explicitMerchantMatch = text.match(/(?:merchant\s*name|merchant|payee|vpa|paid\s*to|info)[:\s]+([a-zA-Z0-9\s._\-@&]{2,45}?)(?=\s*(?:\.\s+(?:The|Available|Total|Your)|\.\s*$|\b(?:the\s+available|available\s+credit|available\s+limit|total\s+credit|total\s+due|ref|avail|txn|limit|closing)\b|$))/i);
   if (explicitMerchantMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank|txn)$/i.test(explicitMerchantMatch[1].trim())) {
     merchant = explicitMerchantMatch[1].trim();
   } else {
@@ -133,9 +167,10 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     }
   }
 
-  // Clean up merchant name prefix/suffixes
+  // Clean up merchant name prefix/suffixes and trailing punctuation
   merchant = merchant
     .replace(/^(VPA|UPI|VPS|POS|INF|NEFT|IMPS)\s*[\/:\*]?\s*/i, '')
+    .replace(/[.,\s]+$/, '')
     .replace(/\s+/g, ' ')
     .trim()
     .toUpperCase();
@@ -151,11 +186,12 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     referenceNumber = refMatch[1];
   }
 
-  // 7. Extract Date
+  // 7. Extract Date & Time
   let transactionDate = new Date();
-  const dateMatch = text.match(/\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2}[-]?\w{3}[-]?\d{2,4})\b/i);
+  const dateMatch = text.match(/\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{2,4}|\d{1,2}[-\s](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-\s,]?\s*\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{2}-\d{2})\b/i);
+  const timeMatch = text.match(/(?:at|time)[:\s]+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:am|pm))?)/i);
   if (dateMatch) {
-    transactionDate = parseIndianDate(dateMatch[1]);
+    transactionDate = parseIndianDate(dateMatch[1], timeMatch ? timeMatch[1] : undefined);
   }
 
   return {
@@ -176,7 +212,7 @@ export function parseMultipleEmailAlerts(emailTextContent: string, senderOrSubje
   if (!emailTextContent) return [];
 
   const rawBlocks = emailTextContent
-    .split(/(?:\r?\n){2,}|(?=Dear Customer|Dear User|Rs\.|INR|₹)/i)
+    .split(/(?:\r?\n){2,}|(?=Dear\s+(?:Customer|User|SBI|Cardholder|Account\s*holder))|(?=(?:^|\n)\s*(?:Rs\.|INR|₹)\s*[\d,]+)/im)
     .map((b) => b.trim())
     .filter((b) => b.length > 20);
 
@@ -194,7 +230,20 @@ export function parseMultipleEmailAlerts(emailTextContent: string, senderOrSubje
     }
   }
 
+  if (results.length === 0) {
+    const fallback = parseEmailAlertSnippet(emailTextContent, senderOrSubject);
+    if (fallback) results.push(fallback);
+  }
+
   return results;
+}
+
+export function getAlertFingerprint(accountId: string, alert: ParsedEmailTransaction): string {
+  const stableIdentity = alert.referenceNumber?.toLowerCase().trim()
+    || `${alert.merchant.toLowerCase().trim()}|${alert.accountLast4 || 'GEN'}`;
+  const dateStr = alert.transactionDate.toISOString().slice(0, 10);
+  const seed = `${accountId}|${dateStr}|${stableIdentity}|${alert.amountMinor.toString()}`;
+  return createHash('sha256').update(seed).digest('hex');
 }
 
 export function getAccountCategoryKey(alert: ParsedEmailTransaction): string {
