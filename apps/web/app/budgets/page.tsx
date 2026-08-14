@@ -20,6 +20,11 @@ import {
   Calendar,
   X,
   Filter,
+  Flag,
+  Trophy,
+  TrendingUp,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { api, errorMessage, money } from "@/lib/api";
@@ -123,6 +128,32 @@ const COLOR_PRESETS = [
   "#64748b", // Slate
 ];
 
+type GoalStatus = "ACTIVE" | "ACHIEVED" | "ABANDONED";
+
+type ContributionItem = {
+  id: string;
+  amount: number; // paise
+  note: string | null;
+  date: string;
+  createdAt: string;
+};
+
+type GoalItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  targetAmount: number; // paise
+  targetDate: string | null;
+  status: GoalStatus;
+  createdAt: string;
+  savedAmount: number; // paise
+  remainingAmount: number; // paise
+  percentage: number;
+  monthlyNeeded: number | null; // paise
+  daysLeft: number | null;
+  contributions: ContributionItem[];
+};
+
 export default function BudgetsPage() {
   return (
     <Suspense fallback={<Shell><div className="loading"><span/><p>Loading Budgets & Tags Workspace…</p></div></Shell>}>
@@ -136,7 +167,7 @@ function BudgetsContent() {
   const initialTabParam = searchParams.get("tab");
   const initialTab = (initialTabParam === "tags" || initialTabParam === "TAGS") ? "TAGS" : "ENVELOPES";
 
-  const [activeTab, setActiveTab] = useState<"ENVELOPES" | "TAGS" | "CATEGORIES" | "RULES" | "CONFIRMATIONS">(initialTab);
+  const [activeTab, setActiveTab] = useState<"ENVELOPES" | "TAGS" | "CATEGORIES" | "RULES" | "CONFIRMATIONS" | "GOALS">(initialTab);
 
   // Main Data States
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -149,6 +180,26 @@ function BudgetsContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  // Goals State
+  const [goals, setGoals] = useState<GoalItem[]>([]);
+  const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
+
+  // Goal Modal State
+  const [goalModalOpen, setGoalModalOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<GoalItem | null>(null);
+  const [goalName, setGoalName] = useState("");
+  const [goalDesc, setGoalDesc] = useState("");
+  const [goalTarget, setGoalTarget] = useState("");
+  const [goalDate, setGoalDate] = useState("");
+  const [goalStatus, setGoalStatus] = useState<GoalStatus>("ACTIVE");
+  const [savingGoal, setSavingGoal] = useState(false);
+
+  // Contribution quick-form per goal
+  const [contributionGoalId, setContributionGoalId] = useState<string | null>(null);
+  const [contributionAmount, setContributionAmount] = useState("");
+  const [contributionNote, setContributionNote] = useState("");
+  const [addingContribution, setAddingContribution] = useState(false);
 
   // Tag Analytics Inspection
   const [inspectedTagId, setInspectedTagId] = useState<string | null>(null);
@@ -225,12 +276,13 @@ function BudgetsContent() {
       setLoading(true);
       setError("");
 
-      const [catRes, budgetRes, ruleRes, unverifiedRes, tagRes] = await Promise.all([
+      const [catRes, budgetRes, ruleRes, unverifiedRes, tagRes, goalsRes] = await Promise.all([
         api<any>("/categories").catch(() => []),
         api<{ summary: any; budgets: CategoryBudgetItem[] }>("/budgets").catch(() => ({ summary: { totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0 }, budgets: [] })),
         api<CategoryRuleItem[]>("/category-rules").catch(() => []),
         api<UnverifiedCategoryGroup[]>("/category-rules/unverified").catch(() => []),
         api<TagItem[]>("/tags").catch(() => []),
+        api<GoalItem[]>("/goals").catch(() => []),
       ]);
 
       const catList: CategoryOption[] = Array.isArray(catRes)
@@ -244,6 +296,7 @@ function BudgetsContent() {
       setRules(ruleRes || []);
       setUnverifiedCategories(unverifiedRes || []);
       setTags(tagRes || []);
+      setGoals(goalsRes || []);
 
       if (!selectedCatId && catList.length > 0) setSelectedCatId(catList[0].id);
       if (!ruleCategoryId && catList.length > 0) setRuleCategoryId(catList[0].id);
@@ -585,6 +638,16 @@ function BudgetsContent() {
                   {totalUnverifiedCount}
                 </span>
               )}
+            </button>
+
+            <button
+              type="button"
+              className={`secondary compact ${activeTab === "GOALS" ? "active" : ""}`}
+              onClick={() => setActiveTab("GOALS")}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
+            >
+              <Flag size={15} color={activeTab === "GOALS" ? "var(--green)" : "var(--muted)"} />
+              Goals ({goals.filter((g) => g.status === "ACTIVE").length})
             </button>
           </div>
         </div>
@@ -1373,6 +1436,398 @@ function BudgetsContent() {
                   <button type="button" className="secondary" onClick={() => setTagModalOpen(false)}>Cancel</button>
                   <button type="submit" className="primary" disabled={savingTag}>
                     {savingTag ? "Saving..." : editingTag ? "Update Tag" : "Create Tag"}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
+
+        {/* TAB 6: FINANCIAL GOALS */}
+        {activeTab === "GOALS" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+
+            {/* Summary Bar */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
+              {([
+                { label: "Active Goals", value: String(goals.filter((g) => g.status === "ACTIVE").length), color: "var(--green)" },
+                { label: "Total Saved", value: money(goals.reduce((s, g) => s + g.savedAmount, 0)), color: "var(--green)" },
+                { label: "Total Target", value: money(goals.reduce((s, g) => s + g.targetAmount, 0)), color: "var(--ink)" },
+                { label: "Achieved", value: String(goals.filter((g) => g.status === "ACHIEVED").length), color: "#f59e0b" },
+              ] as const).map((kpi) => (
+                <div key={kpi.label} style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>{kpi.label}</span>
+                  <strong style={{ display: "block", fontSize: "1.4rem", fontWeight: 800, color: kpi.color, marginTop: "4px" }}>{kpi.value}</strong>
+                </div>
+              ))}
+            </div>
+
+            {/* Create Goal Button */}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="primary compact"
+                onClick={() => {
+                  setEditingGoal(null);
+                  setGoalName(""); setGoalDesc(""); setGoalTarget(""); setGoalDate(""); setGoalStatus("ACTIVE");
+                  setGoalModalOpen(true);
+                }}
+                style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+              >
+                <Plus size={15} /> New Goal
+              </button>
+            </div>
+
+            {/* Empty state */}
+            {goals.length === 0 && (
+              <section className="panel" style={{ padding: "48px 20px", textAlign: "center" }}>
+                <Flag size={40} style={{ margin: "0 auto 12px", display: "block", color: "var(--muted)" }} />
+                <h3 style={{ margin: "0 0 6px", color: "var(--ink)" }}>No goals yet</h3>
+                <p style={{ color: "var(--muted)", fontSize: "13px", margin: 0 }}>Create your first financial goal — a laptop, an emergency fund, a vacation — and track your savings progress.</p>
+              </section>
+            )}
+
+            {/* Active Goals Grid */}
+            {goals.filter((g) => g.status === "ACTIVE").length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "16px" }}>
+                {goals.filter((g) => g.status === "ACTIVE").map((goal) => {
+                  const isExpanded = expandedGoalId === goal.id;
+                  const isAddingHere = contributionGoalId === goal.id;
+                  const circumference = 2 * Math.PI * 40;
+                  const dashOffset = circumference - (goal.percentage / 100) * circumference;
+                  return (
+                    <div key={goal.id} className="panel" style={{ padding: "22px", borderRadius: "16px", border: "1px solid var(--line)", background: "var(--card)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+                        <div style={{ flex: 1, minWidth: 0, paddingRight: "8px" }}>
+                          <h4 style={{ margin: "0 0 4px", fontSize: "1rem", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{goal.name}</h4>
+                          {goal.description && <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{goal.description}</p>}
+                        </div>
+                        <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+                          <button type="button" className="icon-button" title="Edit" onClick={() => {
+                            setEditingGoal(goal);
+                            setGoalName(goal.name);
+                            setGoalDesc(goal.description || "");
+                            setGoalTarget(String(goal.targetAmount / 100));
+                            setGoalDate(goal.targetDate ? goal.targetDate.slice(0, 10) : "");
+                            setGoalStatus(goal.status);
+                            setGoalModalOpen(true);
+                          }}><Pencil size={13} /></button>
+                          <button type="button" className="icon-button danger" title="Delete" onClick={async () => {
+                            if (!confirm(`Delete goal "${goal.name}"? All contributions will be lost.`)) return;
+                            try {
+                              await api(`/goals/${goal.id}`, { method: "DELETE" });
+                              setGoals((prev) => prev.filter((g) => g.id !== goal.id));
+                            } catch (err) { setError(errorMessage(err, "Could not delete goal.")); }
+                          }}><Trash2 size={13} /></button>
+                        </div>
+                      </div>
+
+                      {/* Progress ring + stats */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "20px", marginBottom: "14px" }}>
+                        <svg width="96" height="96" viewBox="0 0 96 96" style={{ flexShrink: 0 }}>
+                          <circle cx="48" cy="48" r="40" fill="none" stroke="var(--background-alt)" strokeWidth="10" />
+                          <circle
+                            cx="48" cy="48" r="40" fill="none"
+                            stroke={goal.percentage >= 100 ? "#f59e0b" : "var(--green)"}
+                            strokeWidth="10"
+                            strokeLinecap="round"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={dashOffset}
+                            transform="rotate(-90 48 48)"
+                            style={{ transition: "stroke-dashoffset 0.5s ease" }}
+                          />
+                          <text x="48" y="46" textAnchor="middle" fill="var(--ink)" fontSize="14" fontWeight="800">{goal.percentage}%</text>
+                          <text x="48" y="62" textAnchor="middle" fill="var(--muted)" fontSize="10">saved</text>
+                        </svg>
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+                          <div>
+                            <span style={{ fontSize: "11px", color: "var(--muted)" }}>Saved</span>
+                            <strong style={{ display: "block", fontSize: "1.1rem", fontWeight: 700, color: "var(--green)" }}>{money(goal.savedAmount)}</strong>
+                          </div>
+                          <div>
+                            <span style={{ fontSize: "11px", color: "var(--muted)" }}>Target</span>
+                            <strong style={{ display: "block", fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>{money(goal.targetAmount)}</strong>
+                          </div>
+                          {goal.remainingAmount > 0 && (
+                            <div>
+                              <span style={{ fontSize: "11px", color: "var(--muted)" }}>Remaining</span>
+                              <strong style={{ display: "block", fontSize: "0.95rem", fontWeight: 600, color: "#ef4444" }}>{money(goal.remainingAmount)}</strong>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Target date + monthly needed */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "14px" }}>
+                        {goal.targetDate && (
+                          <span style={{ fontSize: "12px", color: "var(--muted)", background: "var(--background-alt)", padding: "3px 10px", borderRadius: "20px", border: "1px solid var(--line)" }}>
+                            🎯 {new Date(goal.targetDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                            {goal.daysLeft !== null && <span style={{ marginLeft: "4px", color: goal.daysLeft < 30 ? "#ef4444" : "var(--muted)" }}>· {goal.daysLeft}d left</span>}
+                          </span>
+                        )}
+                        {goal.monthlyNeeded !== null && goal.remainingAmount > 0 && (
+                          <span style={{ fontSize: "12px", fontWeight: 700, color: "#3b82f6", background: "rgba(59,130,246,0.1)", padding: "3px 10px", borderRadius: "20px", border: "1px solid rgba(59,130,246,0.25)" }}>
+                            <TrendingUp size={11} style={{ marginRight: "4px", verticalAlign: "middle" }} />
+                            Save {money(goal.monthlyNeeded)}/mo
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Quick-add contribution */}
+                      {!isAddingHere ? (
+                        <button
+                          type="button"
+                          className="ghost compact"
+                          onClick={() => { setContributionGoalId(goal.id); setContributionAmount(""); setContributionNote(""); }}
+                          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "12px", color: "var(--green)", fontWeight: 600 }}
+                        >
+                          <Plus size={13} /> Log Contribution
+                        </button>
+                      ) : (
+                        <form
+                          onSubmit={async (e) => {
+                            e.preventDefault();
+                            const amt = parseFloat(contributionAmount);
+                            if (!amt || isNaN(amt)) return;
+                            setAddingContribution(true);
+                            try {
+                              const updated = await api<GoalItem>(`/goals/${goal.id}/contributions`, {
+                                method: "POST",
+                                body: JSON.stringify({ amount: amt, note: contributionNote.trim() || undefined }),
+                              });
+                              setGoals((prev) => prev.map((g) => g.id === goal.id ? updated : g));
+                              setContributionGoalId(null);
+                            } catch (err) { setError(errorMessage(err, "Could not add contribution.")); }
+                            finally { setAddingContribution(false); }
+                          }}
+                          style={{ display: "flex", flexDirection: "column", gap: "6px" }}
+                        >
+                          <div style={{ display: "flex", gap: "6px" }}>
+                            <input
+                              type="number"
+                              step="0.01"
+                              placeholder="Amount in ₹ (negative to withdraw)"
+                              value={contributionAmount}
+                              onChange={(e) => setContributionAmount(e.target.value)}
+                              required
+                              style={{ flex: 1, height: "34px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                            />
+                            <button type="submit" disabled={addingContribution} className="primary compact" style={{ padding: "0 12px", height: "34px" }}>
+                              {addingContribution ? <Loader2 size={13} className="spin" /> : "Add"}
+                            </button>
+                            <button type="button" className="ghost compact" onClick={() => setContributionGoalId(null)} style={{ height: "34px", padding: "0 8px" }}>
+                              <X size={13} />
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Note (optional)"
+                            value={contributionNote}
+                            onChange={(e) => setContributionNote(e.target.value)}
+                            style={{ height: "32px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                          />
+                        </form>
+                      )}
+
+                      {/* Contribution history toggle */}
+                      {goal.contributions.length > 0 && (
+                        <div style={{ marginTop: "10px" }}>
+                          <button
+                            type="button"
+                            className="ghost compact"
+                            onClick={() => setExpandedGoalId(isExpanded ? null : goal.id)}
+                            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)", padding: "4px 0" }}
+                          >
+                            <span>{goal.contributions.length} contribution{goal.contributions.length !== 1 ? "s" : ""}</span>
+                            {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                          </button>
+                          {isExpanded && (
+                            <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "4px", maxHeight: "180px", overflowY: "auto" }}>
+                              {goal.contributions.map((c) => (
+                                <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", padding: "5px 8px", borderRadius: "6px", background: "var(--background-alt)" }}>
+                                  <span style={{ color: c.amount >= 0 ? "var(--green)" : "#ef4444", fontWeight: 700 }}>
+                                    {c.amount >= 0 ? "+" : ""}{money(c.amount)}
+                                  </span>
+                                  <span style={{ color: "var(--muted)", flex: 1, padding: "0 8px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.note || "—"}</span>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                                    <span style={{ color: "var(--muted)" }}>{new Date(c.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                                    <button
+                                      type="button"
+                                      className="icon-button danger"
+                                      title="Remove contribution"
+                                      style={{ width: "20px", height: "20px", minWidth: "unset" }}
+                                      onClick={async () => {
+                                        try {
+                                          await api(`/goals/${goal.id}/contributions/${c.id}`, { method: "DELETE" });
+                                          setGoals((prev) => prev.map((g) =>
+                                            g.id === goal.id
+                                              ? { ...g, contributions: g.contributions.filter((x) => x.id !== c.id),
+                                                  savedAmount: g.savedAmount - c.amount,
+                                                  remainingAmount: Math.max(0, g.remainingAmount + c.amount),
+                                                  percentage: Math.min(100, Math.round(((g.savedAmount - c.amount) / g.targetAmount) * 100)) }
+                                              : g
+                                          ));
+                                        } catch (err) { setError(errorMessage(err, "Could not remove contribution.")); }
+                                      }}
+                                    ><Trash2 size={11} /></button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Achieved / Abandoned Goals */}
+            {goals.filter((g) => g.status !== "ACTIVE").length > 0 && (
+              <section className="panel" style={{ padding: "20px" }}>
+                <div className="panel-title" style={{ marginBottom: "14px" }}>
+                  <div>
+                    <span className="eyebrow" style={{ color: "#f59e0b" }}>Archive</span>
+                    <h2>Achieved &amp; Abandoned Goals</h2>
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {goals.filter((g) => g.status !== "ACTIVE").map((goal) => (
+                    <div key={goal.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: "10px", background: "var(--background-alt)", border: "1px solid var(--line)", opacity: 0.75 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        {goal.status === "ACHIEVED"
+                          ? <Trophy size={15} style={{ color: "#f59e0b" }} />
+                          : <X size={15} style={{ color: "var(--muted)" }} />}
+                        <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)" }}>{goal.name}</span>
+                        <span style={{ fontSize: "11px", color: "var(--muted)" }}>{money(goal.savedAmount)} of {money(goal.targetAmount)}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button type="button" className="icon-button" onClick={() => {
+                          setEditingGoal(goal);
+                          setGoalName(goal.name); setGoalDesc(goal.description || "");
+                          setGoalTarget(String(goal.targetAmount / 100)); setGoalDate(goal.targetDate ? goal.targetDate.slice(0, 10) : "");
+                          setGoalStatus(goal.status); setGoalModalOpen(true);
+                        }}><Pencil size={13} /></button>
+                        <button type="button" className="icon-button danger" onClick={async () => {
+                          if (!confirm(`Delete "${goal.name}"?`)) return;
+                          try {
+                            await api(`/goals/${goal.id}`, { method: "DELETE" });
+                            setGoals((prev) => prev.filter((g) => g.id !== goal.id));
+                          } catch (err) { setError(errorMessage(err, "Could not delete goal.")); }
+                        }}><Trash2 size={13} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+
+        {/* GOAL CREATE / EDIT MODAL */}
+        {goalModalOpen && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+            <section className="panel" style={{ width: "100%", maxWidth: "480px", padding: "28px", borderRadius: "16px", position: "relative" }}>
+              <button type="button" className="icon-button" style={{ position: "absolute", top: "16px", right: "16px" }} onClick={() => setGoalModalOpen(false)}>
+                <X size={16} />
+              </button>
+              <span className="eyebrow" style={{ color: "var(--green)" }}>Financial Goals</span>
+              <h2 style={{ margin: "4px 0 20px" }}>{editingGoal ? "Edit Goal" : "Create New Goal"}</h2>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!goalName.trim() || !goalTarget) return;
+                  setSavingGoal(true);
+                  setError("");
+                  try {
+                    const payload = {
+                      name: goalName.trim(),
+                      description: goalDesc.trim() || undefined,
+                      targetAmount: parseFloat(goalTarget),
+                      targetDate: goalDate || undefined,
+                      ...(editingGoal && { status: goalStatus }),
+                    };
+                    if (editingGoal) {
+                      const updated = await api<GoalItem>(`/goals/${editingGoal.id}`, { method: "PATCH", body: JSON.stringify(payload) });
+                      setGoals((prev) => prev.map((g) => g.id === updated.id ? updated : g));
+                      setSuccessMsg(`Goal "${updated.name}" updated!`);
+                    } else {
+                      const created = await api<GoalItem>("/goals", { method: "POST", body: JSON.stringify(payload) });
+                      setGoals((prev) => [created, ...prev]);
+                      setSuccessMsg(`Goal "${created.name}" created!`);
+                    }
+                    setGoalModalOpen(false);
+                  } catch (err) {
+                    setError(errorMessage(err, "Could not save goal."));
+                  } finally {
+                    setSavingGoal(false);
+                  }
+                }}
+                style={{ display: "flex", flexDirection: "column", gap: "14px" }}
+              >
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Goal Name *</label>
+                  <input
+                    type="text"
+                    value={goalName}
+                    onChange={(e) => setGoalName(e.target.value)}
+                    placeholder="e.g. MacBook Pro, Emergency Fund, Goa Trip"
+                    required
+                    style={{ width: "100%", height: "40px", fontSize: "14px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Target Amount (₹) *</label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    value={goalTarget}
+                    onChange={(e) => setGoalTarget(e.target.value)}
+                    placeholder="e.g. 150000"
+                    required
+                    style={{ width: "100%", height: "40px", fontSize: "14px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Target Date (optional)</label>
+                  <input
+                    type="date"
+                    value={goalDate}
+                    onChange={(e) => setGoalDate(e.target.value)}
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Description (optional)</label>
+                  <input
+                    type="text"
+                    value={goalDesc}
+                    onChange={(e) => setGoalDesc(e.target.value)}
+                    placeholder="What are you saving for?"
+                    style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+                {editingGoal && (
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Status</label>
+                    <select
+                      value={goalStatus}
+                      onChange={(e) => setGoalStatus(e.target.value as GoalStatus)}
+                      style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                    >
+                      <option value="ACTIVE">Active</option>
+                      <option value="ACHIEVED">✅ Achieved</option>
+                      <option value="ABANDONED">❌ Abandoned</option>
+                    </select>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "6px" }}>
+                  <button type="button" className="ghost compact" onClick={() => setGoalModalOpen(false)}>Cancel</button>
+                  <button type="submit" disabled={savingGoal} className="primary compact" style={{ minWidth: "100px" }}>
+                    {savingGoal ? <Loader2 size={14} className="spin" /> : editingGoal ? "Save Changes" : "Create Goal"}
                   </button>
                 </div>
               </form>
