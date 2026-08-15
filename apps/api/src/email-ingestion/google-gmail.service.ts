@@ -278,17 +278,6 @@ export class GoogleGmailService {
         ? `${earliestAlertDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} to ${latestAlertDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
         : `Past ${syncDays} days`;
 
-      // Group alerts by granular Account Category: Institution + Type + Account Last 4
-      const groups: Record<string, ParsedEmailTransaction[]> = {};
-      for (const alert of extractedAlerts) {
-        const categoryKey = getAccountCategoryKey(alert);
-        if (!groups[categoryKey]) groups[categoryKey] = [];
-        groups[categoryKey].push(alert);
-      }
-
-      const createdBatchIds: string[] = [];
-      let totalStaged = 0;
-
       // Fetch user's active accounts, categories, and category rules once
       const [userAccounts, categories, userRules] = await Promise.all([
         this.prisma.account.findMany({
@@ -301,62 +290,43 @@ export class GoogleGmailService {
         }),
       ]);
 
-      for (const [groupKey, groupAlerts] of Object.entries(groups)) {
+      // Route each alert strictly to an existing user account. NEVER create accounts automatically!
+      const accountGroups = new Map<string, { account: any; alerts: ParsedEmailTransaction[] }>();
+      let skippedUnmatchedCount = 0;
+
+      for (const alert of extractedAlerts) {
+        const matchedAccount = this.findMatchingAccount(userAccounts, alert, alert.rawSnippet);
+        if (!matchedAccount) {
+          skippedUnmatchedCount++;
+          this.logger.warn(`Skipping alert: No existing account found for bank="${alert.bankName}", type="${alert.accountType}", last4="${alert.accountLast4 || ''}", merchant="${alert.merchant}"`);
+          continue;
+        }
+
+        if (!accountGroups.has(matchedAccount.id)) {
+          accountGroups.set(matchedAccount.id, { account: matchedAccount, alerts: [] });
+        }
+        accountGroups.get(matchedAccount.id)!.alerts.push(alert);
+      }
+
+      const createdBatchIds: string[] = [];
+      let totalStaged = 0;
+
+      for (const [accountId, { account, alerts: groupAlerts }] of accountGroups.entries()) {
         const sampleAlert = groupAlerts[0];
-        const targetType = sampleAlert.accountType;
-        const bankName = sampleAlert.bankName;
+        const targetType = account.type;
+        const bankName = account.institution || sampleAlert.bankName;
         const last4 = sampleAlert.accountLast4;
-        const displayName = getAccountCategoryDisplayName(sampleAlert);
-
-        // 1. Precise Match: Same account type + (matches last4 in name/number OR matches exact institution + last4)
-        let matchedAccount = userAccounts.find((acc) => {
-          if (acc.type !== targetType) return false;
-          const accName = (acc.name || '').toLowerCase();
-          const accInst = (acc.institution || '').toLowerCase();
-          const targetBank = bankName.toLowerCase();
-
-          // Check if last4 matches
-          if (last4 && (accName.includes(last4) || accName.includes(`••${last4}`) || accName.includes(`xx${last4}`))) {
-            return accInst.includes(targetBank) || targetBank.includes(accInst) || accName.includes(targetBank);
-          }
-
-          return false;
-        });
-
-        // 2. Secondary Match: Same type and institution name
-        if (!matchedAccount) {
-          matchedAccount = userAccounts.find((acc) => {
-            if (acc.type !== targetType) return false;
-            const accInst = (acc.institution || '').toLowerCase();
-            const accName = (acc.name || '').toLowerCase();
-            const targetBank = bankName.toLowerCase();
-            return (accInst && (accInst.includes(targetBank) || targetBank.includes(accInst))) || accName.includes(targetBank);
-          });
-        }
-
-        // 3. Fallback: If no account matched, auto-create a clearly labeled Account profile for this exact category
-        if (!matchedAccount) {
-          matchedAccount = await this.prisma.account.create({
-            data: {
-              userId,
-              name: displayName,
-              type: targetType,
-              institution: bankName,
-            },
-          });
-          userAccounts.push(matchedAccount);
-        }
 
         // Query existing committed transactions and pending review staged transactions for this account
         const existingTxFingerprints = new Set(
-          (await this.prisma.transaction.findMany({ where: { accountId: matchedAccount.id }, select: { fingerprint: true } })).map((x) => x.fingerprint)
+          (await this.prisma.transaction.findMany({ where: { accountId: account.id }, select: { fingerprint: true } })).map((x) => x.fingerprint)
         );
         const existingStagedFingerprints = new Set(
-          (await this.prisma.stagedTransaction.findMany({ where: { batch: { accountId: matchedAccount.id, status: 'REVIEW' } }, select: { fingerprint: true } })).map((x) => x.fingerprint)
+          (await this.prisma.stagedTransaction.findMany({ where: { batch: { accountId: account.id, status: 'REVIEW' } }, select: { fingerprint: true } })).map((x) => x.fingerprint)
         );
 
         const stagedRows = groupAlerts.map((alert, idx) => {
-          const fingerprint = getAlertFingerprint(matchedAccount!.id, alert);
+          const fingerprint = getAlertFingerprint(account.id, alert);
           const isDuplicate = existingTxFingerprints.has(fingerprint) || existingStagedFingerprints.has(fingerprint);
           existingTxFingerprints.add(fingerprint);
           const descriptionRaw = `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' ••' + alert.accountLast4 : ''}]`;
@@ -392,25 +362,25 @@ export class GoogleGmailService {
         }
 
         const fileHash = createHash('sha256')
-          .update(groupKey + stagedRows.map((r) => r.fingerprint).join(';'))
+          .update(accountId + stagedRows.map((r) => r.fingerprint).join(';'))
           .digest('hex');
 
         // Check if an identical batch with this exact hash is already pending review
         const existingPendingBatch = await this.prisma.importBatch.findFirst({
-          where: { accountId: matchedAccount.id, fileHash, status: 'REVIEW' },
+          where: { accountId: account.id, fileHash, status: 'REVIEW' },
         });
         if (existingPendingBatch) {
           createdBatchIds.push(existingPendingBatch.id);
           continue;
         }
 
-        const cleanBankSlug = bankName.replace(/[^a-zA-Z0-9]/g, '-');
+        const cleanBankSlug = (account.institution || bankName).replace(/[^a-zA-Z0-9]/g, '-');
         const batchFilename = `gmail-sync-${cleanBankSlug}-${targetType}-${last4 || 'all'}-${new Date().toISOString().slice(0, 10)}.txt`;
 
         const batch = await this.prisma.importBatch.create({
           data: {
             userId,
-            accountId: matchedAccount.id,
+            accountId: account.id,
             filename: batchFilename,
             fileHash,
             rowCount: stagedRows.length,
@@ -543,5 +513,87 @@ export class GoogleGmailService {
       .replace(/&gt;/gi, '>')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  private findMatchingAccount(userAccounts: any[], alert: ParsedEmailTransaction, rawSnippetText?: string): any | null {
+    const isBank = alert.accountType === 'BANK';
+    const targetType = alert.accountType;
+    const bankName = (alert.bankName || '').toLowerCase();
+    const last4 = alert.accountLast4 ? alert.accountLast4.toLowerCase() : '';
+    const text = (rawSnippetText || '').toLowerCase();
+
+    // Filter accounts by compatible type
+    const candidateAccounts = userAccounts.filter((acc) => {
+      if (isBank) {
+        return acc.type === 'SAVINGS' || acc.type === 'BANK' || acc.type === 'CASH';
+      }
+      return acc.type === targetType;
+    });
+
+    if (candidateAccounts.length === 0) {
+      return null;
+    }
+
+    // 1. Exact match on last4 digits in account name or institution
+    if (last4) {
+      const last4Match = candidateAccounts.find((acc) => {
+        const name = (acc.name || '').toLowerCase();
+        const inst = (acc.institution || '').toLowerCase();
+        const isInstMatch = inst.includes(bankName) || bankName.includes(inst) || name.includes(bankName);
+        if (!isInstMatch && candidateAccounts.length > 1) return false;
+        return name.includes(last4) || name.includes(`••${last4}`) || name.includes(`xx${last4}`) || name.includes(`*${last4}`);
+      });
+      if (last4Match) return last4Match;
+    }
+
+    // 2. Card product / brand keyword matching in email text (e.g. Pixel, Amazon, Flipkart, Neo, MMT, Rewards)
+    const productMatch = candidateAccounts.find((acc) => {
+      const name = (acc.name || '').toLowerCase();
+      const inst = (acc.institution || '').toLowerCase();
+      const isInstMatch = inst.includes(bankName) || bankName.includes(inst);
+      if (!isInstMatch && candidateAccounts.length > 1) return false;
+
+      if (name.includes('flipkart') && text.includes('flipkart')) return true;
+      if (name.includes('amazon') && (text.includes('amazon') || text.includes('amz'))) return true;
+      if (name.includes('pixel') && text.includes('pixel')) {
+        if (name.includes('rupay') && (text.includes('rupay') || text.includes('upi'))) return true;
+        if (!name.includes('rupay') && !text.includes('rupay')) return true;
+        return true;
+      }
+      if ((name.includes('mmt') || name.includes('makemytrip')) && (text.includes('makemytrip') || text.includes('mmt'))) {
+        if (name.includes('rupay') && (text.includes('rupay') || text.includes('upi'))) return true;
+        if (!name.includes('rupay') && !text.includes('rupay')) return true;
+        return true;
+      }
+      if (name.includes('neo') && text.includes('neo')) return true;
+      if (name.includes('rewards') && text.includes('reward')) return true;
+
+      if (name.length > 3 && text.includes(name)) return true;
+      return false;
+    });
+    if (productMatch) return productMatch;
+
+    // 3. Institution match
+    const instMatches = candidateAccounts.filter((acc) => {
+      const inst = (acc.institution || '').toLowerCase();
+      const name = (acc.name || '').toLowerCase();
+      return (inst && (inst.includes(bankName) || bankName.includes(inst))) || name.includes(bankName);
+    });
+
+    if (instMatches.length === 1) {
+      return instMatches[0];
+    } else if (instMatches.length > 1) {
+      if (text.includes('rupay') || text.includes('upi')) {
+        const rupayAcc = instMatches.find((a) => a.name.toLowerCase().includes('rupay'));
+        if (rupayAcc) return rupayAcc;
+      }
+      return instMatches[0];
+    }
+
+    if (candidateAccounts.length === 1) {
+      return candidateAccounts[0];
+    }
+
+    return null;
   }
 }
