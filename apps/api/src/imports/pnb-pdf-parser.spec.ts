@@ -16,6 +16,19 @@ describe('PNB PDF parser', () => {
     expect(result[2].amountMinor).toBe(-50000);
   });
 
+  it('supports Cr. and Dr. annotated balances in PNB statement tables', () => {
+    const crPages = [{ num: 1, tables: [[
+      ['Transaction Date', 'Cheque Number', 'Withdrawal', 'Deposit', 'Balance', 'Narration'],
+      ['12/08/2026', '', '', '24.00', '25,000.00 Cr.', 'NEFT_IN:100000000003/SALARY'],
+      ['10/08/2026', '', '13,000.00', '', '20,000.00 Cr.', 'UPI/DR/100000000004/RENT'],
+    ]] }];
+    const { rows: result, closingBalanceMinor } = parsePnbTables(crPages);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ amountMinor: 2400, reference: '100000000003' });
+    expect(result[1]).toMatchObject({ amountMinor: -1300000, reference: '100000000004' });
+    expect(closingBalanceMinor).toBe(2500000);
+  });
+
   it('rejects statements whose running balance does not reconcile', () => {
     const broken = structuredClone(pages); broken[0].tables[0][1][4] = '9,999.00';
     expect(() => parsePnbTables(broken)).toThrow('did not reconcile');

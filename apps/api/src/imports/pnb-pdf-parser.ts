@@ -7,10 +7,22 @@ export type PnbParsedRow = ParsedRow;
 type ReconciledRow = PnbParsedRow & { balanceMinor: number };
 
 const amount = (value: string) => {
-  const cleaned = value.replace(/[₹,\s]/g, '');
+  if (!value) return null;
+  const cleaned = value.replace(/[₹,\s]/g, '').replace(/cr\.?|dr\.?/gi, '').replace(/-/g, '').trim();
   if (!cleaned) return null;
   const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) : null;
+  return Number.isFinite(parsed) && parsed !== 0 ? Math.round(parsed * 100) : null;
+};
+
+const balanceAmount = (value: string) => {
+  if (!value) return null;
+  const isDr = /\bdr\.?\b/i.test(value);
+  const cleaned = value.replace(/[₹,\s]/g, '').replace(/cr\.?|dr\.?/gi, '').trim();
+  if (!cleaned) return null;
+  const parsed = Number(cleaned);
+  if (!Number.isFinite(parsed)) return null;
+  const minor = Math.round(parsed * 100);
+  return isDr ? -minor : minor;
 };
 
 const date = (value: string) => {
@@ -39,7 +51,7 @@ export function parsePnbTables(pages: PageTableResult[]): { rows: PnbParsedRow[]
     for (const cells of table) {
       if (cells.length < 6 || !/^\d{2}\/\d{2}\/\d{4}$/.test(cells[0].trim())) continue;
       const transactionDate = date(cells[0]);
-      const withdrawal = amount(cells[2]); const deposit = amount(cells[3]); const balance = amount(cells[4]);
+      const withdrawal = amount(cells[2]); const deposit = amount(cells[3]); const balance = balanceAmount(cells[4]);
       if (!transactionDate || balance === null || (withdrawal === null && deposit === null) || (withdrawal !== null && deposit !== null)) {
         throw new BadRequestException(`A PNB transaction row near ${cells[0]} could not be interpreted safely.`);
       }
