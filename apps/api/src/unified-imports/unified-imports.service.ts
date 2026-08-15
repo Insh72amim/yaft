@@ -7,12 +7,11 @@ import { InvestmentsService } from '../investments/investments.service';
 import { SalaryService } from '../salary/salary.service';
 import { UnifiedImportUploadDto } from './unified-imports.dto';
 
-export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'CREDIT_CARD_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS', 'UPI_STATEMENT'] as const;
+export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS', 'UPI_STATEMENT'] as const;
 export type UnifiedImportKind = (typeof UNIFIED_IMPORT_KINDS)[number];
 export type BankImportSource = 'SBI' | 'PNB' | 'AXIS' | 'EPFO';
-export type CreditCardImportSource = 'HDFC_CC' | 'ICICI_CC' | 'SBI_CC' | 'AXIS_CC';
 export type UPIImportSource = 'GPAY' | 'PHONEPE' | 'PAYTM';
-export type UnifiedImportSource = BankImportSource | CreditCardImportSource | UPIImportSource | 'STANDARD_PAYSLIP' | 'ZERODHA_KITE' | 'GROWW';
+export type UnifiedImportSource = BankImportSource | UPIImportSource | 'STANDARD_PAYSLIP' | 'ZERODHA_KITE' | 'GROWW';
 
 /** Prefix used in the unified options catalog for per-organisation salary sources */
 const ORG_SOURCE_PREFIX = 'ORG_';
@@ -51,18 +50,6 @@ const SOURCE_SPECS: readonly SourceSpec[] = [
   { kind: 'BROKER_HOLDINGS', source: 'GROWW', label: 'Groww',
     description: 'Groww mutual funds XLSX report.', extensions: ['.xlsx'], maxBytes: 5 * MIB,
     accountRequired: true, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
-  { kind: 'CREDIT_CARD_STATEMENT', source: 'HDFC_CC', label: 'HDFC Bank Credit Card',
-    description: 'HDFC credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
-  { kind: 'CREDIT_CARD_STATEMENT', source: 'ICICI_CC', label: 'ICICI Bank Credit Card',
-    description: 'ICICI credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
-  { kind: 'CREDIT_CARD_STATEMENT', source: 'SBI_CC', label: 'SBI Credit Card',
-    description: 'SBI credit card PDF or CSV statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
-  { kind: 'CREDIT_CARD_STATEMENT', source: 'AXIS_CC', label: 'Axis Bank Credit Card',
-    description: 'Axis credit card PDF, CSV or XLSX statement.', extensions: ['.pdf', '.csv', '.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
   { kind: 'BANK_STATEMENT', source: 'EPFO', label: 'EPFO India',
     description: 'EPFO member passbook PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
     accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
@@ -79,7 +66,6 @@ const SOURCE_SPECS: readonly SourceSpec[] = [
 
 const KIND_LABELS: Record<UnifiedImportKind, { label: string; description: string }> = {
   BANK_STATEMENT: { label: 'Bank statement', description: 'Stage reconciled transactions for review before adding them to the ledger.' },
-  CREDIT_CARD_STATEMENT: { label: 'Credit card statement', description: 'Stage credit card transactions for review before adding them to the ledger.' },
   SALARY_PAYSLIP: { label: 'Salary payslip', description: 'Review reconciled payroll facts before saving the salary month.' },
   BROKER_HOLDINGS: { label: 'Broker holdings', description: 'Replace a broker account snapshot atomically after full reconciliation.' },
   UPI_STATEMENT: { label: 'UPI App statement', description: 'Import payment history statements from GPay, PhonePe, or Paytm.' },
@@ -147,7 +133,7 @@ export class UnifiedImportsService {
             source: spec.source, label: spec.label, description: spec.description,
             extensions: spec.extensions, maxBytes: spec.maxBytes, accountRequired: spec.accountRequired,
             commitMode: spec.commitMode,
-            pdfPasswordSupported: spec.kind === 'BANK_STATEMENT' || spec.kind === 'CREDIT_CARD_STATEMENT',
+            pdfPasswordSupported: spec.kind === 'BANK_STATEMENT',
             rememberPasswordSupported: spec.kind === 'BANK_STATEMENT' && spec.source === 'SBI',
             eligibleAccountIds: safeAccounts.filter((account) => this.accountIsEligible(account, spec)).map((account) => account.id),
           })),
@@ -165,10 +151,9 @@ export class UnifiedImportsService {
     const pending = [
       ...bankAndCcReviews.map((review) => {
         const account = accountByid.get(review.account.id);
-        const isCreditCard = account?.type === 'CREDIT_CARD';
         return {
-          kind: (isCreditCard ? 'CREDIT_CARD_STATEMENT' : 'BANK_STATEMENT') as 'CREDIT_CARD_STATEMENT' | 'BANK_STATEMENT',
-          source: isCreditCard ? 'UNKNOWN' : (bankSourceForInstitution(account?.institution ?? undefined) ?? 'UNKNOWN'),
+          kind: 'BANK_STATEMENT' as const,
+          source: (bankSourceForInstitution(account?.institution ?? undefined) ?? 'UNKNOWN'),
           mode: 'REVIEW_REQUIRED' as const,
           createdAt: review.createdAt,
           review: this.safeBankReview(review),
@@ -205,7 +190,7 @@ export class UnifiedImportsService {
     const extension = this.extension(file.originalname);
     const passwordWasSent = dto.pdfPassword !== undefined;
     const rememberWasSent = dto.rememberPassword !== undefined;
-    if (spec.kind !== 'BANK_STATEMENT' && spec.kind !== 'CREDIT_CARD_STATEMENT' && spec.kind !== 'SALARY_PAYSLIP' || extension !== '.pdf') {
+    if (spec.kind !== 'BANK_STATEMENT' && spec.kind !== 'SALARY_PAYSLIP' || extension !== '.pdf') {
       if (passwordWasSent || rememberWasSent) throw new BadRequestException('Password fields do not apply to this import file.');
     } else {
       if (dto.pdfPassword !== undefined && dto.pdfPassword.length > 128) throw new BadRequestException('The PDF password is too long.');
@@ -218,7 +203,7 @@ export class UnifiedImportsService {
     }
 
     let account: Awaited<ReturnType<UnifiedImportsService['ownedAccount']>> | undefined;
-    if (spec.kind === 'BANK_STATEMENT' || spec.kind === 'CREDIT_CARD_STATEMENT' || spec.kind === 'UPI_STATEMENT') {
+    if (spec.kind === 'BANK_STATEMENT' || spec.kind === 'UPI_STATEMENT') {
       account = await this.resolveOrProvisionAccount(userId, spec, dto.accountId, file, dto.pdfPassword);
     } else if (spec.accountRequired) {
       if (!dto.accountId) throw new BadRequestException('Choose an eligible destination account.');
@@ -233,12 +218,6 @@ export class UnifiedImportsService {
     if (spec.kind === 'BANK_STATEMENT') {
       const review = await this.imports.create(userId, account!.id, file,
         { pdfPassword: dto.pdfPassword, rememberPassword: dto.rememberPassword }, spec.source as BankImportSource);
-      return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
-        review: this.safeBankReview(review), actions: this.bankActions(review.id) };
-    }
-    if (spec.kind === 'CREDIT_CARD_STATEMENT') {
-      const review = await this.imports.createForCreditCard(userId, account!.id, file,
-        { pdfPassword: dto.pdfPassword });
       return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
         review: this.safeBankReview(review), actions: this.bankActions(review.id) };
     }
@@ -302,9 +281,6 @@ export class UnifiedImportsService {
       if (spec.source === 'EPFO') return account.type === 'EPFO';
       return ['BANK', 'SAVINGS'].includes(account.type)
         && bankInstitutionMatchesSource(account.institution, spec.source as BankImportSource);
-    }
-    if (spec.kind === 'CREDIT_CARD_STATEMENT') {
-      return account.type === 'CREDIT_CARD';
     }
     if (spec.kind === 'UPI_STATEMENT') {
       return ['BANK', 'SAVINGS', 'UPI_LITE'].includes(account.type);
@@ -407,7 +383,7 @@ export class UnifiedImportsService {
       return upiAccount;
     }
 
-    const targetType: 'CREDIT_CARD' | 'SAVINGS' = spec.kind === 'CREDIT_CARD_STATEMENT' ? 'CREDIT_CARD' : 'SAVINGS';
+    const targetType: 'SAVINGS' = 'SAVINGS';
     const accounts = await this.prisma.account.findMany({
       where: { userId, archived: false, type: targetType },
       include: { vaultEntry: { select: { last4: true } } },

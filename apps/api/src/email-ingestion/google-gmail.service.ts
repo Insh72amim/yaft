@@ -267,7 +267,36 @@ export class GoogleGmailService {
       }
 
       // Compute earliest and latest alert dates
-      const validDates = extractedAlerts
+      // STRICT FILTER: Gmail sync focuses exclusively on CREDIT CARD alerts for existing credit cards
+      const creditCardAlerts = extractedAlerts.filter((a) => a.accountType === 'CREDIT_CARD');
+
+      if (creditCardAlerts.length === 0) {
+        const emptySnippet = `Scanned ${messages.length} email(s) from ${config.email} for the past ${syncDays} days. No credit card transaction alerts found.`;
+        await this.prisma.emailSyncLog.create({
+          data: {
+            userId,
+            status: 'SUCCESS',
+            emailsScanned: messages.length,
+            alertsParsed: 0,
+            transactionsAdded: 0,
+            sourceSnippet: emptySnippet,
+          },
+        });
+
+        return {
+          success: true,
+          message: `Scanned ${messages.length} email(s) from ${config.email} for the past ${syncDays} days. No credit card transaction alerts detected.`,
+          scannedCount: messages.length,
+          parsedCount: 0,
+          dateRange: {
+            earliest: null,
+            latest: null,
+            daysSynced: syncDays,
+          },
+        };
+      }
+
+      const validDates = creditCardAlerts
         .map((a) => a.transactionDate)
         .filter((d) => !isNaN(d.getTime()))
         .sort((a, b) => a.getTime() - b.getTime());
@@ -278,10 +307,10 @@ export class GoogleGmailService {
         ? `${earliestAlertDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} to ${latestAlertDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
         : `Past ${syncDays} days`;
 
-      // Fetch user's active accounts, categories, and category rules once
+      // Fetch user's active CREDIT_CARD accounts, categories, and category rules once
       const [userAccounts, categories, userRules] = await Promise.all([
         this.prisma.account.findMany({
-          where: { userId, archived: false },
+          where: { userId, archived: false, type: 'CREDIT_CARD' },
         }),
         this.categoryRulesService.listCategories(userId),
         this.prisma.categoryRule.findMany({
@@ -290,15 +319,15 @@ export class GoogleGmailService {
         }),
       ]);
 
-      // Route each alert strictly to an existing user account. NEVER create accounts automatically!
+      // Route each alert strictly to an existing user credit card account. NEVER create accounts automatically!
       const accountGroups = new Map<string, { account: any; alerts: ParsedEmailTransaction[] }>();
       let skippedUnmatchedCount = 0;
 
-      for (const alert of extractedAlerts) {
+      for (const alert of creditCardAlerts) {
         const matchedAccount = this.findMatchingAccount(userAccounts, alert, alert.rawSnippet);
         if (!matchedAccount) {
           skippedUnmatchedCount++;
-          this.logger.warn(`Skipping alert: No existing account found for bank="${alert.bankName}", type="${alert.accountType}", last4="${alert.accountLast4 || ''}", merchant="${alert.merchant}"`);
+          this.logger.warn(`Skipping alert: No existing Credit Card account found for bank="${alert.bankName}", last4="${alert.accountLast4 || ''}", merchant="${alert.merchant}"`);
           continue;
         }
 
@@ -516,19 +545,15 @@ export class GoogleGmailService {
   }
 
   private findMatchingAccount(userAccounts: any[], alert: ParsedEmailTransaction, rawSnippetText?: string): any | null {
-    const isBank = alert.accountType === 'BANK';
-    const targetType = alert.accountType;
+    if (alert.accountType !== 'CREDIT_CARD') {
+      return null;
+    }
     const bankName = (alert.bankName || '').toLowerCase();
     const last4 = alert.accountLast4 ? alert.accountLast4.toLowerCase() : '';
     const text = (rawSnippetText || '').toLowerCase();
 
-    // Filter accounts by compatible type
-    const candidateAccounts = userAccounts.filter((acc) => {
-      if (isBank) {
-        return acc.type === 'SAVINGS' || acc.type === 'BANK' || acc.type === 'CASH';
-      }
-      return acc.type === targetType;
-    });
+    // Filter accounts strictly by CREDIT_CARD
+    const candidateAccounts = userAccounts.filter((acc) => acc.type === 'CREDIT_CARD');
 
     if (candidateAccounts.length === 0) {
       return null;

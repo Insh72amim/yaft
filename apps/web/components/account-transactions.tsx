@@ -107,9 +107,8 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const { account, transactions, pagination } = data;
   const isCreditCard = account.type === 'CREDIT_CARD';
   const supportsDocuments = true;
-  const supportsStatementImport = ['BANK', 'SAVINGS', 'CREDIT_CARD'].includes(account.type);
-  const statementImportKind = isCreditCard ? 'CREDIT_CARD_STATEMENT' : 'BANK_STATEMENT';
-  const statementImportHref = `/import?kind=${statementImportKind}&accountId=${encodeURIComponent(account.id)}`;
+  const supportsStatementImport = ['BANK', 'SAVINGS'].includes(account.type);
+  const statementImportHref = `/import?kind=BANK_STATEMENT&accountId=${encodeURIComponent(account.id)}`;
   const cardOutstanding = Math.max(0, -account.balance);
   const availableCredit = account.creditLimit == null ? null : Math.max(0, account.creditLimit - cardOutstanding);
   const maskedCardNumber = account.cardLast4 ? `••••  ••••  ••••  ${account.cardLast4}` : 'Card number not stored';
