@@ -1,4 +1,9 @@
-import { extractBeneficiaryName, isRefundOrReversal, getMonthDateRange } from './transaction-utils';
+import {
+  extractBeneficiaryName,
+  isRefundOrReversal,
+  getMonthDateRange,
+  computeCreditCardCurrentBalance,
+} from './transaction-utils';
 
 describe('transaction-utils', () => {
   describe('extractBeneficiaryName', () => {
@@ -31,6 +36,47 @@ describe('transaction-utils', () => {
       expect(labelMonth).toBe('2026-08');
       expect(start.getFullYear()).toBe(2026);
       expect(start.getMonth()).toBe(7); // August (0-indexed 7)
+    });
+  });
+
+  describe('computeCreditCardCurrentBalance', () => {
+    it('anchors to spends strictly after latest payment when bill is paid', () => {
+      const card = { openingBalance: 0n };
+      const txs = [
+        { amount: -500000n, transactionDate: new Date('2026-07-10T10:00:00Z') },
+        { amount: -200000n, transactionDate: new Date('2026-07-20T10:00:00Z') },
+        // Payment made on Aug 15
+        { amount: 700000n, transactionDate: new Date('2026-08-15T00:00:00Z') },
+        // New transaction after payment
+        { amount: -50000n, transactionDate: new Date('2026-08-15T10:00:00Z') },
+      ];
+
+      const { currentBalance, outstanding } = computeCreditCardCurrentBalance(card, txs);
+      expect(outstanding).toBe(50000);
+      expect(currentBalance).toBe(-50000);
+    });
+
+    it('returns 0 outstanding when card is fully settled with no subsequent spends', () => {
+      const card = { openingBalance: 0n };
+      const txs = [
+        { amount: -2225200n, transactionDate: new Date('2026-08-10T10:00:00Z') },
+        { amount: 2225200n, transactionDate: new Date('2026-08-15T12:00:00Z') },
+      ];
+
+      const { currentBalance, outstanding } = computeCreditCardCurrentBalance(card, txs);
+      expect(outstanding).toBe(0);
+      expect(currentBalance).toBe(0);
+    });
+
+    it('respects explicitly calibrated non-zero opening balance', () => {
+      const card = { openingBalance: -100000n };
+      const txs = [
+        { amount: -50000n, transactionDate: new Date('2026-08-10T10:00:00Z') },
+      ];
+
+      const { currentBalance, outstanding } = computeCreditCardCurrentBalance(card, txs);
+      expect(outstanding).toBe(150000);
+      expect(currentBalance).toBe(-150000);
     });
   });
 });

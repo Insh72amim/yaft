@@ -6,7 +6,7 @@ import { CreateAccountDto, DeleteAccountDto, UpdateAccountDto } from './accounts
 import { generateAmortisationSchedule } from './loan-amortisation';
 import { StatementCredentialsService } from '../common/statement-credentials.service';
 import { AccountDocumentsService } from '../account-documents/account-documents.service';
-import { extractBeneficiaryName, isRefundOrReversal } from '../common/utils/transaction-utils';
+import { extractBeneficiaryName, isRefundOrReversal, computeCreditCardCurrentBalance } from '../common/utils/transaction-utils';
 
 export function buildTransactionWhere(
   userId: string,
@@ -214,10 +214,16 @@ export class AccountsService {
         };
       }
 
-      const ledgerBalance = Number(account.openingBalance) + transactions.reduce((sum: number, item: any) => sum + Number(item.amount), 0);
       const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
       const hasCompleteValuation = holdings.length > 0 && holdings.every((holding: any) => holding.currentValue !== null);
       
+      let balance = Number(account.openingBalance) + transactions.reduce((sum: number, item: any) => sum + Number(item.amount), 0);
+      if (isPortfolio && hasCompleteValuation) {
+        balance = holdings.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0);
+      } else if (account.type === AccountType.CREDIT_CARD) {
+        balance = computeCreditCardCurrentBalance(account, transactions).currentBalance;
+      }
+
       const currentMonthTxns = transactions.filter((t: any) => t.transactionDate >= startOfMonth && t.transactionDate < endOfMonth);
       const monthlyCredited = currentMonthTxns.filter((t: any) => t.amount > 0).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
       const monthlyDebited = Math.abs(currentMonthTxns.filter((t: any) => t.amount < 0).reduce((sum: number, t: any) => sum + Number(t.amount), 0));
@@ -226,9 +232,7 @@ export class AccountsService {
         ...account,
         openingBalance: Number(account.openingBalance),
         creditLimit: account.creditLimit === null ? null : Number(account.creditLimit),
-        balance: isPortfolio && hasCompleteValuation
-          ? holdings.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0)
-          : ledgerBalance,
+        balance,
         monthlyCredited,
         monthlyDebited,
         cardLast4: account.type === AccountType.CREDIT_CARD ? vaultEntry?.last4 ?? null : null,
@@ -762,9 +766,7 @@ export class AccountsService {
     const cards = cardAccounts.map((card) => {
       const cardTxns = allCardTransactions.filter((t) => t.accountId === card.id);
       const creditLimit = card.creditLimit ? Number(card.creditLimit) : 0;
-      const netTxnSum = cardTxns.reduce((sum, t) => sum + Number(t.amount), 0);
-      const currentBalance = Number(card.openingBalance) + netTxnSum;
-      const outstanding = currentBalance < 0 ? Math.abs(currentBalance) : 0;
+      const { currentBalance, outstanding } = computeCreditCardCurrentBalance(card, cardTxns);
       const availableCredit = Math.max(0, creditLimit - outstanding);
       const utilizationPercent = creditLimit > 0 ? Math.min(100, Math.round((outstanding / creditLimit) * 100)) : 0;
 

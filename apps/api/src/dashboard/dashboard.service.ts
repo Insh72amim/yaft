@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AccountType } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
-import { extractBeneficiaryName, getMonthDateRange, isRefundOrReversal } from '../common/utils/transaction-utils';
+import { extractBeneficiaryName, getMonthDateRange, isRefundOrReversal, computeCreditCardCurrentBalance } from '../common/utils/transaction-utils';
 
 @Injectable()
 export class DashboardService {
@@ -350,12 +350,14 @@ export class DashboardService {
     const savingsRate = savingsNetInbound > 0 ? Math.round((savings / savingsNetInbound) * 100) : 0;
 
     const mappedAccounts = accounts.map(({ transactions, holdings = [], ...account }) => {
-      const ledgerBalance = Number(account.openingBalance) + transactions.reduce((sum, item) => sum + Number(item.amount), 0);
       const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
       const hasCompleteValuation = holdings.length > 0 && holdings.every((holding) => holding.currentValue !== null);
-      const balance = isPortfolio && hasCompleteValuation
-        ? holdings.reduce((sum, holding) => sum + Number(holding.currentValue), 0)
-        : ledgerBalance;
+      let balance = Number(account.openingBalance) + transactions.reduce((sum, item) => sum + Number(item.amount), 0);
+      if (isPortfolio && hasCompleteValuation) {
+        balance = holdings.reduce((sum, holding) => sum + Number(holding.currentValue), 0);
+      } else if (account.type === AccountType.CREDIT_CARD) {
+        balance = computeCreditCardCurrentBalance(account, transactions).currentBalance;
+      }
 
       return {
         id: account.id,
