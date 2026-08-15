@@ -20,8 +20,19 @@ export function buildTransactionWhere(
   categoryId?: string,
   categoryGroup?: string,
   tagId?: string,
+  mode?: string,
 ) {
   const where: any = { account: { userId, archived: false } };
+
+  if (mode && mode !== 'all') {
+    if (mode === 'CREDIT_CARD') {
+      where.account.type = AccountType.CREDIT_CARD;
+    } else if (mode === 'BANK') {
+      where.account.type = { in: [AccountType.SAVINGS, AccountType.BANK] };
+    } else if (mode === 'UPI_LITE') {
+      where.account.type = AccountType.UPI_LITE;
+    }
+  }
 
   if (tagId && tagId !== 'all') {
     where.tags = { some: { tagId } };
@@ -339,6 +350,7 @@ export class AccountsService {
     startDate?: string,
     endDate?: string,
     categoryId?: string,
+    mode?: string,
   ) {
     const page = Math.max(1, requestedPage);
     const pageSize = requestedPageSize ? Math.min(100, Math.max(1, Number(requestedPageSize))) : 50;
@@ -346,7 +358,20 @@ export class AccountsService {
     const minAmount = minAmountStr !== undefined && minAmountStr !== '' ? Number(minAmountStr) : undefined;
     const maxAmount = maxAmountStr !== undefined && maxAmountStr !== '' ? Number(maxAmountStr) : undefined;
 
-    const transactionWhere = buildTransactionWhere(userId, accountId, search, minAmount, maxAmount, type, startDate, endDate, categoryId);
+    const transactionWhere = buildTransactionWhere(
+      userId,
+      accountId,
+      search,
+      minAmount,
+      maxAmount,
+      type,
+      startDate,
+      endDate,
+      categoryId,
+      undefined,
+      undefined,
+      mode,
+    );
 
     const [total, amountSum, transactions, userCategories] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),

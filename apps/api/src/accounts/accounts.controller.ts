@@ -46,6 +46,7 @@ export class AccountsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('categoryId') categoryId?: string,
+    @Query('mode') mode?: string,
   ) {
     return this.accountsService.allTransactions(
       user.id,
@@ -59,6 +60,7 @@ export class AccountsController {
       startDate,
       endDate,
       categoryId,
+      mode,
     );
   }
 
