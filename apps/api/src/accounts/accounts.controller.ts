@@ -33,6 +33,7 @@ export class AccountsController {
   }
 
   @Get('all-transactions')
+  @Get('transactions/all')
   async allTransactions(
     @CurrentUser() user: { id: string },
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) requestedPage: number,
