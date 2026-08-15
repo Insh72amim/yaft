@@ -449,10 +449,6 @@ function ImportWorkspace() {
       setPending(remaining);
       setSelectedReviewId((current) => current === item.review.id ? remaining[0]?.review.id ?? '' : current);
       setNotice(action === 'commit' ? (item.kind === 'BANK_STATEMENT' || item.kind === 'CREDIT_CARD_STATEMENT' ? 'Transactions added to the ledger.' : 'Salary month saved.') : 'Pending review discarded.');
-      if (action === 'commit' && (item.kind === 'BANK_STATEMENT' || item.kind === 'CREDIT_CARD_STATEMENT')) {
-        router.push(`/accounts?account=${item.review.account.id}`);
-        return;
-      }
       try { await refreshPending(); }
       catch (reason) {
         if (isUnauthorized(reason)) router.replace('/login');

@@ -443,7 +443,6 @@ export class DashboardService {
             AccountType.STOCKS,
             AccountType.EPFO,
             AccountType.LOAN,
-            AccountType.CREDIT_CARD,
           ],
         },
       },
@@ -488,7 +487,6 @@ export class DashboardService {
     const accountBreakdown = accounts.map((account: any) => {
       let balance = 0;
       const isLoan = account.type === 'LOAN';
-      const isCreditCard = account.type === 'CREDIT_CARD';
       const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
       const holdingsList = account.holdings || [];
 
@@ -516,7 +514,7 @@ export class DashboardService {
 
       let category = 'SAVINGS';
       const nameLower = (account.name + ' ' + (account.institution || '')).toLowerCase();
-      if (isLoan || isCreditCard) {
+      if (isLoan) {
         category = 'DEBT';
         if (balance < 0) {
           debtTotal += Math.abs(balance);
@@ -601,15 +599,6 @@ export class DashboardService {
           } else {
             const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
             const cumLedger = Number(account.openingBalance) + txsUpToMonth.reduce((sum: number, row: any) => sum + Number(row.amount), 0);
-            debt += Math.abs(cumLedger);
-          }
-          return;
-        }
-
-        if (account.type === 'CREDIT_CARD') {
-          const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
-          const cumLedger = Number(account.openingBalance) + txsUpToMonth.reduce((sum: number, row: any) => sum + Number(row.amount), 0);
-          if (cumLedger < 0) {
             debt += Math.abs(cumLedger);
           }
           return;
