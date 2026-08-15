@@ -68,6 +68,7 @@ function PortfolioContent() {
   const [investmentTab, setInvestmentTab] = useState<"HOLDINGS" | "DOCUMENTS" | "SIPS">("HOLDINGS");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     Investments: true,
+    "Debt Accounts": true,
   });
 
   const toggleSection = (label: string) => {
