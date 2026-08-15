@@ -32,7 +32,7 @@ export class BudgetsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Fetch actual spent per category in the target month (negative amounts = debits)
+    // Fetch actual category transactions in the target month (debits minus refunds, excluding transfers)
     const transactions = await this.prisma.transaction.findMany({
       where: {
         account: { userId },
@@ -40,22 +40,35 @@ export class BudgetsService {
           gte: startDate,
           lte: endDate,
         },
-        amount: { lt: 0 },
+        transferGroupId: null,
         categoryId: { not: null },
       },
       select: {
         categoryId: true,
         amount: true,
+        descriptionRaw: true,
+        category: {
+          select: { name: true },
+        },
       },
     });
 
-    // Map categoryId -> total spent minor units
+    // Map categoryId -> net spent minor units (debits - refunds)
     const spentMap = new Map<string, bigint>();
     for (const tx of transactions) {
       if (!tx.categoryId) continue;
-      const absAmount = tx.amount < 0n ? -tx.amount : tx.amount;
+      const catName = tx.category?.name || '';
+      if (/transfer/i.test(catName)) continue;
+
+      const isRefund = tx.amount > 0n && /refund|reversal|returned|cashback|cb\s|credit\s*adj|cancelled/i.test(tx.descriptionRaw);
       const current = spentMap.get(tx.categoryId) || 0n;
-      spentMap.set(tx.categoryId, current + absAmount);
+
+      if (tx.amount < 0n) {
+        spentMap.set(tx.categoryId, current + (-tx.amount));
+      } else if (isRefund) {
+        const net = current - tx.amount;
+        spentMap.set(tx.categoryId, net < 0n ? 0n : net);
+      }
     }
 
     let totalBudgeted = 0n;

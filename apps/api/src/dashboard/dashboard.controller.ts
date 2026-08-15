@@ -533,6 +533,7 @@ export class DashboardController {
             AccountType.STOCKS,
             AccountType.EPFO,
             AccountType.LOAN,
+            AccountType.CREDIT_CARD,
           ],
         },
       },
@@ -577,6 +578,7 @@ export class DashboardController {
     const accountBreakdown = accounts.map((account: any) => {
       let balance = 0;
       const isLoan = account.type === 'LOAN';
+      const isCreditCard = account.type === 'CREDIT_CARD';
       const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
       const holdingsList = account.holdings || [];
 
@@ -605,9 +607,11 @@ export class DashboardController {
       // Classify asset category
       let category = 'SAVINGS';
       const nameLower = (account.name + ' ' + (account.institution || '')).toLowerCase();
-      if (isLoan) {
+      if (isLoan || isCreditCard) {
         category = 'DEBT';
-        debtTotal += Math.abs(balance);
+        if (balance < 0) {
+          debtTotal += Math.abs(balance);
+        }
       } else if (account.type === 'FIXED_DEPOSIT' || nameLower.includes('fixed deposit') || nameLower.includes('fd-') || nameLower.includes('-fd')) {
         category = 'DEPOSITS';
         if (balance > 0) depositsTotal += balance;
@@ -686,6 +690,15 @@ export class DashboardController {
           } else {
             const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
             const cumLedger = Number(account.openingBalance) + txsUpToMonth.reduce((sum: number, row: any) => sum + Number(row.amount), 0);
+            debt += Math.abs(cumLedger);
+          }
+          return;
+        }
+
+        if (account.type === 'CREDIT_CARD') {
+          const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
+          const cumLedger = Number(account.openingBalance) + txsUpToMonth.reduce((sum: number, row: any) => sum + Number(row.amount), 0);
+          if (cumLedger < 0) {
             debt += Math.abs(cumLedger);
           }
           return;
