@@ -48,6 +48,13 @@ export class DashboardService {
 
     const isInternalTransfer = (tx: (typeof monthTransactions)[0]) => {
       if (tx.transferGroupId) return true;
+      if (tx.category?.type === 'TRANSFER' || (tx.category?.name && /transfer|cc transfer/i.test(tx.category.name))) return true;
+
+      const desc = tx.descriptionRaw.toLowerCase();
+      if (/self\s*tra|tcd\s*no|firdftfr|own\s*acc|self\s*transfer|trf\s*to/i.test(desc)) {
+        return true;
+      }
+
       for (const v of activeVaults) {
         if (v.last4 && v.accountId !== tx.accountId && tx.descriptionRaw.includes(v.last4)) {
           return true;

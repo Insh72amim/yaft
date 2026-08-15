@@ -200,7 +200,7 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     }
   }
 
-  if (isNaN(rawAmountNum) || rawAmountNum <= 0) return null;
+  if (isNaN(rawAmountNum) || rawAmountNum <= 0 || rawAmountNum > 10_000_000) return null;
 
   const rawMinor = BigInt(Math.round(rawAmountNum * 100));
   const amountMinor = type === 'DEBIT' ? -rawMinor : rawMinor;
