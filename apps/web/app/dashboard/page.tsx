@@ -448,7 +448,7 @@ export default function DashboardPage() {
           <div>
             <small>Savings Net Inbound</small>
             <strong style={{ fontSize: '1.4rem' }}>{money(data.savingsNetInbound ?? data.income)}</strong>
-            <em>Excl. internal transfers</em>
+            <em>Excl. internal transfers • {startDate} to {endDate}</em>
           </div>
         </article>
 
@@ -459,7 +459,7 @@ export default function DashboardPage() {
           <div>
             <small>Savings Net Outbound</small>
             <strong style={{ fontSize: '1.4rem' }}>{money(data.savingsNetOutbound ?? data.expenses)}</strong>
-            <em>Excl. internal transfers</em>
+            <em>Excl. internal transfers • {startDate} to {endDate}</em>
           </div>
         </article>
 
@@ -470,7 +470,7 @@ export default function DashboardPage() {
           <div>
             <small>Net Cash Flow</small>
             <strong style={{ fontSize: '1.4rem', color: data.savings >= 0 ? 'var(--green)' : '#ef4444' }}>{money(data.savings)}</strong>
-
+            <em>{startDate} to {endDate}</em>
           </div>
         </article>
 

@@ -31,6 +31,7 @@ import {
   Pencil,
   Receipt,
   Search,
+  Calendar,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -2453,6 +2454,9 @@ function CreditCardsSection() {
             <div>
               <span className="eyebrow">Distribution</span>
               <h2>Overall Spends by Category</h2>
+              <small style={{ color: "var(--muted)", fontSize: "11px", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                <Calendar size={12} color="var(--green)" /> All-Time Historical Spends
+              </small>
             </div>
           </div>
 
@@ -2482,6 +2486,9 @@ function CreditCardsSection() {
             <div>
               <span className="eyebrow">Recipients</span>
               <h2>Top Merchant Outflows</h2>
+              <small style={{ color: "var(--muted)", fontSize: "11px", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                <Calendar size={12} color="var(--green)" /> All-Time Top Outflows
+              </small>
             </div>
           </div>
 

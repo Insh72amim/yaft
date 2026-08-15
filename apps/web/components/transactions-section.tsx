@@ -218,6 +218,26 @@ export function TransactionsSection({
     router,
   ]);
 
+  const formatDateLabel = (dateStr?: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const getDateRangeText = (start?: string, end?: string) => {
+    if (start && end) {
+      return `${formatDateLabel(start)} — ${formatDateLabel(end)}`;
+    }
+    if (start) {
+      return `From ${formatDateLabel(start)} onwards`;
+    }
+    if (end) {
+      return `Up to ${formatDateLabel(end)}`;
+    }
+    return "All-Time Full History";
+  };
+
   useEffect(() => {
     fetchTransactions();
   }, [fetchTransactions]);
@@ -592,6 +612,19 @@ export function TransactionsSection({
               }}>
               {money(-data.summary.totalSpent)}
             </strong>
+            <small
+              style={{
+                fontSize: "11px",
+                color: "var(--muted)",
+                marginTop: "2px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                fontWeight: 600,
+              }}>
+              <Calendar size={12} color="var(--green)" />
+              <span>{getDateRangeText(startDate, endDate)}</span>
+            </small>
           </div>
 
           <div
@@ -630,6 +663,19 @@ export function TransactionsSection({
               }}>
               {money(data.summary.totalReceived)}
             </strong>
+            <small
+              style={{
+                fontSize: "11px",
+                color: "var(--muted)",
+                marginTop: "2px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                fontWeight: 600,
+              }}>
+              <Calendar size={12} color="var(--green)" />
+              <span>{getDateRangeText(startDate, endDate)}</span>
+            </small>
           </div>
 
           <div
@@ -662,6 +708,19 @@ export function TransactionsSection({
               }}>
               {data.summary.totalCount} records
             </strong>
+            <small
+              style={{
+                fontSize: "11px",
+                color: "var(--muted)",
+                marginTop: "2px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                fontWeight: 600,
+              }}>
+              <Calendar size={12} color="var(--green)" />
+              <span>{getDateRangeText(startDate, endDate)}</span>
+            </small>
           </div>
         </div>
       )}
@@ -1146,6 +1205,61 @@ export function TransactionsSection({
                       Filter active
                     </small>
                   )}
+                </div>
+
+                {/* Quick Date Range Presets */}
+                <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="secondary compact"
+                    style={{ fontSize: "10px", padding: "2px 8px" }}
+                    onClick={() => {
+                      const now = new Date();
+                      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+                      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+                      setStartDate(firstDay);
+                      setEndDate(lastDay);
+                      setPage(1);
+                    }}>
+                    This Month
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary compact"
+                    style={{ fontSize: "10px", padding: "2px 8px" }}
+                    onClick={() => {
+                      const end = new Date().toISOString().slice(0, 10);
+                      const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                      setStartDate(start);
+                      setEndDate(end);
+                      setPage(1);
+                    }}>
+                    Last 30 Days
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary compact"
+                    style={{ fontSize: "10px", padding: "2px 8px" }}
+                    onClick={() => {
+                      const end = new Date().toISOString().slice(0, 10);
+                      const start = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                      setStartDate(start);
+                      setEndDate(end);
+                      setPage(1);
+                    }}>
+                    Last 90 Days
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary compact"
+                    style={{ fontSize: "10px", padding: "2px 8px" }}
+                    onClick={() => {
+                      setStartDate("");
+                      setEndDate("");
+                      setPage(1);
+                    }}>
+                    All Time
+                  </button>
                 </div>
                 <div
                   style={{

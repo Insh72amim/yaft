@@ -691,19 +691,25 @@ function BudgetsContent() {
               <div style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
                 <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Total Monthly Budget</span>
                 <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{money(summary.totalBudgeted * 100)}</strong>
-                <small style={{ color: "var(--muted)", fontSize: "11px" }}>Combined target envelope limits</small>
+                <small style={{ color: "var(--muted)", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
+                  <Calendar size={11} color="var(--green)" /> Current Month (Aug 2026)
+                </small>
               </div>
 
               <div style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
                 <span style={{ fontSize: "11px", fontWeight: 700, color: "#3b82f6", textTransform: "uppercase" }}>Month-To-Date Spent</span>
                 <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{money(summary.totalSpent * 100)}</strong>
-                <small style={{ color: "var(--muted)", fontSize: "11px" }}>Across budgeted categories</small>
+                <small style={{ color: "var(--muted)", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
+                  <Calendar size={11} color="var(--green)" /> Aug 01 — Aug 15, 2026
+                </small>
               </div>
 
               <div style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
-                <span style={{ fontSize: "11px", fontWeight: 700, color: summary.totalRemaining > 0 ? "var(--green)" : "#ef4444", textTransform: "uppercase" }}>Remaining Capacity</span>
+                <span style={{ fontSize: "11px", fontWeight: 700, color: summary.totalRemaining > 0 ? "var(--green)" : "#ef4444", textTransform: "uppercase" }}>Total Remaining Budget</span>
                 <strong style={{ display: "block", fontSize: "1.5rem", fontWeight: 800, color: summary.totalRemaining > 0 ? "var(--green)" : "#ef4444", marginTop: "4px" }}>{money(summary.totalRemaining * 100)}</strong>
-                <small style={{ color: "var(--muted)", fontSize: "11px" }}>Available envelope allowance</small>
+                <small style={{ color: "var(--muted)", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
+                  <Calendar size={11} color="var(--green)" /> Remaining for Aug 2026
+                </small>
               </div>
 
               <div style={{ background: "var(--card)", border: "1px solid var(--line)", padding: "16px 20px", borderRadius: "14px" }}>
