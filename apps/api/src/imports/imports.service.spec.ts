@@ -27,7 +27,11 @@ function setup() {
   const credentials = { getPassword: jest.fn().mockResolvedValue(undefined),
     encrypt: jest.fn().mockReturnValue({ ciphertext: Buffer.from('cipher'), iv: Buffer.alloc(12), authTag: Buffer.alloc(16), keyVersion: 1 }) } as unknown as StatementCredentialsService;
   const transfersService = { reconcileTransfers: jest.fn().mockResolvedValue({ matchedPairsCount: 0 }) } as any;
-  const service = new ImportsService(prisma, credentials, transfersService, { matchRules: jest.fn().mockReturnValue(null) } as any);
+  const categoryRulesService = {
+    matchRules: jest.fn().mockReturnValue(null),
+    matchTransactionCategory: jest.fn().mockReturnValue({ confidence: 20 }),
+  };
+  const service = new ImportsService(prisma, credentials, transfersService, categoryRulesService as any);
   jest.spyOn(service, 'get').mockResolvedValue({ id: 'batch-1' } as never);
   parseStatement.mockResolvedValue({ rows: [row], parserId: 'SBI' });
   return { service, prisma: prisma as any, credentials: credentials as any, transfersService, tx };

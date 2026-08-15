@@ -1,10 +1,12 @@
 import { PrismaService } from '../common/prisma.service';
 import { EmailIngestionService } from './email-ingestion.service';
+import { CategoryRulesService } from '../category-rules/category-rules.service';
 import { getAlertFingerprint, parseEmailAlertSnippet } from './email-alert-parser';
 
-describe('EmailIngestionService Deduplication', () => {
+describe('EmailIngestionService Deduplication and Auto-Categorization', () => {
   let service: EmailIngestionService;
   let prisma: any;
+  let categoryRulesService: any;
 
   beforeEach(() => {
     prisma = {
@@ -16,6 +18,9 @@ describe('EmailIngestionService Deduplication', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       stagedTransaction: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      categoryRule: {
         findMany: jest.fn().mockResolvedValue([]),
       },
       importBatch: {
@@ -30,7 +35,18 @@ describe('EmailIngestionService Deduplication', () => {
       },
     };
 
-    service = new EmailIngestionService(prisma as any);
+    categoryRulesService = {
+      listCategories: jest.fn().mockResolvedValue([
+        { id: 'cat_transport', name: 'Transport & Fuel' },
+        { id: 'cat_food', name: 'Food & Dining' },
+      ]),
+      matchTransactionCategory: jest.fn().mockReturnValue({
+        categoryId: 'cat_transport',
+        confidence: 85,
+      }),
+    };
+
+    service = new EmailIngestionService(prisma as any, categoryRulesService as any);
   });
 
   it('should mark duplicate when transaction with same fingerprint exists', async () => {
@@ -54,7 +70,7 @@ describe('EmailIngestionService Deduplication', () => {
     expect(stagedRow.include).toBe(false);
   });
 
-  it('should mark as included and non-duplicate when transaction is new', async () => {
+  it('should mark as included and non-duplicate and assign auto-category when transaction is new', async () => {
     const snippet = 'Your ICICI Bank Credit Card XX0001 has been used for a transaction of INR 500.00 on Aug 09, 2026 at 07:34:01. Info: MAKEMYTRIP INDIA PVT LT.';
     const alert = parseEmailAlertSnippet(snippet)!;
     const expectedFingerprint = getAlertFingerprint('acc_123', alert);
@@ -73,5 +89,7 @@ describe('EmailIngestionService Deduplication', () => {
     expect(stagedRow.fingerprint).toBe(expectedFingerprint);
     expect(stagedRow.isDuplicate).toBe(false);
     expect(stagedRow.include).toBe(true);
+    expect(stagedRow.categoryId).toBe('cat_transport');
+    expect(stagedRow.confidence).toBe(85);
   });
 });

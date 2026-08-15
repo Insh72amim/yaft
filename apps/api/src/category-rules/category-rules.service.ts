@@ -3,6 +3,20 @@ import { MatchField, MatchType, CategoryRule } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CreateCategoryRuleDto, UpdateCategoryRuleDto } from './category-rules.dto';
 
+export const BUILTIN_CATEGORY_PATTERNS: Array<[RegExp, string]> = [
+  [/swiggy|zomato|instamart|starbucks|chaayos|dominos|mcdonalds|kfc|subway|pizza|rest|cafe|diner|bakery|burger|haldiram|barbeque|eats/i, 'Food & Dining'],
+  [/blinkit|zepto|bigbasket|bbdaily|dmart|spar|grocery|supermarket|kirana|natures basket|dunzo|country delight|milk/i, 'Groceries'],
+  [/amazon|flipkart|myntra|tatacliq|ajio|nykaa|zara|uniqlo|decathlon|westside|reliance|meesho|max fashion|h&m|lifestyle|croma|vijay sales/i, 'Shopping & Clothing'],
+  [/uber|ola|rapido|blusmart|petrol|shell|hpcl|bpcl|iocl|fuel|irctc|indigo|air india|vistara|fastag|metro|toll|makemytrip|mmt|goibibo|cleartrip|easemytrip|yatra|red bus|redbus|parking/i, 'Transport & Fuel'],
+  [/cred|bescom|tata power|msedcl|bses|cesc|airtel|jio|vi |actfibernet|tata play|dish tv|indane|bharat gas|hp gas|electricity|water bill|broadband|billdesk|recharge|paytm postpaid|insurance|lic/i, 'Bills & Utilities'],
+  [/netflix|spotify|prime video|hotstar|youtube|apple\.com|bookmyshow|pvr|inox|cinema|playstation|steam|amazon prime/i, 'Entertainment & OTT'],
+  [/zerodha|groww|kfintech|cams|coin|mf central|sip|sgb|nps|epfo|ppf|mutual fund|indmoney|kite/i, 'Mutual Fund SIP'],
+  [/apollo|netmeds|pharmeasy|1mg|medplus|hospital|clinic|lab|diagnostics|pharmacy|healthkart|cult\.fit|gym/i, 'Medical & Health'],
+  [/rent|cred rent|nobroker|society maintenance|mygate|housing/i, 'Housing & Rent'],
+  [/salary|payroll|stipend|bonus/i, 'Salary & Wages'],
+  [/cashback|interest|reward|refund/i, 'Interest & Cashback'],
+];
+
 @Injectable()
 export class CategoryRulesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -145,12 +159,48 @@ export class CategoryRulesService {
     return null;
   }
 
+  matchTransactionCategory(
+    rules: CategoryRule[],
+    categories: { id: string; name: string }[],
+    descriptionRaw: string,
+    merchant?: string | null,
+    reference?: string | null,
+  ): { categoryId?: string; confidence: number } {
+    // 1. Check user custom rules first (highest priority)
+    if (rules && rules.length > 0) {
+      const matchedCatId = this.matchRules(rules, descriptionRaw, merchant, reference);
+      if (matchedCatId) {
+        return { categoryId: matchedCatId, confidence: 95 };
+      }
+    }
+
+    // 2. Check built-in smart merchant patterns
+    const textToMatch = `${merchant || ''} ${descriptionRaw} ${reference || ''}`.trim();
+    for (const [pattern, catName] of BUILTIN_CATEGORY_PATTERNS) {
+      if (pattern.test(textToMatch)) {
+        const found = categories.find(
+          (c) =>
+            c.name.toLowerCase() === catName.toLowerCase() ||
+            c.name.toLowerCase().includes(catName.toLowerCase()) ||
+            catName.toLowerCase().includes(c.name.toLowerCase()),
+        );
+        if (found) {
+          return { categoryId: found.id, confidence: 85 };
+        }
+      }
+    }
+
+    return { confidence: 20 };
+  }
+
   async applyRetroactively(userId: string): Promise<{ updatedCount: number }> {
-    const rules = await this.prisma.categoryRule.findMany({
-      where: { userId },
-      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
-    });
-    if (rules.length === 0) return { updatedCount: 0 };
+    const [rules, categories] = await Promise.all([
+      this.prisma.categoryRule.findMany({
+        where: { userId },
+        orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      }),
+      this.listCategories(userId),
+    ]);
 
     const transactions = await this.prisma.transaction.findMany({
       where: { account: { userId } },
@@ -159,7 +209,13 @@ export class CategoryRulesService {
 
     let updatedCount = 0;
     for (const tx of transactions) {
-      const matchedCatId = this.matchRules(rules, tx.descriptionRaw, tx.merchant, tx.reference);
+      const { categoryId: matchedCatId } = this.matchTransactionCategory(
+        rules,
+        categories,
+        tx.descriptionRaw,
+        tx.merchant,
+        tx.reference,
+      );
       if (matchedCatId && matchedCatId !== tx.categoryId) {
         await this.prisma.transaction.update({
           where: { id: tx.id },
@@ -219,6 +275,12 @@ export class CategoryRulesService {
         select: { id: true, name: true, type: true, color: true },
         orderBy: [{ type: 'asc' }, { name: 'asc' }],
       });
+    }
+
+    // If user has no category rules yet, automatically seed the default system rules
+    const ruleCount = await this.prisma.categoryRule.count({ where: { userId } });
+    if (ruleCount === 0) {
+      void this.seedDefaultRules(userId);
     }
 
     return list;
@@ -303,16 +365,17 @@ export class CategoryRulesService {
     const categories = await this.listCategories(userId);
 
     const DEFAULT_SYSTEM_RULES = [
-      { categoryName: 'Food & Dining', pattern: 'SWIGGY|ZOMATO|INSTAMART|STARBUCKS|CHAAYOS|DOMINOS|MCDONALDS|KFC|SUBWAY|PIZZA|REST|CAFE|DINER|BAKERY', matchType: MatchType.REGEX, priority: 10 },
-      { categoryName: 'Groceries', pattern: 'BLINKIT|ZEPTO|BIGBASKET|BBDAILY|DMART|SPAR|GROCERY|SUPERMARKET|KIRANA', matchType: MatchType.REGEX, priority: 10 },
-      { categoryName: 'Shopping & Clothing', pattern: 'AMAZON|FLIPKART|MYNTRA|TATACLIQ|AJIO|NYKAA|ZARA|UNIQLO|DECATHLON|WESTSIDE|RELIANCE', matchType: MatchType.REGEX, priority: 10 },
-      { categoryName: 'Transport & Fuel', pattern: 'UBER|OLA|RAPIDO|BLUSMART|PETROL|SHELL|HPCL|BPCL|IOCL|FUEL|IRCTC|INDIGO|AIR INDIA|VISTARA|FASTAG|METRO|TOLL', matchType: MatchType.REGEX, priority: 10 },
-      { categoryName: 'Bills & Utilities', pattern: 'BESCOM|TATA POWER|MSEDCL|BSES|CESC|AIRTEL|JIO|VI |ACTFIBERNET|TATA PLAY|DISH TV|INDANE|BHARAT GAS|HP GAS', matchType: MatchType.REGEX, priority: 10 },
-      { categoryName: 'Entertainment & OTT', pattern: 'NETFLIX|SPOTIFY|PRIME VIDEO|HOTSTAR|YOUTUBE|APPLE.COM|BOOKMYSHOW|PVR|INOX', matchType: MatchType.REGEX, priority: 10 },
-      { categoryName: 'Mutual Fund SIP', pattern: 'ZERODHA|GROWW|KFINTECH|CAMS|COIN|MF CENTRAL|SIP|SGB|NPS|EPFO|PPF', matchType: MatchType.REGEX, priority: 10 },
-      { categoryName: 'Medical & Health', pattern: 'APOLLO|NETMEDS|PHARMEASY|1MG|MEDPLUS|HOSPITAL|CLINIC|LAB|DIAGNOSTICS', matchType: MatchType.REGEX, priority: 10 },
-      { categoryName: 'Housing & Rent', pattern: 'RENT|CRED RENT|NOBROKER|SOCIETY MAINTENANCE', matchType: MatchType.REGEX, priority: 10 },
-      { categoryName: 'Salary & Wages', pattern: 'SALARY|PAYROLL|STIPEND', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Food & Dining', pattern: 'SWIGGY|ZOMATO|INSTAMART|STARBUCKS|CHAAYOS|DOMINOS|MCDONALDS|KFC|SUBWAY|PIZZA|REST|CAFE|DINER|BAKERY|BURGER|HALDIRAM|BARBEQUE|EATS', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Groceries', pattern: 'BLINKIT|ZEPTO|BIGBASKET|BBDAILY|DMART|SPAR|GROCERY|SUPERMARKET|KIRANA|NATURES BASKET|DUNZO|COUNTRY DELIGHT|MILK', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Shopping & Clothing', pattern: 'AMAZON|FLIPKART|MYNTRA|TATACLIQ|AJIO|NYKAA|ZARA|UNIQLO|DECATHLON|WESTSIDE|RELIANCE|MEESHO|MAX FASHION|H&M|LIFESTYLE|CROMA|VIJAY SALES', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Transport & Fuel', pattern: 'UBER|OLA|RAPIDO|BLUSMART|PETROL|SHELL|HPCL|BPCL|IOCL|FUEL|IRCTC|INDIGO|AIR INDIA|VISTARA|FASTAG|METRO|TOLL|MAKEMYTRIP|MMT|GOIBIBO|CLEARTRIP|EASEMYTRIP|YATRA|RED BUS|REDBUS|PARKING', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Bills & Utilities', pattern: 'CRED|BESCOM|TATA POWER|MSEDCL|BSES|CESC|AIRTEL|JIO|VI |ACTFIBERNET|TATA PLAY|DISH TV|INDANE|BHARAT GAS|HP GAS|ELECTRICITY|WATER BILL|BROADBAND|BILLDESK|RECHARGE|PAYTM POSTPAID|INSURANCE|LIC', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Entertainment & OTT', pattern: 'NETFLIX|SPOTIFY|PRIME VIDEO|HOTSTAR|YOUTUBE|APPLE.COM|BOOKMYSHOW|PVR|INOX|CINEMA|PLAYSTATION|STEAM|AMAZON PRIME', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Mutual Fund SIP', pattern: 'ZERODHA|GROWW|KFINTECH|CAMS|COIN|MF CENTRAL|SIP|SGB|NPS|EPFO|PPF|MUTUAL FUND|INDMONEY|KITE', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Medical & Health', pattern: 'APOLLO|NETMEDS|PHARMEASY|1MG|MEDPLUS|HOSPITAL|CLINIC|LAB|DIAGNOSTICS|PHARMACY|HEALTHKART|CULT.FIT|GYM', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Housing & Rent', pattern: 'RENT|CRED RENT|NOBROKER|SOCIETY MAINTENANCE|MYGATE|HOUSING', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Salary & Wages', pattern: 'SALARY|PAYROLL|STIPEND|BONUS', matchType: MatchType.REGEX, priority: 10 },
+      { categoryName: 'Interest & Cashback', pattern: 'CASHBACK|INTEREST|REWARD|REFUND', matchType: MatchType.REGEX, priority: 10 },
     ];
 
     let createdCount = 0;

@@ -42,4 +42,34 @@ describe('CategoryRulesService', () => {
       expect(service.matchRules(rules, 'Amazon Purchase')).toBe(null);
     });
   });
+
+  describe('matchTransactionCategory', () => {
+    const categories = [
+      { id: 'cat-food', name: 'Food & Dining' },
+      { id: 'cat-transport', name: 'Transport & Fuel' },
+      { id: 'cat-shopping', name: 'Shopping & Clothing' },
+      { id: 'cat-bills', name: 'Bills & Utilities' },
+    ];
+
+    it('matches built-in pattern for MakeMyTrip credit card spend to Transport & Fuel', () => {
+      const result = service.matchTransactionCategory([], categories, 'MAKEMYTRIP INDIA PVT LT [ICICI Bank Credit Card ••0001]', 'MAKEMYTRIP INDIA PVT LT');
+      expect(result.categoryId).toBe('cat-transport');
+      expect(result.confidence).toBe(85);
+    });
+
+    it('matches built-in pattern for Amazon credit card spend to Shopping & Clothing', () => {
+      const result = service.matchTransactionCategory([], categories, 'AMAZON PAY INDIA [HDFC Credit Card]', 'AMAZON PAY');
+      expect(result.categoryId).toBe('cat-shopping');
+      expect(result.confidence).toBe(85);
+    });
+
+    it('prioritizes user custom rules over built-in patterns', () => {
+      const customRules: any[] = [
+        { id: '1', pattern: 'AMAZON', matchField: MatchField.MERCHANT, matchType: MatchType.CONTAINS, categoryId: 'cat-bills', priority: 20 },
+      ];
+      const result = service.matchTransactionCategory(customRules, categories, 'AMAZON PAY INDIA', 'AMAZON PAY');
+      expect(result.categoryId).toBe('cat-bills');
+      expect(result.confidence).toBe(95);
+    });
+  });
 });

@@ -1,12 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
+import { CategoryRulesService } from '../category-rules/category-rules.service';
 import { parseMultipleEmailAlerts, getAlertFingerprint } from './email-alert-parser';
 import { ParseEmailSnippetDto } from './email-ingestion.dto';
 
 @Injectable()
 export class EmailIngestionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly categoryRulesService: CategoryRulesService,
+  ) {}
 
   async parseSnippet(userId: string, dto: ParseEmailSnippetDto) {
     const parsedAlerts = parseMultipleEmailAlerts(dto.snippet, dto.senderOrSubject);
@@ -35,29 +39,42 @@ export class EmailIngestionService {
       });
     }
 
-    // Query existing committed transactions and pending review staged transactions for this account
-    const existingTxFingerprints = new Set(
-      (await this.prisma.transaction.findMany({ where: { accountId: account.id }, select: { fingerprint: true } })).map((x) => x.fingerprint)
-    );
-    const existingStagedFingerprints = new Set(
-      (await this.prisma.stagedTransaction.findMany({ where: { batch: { accountId: account.id, status: 'REVIEW' } }, select: { fingerprint: true } })).map((x) => x.fingerprint)
-    );
+    // Query existing committed transactions, pending review staged transactions, user categories & category rules
+    const [existingTx, existingStaged, categories, userRules] = await Promise.all([
+      this.prisma.transaction.findMany({ where: { accountId: account.id }, select: { fingerprint: true } }),
+      this.prisma.stagedTransaction.findMany({ where: { batch: { accountId: account.id, status: 'REVIEW' } }, select: { fingerprint: true } }),
+      this.categoryRulesService.listCategories(userId),
+      this.prisma.categoryRule.findMany({ where: { userId }, orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }] }),
+    ]);
+
+    const existingTxFingerprints = new Set(existingTx.map((x) => x.fingerprint));
+    const existingStagedFingerprints = new Set(existingStaged.map((x) => x.fingerprint));
 
     const stagedRows = parsedAlerts.map((alert, idx) => {
       const fingerprint = getAlertFingerprint(account.id, alert);
       const isDuplicate = existingTxFingerprints.has(fingerprint) || existingStagedFingerprints.has(fingerprint);
       existingTxFingerprints.add(fingerprint);
+      const descriptionRaw = `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' A/C ' + alert.accountLast4 : ''}]`;
+      const catMatch = this.categoryRulesService.matchTransactionCategory(
+        userRules,
+        categories,
+        descriptionRaw,
+        alert.merchant,
+        alert.referenceNumber,
+      );
+
       return {
         rowNumber: idx + 1,
         transactionDate: alert.transactionDate,
-        descriptionRaw: `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' A/C ' + alert.accountLast4 : ''}]`,
+        descriptionRaw,
         merchant: alert.merchant,
         amount: alert.amountMinor,
         reference: alert.referenceNumber || null,
         fingerprint,
+        categoryId: catMatch.categoryId ?? null,
         isDuplicate,
         include: !isDuplicate,
-        confidence: isDuplicate ? 100 : 90,
+        confidence: isDuplicate ? 100 : catMatch.confidence,
       };
     });
 

@@ -371,24 +371,13 @@ export class ImportsService {
   ) {
     const merchant = row.description.replace(/\b(UPI|POS|NEFT|IMPS|REF|TXN)\b/gi, ' ').replace(/[\d@/_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
     
-    // 1. Try matching user custom category rules first (highest priority)
-    let categoryId: string | undefined;
-    let matchConfidence = 90;
-    if (userRules.length > 0) {
-      const matchedUserCatId = this.categoryRulesService.matchRules(userRules, row.description, merchant, row.reference);
-      if (matchedUserCatId) {
-        categoryId = matchedUserCatId;
-        matchConfidence = 95;
-      }
-    }
-
-    // 2. Fall back to default regex pattern matching if no user rule matched
-    if (!categoryId) {
-      const match = categoryRules.find(([pattern]) => pattern.test(row.description));
-      const categoryName = match?.[1] ?? 'Uncategorised';
-      categoryId = categories.find((category) => category.name === categoryName)?.id;
-      matchConfidence = match ? 70 : 20;
-    }
+    const catMatch = this.categoryRulesService.matchTransactionCategory(
+      userRules,
+      categories,
+      row.description,
+      merchant,
+      row.reference,
+    );
 
     const stableIdentity = row.dedupeKey || row.reference?.toLowerCase().trim() || row.description.toLowerCase().replace(/\s+/g, ' ').trim();
     const fingerprintSeed = row.postedDate || row.dedupeKey
@@ -397,8 +386,19 @@ export class ImportsService {
     const fingerprint = createHash('sha256').update(fingerprintSeed).digest('hex');
     const isDuplicate = existing.has(fingerprint);
     existing.add(fingerprint);
-    return { rowNumber: row.rowNumber, transactionDate: row.date, postedDate: row.postedDate, descriptionRaw: row.description.slice(0, 500), merchant,
-      amount: BigInt(row.amountMinor), reference: row.reference?.slice(0, 100), fingerprint, isDuplicate,
-      include: !isDuplicate, confidence: matchConfidence, categoryId };
+    return {
+      rowNumber: row.rowNumber,
+      transactionDate: row.date,
+      postedDate: row.postedDate,
+      descriptionRaw: row.description.slice(0, 500),
+      merchant,
+      amount: BigInt(row.amountMinor),
+      reference: row.reference?.slice(0, 100),
+      fingerprint,
+      isDuplicate,
+      include: !isDuplicate,
+      confidence: catMatch.confidence,
+      categoryId: catMatch.categoryId,
+    };
   }
 }

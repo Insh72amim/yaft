@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { google } from 'googleapis';
 import { PrismaService } from '../common/prisma.service';
+import { CategoryRulesService } from '../category-rules/category-rules.service';
 import { StatementCredentialCipher } from '../common/statement-credentials.service';
 import { parseMultipleEmailAlerts, ParsedEmailTransaction, getAccountCategoryKey, getAccountCategoryDisplayName, getAlertFingerprint } from './email-alert-parser';
 
@@ -14,6 +15,7 @@ export class GoogleGmailService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly categoryRulesService: CategoryRulesService,
   ) {}
 
   private getOAuthClient(redirectUriOverride?: string) {
@@ -287,10 +289,17 @@ export class GoogleGmailService {
       const createdBatchIds: string[] = [];
       let totalStaged = 0;
 
-      // Fetch user's active accounts once for smart matching
-      const userAccounts = await this.prisma.account.findMany({
-        where: { userId, archived: false },
-      });
+      // Fetch user's active accounts, categories, and category rules once
+      const [userAccounts, categories, userRules] = await Promise.all([
+        this.prisma.account.findMany({
+          where: { userId, archived: false },
+        }),
+        this.categoryRulesService.listCategories(userId),
+        this.prisma.categoryRule.findMany({
+          where: { userId },
+          orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+        }),
+      ]);
 
       for (const [groupKey, groupAlerts] of Object.entries(groups)) {
         const sampleAlert = groupAlerts[0];
@@ -350,17 +359,27 @@ export class GoogleGmailService {
           const fingerprint = getAlertFingerprint(matchedAccount!.id, alert);
           const isDuplicate = existingTxFingerprints.has(fingerprint) || existingStagedFingerprints.has(fingerprint);
           existingTxFingerprints.add(fingerprint);
+          const descriptionRaw = `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' ••' + alert.accountLast4 : ''}]`;
+          const catMatch = this.categoryRulesService.matchTransactionCategory(
+            userRules,
+            categories,
+            descriptionRaw,
+            alert.merchant,
+            alert.referenceNumber,
+          );
+
           return {
             rowNumber: idx + 1,
             transactionDate: alert.transactionDate,
-            descriptionRaw: `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' ••' + alert.accountLast4 : ''}]`,
+            descriptionRaw,
             merchant: alert.merchant,
             amount: alert.amountMinor,
             reference: alert.referenceNumber || null,
             fingerprint,
+            categoryId: catMatch.categoryId ?? null,
             isDuplicate,
             include: !isDuplicate,
-            confidence: isDuplicate ? 100 : 95,
+            confidence: isDuplicate ? 100 : catMatch.confidence,
           };
         });
 
