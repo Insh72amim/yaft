@@ -41,17 +41,17 @@ export class ImportsService {
     const candidates: (string | undefined)[] = [];
     if (explicitPassword) {
       candidates.push(explicitPassword);
-    }
-
-    const autoCandidates = await this.getAxisPasswordCandidates(userId, targetAccountId, file.originalname);
-    for (const cand of autoCandidates) {
-      if (!candidates.includes(cand)) {
-        candidates.push(cand);
-      }
-    }
-
-    if (candidates.length === 0) {
+    } else {
       candidates.push(undefined);
+    }
+
+    if (!explicitPassword && (!institution || institution.toLowerCase().includes('axis'))) {
+      const autoCandidates = await this.getAxisPasswordCandidates(userId, targetAccountId, file.originalname);
+      for (const cand of autoCandidates) {
+        if (!candidates.includes(cand)) {
+          candidates.push(cand);
+        }
+      }
     }
 
     let lastError: any = null;

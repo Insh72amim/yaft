@@ -394,26 +394,31 @@ export class UnifiedImportsService {
 
     if (file.originalname.toLowerCase().endsWith('.pdf')) {
       const candidates: (string | undefined)[] = [];
-      if (pdfPassword) candidates.push(pdfPassword);
-      try {
-        const auto = await this.imports.getAxisPasswordCandidates(userId, 'temp', file.originalname);
-        for (const c of auto) {
-          if (!candidates.includes(c)) candidates.push(c);
-        }
-      } catch {
-        // ignore
+      if (pdfPassword) {
+        candidates.push(pdfPassword);
+      } else {
+        candidates.push(undefined);
       }
-      if (candidates.length === 0) candidates.push(undefined);
+      if (!pdfPassword && (!spec.source || spec.source === 'AXIS')) {
+        try {
+          const auto = await this.imports.getAxisPasswordCandidates(userId, 'temp', file.originalname);
+          for (const c of auto) {
+            if (!candidates.includes(c)) candidates.push(c);
+          }
+        } catch {
+          // ignore
+        }
+      }
 
       for (const pwd of candidates) {
         try {
           const doc = await loadPdfStatementDocument(file.buffer, pwd);
           const fullText = doc.textPages.map((p) => p.text).join('\n');
-          const last4Match = fullText.match(/Credit Card Number:[^\n\r]*?(\d{4})\b/i)
-            || fullText.match(/Card Number:[^\n\r]*?(\d{4})\b/i)
-            || fullText.match(/\b\d{4}X+(\d{4})\b/i);
+          const last4Match = fullText.match(/(?:account|a\/c)\s*(?:no\.?|number|#)?\s*[:\s]*[xX*\s]*(\d{4,18})/i)
+            || fullText.match(/\b[xX*]{4,12}[-\s]*(\d{4})\b/)
+            || fullText.match(/Card Number:[^\n\r]*?(\d{4})\b/i);
           if (last4Match) {
-            extractedDigits = last4Match[1];
+            extractedDigits = last4Match[1].slice(-4);
             break;
           }
         } catch {
