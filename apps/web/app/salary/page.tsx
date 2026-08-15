@@ -427,12 +427,12 @@ export default function SalaryPage() {
                 <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 8px", fontSize: "13px" }}>
                   <thead>
                     <tr style={{ color: "var(--muted)", fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.6px" }}>
-                      <th style={{ padding: "8px 14px", textAlign: "left" }}>Pay Period</th>
+                      <th style={{ padding: "8px 14px", textAlign: "left", width: "120px" }}>Pay Period</th>
                       <th style={{ padding: "8px 14px", textAlign: "left" }}>Employer</th>
-                      <th style={{ padding: "8px 14px", textAlign: "right" }}>Gross Salary</th>
-                      <th style={{ padding: "8px 14px", textAlign: "right" }}>Deductions</th>
-                      <th style={{ padding: "8px 14px", textAlign: "right" }}>Net Take-Home</th>
-                      <th style={{ padding: "8px 14px", textAlign: "right" }}>Actions</th>
+                      <th style={{ padding: "8px 14px", textAlign: "right", width: "140px" }}>Gross Salary</th>
+                      <th style={{ padding: "8px 14px", textAlign: "right", width: "160px" }}>Deductions</th>
+                      <th style={{ padding: "8px 14px", textAlign: "right", width: "150px" }}>Net Take-Home</th>
+                      <th style={{ padding: "8px 14px", textAlign: "right", width: "180px" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -482,7 +482,7 @@ export default function SalaryPage() {
                           </td>
 
                           {/* Employer */}
-                          <td style={{ padding: "12px 14px" }}>
+                          <td style={{ padding: "12px 14px", minWidth: "220px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                               <span
                                 style={{
@@ -500,7 +500,7 @@ export default function SalaryPage() {
                                 }}>
                                 {initial}
                               </span>
-                              <div style={{ minWidth: 0 }}>
+                              <div style={{ minWidth: 0, flex: 1 }}>
                                 <strong
                                   style={{
                                     fontSize: "13px",
@@ -581,43 +581,40 @@ export default function SalaryPage() {
                                   alignItems: "center",
                                   gap: "4px",
                                   fontSize: "11.5px",
-                                  padding: "4px 9px",
+                                  padding: "4px 10px",
+                                  fontWeight: 600,
                                 }}>
                                 <Eye size={13} />
                                 Breakdown
                               </button>
                               {statement.filename !== "Manual Entry" ? (
-                                <>
+                                <div
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "2px",
+                                    background: "var(--card)",
+                                    padding: "2px",
+                                    borderRadius: "8px",
+                                    border: "1px solid var(--line)",
+                                  }}>
                                   <button
                                     type="button"
-                                    className="secondary compact"
+                                    className="ghost compact icon-only"
                                     onClick={() => setViewingStatement(statement)}
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: "4px",
-                                      fontSize: "11.5px",
-                                      padding: "4px 9px",
-                                    }}>
-                                    <FileText size={13} />
-                                    PDF
+                                    title="View PDF Payslip"
+                                    style={{ padding: "4px 6px", borderRadius: "6px" }}>
+                                    <FileText size={14} />
                                   </button>
                                   <button
                                     type="button"
-                                    className="secondary compact"
+                                    className="ghost compact icon-only"
                                     onClick={() => void handleDownload(statement)}
-                                    title="Download payslip"
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: "4px",
-                                      fontSize: "11.5px",
-                                      padding: "4px 9px",
-                                    }}>
-                                    <Download size={13} />
-                                    Download
+                                    title="Download Payslip File"
+                                    style={{ padding: "4px 6px", borderRadius: "6px" }}>
+                                    <Download size={14} />
                                   </button>
-                                </>
+                                </div>
                               ) : (
                                 <span
                                   style={{
@@ -636,7 +633,7 @@ export default function SalaryPage() {
                                 type="button"
                                 className="danger compact icon-only"
                                 onClick={() => setDeletingId(statement.id)}
-                                aria-label={`Delete statement for ${statement.employer}`}
+                                title={`Delete statement for ${statement.employer}`}
                                 style={{ padding: "5px 7px" }}>
                                 <Trash2 size={13} />
                               </button>
