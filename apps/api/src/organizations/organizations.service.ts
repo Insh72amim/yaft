@@ -55,9 +55,13 @@ export class OrganizationsService {
           } catch {}
         }
 
-        if (matched && (!s.organizationId || s.organizationId !== matched.id)) {
-          await this.prisma.salaryStatement.update({
-            where: { id: s.id },
+        if (matched) {
+          await this.prisma.salaryStatement.updateMany({
+            where: {
+              userId,
+              organizationId: null,
+              employer: { contains: cleanEmployer, mode: 'insensitive' },
+            },
             data: { organizationId: matched.id },
           }).catch(() => {});
         }
@@ -146,16 +150,15 @@ export class OrganizationsService {
       },
     });
 
-    // Auto-link existing matching salary statements
-    const allStatements = await this.prisma.salaryStatement.findMany({ where: { userId } });
-    for (const s of allStatements) {
-      if (s.employer.toLowerCase().includes(org.name.toLowerCase())) {
-        await this.prisma.salaryStatement.update({
-          where: { id: s.id },
-          data: { organizationId: org.id },
-        }).catch(() => {});
-      }
-    }
+    // Auto-link existing unlinked matching salary statements
+    await this.prisma.salaryStatement.updateMany({
+      where: {
+        userId,
+        organizationId: null,
+        employer: { contains: org.name, mode: 'insensitive' },
+      },
+      data: { organizationId: org.id },
+    });
 
     return org;
   }
@@ -184,17 +187,6 @@ export class OrganizationsService {
         ...(dto.parsingConfig ? { parsingConfig: dto.parsingConfig } : {}),
       },
     });
-
-    // Auto-link matching salary statements
-    const allStatements = await this.prisma.salaryStatement.findMany({ where: { userId } });
-    for (const s of allStatements) {
-      if (s.employer.toLowerCase().includes(updated.name.toLowerCase())) {
-        await this.prisma.salaryStatement.update({
-          where: { id: s.id },
-          data: { organizationId: updated.id },
-        }).catch(() => {});
-      }
-    }
 
     return updated;
   }
