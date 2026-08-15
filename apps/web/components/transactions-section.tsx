@@ -445,11 +445,11 @@ export function TransactionsSection({
   };
 
   const filteredAccounts =
-    data?.accounts.filter((acc) => {
+    (data?.accounts || []).filter((acc) => {
       if (mode === "CREDIT_CARD") return acc.type === "CREDIT_CARD";
       if (mode === "BANK") return ["BANK", "SAVINGS"].includes(acc.type);
       return ["BANK", "SAVINGS", "CREDIT_CARD"].includes(acc.type);
-    }) ?? [];
+    });
 
   const content = (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
@@ -1628,7 +1628,7 @@ export function TransactionsSection({
             <span />
             <p>Loading transactions...</p>
           </div>
-        ) : !data?.transactions.length ? (
+        ) : !data?.transactions?.length ? (
           <div
             style={{
               padding: "48px 20px",
@@ -1657,7 +1657,7 @@ export function TransactionsSection({
                     <input
                       type="checkbox"
                       checked={Boolean(
-                        data?.transactions.length &&
+                        data?.transactions?.length &&
                         selectedTxIds.length === data.transactions.length,
                       )}
                       onChange={toggleSelectAll}
