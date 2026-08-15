@@ -32,8 +32,7 @@ export class AccountsController {
     return this.accountsService.createAccount(user.id, dto);
   }
 
-  @Get('all-transactions')
-  @Get('transactions/all')
+  @Get(['all-transactions', 'transactions/all'])
   async allTransactions(
     @CurrentUser() user: { id: string },
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) requestedPage: number,
@@ -64,8 +63,7 @@ export class AccountsController {
     );
   }
 
-  @Get('credit-cards/summary')
-  @Get('credit-cards')
+  @Get(['credit-cards/summary', 'credit-cards'])
   async getCreditCardsSummary(@CurrentUser() user: { id: string }) {
     return this.accountsService.getCreditCardsSummary(user.id);
   }
