@@ -41,8 +41,10 @@ export function parseIndianDate(dateStr: string, timeStr?: string): Date {
     }
   }
 
-  // 1. Match Month DD, YYYY e.g. "Aug 09, 2026", "August 9 2026"
-  const monthFirstMatch = dateStr.match(/^([a-zA-Z]{3,9})\s+(\d{1,2}),?\s+(\d{2,4})$/);
+  const cleanDate = dateStr.trim();
+
+  // 1. Match Month DD, YYYY e.g. "Aug 09, 2026", "August 9 2026", "Aug 11, 2026"
+  const monthFirstMatch = cleanDate.match(/^([a-zA-Z]{3,9})\s+(\d{1,2}),?\s+(\d{2,4})$/);
   if (monthFirstMatch) {
     const month = months[monthFirstMatch[1].toLowerCase()] ?? 0;
     const day = parseInt(monthFirstMatch[2], 10);
@@ -52,7 +54,7 @@ export function parseIndianDate(dateStr: string, timeStr?: string): Date {
   }
 
   // 2. Match DD-Mon-YYYY or DD Mon YYYY e.g. "09-Aug-2026", "09 Aug 2026", "14Aug26"
-  const alphaMatch = dateStr.match(/^(\d{1,2})[-\s]?([a-zA-Z]{3,9})[-\s,]?(\d{2,4})$/);
+  const alphaMatch = cleanDate.match(/^(\d{1,2})[-\s]?([a-zA-Z]{3,9})[-\s,]?(\d{2,4})$/);
   if (alphaMatch) {
     const day = parseInt(alphaMatch[1], 10);
     const month = months[alphaMatch[2].toLowerCase()] ?? 0;
@@ -61,8 +63,8 @@ export function parseIndianDate(dateStr: string, timeStr?: string): Date {
     return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
   }
 
-  // 3. Match DD-MM-YY or DD-MM-YYYY or DD/MM/YYYY
-  const numMatch = dateStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+  // 3. Match DD-MM-YY or DD-MM-YYYY or DD/MM/YYYY or DD/MM/YY e.g. "15/08/26", "14-08-2026"
+  const numMatch = cleanDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
   if (numMatch) {
     const day = parseInt(numMatch[1], 10);
     const month = parseInt(numMatch[2], 10) - 1;
@@ -72,7 +74,7 @@ export function parseIndianDate(dateStr: string, timeStr?: string): Date {
   }
 
   // 4. Match YYYY-MM-DD
-  const isoMatch = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  const isoMatch = cleanDate.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
   if (isoMatch) {
     const year = parseInt(isoMatch[1], 10);
     const month = parseInt(isoMatch[2], 10) - 1;
@@ -80,13 +82,70 @@ export function parseIndianDate(dateStr: string, timeStr?: string): Date {
     return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
   }
 
-  const parsed = new Date(dateStr);
+  const parsed = new Date(cleanDate);
   return isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+export function cleanMerchantName(raw: string): string {
+  if (!raw) return 'General Merchant';
+
+  let s = raw.trim();
+
+  // 1. If it's a UPI VPA e.g. "paytm-urbancompany@ptybl", "payzomato@hdfcbank", "airtel-billpayment.paytm@ptybl"
+  if (s.includes('@')) {
+    s = s.replace(/@[a-zA-Z0-9.-]+$/, ''); // remove handle
+    s = s.replace(/^paytm[-.]?/i, '');
+    s = s.replace(/^pay[-.]?/i, '');
+    s = s.replace(/^ibkpos\.[a-z0-9]+[-.]?/i, '');
+    s = s.replace(/^upi[-.]?/i, '');
+  }
+
+  // 2. If it's a POS / PUR / UPI path e.g. "PUR/YOUTUBEGOOGLE/YOUTUBEGOOGLE/123456" or "UPI/P2A/100000000005/MERCHANT_ONE"
+  if (s.includes('/')) {
+    const parts = s.split('/').filter(p => p && !/^\d+$/.test(p) && !/^(PUR|POS|UPI|P2A|P2M|P2P|INF|NEFT|IMPS)$/i.test(p));
+    if (parts.length > 0) {
+      s = parts[0];
+    }
+  }
+
+  // 3. Known cleanups and brand canonicalization
+  s = s
+    .replace(/^(VPA|UPI|VPS|POS|INF|NEFT|IMPS|PUR)\s*[\/:\*]?\s*/i, '')
+    .replace(/^(?:PVT\s*LTD|PVT\s*LT|LTD|LIMITED|SERVICES|INDIA)$/i, '')
+    .replace(/\b(?:PVT\s*LTD|PVT\s*LT|PRIVATE\s*LIMITED|INDIA\s*PVT\s*LTD)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (/youtube/i.test(s)) s = 'YouTube Google';
+  else if (/urbancompany/i.test(s)) s = 'Urban Company';
+  else if (/zomato/i.test(s)) s = 'Zomato';
+  else if (/swiggy/i.test(s)) s = 'Swiggy';
+  else if (/makemytrip/i.test(s)) s = 'MakeMyTrip';
+  else if (/amazon/i.test(s)) s = 'Amazon';
+  else if (/zepto|ze\s*pto/i.test(s)) s = 'Zepto';
+  else if (/blinkit/i.test(s)) s = 'Blinkit';
+  else if (/airtel/i.test(s)) s = 'Airtel';
+
+  s = s
+    .replace(/[.,\s\-_]+$/, '')
+    .replace(/^[.,\s\-_]+/, '')
+    .trim()
+    .toUpperCase();
+
+  if (!s || s.length < 2 || /^(VPA|ACCOUNT|A\/C|BANK|REF|TRANSACTION|PURCHASE|CUSTOMER|SUPPORT|HELP|ORM)$/i.test(s)) {
+    return 'General Merchant';
+  }
+
+  return s;
 }
 
 export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: string): ParsedEmailTransaction | null {
   if (!bodyText || typeof bodyText !== 'string') return null;
-  const text = bodyText.replace(/\s+/g, ' ').trim();
+
+  // Pre-clean boilerplate warnings and footers so they don't corrupt merchant or account extraction
+  let text = bodyText.replace(/\s+/g, ' ').trim();
+  text = text.replace(/(?:If (?:this )?transaction was not (?:done|initiated) by you|To block UPI|Please SMS BLOCK|We care about your security|Call us at:|Always open to help you|Warm Regards)[\s\S]*/i, '');
+
   const fullContext = `${senderOrSubject || ''} ${text}`;
 
   // 1. Detect Bank Name
@@ -105,30 +164,39 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   else if (/standard chartered|scb/i.test(fullContext)) bankName = 'Standard Chartered';
   else if (/citi/i.test(fullContext)) bankName = 'Citi';
 
-  // 1.5 Detect Account Type (Credit Card vs Bank Account)
-  const isCreditCard = /credit\s*card|creditcard|card\s*ending|card\s*no|card\s*xx|\bcard\b|amazon\s*pay|amex|american express/i.test(fullContext);
-  const accountType: 'CREDIT_CARD' | 'BANK' = isCreditCard ? 'CREDIT_CARD' : 'BANK';
+  // 2. Detect Account Type (Credit Card vs Bank Account)
+  const isExplicitCreditCard = /credit\s*card|creditcard|pixel\s*play|card\s*ending|card\s*no\.?\s*(?:xx|\d)|card\s*xx\d|amazon\s*pay|card\s+4[xX]+/i.test(fullContext);
+  const isExplicitBankAccount = /(?:debited\s+from\s+your\s+A\/c|debited\s+from\s+A\/c|Account\s*Number:\s*XX|from\s+account\s*[\*xX\d]+|savings\s*a\/c|bank\s*a\/c)/i.test(text);
 
-  // 2. Detect Debit vs Credit
-  const isCredit = /credited|received|deposited|added/i.test(text) && !/debited|spent|used|charged/i.test(text);
+  let accountType: 'CREDIT_CARD' | 'BANK' = isExplicitCreditCard && !isExplicitBankAccount ? 'CREDIT_CARD' : isExplicitBankAccount ? 'BANK' : isExplicitCreditCard ? 'CREDIT_CARD' : 'BANK';
+
+  // 3. Detect Debit vs Credit
+  const isCredit = /credited|received|deposited|refund/i.test(text) && !/debited|spent|used|charged|purchase/i.test(text);
   const type: 'DEBIT' | 'CREDIT' = isCredit ? 'CREDIT' : 'DEBIT';
 
-  // 3. Extract Amount
-  // Remove distracting "Available Limit", "Credit Limit", "Total Due", "Total Outstanding" balances before searching
-  const textWithoutLimits = text.replace(/(?:available\s*(?:credit)?\s*limit|credit\s*limit|total\s*due|total\s*outstanding|balance)\s*(?:is|:)?\s*(?:rs\.?|inr|₹)?\s*[\d,]+(?:\.\d{1,2})?/gi, '');
+  // 4. Extract Amount
+  // Remove distracting "Available Limit", "Credit Limit", "Total Due", "Total Outstanding", "Available Balance" before searching
+  const textWithoutLimits = text
+    .replace(/(?:available\s*(?:credit)?\s*limit|total\s*(?:credit)?\s*limit|credit\s*limit|total\s*due|total\s*outstanding|available\s*balance|bal\s*limit)\*?\s*(?:is|:)?\s*(?:rs\.?|inr|₹|&#8377;)?\s*[\d,]+(?:\.\d{1,2})?/gi, '');
 
   let rawAmountNum = 0;
 
-  // Try targeted spend/transaction amount patterns first
-  const targetedAmountMatch = textWithoutLimits.match(/(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of)\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i)
-    || textWithoutLimits.match(/(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid)/i);
+  // Patterns for amount:
+  // a. "Transaction Amount: INR 1611" or "Amount Debited: INR 67.00"
+  const labelAmountMatch = textWithoutLimits.match(/(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount)\s*[:=]\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+  // b. "INR 1611 spent on" or "Rs. 204.00 at" or "Rs. 149.00 was spent" or "noticed a transaction of Rs. 608.28"
+  const verbAmountMatch = textWithoutLimits.match(/(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of|noticed\s+a\s+transaction\s+of)\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i)
+    || textWithoutLimits.match(/(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited)/i)
+    || textWithoutLimits.match(/^(?:.*?\b)?(?:inr|rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited)/i);
 
-  if (targetedAmountMatch) {
-    rawAmountNum = parseFloat(targetedAmountMatch[1].replace(/,/g, ''));
+  if (labelAmountMatch) {
+    rawAmountNum = parseFloat(labelAmountMatch[1].replace(/,/g, ''));
+  } else if (verbAmountMatch) {
+    rawAmountNum = parseFloat(verbAmountMatch[1].replace(/,/g, ''));
   } else {
-    const fallbackAmountMatch = textWithoutLimits.match(/(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i);
-    if (fallbackAmountMatch) {
-      rawAmountNum = parseFloat(fallbackAmountMatch[1].replace(/,/g, ''));
+    const fallbackMatch = textWithoutLimits.match(/(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if (fallbackMatch) {
+      rawAmountNum = parseFloat(fallbackMatch[1].replace(/,/g, ''));
     }
   }
 
@@ -137,59 +205,58 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   const rawMinor = BigInt(Math.round(rawAmountNum * 100));
   const amountMinor = type === 'DEBIT' ? -rawMinor : rawMinor;
 
-  // 4. Extract Account / Card Last 4 Digits
+  // 5. Extract Account / Card Last 4 Digits
   let accountLast4: string | undefined;
-  const accMatch = text.match(/(?:a\/c|account|card|ending|ending\s+with|ending\s+in|no\.?|num\.?)\s*(?:with|in|is|no\.?|:)?\s*[*xX\d-]*(\d{4})\b/i)
-    || text.match(/(?:\b\d{4}|\b[xX]{4}|\b[*]{4})[*xX\d-]*(\d{4})\b/i)
-    || text.match(/\b[xX]{2,}(\d{4})\b/i);
 
-  if (accMatch) {
-    accountLast4 = accMatch[1];
-  }
+  const specificAccMatch = text.match(/(?:credit\s*card|account\s*number|a\/c\s*no\.?|a\/c|account|card)\s*(?:ending\s*(?:with|in)?|no\.?|is|:)?\s*(?:XX|\*+|4[xX]+)?(\d{4,8})\b/i)
+    || text.match(/(?:ending\s+with|ending\s+in|ending)\s*(?:XX|\*+)?(\d{4})\b/i)
+    || text.match(/(?:\b\d{4}|\b[xX]{4}|\b[*]{4})[*xX\d-]{4,16}(\d{4})\b/i)
+    || text.match(/\b(?:XX|\*+|4[xX]+)(\d{4})\b/i);
 
-  // 5. Extract Merchant / Payee
-  let merchant = 'General Merchant';
-
-  // Check explicit merchant label
-  const explicitMerchantMatch = text.match(/(?:merchant\s*name|merchant|payee|vpa|paid\s*to|info)[:\s]+([a-zA-Z0-9\s._\-@&]{2,45}?)(?=\s*(?:\.\s+(?:The|Available|Total|Your)|\.\s*$|\b(?:the\s+available|available\s+credit|available\s+limit|total\s+credit|total\s+due|ref|avail|txn|limit|closing)\b|$))/i);
-  if (explicitMerchantMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank|txn)$/i.test(explicitMerchantMatch[1].trim())) {
-    merchant = explicitMerchantMatch[1].trim();
-  } else {
-    const upiMatch = text.match(/(?:to\s+(?:vpa\s+)?|vpa\s+)([a-zA-Z0-9._\-@&]{3,40})/i);
-    if (upiMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank)$/i.test(upiMatch[1].trim())) {
-      merchant = upiMatch[1].replace(/@.*$/, '').replace(/[^a-zA-Z0-9\s]/g, ' ').trim();
-    } else {
-      // Match "at <merchant>" or "for <merchant>", avoiding time formats like "at 15:30" or dates like "on 14-Aug-26"
-      const atMatch = text.match(/(?:\bat\b|\bfor\b)\s+(?!\d{1,2}:\d{2})(?!\d{1,2}[-/]\d{1,2})([A-Za-z0-9\s.\-_]{2,35}?)(?=\s*(?:\.|\bon\b|\bat\b|\binfo\b|\bavail|\btotal|\bref|\bcard|\ba\/c|$))/i);
-      if (atMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank|purchase|transaction)$/i.test(atMatch[1].trim())) {
-        merchant = atMatch[1].trim();
-      }
-    }
-  }
-
-  // Clean up merchant name prefix/suffixes and trailing punctuation
-  merchant = merchant
-    .replace(/^(VPA|UPI|VPS|POS|INF|NEFT|IMPS)\s*[\/:\*]?\s*/i, '')
-    .replace(/[.,\s]+$/, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toUpperCase();
-
-  if (!merchant || merchant.length < 2 || /^(VPA|ACCOUNT|BANK|REF|TRANSACTION|PURCHASE|CUSTOMER)$/i.test(merchant)) {
-    merchant = 'General Merchant';
+  if (specificAccMatch) {
+    const rawDigits = specificAccMatch[1];
+    accountLast4 = rawDigits.length >= 4 ? rawDigits.slice(-4) : rawDigits;
   }
 
   // 6. Extract Reference / UTR Number
   let referenceNumber: string | undefined;
-  const refMatch = text.match(/(?:ref|txn|utr|id)[:\s]*([a-zA-Z0-9]{8,22})/i);
+  const refMatch = text.match(/(?:ref\s*(?:no\.?|id)?|txn\s*(?:id|no\.?)?|utr|auth\s*code|reference\s*number)[:\s]*([a-zA-Z0-9]{6,22})/i)
+    || text.match(/UPI\/(?:P2A|P2M|P2P)\/(\d{8,18})\//i);
+
   if (refMatch) {
     referenceNumber = refMatch[1];
   }
 
-  // 7. Extract Date & Time
+  // 7. Extract Merchant / Payee
+  let rawMerchant = 'General Merchant';
+
+  const merchantNameMatch = text.match(/(?:merchant\s*name|info)[:\s]+([a-zA-Z0-9\s._\-&@]{2,50}?)(?=\s+(?:Axis|Date|Available|Total|The|Ref|Avail|Auth|\*|\.|$))/i);
+  const txnInfoMatch = text.match(/transaction\s*info[:\s]+([a-zA-Z0-9\s._\-&@\/]{3,60}?)(?=\s+(?:If|To|Please|Available|Date|\.|$))/i);
+  const toVpaMatch = text.match(/to\s+(?:VPA\s+)?([a-zA-Z0-9._\-@&]{3,50})(?=\s+(?:on\s+\d|at\s+\d|\.|\bref\b|$))/i);
+  const towardsMatch = text.match(/towards\s+([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s+(?:at\s+\d|on\s+\d|\.|Bal|Total|Ref|via|$))/i);
+  const atMatch = text.match(/\bat\s+(?!\d{1,2}:\d{2})(?!\d{1,2}[-/]\d{1,2})([a-zA-Z0-9\s._\-&@\/]{2,45}?)(?=\s+(?:on\s+\d|at\s+\d|\.|\binfo\b|\bavail|\btotal|\bref|\bcard|\ba\/c|$))/i);
+
+  if (merchantNameMatch) {
+    rawMerchant = merchantNameMatch[1];
+  } else if (txnInfoMatch) {
+    rawMerchant = txnInfoMatch[1];
+  } else if (toVpaMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank)$/i.test(toVpaMatch[1].trim())) {
+    rawMerchant = toVpaMatch[1];
+  } else if (towardsMatch) {
+    rawMerchant = towardsMatch[1];
+  } else if (atMatch) {
+    rawMerchant = atMatch[1];
+  }
+
+  const merchant = cleanMerchantName(rawMerchant);
+
+  // 8. Extract Date & Time
   let transactionDate = new Date();
   const dateMatch = text.match(/\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{2,4}|\d{1,2}[-\s](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-\s,]?\s*\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{2}-\d{2})\b/i);
-  const timeMatch = text.match(/(?:at|time)[:\s]+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:am|pm))?)/i);
+  const timeMatch = text.match(/(?:at|time)[:\s]+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:am|pm))?)/i)
+    || text.match(/,\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*(?:IST)?/i)
+    || text.match(/\s+(\d{1,2}:\d{2}(?::\d{2})?)\s*(?:IST)?/i);
+
   if (dateMatch) {
     transactionDate = parseIndianDate(dateMatch[1], timeMatch ? timeMatch[1] : undefined);
   }
@@ -258,3 +325,4 @@ export function getAccountCategoryDisplayName(alert: ParsedEmailTransaction): st
   }
   return `${alert.bankName} Account${alert.accountLast4 ? ` (A/C ••${alert.accountLast4})` : ''}`;
 }
+

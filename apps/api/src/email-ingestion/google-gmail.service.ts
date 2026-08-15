@@ -183,8 +183,8 @@ export class GoogleGmailService {
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
       // Fast server-side filtered search for transaction emails across all major Indian banks & cards within the time window
-      const baseBankFilter = 'from:(hdfcbank.net OR hdfcbank.com OR icicibank.com OR icicibank.co.in OR icici.com OR sbi.co.in OR axisbank.com OR kotak.com OR americanexpress.com OR pnb.co.in OR indusind.com OR idfcfirstbank.com OR rblbank.com OR standardchartered.co.in OR citibank.com OR "ICICI Bank")';
-      const keywordsFilter = '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "ending with" OR "XX")';
+      const baseBankFilter = 'from:(hdfcbank.net OR hdfcbank.com OR hdfc.bank.in OR icicibank.com OR icicibank.co.in OR icici.bank.in OR axisbank.com OR axis.bank.in OR sbi.co.in OR sbi.bank.in OR kotak.com OR kotak.bank.in OR americanexpress.com OR pnb.co.in OR pnb.bank.in OR indusind.com OR idfcfirstbank.com OR rblbank.com OR standardchartered.co.in OR citibank.com OR "ICICI Bank" OR "Axis Bank" OR "HDFC Bank")';
+      const keywordsFilter = '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs.")';
       const query = `${baseBankFilter} ${keywordsFilter} after:${afterDateStr}`;
 
       const listRes = await gmail.users.messages.list({
