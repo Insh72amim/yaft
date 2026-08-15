@@ -342,6 +342,51 @@ export class DashboardService {
     const savings = savingsNetInbound - savingsNetOutbound;
     const savingsRate = savingsNetInbound > 0 ? Math.round((savings / savingsNetInbound) * 100) : 0;
 
+    const mappedAccounts = accounts.map(({ transactions, holdings = [], ...account }) => {
+      const ledgerBalance = Number(account.openingBalance) + transactions.reduce((sum, item) => sum + Number(item.amount), 0);
+      const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
+      const hasCompleteValuation = holdings.length > 0 && holdings.every((holding) => holding.currentValue !== null);
+      const balance = isPortfolio && hasCompleteValuation
+        ? holdings.reduce((sum, holding) => sum + Number(holding.currentValue), 0)
+        : ledgerBalance;
+
+      return {
+        id: account.id,
+        name: account.name,
+        type: account.type,
+        balance,
+        creditLimit: account.creditLimit === null ? null : Number(account.creditLimit),
+        dueDay: account.dueDay,
+      };
+    });
+
+    const netWorth = mappedAccounts.reduce((sum, a) => {
+      if (a.type === AccountType.LOAN) return sum - Math.abs(a.balance);
+      if (a.type === AccountType.CREDIT_CARD) return a.balance < 0 ? sum - Math.abs(a.balance) : sum;
+      return sum + a.balance;
+    }, 0);
+
+    const categoriesMap = new Map<string, { name: string; color: string; amount: number }>();
+    monthTransactions.forEach((t) => {
+      if (t.amount >= 0) return;
+      const name = t.category?.name ?? 'Uncategorised';
+      const color = t.category?.color ?? '#94a3b8';
+      const absAmt = Math.abs(Number(t.amount));
+      const curr = categoriesMap.get(name) || { name, color, amount: 0 };
+      categoriesMap.set(name, { name, color, amount: curr.amount + absAmt });
+    });
+    const categories = [...categoriesMap.values()].sort((a, b) => b.amount - a.amount);
+
+    const recent = monthTransactions.slice(0, 10).map((t) => ({
+      id: t.id,
+      date: t.transactionDate ? new Date(t.transactionDate).toISOString() : new Date().toISOString(),
+      description: t.merchant || t.descriptionRaw,
+      amount: Number(t.amount),
+      category: t.category?.name ?? 'Uncategorised',
+      account: t.account.name,
+      isTransfer: Boolean(t.transferGroupId),
+    }));
+
     return {
       month: labelMonth,
       startDate: start.toISOString().split('T')[0],
@@ -352,6 +397,10 @@ export class DashboardService {
       savingsNetOutbound,
       savings,
       savingsRate,
+      netWorth,
+      accounts: mappedAccounts,
+      categories,
+      recent,
       accountFlow: {
         accounts: accountDetailedFlows,
         internalTransfers: internalTransfersList,

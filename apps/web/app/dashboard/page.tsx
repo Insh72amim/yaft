@@ -248,9 +248,9 @@ export default function DashboardPage() {
 
   const monthLabel = dateRangeLabel;
 
-  const totalSpend = data.categories.reduce((sum, category) => sum + category.amount, 0);
+  const totalSpend = (data.categories || []).reduce((sum, category) => sum + category.amount, 0);
   let angle = 0;
-  const gradient = data.categories.length
+  const gradient = (data.categories || []).length
     ? data.categories
         .map((category) => {
           const start = angle;
