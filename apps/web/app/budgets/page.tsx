@@ -260,6 +260,7 @@ function BudgetsContent() {
       if (!selectedCatId && catList.length > 0) setSelectedCatId(catList[0].id);
       if (!ruleCategoryId && catList.length > 0) setRuleCategoryId(catList[0].id);
       if (!selectedTagForAuto && tagRes.length > 0) setSelectedTagForAuto(tagRes[0].id);
+      if (!inspectedTagId && tagRes.length > 0) setInspectedTagId(tagRes[0].id);
     } catch (err) {
       setError(errorMessage(err, "Could not load budgets or categories."));
     } finally {
@@ -335,6 +336,24 @@ function BudgetsContent() {
       loadData();
     } catch (err) {
       setError(errorMessage(err, "Could not delete tag."));
+    }
+  };
+
+  const handleRemoveTagFromTx = async (txId: string, tagId: string) => {
+    try {
+      await api("/tags/assign", {
+        method: "POST",
+        body: JSON.stringify({
+          transactionIds: [txId],
+          tagIds: [tagId],
+          action: "REMOVE",
+        }),
+      });
+      setSuccessMsg("Removed tag from transaction.");
+      loadData();
+      if (inspectedTagId) loadTagAnalytics(inspectedTagId);
+    } catch (err) {
+      setError(errorMessage(err, "Failed to remove tag."));
     }
   };
 
@@ -1135,6 +1154,7 @@ function BudgetsContent() {
                             <th style={{ padding: "8px" }}>Category</th>
                             <th style={{ padding: "8px" }}>Account</th>
                             <th style={{ padding: "8px", textAlign: "right" }}>Amount</th>
+                            <th style={{ padding: "8px", textAlign: "center", width: "50px" }}>Action</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1149,7 +1169,16 @@ function BudgetsContent() {
                               </td>
                               <td style={{ padding: "8px", color: "var(--muted)" }}>{tx.accountName}</td>
                               <td style={{ padding: "8px", textAlign: "right", fontWeight: 700, color: tx.amount < 0 ? "#ef4444" : "#10b981" }}>
-                                {money(Math.abs(tx.amount))}
+                                {tx.amount < 0 ? `-${money(Math.abs(tx.amount * 100))}` : `+${money(Math.abs(tx.amount * 100))}`}
+                              </td>
+                              <td style={{ padding: "8px", textAlign: "center" }}>
+                                <button
+                                  type="button"
+                                  className="icon-button danger"
+                                  title="Remove tag from transaction"
+                                  onClick={() => handleRemoveTagFromTx(tx.id, tagAnalytics.tag.id)}>
+                                  <X size={13} />
+                                </button>
                               </td>
                             </tr>
                           ))}
@@ -1667,7 +1696,7 @@ function BudgetsContent() {
                                   <td style={{ padding: "6px 8px", color: "var(--muted)" }}>{new Date(tx.transactionDate).toLocaleDateString("en-IN")}</td>
                                   <td style={{ padding: "6px 8px", fontWeight: 600 }}>{tx.merchant || tx.descriptionRaw}</td>
                                   <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: tx.amount < 0 ? "#ef4444" : "#10b981" }}>
-                                    {money(Math.abs(tx.amount))}
+                                    {money(Math.abs(tx.amount * 100))}
                                   </td>
                                 </tr>
                               ))}

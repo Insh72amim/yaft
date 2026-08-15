@@ -135,8 +135,32 @@ export function TransactionsSection({
   const [rangeKeywords, setRangeKeywords] = useState("");
   const [rangeSubmitting, setRangeSubmitting] = useState(false);
 
+  const [editingTxCatId, setEditingTxCatId] = useState<string | null>(null);
+  const [editingTxTagId, setEditingTxTagId] = useState<string | null>(null);
+  const [updatingCatId, setUpdatingCatId] = useState<string | null>(null);
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [batchUpdating, setBatchUpdating] = useState(false);
+
+  const handleSingleTxTagAssign = async (
+    txId: string,
+    tagId: string,
+    currentTags?: Array<{ id: string }>,
+  ) => {
+    const isTagged = currentTags?.some((t) => t.id === tagId);
+    try {
+      await api("/tags/assign", {
+        method: "POST",
+        body: JSON.stringify({
+          transactionIds: [txId],
+          tagIds: [tagId],
+          action: isTagged ? "REMOVE" : "ADD",
+        }),
+      });
+      fetchTransactions();
+    } catch (err) {
+      setError(errorMessage(err, "Could not update tag."));
+    }
+  };
   const [reconciling, setReconciling] = useState(false);
   const [reconcileMsg, setReconcileMsg] = useState<{
     type: "success" | "error";
@@ -146,8 +170,6 @@ export function TransactionsSection({
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TransactionsApiResponse | null>(null);
   const [error, setError] = useState("");
-  const [updatingCatId, setUpdatingCatId] = useState<string | null>(null);
-  const [editingTxCatId, setEditingTxCatId] = useState<string | null>(null);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -1651,6 +1673,11 @@ export function TransactionsSection({
                             {tx.tags.map((t) => (
                               <span
                                 key={t.id}
+                                title="Click to remove tag"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleSingleTxTagAssign(tx.id, t.id, tx.tags);
+                                }}
                                 style={{
                                   fontSize: "10px",
                                   padding: "1px 6px",
@@ -1659,11 +1686,67 @@ export function TransactionsSection({
                                   color: t.color,
                                   fontWeight: 700,
                                   border: `1px solid ${t.color}40`,
+                                  cursor: "pointer",
                                 }}>
-                                #{t.name}
+                                #{t.name} ×
                               </span>
                             ))}
                           </div>
+                        )}
+
+                        {/* Inline Tag Assignment Dropdown / Button */}
+                        {editingTxTagId === tx.id ? (
+                          <select
+                            autoFocus
+                            value=""
+                            onBlur={() => setEditingTxTagId(null)}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                void handleSingleTxTagAssign(tx.id, e.target.value, tx.tags);
+                              }
+                              setEditingTxTagId(null);
+                            }}
+                            style={{
+                              fontSize: "10px",
+                              padding: "1px 4px",
+                              borderRadius: "4px",
+                              background: "var(--card)",
+                              border: "1px solid var(--line)",
+                              color: "var(--ink)",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              outline: "none",
+                            }}>
+                            <option value="">Select tag...</option>
+                            {(data?.tags || []).map((t) => {
+                              const isAssigned = tx.tags?.some((existing) => existing.id === t.id);
+                              return (
+                                <option key={t.id} value={t.id}>
+                                  {isAssigned ? "✓ Remove #" : "+ Add #"}{t.name}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setEditingTxTagId(tx.id)}
+                            title="Add or remove tag for this transaction"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              fontSize: "10px",
+                              color: "var(--muted)",
+                              padding: "0 4px",
+                              opacity: 0.75,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "2px",
+                            }}>
+                            <Tag size={10} />
+                            <span>+ tag</span>
+                          </button>
                         )}
                       </div>
                       {tx.details && <small>{tx.details}</small>}
