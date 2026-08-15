@@ -453,25 +453,27 @@ export function TransactionsSection({
 
   const content = (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      <header className="page-header">
-        <div>
-          <span className="eyebrow">Financial Ledger</span>
-          <h1>Transactions &amp; Activity</h1>
-          <p>
-            Filter, categorize, and track complete transaction history across
-            Credit Cards, Bank Accounts, and UPI payments.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="secondary compact"
-          onClick={handleReconcileTransfers}
-          disabled={reconciling}
-          style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
-          <RefreshCw size={14} className={reconciling ? "spin" : ""} />
-          {reconciling ? "Matching…" : "Match Transfers"}
-        </button>
-      </header>
+      {!embedded && (
+        <header className="page-header">
+          <div>
+            <span className="eyebrow">Financial Ledger</span>
+            <h1>Transactions &amp; Activity</h1>
+            <p>
+              Filter, categorize, and track complete transaction history across
+              Credit Cards, Bank Accounts, and UPI payments.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="secondary compact"
+            onClick={handleReconcileTransfers}
+            disabled={reconciling}
+            style={{ whiteSpace: "nowrap", flexShrink: 0 }}>
+            <RefreshCw size={14} className={reconciling ? "spin" : ""} />
+            {reconciling ? "Matching…" : "Match Transfers"}
+          </button>
+        </header>
+      )}
 
       {/* Reconcile result toast */}
       {reconcileMsg && (
@@ -568,7 +570,7 @@ export function TransactionsSection({
       )}
 
       {/* Summary KPI Cards */}
-      {data?.summary && (
+      {!embedded && data?.summary && (
         <div
           style={{
             display: "grid",

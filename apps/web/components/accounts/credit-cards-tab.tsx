@@ -347,17 +347,24 @@ export function BeautifulCreditCardTile({
 
 export function CreditCardsTab() {
   const router = useRouter();
-  const [data, setData] = useState<CreditCardsApiResponse | null>(null);
+  const [data, setData] = useState<CreditCardsApiResponse & { summary: { timeRange?: string; timeRangeLabel?: string } } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [vaultAccount, setVaultAccount] = useState<CardSummary | null>(null);
   const [cardFilter, setCardFilter] = useState<string>("ALL");
+  const [timeRange, setTimeRange] = useState<string>("THIS_MONTH");
+  const [selectedCardId, setSelectedCardId] = useState<string>("ALL");
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const res = await api<CreditCardsApiResponse>("/accounts/credit-cards/summary");
+      const params = new URLSearchParams();
+      if (timeRange) params.set("timeRange", timeRange);
+      if (selectedCardId && selectedCardId !== "ALL") params.set("accountId", selectedCardId);
+
+      const url = `/accounts/credit-cards/summary${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await api<any>(url);
       setData(res);
     } catch (err: any) {
       if (isUnauthorized(err)) {
@@ -368,13 +375,13 @@ export function CreditCardsTab() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, timeRange, selectedCardId]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="loading" style={{ height: "40vh" }}>
         <span />
@@ -408,7 +415,7 @@ export function CreditCardsTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      <header className="page-header" style={{ marginBottom: "8px" }}>
+      <header className="page-header" style={{ marginBottom: "0px" }}>
         <div>
           <span className="eyebrow" style={{ color: "#ef4444" }}>Credit Cards Analytics Hub</span>
           <h1>Credit Cards &amp; Spend Intelligence</h1>
@@ -416,6 +423,7 @@ export function CreditCardsTab() {
         </div>
       </header>
 
+      {/* Credit Summary KPI Cards */}
       <div className="kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
         <div className="kpi-card" style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)" }}>
           <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>Total Credit Limit</span>
@@ -426,7 +434,7 @@ export function CreditCardsTab() {
         <div className="kpi-card" style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)" }}>
           <span style={{ fontSize: "11px", fontWeight: 700, color: "#ef4444", textTransform: "uppercase" }}>Total Outstanding</span>
           <strong style={{ display: "block", fontSize: "1.4rem", fontWeight: 800, color: "#ef4444", marginTop: "4px" }}>{money(summary.totalOutstanding)}</strong>
-          <small style={{ color: "var(--muted)", fontSize: "11px" }}>Current bill dues</small>
+          <small style={{ color: "var(--muted)", fontSize: "11px" }}>Current unpaid bill dues</small>
         </div>
 
         <div className="kpi-card" style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)" }}>
@@ -444,14 +452,62 @@ export function CreditCardsTab() {
         </div>
       </div>
 
+      {/* Spend Intelligence Section with Time Range & Card Selectors */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", background: "var(--card)", padding: "12px 18px", borderRadius: "12px", border: "1px solid var(--line)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)" }}>Analytics Period:</span>
+          <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+            {[
+              { id: "THIS_MONTH", label: "This Month" },
+              { id: "LAST_MONTH", label: "Last Month" },
+              { id: "3M", label: "Past 3M" },
+              { id: "6M", label: "Past 6M" },
+              { id: "ALL_TIME", label: "All Time" },
+            ].map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className={`secondary compact ${timeRange === preset.id ? "active" : ""}`}
+                onClick={() => setTimeRange(preset.id)}
+                style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "6px" }}>
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)" }}>Card:</span>
+          <select
+            value={selectedCardId}
+            onChange={(e) => setSelectedCardId(e.target.value)}
+            style={{
+              padding: "4px 10px",
+              borderRadius: "8px",
+              border: "1px solid var(--line)",
+              background: "var(--background-alt)",
+              color: "var(--ink)",
+              fontSize: "12px",
+              fontWeight: 600,
+            }}>
+            <option value="ALL">All Credit Cards ({cards.length})</option>
+            {cards.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} {c.cardLast4 ? `(••${c.cardLast4})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
         <div className="panel">
           <div className="panel-title" style={{ marginBottom: "16px" }}>
             <div>
               <span className="eyebrow">Distribution</span>
-              <h2>Overall Spends by Category</h2>
+              <h2>Spends by Category</h2>
               <small style={{ color: "var(--muted)", fontSize: "11px", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
-                <Calendar size={12} color="var(--green)" /> All-Time Historical Spends
+                <Calendar size={12} color="var(--green)" /> {summary.timeRangeLabel || "All-Time Spends"}
               </small>
             </div>
           </div>
@@ -460,7 +516,7 @@ export function CreditCardsTab() {
             <CreditCardDoughnutChart categories={overallFlow.categories} total={summary.totalOutbound} />
             <div style={{ flex: 1, minWidth: "160px", display: "flex", flexDirection: "column", gap: "8px" }}>
               {overallFlow.categories.length === 0 ? (
-                <span style={{ fontSize: "12px", color: "var(--muted)" }}>No outbound category spends logged.</span>
+                <span style={{ fontSize: "12px", color: "var(--muted)" }}>No outbound category spends logged for this period.</span>
               ) : (
                 overallFlow.categories.slice(0, 5).map((cat, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
@@ -482,14 +538,14 @@ export function CreditCardsTab() {
               <span className="eyebrow">Recipients</span>
               <h2>Top Merchant Outflows</h2>
               <small style={{ color: "var(--muted)", fontSize: "11px", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
-                <Calendar size={12} color="var(--green)" /> All-Time Top Outflows
+                <Calendar size={12} color="var(--green)" /> {summary.timeRangeLabel || "All-Time Top Outflows"}
               </small>
             </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {overallFlow.topRecipients.length === 0 ? (
-              <span style={{ fontSize: "12px", color: "var(--muted)" }}>No merchant data available.</span>
+              <span style={{ fontSize: "12px", color: "var(--muted)" }}>No merchant spend data available for this period.</span>
             ) : (
               overallFlow.topRecipients.map((rec, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--background-alt)", borderRadius: "8px", fontSize: "12px" }}>
@@ -505,6 +561,7 @@ export function CreditCardsTab() {
         </div>
       </div>
 
+      {/* Active Credit Cards Grid */}
       <div className="panel">
         <div className="panel-title" style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
           <div>
@@ -552,6 +609,7 @@ export function CreditCardsTab() {
         )}
       </div>
 
+      {/* Monthly Spends vs Payments Cash Flow */}
       <div className="panel">
         <div className="panel-title" style={{ marginBottom: "16px" }}>
           <div>
@@ -583,13 +641,8 @@ export function CreditCardsTab() {
         )}
       </div>
 
-      <div className="panel" style={{ padding: "24px" }}>
-        <div style={{ marginBottom: "16px" }}>
-          <span className="eyebrow" style={{ color: "#ef4444" }}>Credit Card Activity Ledger</span>
-          <h2 style={{ margin: "4px 0 0 0", fontSize: "1.2rem", fontWeight: 700, color: "var(--ink)" }}>All Credit Card Transactions</h2>
-        </div>
-        <TransactionsSection embedded={true} forceMode="CREDIT_CARD" />
-      </div>
+      {/* Transactions Ledger (Clean Embedded Table) */}
+      <TransactionsSection embedded={true} forceMode="CREDIT_CARD" />
 
       {vaultAccount && (
         <VaultModal

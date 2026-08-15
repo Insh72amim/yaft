@@ -64,8 +64,14 @@ export class AccountsController {
   }
 
   @Get(['credit-cards/summary', 'credit-cards'])
-  async getCreditCardsSummary(@CurrentUser() user: { id: string }) {
-    return this.accountsService.getCreditCardsSummary(user.id);
+  async getCreditCardsSummary(
+    @CurrentUser() user: { id: string },
+    @Query('timeRange') timeRange?: string,
+    @Query('accountId') accountId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.accountsService.getCreditCardsSummary(user.id, timeRange, accountId, startDate, endDate);
   }
 
   @Get(':accountId/transactions')

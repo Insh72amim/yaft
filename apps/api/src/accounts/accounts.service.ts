@@ -6,7 +6,7 @@ import { CreateAccountDto, DeleteAccountDto, UpdateAccountDto } from './accounts
 import { generateAmortisationSchedule } from './loan-amortisation';
 import { StatementCredentialsService } from '../common/statement-credentials.service';
 import { AccountDocumentsService } from '../account-documents/account-documents.service';
-import { extractBeneficiaryName } from '../common/utils/transaction-utils';
+import { extractBeneficiaryName, isRefundOrReversal } from '../common/utils/transaction-utils';
 
 export function buildTransactionWhere(
   userId: string,
@@ -597,7 +597,13 @@ export class AccountsService {
     };
   }
 
-  async getCreditCardsSummary(userId: string) {
+  async getCreditCardsSummary(
+    userId: string,
+    timeRange?: string,
+    accountId?: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
     const cardAccounts = await this.prisma.account.findMany({
       where: { userId, type: AccountType.CREDIT_CARD, archived: false },
       include: {
@@ -621,6 +627,50 @@ export class AccountsService {
       : [];
 
     const now = new Date();
+    let filterStart: Date | undefined;
+    let filterEnd: Date | undefined;
+    let timeRangeLabel = 'All-Time';
+
+    if (startDate && endDate) {
+      filterStart = new Date(`${startDate}T00:00:00.000Z`);
+      filterEnd = new Date(`${endDate}T23:59:59.999Z`);
+      timeRangeLabel = `${startDate} to ${endDate}`;
+    } else if (timeRange === 'THIS_MONTH') {
+      filterStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      filterEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+      timeRangeLabel = now.toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    } else if (timeRange === 'LAST_MONTH') {
+      filterStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+      filterEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59, 999));
+      const lm = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+      timeRangeLabel = lm.toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    } else if (timeRange === '3M') {
+      filterStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1));
+      timeRangeLabel = 'Past 3 Months';
+    } else if (timeRange === '6M') {
+      filterStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
+      timeRangeLabel = 'Past 6 Months';
+    } else if (timeRange === '1Y') {
+      filterStart = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), 1));
+      timeRangeLabel = 'Past Year';
+    }
+
+    const cleanMerchant = (merchant?: string | null, descriptionRaw?: string | null): string => {
+      if (merchant && merchant.trim().length > 0) {
+        return merchant.replace(/\[.*?\]/g, '').replace(/\b(?:POS|TXN|REF|UPI)\b/gi, '').trim() || merchant.trim();
+      }
+      if (!descriptionRaw) return 'Unknown Merchant';
+      const beneficiary = extractBeneficiaryName(descriptionRaw);
+      if (beneficiary) return beneficiary;
+      return descriptionRaw
+        .replace(/\[.*?\]/g, '')
+        .replace(/\bPOS\s+[\dX*]+\b/gi, '')
+        .replace(/\b(?:POS|TXN|REF|UPI|IMPS|NEFT)\b/gi, '')
+        .replace(/[\d@/_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim() || descriptionRaw.slice(0, 40);
+    };
+
     const months: { label: string; year: number; month: number }[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
@@ -633,6 +683,7 @@ export class AccountsService {
 
     const monthlySpendsAndPayments = months.map((m) => {
       const txsInMonth = allCardTransactions.filter((t) => {
+        if (accountId && accountId !== 'ALL' && t.accountId !== accountId) return false;
         const d = new Date(t.transactionDate);
         return d.getUTCFullYear() === m.year && d.getUTCMonth() === m.month;
       });
@@ -649,13 +700,21 @@ export class AccountsService {
       };
     });
 
+    const filteredAnalyticsTransactions = allCardTransactions.filter((t) => {
+      if (accountId && accountId !== 'ALL' && t.accountId !== accountId) return false;
+      const tDate = new Date(t.transactionDate);
+      if (filterStart && tDate < filterStart) return false;
+      if (filterEnd && tDate > filterEnd) return false;
+      return true;
+    });
+
     const categoryMapOverall = new Map<string, { name: string; color: string; amount: number }>();
     const recipientMapOverall = new Map<string, { name: string; amount: number; count: number }>();
 
     let totalInbound = 0;
     let totalOutbound = 0;
 
-    allCardTransactions.forEach((t) => {
+    filteredAnalyticsTransactions.forEach((t) => {
       const amt = Number(t.amount);
       if (amt < 0) {
         const absAmt = Math.abs(amt);
@@ -666,11 +725,18 @@ export class AccountsService {
         const currCat = categoryMapOverall.get(catName) || { name: catName, color: catColor, amount: 0 };
         categoryMapOverall.set(catName, { name: catName, color: catColor, amount: currCat.amount + absAmt });
 
-        const recipientName = extractBeneficiaryName(t.descriptionRaw) || t.merchant || t.descriptionRaw;
+        const recipientName = cleanMerchant(t.merchant, t.descriptionRaw);
         const currRec = recipientMapOverall.get(recipientName) || { name: recipientName, amount: 0, count: 0 };
         recipientMapOverall.set(recipientName, { name: recipientName, amount: currRec.amount + absAmt, count: currRec.count + 1 });
       } else {
         totalInbound += amt;
+        if (isRefundOrReversal(t.descriptionRaw) && t.category?.name) {
+          const catName = t.category.name;
+          const currCat = categoryMapOverall.get(catName);
+          if (currCat) {
+            currCat.amount = Math.max(0, currCat.amount - amt);
+          }
+        }
       }
     });
 
@@ -686,7 +752,7 @@ export class AccountsService {
     const overallTopRecCount = overallTopRecipients.reduce((s, r) => s + r.count, 0);
     const overallOtherOutbound = {
       amount: Math.max(0, totalOutbound - overallTopRecSum),
-      count: Math.max(0, allCardTransactions.filter((t) => t.amount < 0).length - overallTopRecCount),
+      count: Math.max(0, filteredAnalyticsTransactions.filter((t) => t.amount < 0).length - overallTopRecCount),
     };
 
     let totalLimit = 0;
@@ -712,7 +778,14 @@ export class AccountsService {
       const cardCatMap = new Map<string, { name: string; color: string; amount: number }>();
       const cardRecMap = new Map<string, { name: string; amount: number; count: number }>();
 
-      cardTxns.forEach((t) => {
+      const cardAnalyticsTxns = cardTxns.filter((t) => {
+        const tDate = new Date(t.transactionDate);
+        if (filterStart && tDate < filterStart) return false;
+        if (filterEnd && tDate > filterEnd) return false;
+        return true;
+      });
+
+      cardAnalyticsTxns.forEach((t) => {
         const amt = Number(t.amount);
         if (amt < 0) {
           const absAmt = Math.abs(amt);
@@ -723,11 +796,18 @@ export class AccountsService {
           const currCat = cardCatMap.get(catName) || { name: catName, color: catColor, amount: 0 };
           cardCatMap.set(catName, { name: catName, color: catColor, amount: currCat.amount + absAmt });
 
-          const recipientName = extractBeneficiaryName(t.descriptionRaw) || t.merchant || t.descriptionRaw;
+          const recipientName = cleanMerchant(t.merchant, t.descriptionRaw);
           const currRec = cardRecMap.get(recipientName) || { name: recipientName, amount: 0, count: 0 };
           cardRecMap.set(recipientName, { name: recipientName, amount: currRec.amount + absAmt, count: currRec.count + 1 });
         } else {
           cardInbound += amt;
+          if (isRefundOrReversal(t.descriptionRaw) && t.category?.name) {
+            const catName = t.category.name;
+            const currCat = cardCatMap.get(catName);
+            if (currCat) {
+              currCat.amount = Math.max(0, currCat.amount - amt);
+            }
+          }
         }
       });
 
@@ -743,7 +823,7 @@ export class AccountsService {
       const topRecCount = topRecipients.reduce((s, r) => s + r.count, 0);
       const otherOutbound = {
         amount: Math.max(0, cardOutbound - topRecSum),
-        count: Math.max(0, cardTxns.filter((t) => t.amount < 0).length - topRecCount),
+        count: Math.max(0, cardAnalyticsTxns.filter((t) => t.amount < 0).length - topRecCount),
       };
 
       return {
@@ -772,7 +852,7 @@ export class AccountsService {
     const recentTransactions = allCardTransactions.slice(0, 10).map((t) => ({
       id: t.id,
       date: t.transactionDate.toISOString(),
-      description: t.merchant || t.descriptionRaw,
+      description: cleanMerchant(t.merchant, t.descriptionRaw),
       amount: Number(t.amount),
       category: t.category?.name ?? 'Uncategorised',
       categoryColor: t.category?.color ?? '#94a3b8',
@@ -788,6 +868,8 @@ export class AccountsService {
         activeCardCount: cards.length,
         totalInbound,
         totalOutbound,
+        timeRange: timeRange || 'ALL_TIME',
+        timeRangeLabel,
       },
       overallFlow: {
         categories: overallCategories,
