@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { GoogleDriveService } from './google-drive.service';
+import { GoogleGmailService } from '../email-ingestion/google-gmail.service';
 
 @Injectable()
 export class BackupSchedulerService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -10,20 +11,21 @@ export class BackupSchedulerService implements OnApplicationBootstrap, OnApplica
   constructor(
     private readonly prisma: PrismaService,
     private readonly googleDriveService: GoogleDriveService,
+    private readonly googleGmailService: GoogleGmailService,
   ) {}
 
   onApplicationBootstrap() {
-    this.logger.log('Initializing automated Google Drive daily backup scheduler...');
+    this.logger.log('Initializing automated daily scheduler (Google Drive Backup & Gmail Transaction Sync)...');
     // Run an initial check after 1 minute, then check hourly
     setTimeout(() => {
-      this.checkAndRunDailyBackups().catch((err) =>
-        this.logger.error(`Daily backup scheduler check failed: ${err.message}`, err.stack),
+      this.runScheduledTasks().catch((err) =>
+        this.logger.error(`Scheduled task run failed: ${err.message}`, err.stack),
       );
     }, 60 * 1000);
 
     this.timer = setInterval(() => {
-      this.checkAndRunDailyBackups().catch((err) =>
-        this.logger.error(`Daily backup scheduler check failed: ${err.message}`, err.stack),
+      this.runScheduledTasks().catch((err) =>
+        this.logger.error(`Scheduled task run failed: ${err.message}`, err.stack),
       );
     }, 60 * 60 * 1000); // Hourly check
   }
@@ -33,6 +35,11 @@ export class BackupSchedulerService implements OnApplicationBootstrap, OnApplica
       clearInterval(this.timer);
       this.timer = null;
     }
+  }
+
+  async runScheduledTasks() {
+    await this.checkAndRunDailyBackups();
+    await this.checkAndRunDailyGmailSync();
   }
 
   async checkAndRunDailyBackups() {
@@ -64,6 +71,41 @@ export class BackupSchedulerService implements OnApplicationBootstrap, OnApplica
         this.logger.log(`Automated daily backup succeeded for user ${cfg.userId}`);
       } catch (err: any) {
         this.logger.error(`Automated daily backup failed for user ${cfg.userId}: ${err.message}`);
+      }
+    }
+  }
+
+  async checkAndRunDailyGmailSync() {
+    const emailConfigs = await this.prisma.googleEmailConfig.findMany({
+      where: {
+        syncStatus: { not: 'DISCONNECTED' },
+      },
+    });
+
+    if (emailConfigs.length === 0) {
+      return;
+    }
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    for (const cfg of emailConfigs) {
+      const lastSyncDateStr = cfg.lastSyncAt ? cfg.lastSyncAt.toISOString().split('T')[0] : null;
+
+      // If already synced today, skip
+      if (lastSyncDateStr === todayStr) {
+        continue;
+      }
+
+      this.logger.log(`Executing automated daily Gmail transaction alert sync for user ${cfg.userId} (${cfg.email})...`);
+      try {
+        // Sync last 7 days of credit card & bank alert emails
+        const syncResult = await this.googleGmailService.syncGmail(cfg.userId, 7);
+        this.logger.log(
+          `Automated daily Gmail sync succeeded for user ${cfg.userId}: ${syncResult.message}`,
+        );
+      } catch (err: any) {
+        this.logger.error(`Automated daily Gmail sync failed for user ${cfg.userId}: ${err.message}`);
       }
     }
   }
