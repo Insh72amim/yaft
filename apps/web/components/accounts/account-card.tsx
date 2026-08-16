@@ -11,6 +11,8 @@ import {
   Landmark,
 } from "lucide-react";
 import { money } from "@/lib/api";
+import { getDomainForInstitution, getLocalLogo, findInstitution } from "@/lib/institutions";
+export { getDomainForInstitution, getLocalLogo, findInstitution };
 
 export type Account = {
   id: string;
@@ -91,39 +93,6 @@ export function getIcon(type: string) {
   if (type === "LOAN") return <BadgeIndianRupee size={16} />;
   if (type === "SAVINGS") return <PiggyBank size={16} />;
   return <Landmark size={16} />;
-}
-
-export function getDomainForInstitution(name: string | null) {
-  if (!name) return "bank.com";
-  const n = name.toLowerCase();
-  if (n.includes("zerodha")) return "zerodha.com";
-  if (n.includes("groww")) return "groww.in";
-  if (n.includes("upstox")) return "upstox.com";
-  if (n.includes("hdfc")) return "hdfcbank.com";
-  if (n.includes("icici")) return "icicibank.com";
-  if (n.includes("sbi") || n.includes("state bank")) return "onlinesbi.sbi";
-  if (n.includes("axis")) return "axisbank.com";
-  if (n.includes("pnb") || n.includes("punjab")) return "pnbindia.in";
-  if (n.includes("kotak")) return "kotak.com";
-  if (n.includes("idfc")) return "idfcfirstbank.com";
-  if (n.includes("indusind")) return "indusind.com";
-  if (n.includes("amazon") || n.includes("aplus")) return "amazon.in";
-  if (n.includes("cred")) return "cred.club";
-  if (n.includes("epfo") || n.includes("pf")) return "epfindia.gov.in";
-  return "bank.com";
-}
-
-export function getLocalLogo(institution: string | null, name: string): string | null {
-  const check = ((institution || "") + " " + name).toLowerCase();
-  if (check.includes("axis")) return "/logos/axis.png";
-  if (check.includes("epfo") || check.includes("provident")) return "/logos/epfo.png";
-  if (check.includes("groww")) return "/logos/groww.jpeg";
-  if (check.includes("hdfc")) return "/logos/hdfc.png";
-  if (check.includes("icici")) return "/logos/icici.png";
-  if (check.includes("pnb") || check.includes("punjab national")) return "/logos/pnb.jpeg";
-  if (check.includes("sbi") || check.includes("state bank")) return "/logos/sbi.png";
-  if (check.includes("zerodha")) return "/logos/zerodha.png";
-  return null;
 }
 
 export function cardNetworkClass(network: string | null) {

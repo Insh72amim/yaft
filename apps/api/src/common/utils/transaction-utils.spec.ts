@@ -12,8 +12,25 @@ describe('transaction-utils', () => {
       expect(extractBeneficiaryName('UPI/REV/67890/SWIGGY/PAYMENT')).toBe('SWIGGY');
     });
 
+    it('extracts UPI VPA handles correctly', () => {
+      expect(extractBeneficiaryName('paytm-swiggy@ptybl')).toBe('swiggy');
+      expect(extractBeneficiaryName('zomato@hdfcbank')).toBe('zomato');
+    });
+
+    it('extracts Card POS terminal merchants correctly', () => {
+      expect(extractBeneficiaryName('POS 4000XXXXXXXX0001 MAKEMYTRIP INDIA PVT LT BANGALORE')).toBe('MAKEMYTRIP');
+    });
+
     it('extracts NEFT beneficiary names correctly', () => {
       expect(extractBeneficiaryName('NEFT-CR-ZERODHA BROKING')).toBe('ZERODHA BROKING');
+    });
+
+    it('extracts IMPS beneficiary names correctly', () => {
+      expect(extractBeneficiaryName('IMPS/P2A/1234567890/MAKEMYTRIP')).toBe('MAKEMYTRIP');
+    });
+
+    it('extracts NACH mandate beneficiaries correctly', () => {
+      expect(extractBeneficiaryName('NACH-HDFC-LOAN-EMI/123')).toBe('HDFC-LOAN-EMI');
     });
 
     it('returns null for unparseable descriptions', () => {

@@ -2,12 +2,10 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 
-function isSameCalendarDay(d1: Date, d2: Date): boolean {
-  return (
-    d1.getUTCFullYear() === d2.getUTCFullYear() &&
-    d1.getUTCMonth() === d2.getUTCMonth() &&
-    d1.getUTCDate() === d2.getUTCDate()
-  );
+function getCalendarDayDifference(d1: Date, d2: Date): number {
+  const utc1 = Date.UTC(d1.getUTCFullYear(), d1.getUTCMonth(), d1.getUTCDate());
+  const utc2 = Date.UTC(d2.getUTCFullYear(), d2.getUTCMonth(), d2.getUTCDate());
+  return Math.abs(Math.round((utc1 - utc2) / (1000 * 60 * 60 * 24)));
 }
 
 @Injectable()
@@ -48,18 +46,34 @@ export class TransfersService {
         }
       }
 
-      // Strict Same-Day Matching Only (same calendar YYYY-MM-DD date)
-      const candidates = credits.filter((credit) => {
-        if (usedCreditIds.has(credit.id)) return false;
-        if (credit.accountId === debit.accountId) return false;
-        if (credit.amount !== positiveAmount) return false;
-        if (!isSameCalendarDay(debit.transactionDate, credit.transactionDate)) return false;
-        if (targetAccountId && credit.accountId !== targetAccountId) return false;
-        return true;
-      });
+      // Tiered Multi-Day Candidate Scoring
+      const scoredCandidates = credits
+        .filter((credit) => {
+          if (usedCreditIds.has(credit.id)) return false;
+          if (credit.accountId === debit.accountId) return false;
+          if (credit.amount !== positiveAmount) return false;
 
-      if (candidates.length > 0) {
-        const match = candidates[0];
+          const dayDiff = getCalendarDayDifference(debit.transactionDate, credit.transactionDate);
+          const isCrossAccountType =
+            (debit.account.type === 'CREDIT_CARD' && credit.account.type !== 'CREDIT_CARD') ||
+            (credit.account.type === 'CREDIT_CARD' && debit.account.type !== 'CREDIT_CARD') ||
+            (debit.account.type === 'INVESTMENT' || credit.account.type === 'INVESTMENT');
+
+          const maxAllowedDays = targetAccountId ? 2 : isCrossAccountType ? 2 : 1;
+          if (dayDiff > maxAllowedDays) return false;
+          if (targetAccountId && credit.accountId !== targetAccountId) return false;
+          return true;
+        })
+        .map((credit) => {
+          const dayDiff = getCalendarDayDifference(debit.transactionDate, credit.transactionDate);
+          let score = 100 - dayDiff * 20;
+          if (targetAccountId && credit.accountId === targetAccountId) score += 50;
+          return { credit, score };
+        })
+        .sort((a, b) => b.score - a.score);
+
+      if (scoredCandidates.length > 0) {
+        const match = scoredCandidates[0].credit;
         const transferGroupId = randomUUID();
 
         await this.prisma.$transaction([
@@ -149,7 +163,7 @@ export class TransfersService {
       const positiveAmount = -debit.amount;
 
       const candidate = credits.find(
-        (c) => c.accountId !== debit.accountId && c.amount === positiveAmount && isSameCalendarDay(debit.transactionDate, c.transactionDate),
+        (c) => c.accountId !== debit.accountId && c.amount === positiveAmount && getCalendarDayDifference(debit.transactionDate, c.transactionDate) <= 1,
       );
 
       if (candidate) {

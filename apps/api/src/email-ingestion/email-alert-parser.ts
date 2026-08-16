@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { findInstitution } from '../common/institutions/institution-registry';
 
 export interface ParsedEmailTransaction {
   bankName: string;
@@ -149,20 +150,8 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   const fullContext = `${senderOrSubject || ''} ${text}`;
 
   // 1. Detect Bank Name
-  let bankName = 'Bank Alert';
-  if (/hdfc/i.test(fullContext)) bankName = 'HDFC Bank';
-  else if (/icici/i.test(fullContext)) bankName = 'ICICI Bank';
-  else if (/sbi|state bank/i.test(fullContext)) bankName = 'State Bank of India';
-  else if (/axis/i.test(fullContext)) bankName = 'Axis Bank';
-  else if (/pnb|punjab national/i.test(fullContext)) bankName = 'Punjab National Bank';
-  else if (/kotak/i.test(fullContext)) bankName = 'Kotak Mahindra Bank';
-  else if (/amex|american express/i.test(fullContext)) bankName = 'American Express';
-  else if (/indusind/i.test(fullContext)) bankName = 'IndusInd Bank';
-  else if (/idfc/i.test(fullContext)) bankName = 'IDFC First Bank';
-  else if (/rbl/i.test(fullContext)) bankName = 'RBL Bank';
-  else if (/yes bank/i.test(fullContext)) bankName = 'Yes Bank';
-  else if (/standard chartered|scb/i.test(fullContext)) bankName = 'Standard Chartered';
-  else if (/citi/i.test(fullContext)) bankName = 'Citi';
+  const matchedInst = findInstitution(fullContext);
+  const bankName = matchedInst ? matchedInst.name : 'Bank Alert';
 
   // 2. Detect Account Type (Credit Card vs Bank Account)
   const isExplicitCreditCard = /credit\s*card|creditcard|pixel\s*play|card\s*ending|card\s*no\.?\s*(?:xx|\d)|card\s*xx\d|amazon\s*pay|card\s+4[xX]+/i.test(fullContext);

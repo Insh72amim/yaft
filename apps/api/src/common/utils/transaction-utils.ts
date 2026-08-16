@@ -1,24 +1,75 @@
 /**
  * Shared transaction utilities for beneficiary extraction, refund pattern matching,
- * and timezone-aware date range construction.
+ * timezone-aware date range construction, and multi-channel merchant normalization.
  */
 
 export function extractBeneficiaryName(description: string): string | null {
   if (!description) return null;
+
+  // 1. UPI Slash Tokens e.g. "UPI/12345/SWIGGY/PAYMENT", "UPI/REV/67890/ZOMATO"
   const upiParts = description.split('/');
   if (upiParts[0]?.toUpperCase().includes('UPI') && upiParts.length >= 3) {
     for (let i = 1; i < upiParts.length; i++) {
       const token = upiParts[i].trim();
-      if (token && !/^[0-9]+$/.test(token) && !/^(PAYMENT|PAY|REV|UPI|OKAXIS|YBL|ICICI|HDFC|PAYTM|AXIS)$/i.test(token)) {
-        return token;
+      if (
+        token &&
+        !/^[0-9]+$/.test(token) &&
+        !/^(PAYMENT|PAY|REV|UPI|OKAXIS|YBL|ICICI|HDFC|PAYTM|AXIS|SBI|YES)$/i.test(token)
+      ) {
+        return cleanBeneficiaryToken(token);
       }
     }
   }
-  const neftMatch = description.match(/NEFT-[^-]+-([A-Z\s]+)/i);
-  if (neftMatch && neftMatch[1] && !/^[0-9]+$/.test(neftMatch[1].trim())) {
-    return neftMatch[1].trim();
+
+  // 2. UPI VPA format e.g. "paytm-swiggy@ptybl", "zomato@hdfcbank"
+  if (description.includes('@')) {
+    const vpaMatch = description.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+)/);
+    if (vpaMatch) {
+      const handle = vpaMatch[1].split('@')[0];
+      const cleaned = handle
+        .replace(/^(?:paytm|pay|upi|ibkpos\.[a-z0-9]+)[-.]?/i, '')
+        .replace(/[-._]/g, ' ')
+        .trim();
+      if (cleaned.length >= 2) return cleanBeneficiaryToken(cleaned);
+    }
   }
+
+  // 3. Card POS Terminal e.g. "POS 4000XXXXXXXX0001 MAKEMYTRIP INDIA PVT LT"
+  const posMatch = description.match(/\bPOS\s+(?:[\dX*]+\s+)?([A-Z0-9\s&.,'-]+?)(?:\s+(?:BANGALORE|MUMBAI|DELHI|HYDERABAD|CHENNAI|PUNE|KOLKATA|IN|IND))?$/i);
+  if (posMatch && posMatch[1].trim().length >= 2) {
+    const name = posMatch[1].replace(/\[.*?\]/g, '').replace(/[\dX*]{4,}/g, '').trim();
+    if (name.length >= 2 && !/^(PAYMENT|TRANSACTION|PURCHASE)$/i.test(name)) {
+      return cleanBeneficiaryToken(name);
+    }
+  }
+
+  // 4. NEFT e.g. "NEFT-CR-ZERODHA BROKING", "NEFT-AXISP0001-MAKEMYTRIP"
+  const neftMatch = description.match(/NEFT-(?:CR|DR)?-?[^-]+-([A-Z\s&.,]+)/i) || description.match(/NEFT-[^-]+-([A-Z\s&.,]+)/i);
+  if (neftMatch && neftMatch[1] && !/^[0-9]+$/.test(neftMatch[1].trim())) {
+    return cleanBeneficiaryToken(neftMatch[1]);
+  }
+
+  // 5. IMPS e.g. "IMPS/P2A/1234567890/MAKEMYTRIP", "IMPS-123456-SWIGGY"
+  const impsMatch = description.match(/IMPS[/-](?:P2A|P2P|CR|DR)?[/-]?\d+[/-]([A-Z0-9\s&.,]+)/i);
+  if (impsMatch && impsMatch[1] && !/^[0-9]+$/.test(impsMatch[1].trim())) {
+    return cleanBeneficiaryToken(impsMatch[1]);
+  }
+
+  // 6. NACH / Mandate e.g. "ACH/SIP-ZERODHA/12345", "NACH-HDFC-LOAN-EMI/123"
+  const nachMatch = description.match(/(?:ACH|NACH|MANDATE)[/-]([A-Z0-9\s&.,-]+?)(?:\/|$)/i);
+  if (nachMatch && nachMatch[1].trim().length >= 2) {
+    return cleanBeneficiaryToken(nachMatch[1]);
+  }
+
   return null;
+}
+
+function cleanBeneficiaryToken(token: string): string {
+  return token
+    .replace(/\[.*?\]/g, '')
+    .replace(/\b(?:PVT|LTD|LT|LIMITED|PRIVATE|INDIA|CORP|LLP|INC)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function isRefundOrReversal(description: string): boolean {
