@@ -73,6 +73,9 @@ export default function ProfileMePage() {
     transactionsRestored: number;
     categoriesRestored: number;
     documentsRestored: number;
+    salariesRestored: number;
+    organizationsRestored: number;
+    holdingsRestored: number;
     filesRestored: number;
   } | null>(null);
 
@@ -559,7 +562,10 @@ export default function ProfileMePage() {
                         <li>{restoreResult.accountsRestored} Accounts</li>
                         <li>{restoreResult.transactionsRestored} Transactions</li>
                         <li>{restoreResult.categoriesRestored} Categories</li>
-                        <li>{restoreResult.documentsRestored} Documents ({restoreResult.filesRestored} S3 files)</li>
+                        <li>{restoreResult.holdingsRestored || 0} Demat & MF Holdings</li>
+                        <li>{restoreResult.salariesRestored || 0} Salary Payslips</li>
+                        <li>{restoreResult.organizationsRestored || 0} Employer Profiles</li>
+                        <li>{restoreResult.documentsRestored} Account Documents ({restoreResult.filesRestored} S3 files restored)</li>
                       </ul>
                     </div>
                   )}
@@ -584,6 +590,9 @@ export default function ProfileMePage() {
                         transactionsRestored: number;
                         categoriesRestored: number;
                         documentsRestored: number;
+                        salariesRestored: number;
+                        organizationsRestored: number;
+                        holdingsRestored: number;
                         filesRestored: number;
                       }>("/backup/restore", {
                         method: "POST",
