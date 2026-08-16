@@ -8,6 +8,11 @@ import {
   isExplicitSuccessfulRefund,
   canonicalizeMerchantName,
   cleanBeneficiaryToken,
+  extractAlertAmount,
+  extractAlertAccountLast4,
+  extractAlertReferenceNumber,
+  extractAlertRawMerchant,
+  extractAlertDateTime,
 } from '@yaft/shared';
 
 describe('Parser Config Registry (@yaft/shared)', () => {
@@ -86,6 +91,43 @@ describe('Parser Config Registry (@yaft/shared)', () => {
       expect(canonicalizeMerchantName('AMAZON PAY')).toBe('AMAZON');
       expect(canonicalizeMerchantName('FLIPKART INDIA')).toBe('FLIPKART');
       expect(canonicalizeMerchantName('AIRTEL BILLPAY')).toBe('AIRTEL');
+    });
+  });
+
+  describe('Email Alert Extractor Helpers', () => {
+    it('extracts amounts accurately ignoring limits noise', () => {
+      const text1 = 'Transaction Amount: INR 1611.00 at Zomato. Available Limit: INR 50,000.00.';
+      expect(extractAlertAmount(text1)).toBe(1611);
+
+      const text2 = 'Rs. 204.00 spent on Card XX1234. Total Due: Rs. 15,000.00.';
+      expect(extractAlertAmount(text2)).toBe(204);
+
+      const text3 = 'noticed a transaction of Rs. 608.28 on your account.';
+      expect(extractAlertAmount(text3)).toBe(608.28);
+    });
+
+    it('extracts account last 4 digits from card / account patterns', () => {
+      expect(extractAlertAccountLast4('spent on ICICI Bank Credit Card ending with 1004')).toBe('1004');
+      expect(extractAlertAccountLast4('Card 4000XXXXXXXX0005 used for transaction')).toBe('0005');
+      expect(extractAlertAccountLast4('A/C XX7890 credited')).toBe('7890');
+    });
+
+    it('extracts reference numbers and UPI UTR IDs', () => {
+      expect(extractAlertReferenceNumber('Ref: 100000000103 on 14-08-26')).toBe('100000000103');
+      expect(extractAlertReferenceNumber('UPI/P2M/100000000005/SWIGGY')).toBe('100000000005');
+    });
+
+    it('extracts merchant strings from various bank alert formats', () => {
+      expect(extractAlertRawMerchant('Merchant Name: STARBUCKS COFFEE. Ref: 123')).toBe('STARBUCKS COFFEE');
+      expect(extractAlertRawMerchant('debited to VPA swiggy@okhdfcbank on 14-Aug-26')).toBe('swiggy@okhdfcbank');
+      expect(extractAlertRawMerchant('towards SWIGGY BANGALORE on 14-Aug-26')).toBe('SWIGGY BANGALORE');
+      expect(extractAlertRawMerchant('spent at FLIPKART INDIA on 14-Aug-26')).toBe('FLIPKART INDIA');
+    });
+
+    it('extracts date and time information', () => {
+      const dt = extractAlertDateTime('spent on 14-Aug-2026 at 15:30:20 at SWIGGY');
+      expect(dt.dateStr).toBe('14-Aug-2026');
+      expect(dt.timeStr).toBe('15:30:20');
     });
   });
 });

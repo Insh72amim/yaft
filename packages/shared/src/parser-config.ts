@@ -157,3 +157,140 @@ export function canonicalizeMerchantName(raw: string): string {
 
   return s;
 }
+
+export const EMAIL_ALERT_PATTERNS = {
+  BOILERPLATE_WARNINGS_REGEX: /(?:If (?:this )?transaction was not (?:done|initiated) by you|To block UPI|Please SMS BLOCK|We care about your security|Call us at:|Always open to help you|Warm Regards)[\s\S]*/i,
+
+  EXPLICIT_CREDIT_CARD_REGEX: /credit\s*card|creditcard|pixel\s*play|card\s*ending|card\s*no\.?\s*(?:xx|\d)|card\s*xx\d|amazon\s*pay|card\s+4[xX]+/i,
+  EXPLICIT_BANK_ACCOUNT_REGEX: /(?:debited\s+from\s+your\s+A\/c|debited\s+from\s+A\/c|Account\s*Number:\s*XX|from\s+account\s*[\*xX\d]+|savings\s*a\/c|bank\s*a\/c)/i,
+
+  CREDIT_TXN_REGEX: /credited|received|deposited|refund/i,
+  DEBIT_TXN_REGEX: /debited|spent|used|charged|purchase/i,
+
+  LIMITS_NOISE_REGEX: /(?:available\s*(?:credit)?\s*limit|total\s*(?:credit)?\s*limit|credit\s*limit|total\s*due|total\s*outstanding|available\s*balance|bal\s*limit)\*?\s*(?:is|:)?\s*(?:rs\.?|inr|₹|&#8377;)?\s*[\d,]+(?:\.\d{1,2})?/gi,
+
+  LABEL_AMOUNT_REGEX: /(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount)\s*[:=]\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+  VERB_AMOUNT_REGEXES: [
+    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of|noticed\s+a\s+transaction\s+of)\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited)/i,
+    /^(?:.*?\b)?(?:inr|rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited)/i,
+  ],
+  FALLBACK_AMOUNT_REGEX: /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+
+  ACCOUNT_LAST4_REGEXES: [
+    /(?:credit\s*card|account\s*number|a\/c\s*no\.?|a\/c|account|card)\s*(?:ending\s*(?:with|in)?|no\.?|is|:)?\s*(?:XX|\*+|4[xX]+)?(\d{4,8})\b/i,
+    /(?:ending\s+with|ending\s+in|ending)\s*(?:XX|\*+)?(\d{4})\b/i,
+    /(?:\b\d{4}|\b[xX]{4}|\b[*]{4})[*xX\d-]{4,16}(\d{4})\b/i,
+    /\b(?:XX|\*+|4[xX]+)(\d{4})\b/i,
+  ],
+
+  REFERENCE_NUMBER_REGEXES: [
+    /(?:ref\s*(?:no\.?|id)?|txn\s*(?:id|no\.?)?|utr|auth\s*code|reference\s*number)[:\s]*([a-zA-Z0-9]{6,22})/i,
+    /UPI\/(?:P2A|P2M|P2P)\/(\d{8,18})\//i,
+  ],
+
+  MERCHANT_NAME_LABEL_REGEX: /(?:merchant\s*name|info)[:\s]+([a-zA-Z0-9\s._\-&@]{2,50}?)(?=\s+(?:Axis|Date|Available|Total|The|Ref|Avail|Auth|\*|\.|$))/i,
+  MERCHANT_TXN_INFO_REGEX: /transaction\s*info[:\s]+([a-zA-Z0-9\s._\-&@\/]{3,60}?)(?=\s+(?:If|To|Please|Available|Date|\.|$))/i,
+  MERCHANT_TO_VPA_REGEX: /to\s+(?:VPA\s+)?([a-zA-Z0-9._\-@&]{3,50})(?=\s+(?:on\s+\d|at\s+\d|\.|\bref\b|$))/i,
+  MERCHANT_TOWARDS_REGEX: /towards\s+([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s+(?:at\s+\d|on\s+\d|\.|Bal|Total|Ref|via|$))/i,
+  MERCHANT_AT_REGEX: /\bat\s+(?!\d{1,2}:\d{2})(?!\d{1,2}[-/]\d{1,2})([a-zA-Z0-9\s._\-&@\/]{2,45}?)(?=\s+(?:on\s+\d|at\s+\d|\.|\binfo\b|\bavail|\btotal|\bref|\bcard|\ba\/c|$))/i,
+
+  DATE_REGEX: /\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{2,4}|\d{1,2}[-\s](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-\s,]?\s*\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{2}-\d{2})\b/i,
+  TIME_REGEXES: [
+    /(?:at|time)[:\s]+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:am|pm))?)/i,
+    /,\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*(?:IST)?/i,
+    /\s+(\d{1,2}:\d{2}(?::\d{2})?)\s*(?:IST)?/i,
+  ],
+};
+
+export function cleanEmailAlertText(bodyText: string): string {
+  if (!bodyText) return '';
+  let text = bodyText.replace(/\s+/g, ' ').trim();
+  return text.replace(EMAIL_ALERT_PATTERNS.BOILERPLATE_WARNINGS_REGEX, '');
+}
+
+export function extractAlertAmount(text: string): number | null {
+  const textWithoutLimits = text.replace(EMAIL_ALERT_PATTERNS.LIMITS_NOISE_REGEX, '');
+
+  const labelMatch = textWithoutLimits.match(EMAIL_ALERT_PATTERNS.LABEL_AMOUNT_REGEX);
+  if (labelMatch) {
+    const parsed = parseFloat(labelMatch[1].replace(/,/g, ''));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  for (const regex of EMAIL_ALERT_PATTERNS.VERB_AMOUNT_REGEXES) {
+    const verbMatch = textWithoutLimits.match(regex);
+    if (verbMatch) {
+      const parsed = parseFloat(verbMatch[1].replace(/,/g, ''));
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+  }
+
+  const fallbackMatch = textWithoutLimits.match(EMAIL_ALERT_PATTERNS.FALLBACK_AMOUNT_REGEX);
+  if (fallbackMatch) {
+    const parsed = parseFloat(fallbackMatch[1].replace(/,/g, ''));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+export function extractAlertAccountLast4(text: string): string | undefined {
+  for (const pattern of EMAIL_ALERT_PATTERNS.ACCOUNT_LAST4_REGEXES) {
+    const match = text.match(pattern);
+    if (match) {
+      const digits = match[1];
+      return digits.length >= 4 ? digits.slice(-4) : digits;
+    }
+  }
+  return undefined;
+}
+
+export function extractAlertReferenceNumber(text: string): string | undefined {
+  for (const pattern of EMAIL_ALERT_PATTERNS.REFERENCE_NUMBER_REGEXES) {
+    const match = text.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+  return undefined;
+}
+
+export function extractAlertRawMerchant(text: string): string {
+  const merchantNameMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_NAME_LABEL_REGEX);
+  if (merchantNameMatch) return merchantNameMatch[1];
+
+  const txnInfoMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_TXN_INFO_REGEX);
+  if (txnInfoMatch) return txnInfoMatch[1];
+
+  const toVpaMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_TO_VPA_REGEX);
+  if (toVpaMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank)$/i.test(toVpaMatch[1].trim())) {
+    return toVpaMatch[1];
+  }
+
+  const towardsMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_TOWARDS_REGEX);
+  if (towardsMatch) return towardsMatch[1];
+
+  const atMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_AT_REGEX);
+  if (atMatch) return atMatch[1];
+
+  return 'General Merchant';
+}
+
+export function extractAlertDateTime(text: string): { dateStr?: string; timeStr?: string } {
+  const dateMatch = text.match(EMAIL_ALERT_PATTERNS.DATE_REGEX);
+  let timeStr: string | undefined;
+
+  for (const pattern of EMAIL_ALERT_PATTERNS.TIME_REGEXES) {
+    const timeMatch = text.match(pattern);
+    if (timeMatch) {
+      timeStr = timeMatch[1];
+      break;
+    }
+  }
+
+  return {
+    dateStr: dateMatch ? dateMatch[1] : undefined,
+    timeStr,
+  };
+}
