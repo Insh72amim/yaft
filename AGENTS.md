@@ -100,8 +100,8 @@ Decision authority: <decisions allowed and decisions requiring approval>
 
 ## Agent ownership
 
-- `agent/axis-parser` may edit only `apps/api/src/imports/axis-pdf-parser.ts` and `apps/api/src/imports/axis-pdf-parser.spec.ts`.
-- `agent/sbi-parser` may edit only `apps/api/src/imports/sbi-pdf-parser.ts` and `apps/api/src/imports/sbi-pdf-parser.spec.ts`.
+- `agent/axis-parser` may edit only `apps/api/src/imports/axis-pdf-parser.ts` and `apps/api/test/imports/axis-pdf-parser.spec.ts`.
+- `agent/sbi-parser` may edit only `apps/api/src/imports/sbi-pdf-parser.ts` and `apps/api/test/imports/sbi-pdf-parser.spec.ts`.
 - The integrator owns every shared file: parser contracts and routing, PNB compatibility, Prisma schema and migrations, encryption, API, UI, documentation, dependency files, and integration tests.
 - Parser agents must not modify shared files to make their code compile. Report a required contract change to the integrator.
 
