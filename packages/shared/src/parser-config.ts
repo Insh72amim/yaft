@@ -101,6 +101,9 @@ export function cleanBeneficiaryToken(token: string): string {
   return token
     .replace(/\[.*?\]/g, '')
     .replace(/\b(?:PVT|LTD|LT|LIMITED|PRIVATE|INDIA|CORP|LLP|INC)\b/gi, '')
+    .replace(/\(\s*\)/g, '')
+    .replace(/[.,\s\-_]+$/, '')
+    .replace(/^[.,\s\-_]+/, '')
     .replace(/\s+/g, ' ')
     .trim();
 }

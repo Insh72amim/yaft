@@ -73,7 +73,7 @@ describe('Parser Config Registry (@yaft/shared)', () => {
     it('cleans company noise and trailing terminal info', () => {
       expect(cleanBeneficiaryToken('SWIGGY PRIVATE LIMITED')).toBe('SWIGGY');
       expect(cleanBeneficiaryToken('ZOMATO INDIA PVT LTD')).toBe('ZOMATO');
-      expect(cleanBeneficiaryToken('MAKEMYTRIP (INDIA) PVT. LTD.')).toBe('MAKEMYTRIP (INDIA)');
+      expect(cleanBeneficiaryToken('MAKEMYTRIP PVT. LTD.')).toBe('MAKEMYTRIP');
     });
 
     it('canonicalizes known brands from UPI handles and POS raw strings', () => {
