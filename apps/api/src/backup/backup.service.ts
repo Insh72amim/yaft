@@ -106,7 +106,7 @@ function serializeBigInts(obj: any): any {
     return { __buffer: Buffer.from(view.buffer, view.byteOffset, view.byteLength).toString('base64') };
   }
   if (obj instanceof Date) return obj.toISOString();
-  if (obj && typeof obj === 'object' && (typeof obj.toFixed === 'function' || obj.isDecimal || obj.constructor?.name === 'Decimal')) {
+  if (obj && typeof obj === 'object' && (typeof obj.toFixed === 'function' || (obj as any).isDecimal || obj.constructor?.name === 'Decimal')) {
     return { __decimal: obj.toString() };
   }
   if (Array.isArray(obj)) return obj.map(serializeBigInts);
@@ -334,31 +334,6 @@ export class BackupService {
       return idMap.get(oldId)!;
     };
 
-    // Pre-populate maps for existing unique records if restoring to same or different user
-    const existingCategories = await this.prisma.category.findMany({ where: { userId } });
-    for (const cat of existingCategories) {
-      const matchInBackup = (db.categories || []).find((c: any) => c.name.toLowerCase() === cat.name.toLowerCase());
-      if (matchInBackup) {
-        idMap.set(matchInBackup.id, cat.id);
-      }
-    }
-
-    const existingTags = await this.prisma.tag.findMany({ where: { userId } });
-    for (const tag of existingTags) {
-      const matchInBackup = (db.tags || []).find((t: any) => t.name.toLowerCase() === tag.name.toLowerCase());
-      if (matchInBackup) {
-        idMap.set(matchInBackup.id, tag.id);
-      }
-    }
-
-    const existingOrgs = await this.prisma.organization.findMany({ where: { userId } });
-    for (const org of existingOrgs) {
-      const matchInBackup = (db.organizations || []).find((o: any) => o.name.toLowerCase() === org.name.toLowerCase());
-      if (matchInBackup) {
-        idMap.set(matchInBackup.id, org.id);
-      }
-    }
-
     // Re-upload attachments to S3 / MinIO
     let filesRestored = 0;
     if (Array.isArray(payload.files)) {
@@ -484,35 +459,56 @@ export class BackupService {
       for (const acc of db.accounts || []) {
         const targetId = mapId(acc.id);
         const parentId = acc.parentAccountId ? mapId(acc.parentAccountId) : null;
-        await tx.account.upsert({
-          where: { id: targetId },
-          create: {
-            id: targetId,
-            userId,
-            name: acc.name,
-            type: acc.type,
-            institution: acc.institution,
-            currency: acc.currency,
-            openingBalance: acc.openingBalance,
-            creditLimit: acc.creditLimit,
-            statementDay: acc.statementDay,
-            dueDay: acc.dueDay,
-            archived: acc.archived,
-            parentAccountId: parentId,
-          },
-          update: {
-            name: acc.name,
-            type: acc.type,
-            institution: acc.institution,
-            currency: acc.currency,
-            openingBalance: acc.openingBalance,
-            creditLimit: acc.creditLimit,
-            statementDay: acc.statementDay,
-            dueDay: acc.dueDay,
-            archived: acc.archived,
-            parentAccountId: parentId,
-          },
-        });
+        const existingAcc = isDifferentUser
+          ? await tx.account.findFirst({ where: { userId, name: acc.name, institution: acc.institution } })
+          : null;
+
+        if (existingAcc) {
+          idMap.set(acc.id, existingAcc.id);
+          await tx.account.update({
+            where: { id: existingAcc.id },
+            data: {
+              type: acc.type,
+              currency: acc.currency,
+              openingBalance: acc.openingBalance,
+              creditLimit: acc.creditLimit,
+              statementDay: acc.statementDay,
+              dueDay: acc.dueDay,
+              archived: acc.archived,
+              parentAccountId: parentId,
+            },
+          });
+        } else {
+          await tx.account.upsert({
+            where: { id: targetId },
+            create: {
+              id: targetId,
+              userId,
+              name: acc.name,
+              type: acc.type,
+              institution: acc.institution,
+              currency: acc.currency,
+              openingBalance: acc.openingBalance,
+              creditLimit: acc.creditLimit,
+              statementDay: acc.statementDay,
+              dueDay: acc.dueDay,
+              archived: acc.archived,
+              parentAccountId: parentId,
+            },
+            update: {
+              name: acc.name,
+              type: acc.type,
+              institution: acc.institution,
+              currency: acc.currency,
+              openingBalance: acc.openingBalance,
+              creditLimit: acc.creditLimit,
+              statementDay: acc.statementDay,
+              dueDay: acc.dueDay,
+              archived: acc.archived,
+              parentAccountId: parentId,
+            },
+          });
+        }
       }
 
       // 5. Account Vault Entries
@@ -654,48 +650,83 @@ export class BackupService {
       for (const stmt of db.salaryStatements || []) {
         const targetId = mapId(stmt.id);
         const mappedOrgId = stmt.organizationId ? mapId(stmt.organizationId) : null;
-        await tx.salaryStatement.upsert({
-          where: { id: targetId },
-          create: {
-            id: targetId,
-            userId,
-            payPeriod: stmt.payPeriod,
-            employer: stmt.employer,
-            employeeName: stmt.employeeName,
-            employeeNumberLast4: stmt.employeeNumberLast4,
-            department: stmt.department,
-            designation: stmt.designation,
-            bankName: stmt.bankName,
-            bankAccountLast4: stmt.bankAccountLast4,
-            uanLast4: stmt.uanLast4,
-            currency: stmt.currency,
-            grossEarnings: stmt.grossEarnings,
-            grossDeductions: stmt.grossDeductions,
-            directPayment: stmt.directPayment,
-            netPay: stmt.netPay,
-            filename: stmt.filename,
-            fileHash: stmt.fileHash,
-            status: stmt.status,
-            createdAt: stmt.createdAt,
-            committedAt: stmt.committedAt,
-            pdfPasswordCipher: stmt.pdfPasswordCipher,
-            pdfPasswordIv: stmt.pdfPasswordIv,
-            pdfPasswordTag: stmt.pdfPasswordTag,
-            pdfPasswordKeyVersion: stmt.pdfPasswordKeyVersion,
-            organizationId: mappedOrgId,
-          },
-          update: {
-            payPeriod: stmt.payPeriod,
-            employer: stmt.employer,
-            grossEarnings: stmt.grossEarnings,
-            grossDeductions: stmt.grossDeductions,
-            directPayment: stmt.directPayment,
-            netPay: stmt.netPay,
-            status: stmt.status,
-            committedAt: stmt.committedAt,
-            organizationId: mappedOrgId,
-          },
-        });
+        const existingStmt = isDifferentUser
+          ? await tx.salaryStatement.findFirst({
+              where: {
+                userId,
+                OR: [
+                  { employer: stmt.employer, payPeriod: stmt.payPeriod },
+                  { fileHash: stmt.fileHash },
+                ],
+              },
+            })
+          : null;
+
+        if (existingStmt) {
+          idMap.set(stmt.id, existingStmt.id);
+          await tx.salaryStatement.update({
+            where: { id: existingStmt.id },
+            data: {
+              employeeName: stmt.employeeName,
+              employeeNumberLast4: stmt.employeeNumberLast4,
+              department: stmt.department,
+              designation: stmt.designation,
+              bankName: stmt.bankName,
+              bankAccountLast4: stmt.bankAccountLast4,
+              uanLast4: stmt.uanLast4,
+              grossEarnings: stmt.grossEarnings,
+              grossDeductions: stmt.grossDeductions,
+              directPayment: stmt.directPayment,
+              netPay: stmt.netPay,
+              status: stmt.status,
+              committedAt: stmt.committedAt,
+              organizationId: mappedOrgId,
+            },
+          });
+        } else {
+          await tx.salaryStatement.upsert({
+            where: { id: targetId },
+            create: {
+              id: targetId,
+              userId,
+              payPeriod: stmt.payPeriod,
+              employer: stmt.employer,
+              employeeName: stmt.employeeName,
+              employeeNumberLast4: stmt.employeeNumberLast4,
+              department: stmt.department,
+              designation: stmt.designation,
+              bankName: stmt.bankName,
+              bankAccountLast4: stmt.bankAccountLast4,
+              uanLast4: stmt.uanLast4,
+              currency: stmt.currency,
+              grossEarnings: stmt.grossEarnings,
+              grossDeductions: stmt.grossDeductions,
+              directPayment: stmt.directPayment,
+              netPay: stmt.netPay,
+              filename: stmt.filename,
+              fileHash: stmt.fileHash,
+              status: stmt.status,
+              createdAt: stmt.createdAt,
+              committedAt: stmt.committedAt,
+              pdfPasswordCipher: stmt.pdfPasswordCipher,
+              pdfPasswordIv: stmt.pdfPasswordIv,
+              pdfPasswordTag: stmt.pdfPasswordTag,
+              pdfPasswordKeyVersion: stmt.pdfPasswordKeyVersion,
+              organizationId: mappedOrgId,
+            },
+            update: {
+              payPeriod: stmt.payPeriod,
+              employer: stmt.employer,
+              grossEarnings: stmt.grossEarnings,
+              grossDeductions: stmt.grossDeductions,
+              directPayment: stmt.directPayment,
+              netPay: stmt.netPay,
+              status: stmt.status,
+              committedAt: stmt.committedAt,
+              organizationId: mappedOrgId,
+            },
+          });
+        }
       }
       for (const item of db.salaryLineItems || []) {
         const targetId = mapId(item.id);
@@ -723,29 +754,41 @@ export class BackupService {
       for (const batch of db.importBatches || []) {
         const targetId = mapId(batch.id);
         const mappedAccId = mapId(batch.accountId);
-        await tx.importBatch.upsert({
-          where: { id: targetId },
-          create: {
-            id: targetId,
-            userId,
-            accountId: mappedAccId,
-            filename: batch.filename,
-            fileHash: batch.fileHash,
-            status: batch.status,
-            rowCount: batch.rowCount,
-            statementBalance: batch.statementBalance,
-            createdAt: batch.createdAt,
-            committedAt: batch.committedAt,
-          },
-          update: { status: batch.status, rowCount: batch.rowCount, statementBalance: batch.statementBalance },
-        });
+        const existingBatch = isDifferentUser
+          ? await tx.importBatch.findFirst({ where: { accountId: mappedAccId, fileHash: batch.fileHash } })
+          : null;
+
+        if (existingBatch) {
+          idMap.set(batch.id, existingBatch.id);
+          await tx.importBatch.update({
+            where: { id: existingBatch.id },
+            data: { status: batch.status, rowCount: batch.rowCount, statementBalance: batch.statementBalance },
+          });
+        } else {
+          await tx.importBatch.upsert({
+            where: { id: targetId },
+            create: {
+              id: targetId,
+              userId,
+              accountId: mappedAccId,
+              filename: batch.filename,
+              fileHash: batch.fileHash,
+              status: batch.status,
+              rowCount: batch.rowCount,
+              statementBalance: batch.statementBalance,
+              createdAt: batch.createdAt,
+              committedAt: batch.committedAt,
+            },
+            update: { status: batch.status, rowCount: batch.rowCount, statementBalance: batch.statementBalance },
+          });
+        }
       }
       for (const staged of db.stagedTransactions || []) {
         const targetId = mapId(staged.id);
         const mappedBatchId = mapId(staged.batchId);
         const mappedCatId = staged.categoryId ? mapId(staged.categoryId) : null;
         await tx.stagedTransaction.upsert({
-          where: { id: targetId },
+          where: { batchId_rowNumber: { batchId: mappedBatchId, rowNumber: staged.rowNumber } },
           create: {
             id: targetId,
             batchId: mappedBatchId,
@@ -773,35 +816,58 @@ export class BackupService {
         const mappedCatId = t.categoryId ? mapId(t.categoryId) : null;
         const mappedBatchId = t.importBatchId ? mapId(t.importBatchId) : null;
         const mappedTransferGroupId = t.transferGroupId ? mapId(t.transferGroupId) : null;
-        await tx.transaction.upsert({
-          where: { id: targetId },
-          create: {
-            id: targetId,
-            accountId: mappedAccId,
-            importBatchId: mappedBatchId,
-            transactionDate: t.transactionDate,
-            postedDate: t.postedDate,
-            descriptionRaw: t.descriptionRaw,
-            merchant: t.merchant,
-            amount: t.amount,
-            reference: t.reference,
-            fingerprint: isDifferentUser && t.fingerprint ? `${t.fingerprint}_${userId}` : t.fingerprint,
-            categoryId: mappedCatId,
-            transferGroupId: mappedTransferGroupId,
-            userVerified: t.userVerified,
-          },
-          update: {
-            transactionDate: t.transactionDate,
-            postedDate: t.postedDate,
-            descriptionRaw: t.descriptionRaw,
-            merchant: t.merchant,
-            amount: t.amount,
-            reference: t.reference,
-            categoryId: mappedCatId,
-            transferGroupId: mappedTransferGroupId,
-            userVerified: t.userVerified,
-          },
-        });
+
+        const existingTx = isDifferentUser && t.fingerprint
+          ? await tx.transaction.findFirst({ where: { accountId: mappedAccId, fingerprint: t.fingerprint } })
+          : null;
+
+        if (existingTx) {
+          idMap.set(t.id, existingTx.id);
+          await tx.transaction.update({
+            where: { id: existingTx.id },
+            data: {
+              transactionDate: t.transactionDate,
+              postedDate: t.postedDate,
+              descriptionRaw: t.descriptionRaw,
+              merchant: t.merchant,
+              amount: t.amount,
+              reference: t.reference,
+              categoryId: mappedCatId,
+              transferGroupId: mappedTransferGroupId,
+              userVerified: t.userVerified,
+            },
+          });
+        } else {
+          await tx.transaction.upsert({
+            where: { id: targetId },
+            create: {
+              id: targetId,
+              accountId: mappedAccId,
+              importBatchId: mappedBatchId,
+              transactionDate: t.transactionDate,
+              postedDate: t.postedDate,
+              descriptionRaw: t.descriptionRaw,
+              merchant: t.merchant,
+              amount: t.amount,
+              reference: t.reference,
+              fingerprint: t.fingerprint,
+              categoryId: mappedCatId,
+              transferGroupId: mappedTransferGroupId,
+              userVerified: t.userVerified,
+            },
+            update: {
+              transactionDate: t.transactionDate,
+              postedDate: t.postedDate,
+              descriptionRaw: t.descriptionRaw,
+              merchant: t.merchant,
+              amount: t.amount,
+              reference: t.reference,
+              categoryId: mappedCatId,
+              transferGroupId: mappedTransferGroupId,
+              userVerified: t.userVerified,
+            },
+          });
+        }
       }
 
       // 11. Tags & TransactionTags
@@ -846,7 +912,7 @@ export class BackupService {
         const targetId = mapId(b.id);
         const mappedCatId = mapId(b.categoryId);
         await tx.categoryBudget.upsert({
-          where: { id: targetId },
+          where: { userId_categoryId_month_year: { userId, categoryId: mappedCatId, month: b.month, year: b.year } },
           create: {
             id: targetId,
             userId,
