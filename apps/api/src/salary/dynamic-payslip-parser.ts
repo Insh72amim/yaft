@@ -1,4 +1,5 @@
 import { SalaryItemType } from '@prisma/client';
+import { MONTH_NAME_TO_INDEX, parseMoneyToMinor } from '@yaft/shared';
 
 export type DynamicFieldConfig = {
   anchor?: string;
@@ -47,13 +48,6 @@ export type DynamicParseResult = {
   mathValidated: boolean;
 };
 
-const MONTH_MAP: Record<string, number> = {
-  jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
-  apr: 3, april: 3, may: 4, jun: 5, june: 5, jul: 6, july: 6,
-  aug: 7, august: 7, sep: 8, september: 8, oct: 9, october: 9,
-  nov: 10, november: 10, dec: 11, december: 11,
-};
-
 function parseDateFromText(text: string, customPattern?: string): Date {
   if (customPattern) {
     try {
@@ -63,7 +57,7 @@ function parseDateFromText(text: string, customPattern?: string): Date {
         if (parts.length >= 2) {
           const monStr = parts[0].toLowerCase();
           const yrStr = parts[parts.length - 1];
-          const m = MONTH_MAP[monStr];
+          const m = MONTH_NAME_TO_INDEX[monStr];
           const y = Number(yrStr.length === 2 ? `20${yrStr}` : yrStr);
           if (m !== undefined && !isNaN(y)) {
             return new Date(Date.UTC(y, m, 1));
@@ -77,7 +71,7 @@ function parseDateFromText(text: string, customPattern?: string): Date {
 
   const defaultMatch = text.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})\b/i);
   if (defaultMatch) {
-    const m = MONTH_MAP[defaultMatch[1].toLowerCase()];
+    const m = MONTH_NAME_TO_INDEX[defaultMatch[1].toLowerCase()];
     const y = Number(defaultMatch[2]);
     return new Date(Date.UTC(y, m, 1));
   }
@@ -95,8 +89,8 @@ function parseDateFromText(text: string, customPattern?: string): Date {
 function extractNumber(str: string): number | undefined {
   const match = str.match(/[\d,]+(?:\.\d{1,2})?/);
   if (!match) return undefined;
-  const num = Number(match[0].replace(/,/g, ''));
-  return isNaN(num) ? undefined : Math.round(num * 100);
+  const minor = parseMoneyToMinor(match[0]);
+  return minor === null || minor === undefined ? undefined : Math.abs(minor);
 }
 
 function extractFieldValue(textLines: string[], fullText: string, config?: DynamicFieldConfig): string | number | undefined {

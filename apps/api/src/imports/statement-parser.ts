@@ -1,7 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 import { parse } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
-import { STATEMENT_COLUMN_ALIASES, isDeclinedOrFailedTransaction } from '@yaft/shared';
+import {
+  STATEMENT_COLUMN_ALIASES,
+  isDeclinedOrFailedTransaction,
+  parseMoneyToMinor,
+  normalizeHeaderKey,
+  COMMON_DATE_PATTERNS,
+} from '@yaft/shared';
 import type { ParsedRow, ParseStatementOptions } from './bank-pdf-parser';
 import { parseBankPdf } from './pdf-statement-registry';
 import { parseAxisCcExcel } from './axis-cc-parser';
@@ -9,25 +15,16 @@ import { parseAxisCcExcel } from './axis-cc-parser';
 export type { ParsedRow } from './bank-pdf-parser';
 type RawRow = Record<string, unknown>;
 
-const normalizedKey = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
-
 function find(row: RawRow, names: string[]) {
-  const key = Object.keys(row).find((candidate) => names.includes(normalizedKey(candidate)));
+  const key = Object.keys(row).find((candidate) => names.includes(normalizeHeaderKey(candidate)));
   return key ? row[key] : undefined;
-}
-
-function money(value: unknown): number | null {
-  if (value === undefined || value === null || value === '') return null;
-  const text = String(value).trim().replace(/[₹,$\s]/g, '').replace(/,/g, '').replace(/\((.*)\)/, '-$1');
-  const parsed = Number(text);
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) : null;
 }
 
 function dateValue(value: unknown): Date | null {
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
   if (typeof value === 'number') return new Date(Date.UTC(1899, 11, 30) + value * 86_400_000);
   const text = String(value ?? '').trim();
-  const indian = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  const indian = text.match(COMMON_DATE_PATTERNS.DD_MM_YYYY_SLASH_OR_DASH_REGEX);
   if (indian) {
     const year = Number(indian[3]) + (indian[3].length === 2 ? 2000 : 0);
     const result = new Date(Date.UTC(year, Number(indian[2]) - 1, Number(indian[1])));
@@ -48,9 +45,9 @@ function normalize(rows: RawRow[]): ParsedRow[] {
       return null;
     }
 
-    const direct = money(find(row, STATEMENT_COLUMN_ALIASES.amount));
-    const debit = money(find(row, STATEMENT_COLUMN_ALIASES.debit));
-    const credit = money(find(row, STATEMENT_COLUMN_ALIASES.credit));
+    const direct = parseMoneyToMinor(find(row, STATEMENT_COLUMN_ALIASES.amount));
+    const debit = parseMoneyToMinor(find(row, STATEMENT_COLUMN_ALIASES.debit));
+    const credit = parseMoneyToMinor(find(row, STATEMENT_COLUMN_ALIASES.credit));
     const amountMinor = direct ?? (credit !== null ? Math.abs(credit) : debit !== null ? -Math.abs(debit) : null);
     if (!date || !description || amountMinor === null || amountMinor === 0) return null;
     const reference = String(find(row, STATEMENT_COLUMN_ALIASES.reference) ?? '').trim() || undefined;

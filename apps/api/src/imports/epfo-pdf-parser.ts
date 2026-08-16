@@ -1,16 +1,14 @@
 import { BadRequestException } from '@nestjs/common';
+import {
+  EPFO_PASSBOOK_PATTERNS,
+  parseMoneyToMinor,
+  isCreditIndicator,
+} from '@yaft/shared';
 import type { BankPdfParser, ParsedRow, PdfStatementDocument } from './bank-pdf-parser';
 
-function parseIndianNumber(text: string): number {
-  const cleaned = text.replace(/,/g, '').trim();
-  const value = Number(cleaned);
-  if (!Number.isFinite(value)) return 0;
-  return Math.round(value * 100);
-}
-
 export function isEpfoPassbook(document: PdfStatementDocument): boolean {
-  const fullText = document.textPages.map(p => p.text).join('\n');
-  return /EPF Passbook|Member Passbook|lnL; iklcqd/i.test(fullText);
+  const fullText = document.textPages.map((p) => p.text).join('\n');
+  return EPFO_PASSBOOK_PATTERNS.PASSBOOK_LAYOUT_REGEX.test(fullText);
 }
 
 export const epfoPdfParser: BankPdfParser = {
@@ -22,24 +20,22 @@ export const epfoPdfParser: BankPdfParser = {
   },
 
   parse(document: PdfStatementDocument): { rows: ParsedRow[]; closingBalanceMinor?: number } {
-    const fullText = document.textPages.map(p => p.text).join('\n');
+    const fullText = document.textPages.map((p) => p.text).join('\n');
 
     if (!this.matches(document)) {
       throw new BadRequestException('This PDF does not appear to be an EPFO passbook.');
     }
 
     // Extract closing balance: "Closing Balance as on DD/MM/YYYY  <employee>  <employer>  <pension>"
-    const closingMatch = fullText.match(
-      /Closing Balance as on\s+(\d{2}\/\d{2}\/\d{4})\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)/i
-    );
+    const closingMatch = fullText.match(EPFO_PASSBOOK_PATTERNS.CLOSING_BALANCE_REGEX);
 
     if (!closingMatch) {
       throw new BadRequestException('Could not find closing balance in the EPFO passbook. Make sure the passbook PDF is complete.');
     }
 
-    const employeeBalance = parseIndianNumber(closingMatch[2]);
-    const employerBalance = parseIndianNumber(closingMatch[3]);
-    const pensionBalance = parseIndianNumber(closingMatch[4]);
+    const employeeBalance = parseMoneyToMinor(closingMatch[2]) || 0;
+    const employerBalance = parseMoneyToMinor(closingMatch[3]) || 0;
+    const pensionBalance = parseMoneyToMinor(closingMatch[4]) || 0;
     // The total value of EPFO is the sum of Employee share + Employer share + Pension share.
     const closingBalanceMinor = employeeBalance + employerBalance + pensionBalance;
 
@@ -52,9 +48,7 @@ export const epfoPdfParser: BankPdfParser = {
 
       // 1. Match contribution row
       // e.g. Mar-2025 01-04-2025 CR Cont. for Due-Month 042025 50,000 15,000 6,000 5,000 1,000
-      const contribMatch = trimmed.match(
-        /^([a-zA-Z]{3}-\d{4})\s+(\d{2}-\d{2}-\d{4})\s+(CR|DR)\s+(.*?)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)$/
-      );
+      const contribMatch = trimmed.match(EPFO_PASSBOOK_PATTERNS.CONTRIBUTION_ROW_REGEX);
 
       if (contribMatch) {
         const wageMonth = contribMatch[1];
@@ -62,11 +56,13 @@ export const epfoPdfParser: BankPdfParser = {
         const date = new Date(Date.UTC(Number(dateParts[2]), Number(dateParts[1]) - 1, Number(dateParts[0])));
         const type = contribMatch[3];
         const particulars = contribMatch[4];
-        const epfContribution = parseIndianNumber(contribMatch[7]);
-        const employerContribution = parseIndianNumber(contribMatch[8]);
-        const pensionContribution = parseIndianNumber(contribMatch[9]);
+        const epfContribution = parseMoneyToMinor(contribMatch[7]) || 0;
+        const employerContribution = parseMoneyToMinor(contribMatch[8]) || 0;
+        const pensionContribution = parseMoneyToMinor(contribMatch[9]) || 0;
 
-        const netAmount = (type === 'CR' ? 1 : -1) * (epfContribution + employerContribution + pensionContribution);
+        const isCredit = isCreditIndicator(type);
+        const totalContribution = epfContribution + employerContribution + pensionContribution;
+        const netAmount = isCredit ? totalContribution : -totalContribution;
 
         if (netAmount !== 0) {
           rowCount++;
@@ -75,7 +71,7 @@ export const epfoPdfParser: BankPdfParser = {
             date,
             description: `${particulars} (Wage Month: ${wageMonth})`,
             amountMinor: netAmount,
-            reference: wageMonth
+            reference: wageMonth,
           });
         }
         continue;
@@ -83,16 +79,14 @@ export const epfoPdfParser: BankPdfParser = {
 
       // 2. Match interest row
       // e.g. Int. Updated upto 31/03/2026 10,000 8,000 0
-      const interestMatch = trimmed.match(
-        /^(Int\.\s+Updated\s+upto\s+(\d{2}\/\d{2}\/\d{4}))\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)$/i
-      );
+      const interestMatch = trimmed.match(EPFO_PASSBOOK_PATTERNS.INTEREST_ROW_REGEX);
 
       if (interestMatch) {
         const dateParts = interestMatch[2].split('/');
         const date = new Date(Date.UTC(Number(dateParts[2]), Number(dateParts[1]) - 1, Number(dateParts[0])));
-        const epfInterest = parseIndianNumber(interestMatch[3]);
-        const employerInterest = parseIndianNumber(interestMatch[4]);
-        const pensionInterest = parseIndianNumber(interestMatch[5]);
+        const epfInterest = parseMoneyToMinor(interestMatch[3]) || 0;
+        const employerInterest = parseMoneyToMinor(interestMatch[4]) || 0;
+        const pensionInterest = parseMoneyToMinor(interestMatch[5]) || 0;
 
         const totalInterest = epfInterest + employerInterest + pensionInterest;
 
@@ -103,12 +97,12 @@ export const epfoPdfParser: BankPdfParser = {
             date,
             description: `Interest credit upto ${interestMatch[2]}`,
             amountMinor: totalInterest,
-            reference: `INT-${dateParts[2]}`
+            reference: `INT-${dateParts[2]}`,
           });
         }
       }
     }
 
     return { rows, closingBalanceMinor };
-  }
+  },
 };

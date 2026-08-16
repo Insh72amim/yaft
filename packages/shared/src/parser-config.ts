@@ -294,3 +294,141 @@ export function extractAlertDateTime(text: string): { dateStr?: string; timeStr?
     timeStr,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Common Normalization & Money Helpers
+// ---------------------------------------------------------------------------
+
+export function normalizeHeaderKey(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+export function parseMoneyToMinor(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const text = String(value)
+    .trim()
+    .replace(/[₹,$\s%]/g, '')
+    .replace(/,/g, '')
+    .replace(/\((.*)\)/, '-$1');
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) : null;
+}
+
+export const DEBIT_CREDIT_INDICATORS = {
+  CREDIT_VALUES: ['c', 'cr', 'credit', 'deposit', 'received', 'refund', 'payment'],
+  DEBIT_VALUES: ['d', 'dr', 'debit', 'withdrawal', 'spent', 'purchase', 'charged'],
+  CREDIT_REGEX: /\b(?:cr|credit|deposit|received|refund|payment)\b/i,
+  DEBIT_REGEX: /\b(?:dr|debit|withdrawal|spent|purchase|charged)\b/i,
+};
+
+export function isCreditIndicator(indicator?: string | null): boolean {
+  if (!indicator) return false;
+  const clean = indicator.trim().toLowerCase().replace(/\.$/, '');
+  return (
+    DEBIT_CREDIT_INDICATORS.CREDIT_VALUES.includes(clean) ||
+    DEBIT_CREDIT_INDICATORS.CREDIT_REGEX.test(indicator)
+  );
+}
+
+export function isDebitIndicator(indicator?: string | null): boolean {
+  if (!indicator) return false;
+  const clean = indicator.trim().toLowerCase().replace(/\.$/, '');
+  return (
+    DEBIT_CREDIT_INDICATORS.DEBIT_VALUES.includes(clean) ||
+    DEBIT_CREDIT_INDICATORS.DEBIT_REGEX.test(indicator)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Centralized Month Lookup & Common Date Matchers
+// ---------------------------------------------------------------------------
+
+export const MONTH_NAME_TO_INDEX: Record<string, number> = {
+  jan: 0, january: 0,
+  feb: 1, february: 1,
+  mar: 2, march: 2,
+  apr: 3, april: 3,
+  may: 4,
+  jun: 5, june: 5,
+  jul: 6, july: 6,
+  aug: 7, august: 7,
+  sep: 8, september: 8,
+  oct: 9, october: 9,
+  nov: 10, november: 10,
+  dec: 11, december: 11,
+};
+
+export const COMMON_DATE_PATTERNS = {
+  DD_MON_YY_REGEX: /^(\d{1,2})\s+([a-zA-Z]{3})\s+'?(\d{2})$/i,
+  DD_MMM_YYYY_REGEX: /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})(?:,\s*(\d{2}):(\d{2}))?/i,
+  DD_MM_YYYY_SLASH_OR_DASH_REGEX: /^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/,
+  MON_YYYY_REGEX: /^([a-zA-Z]{3})[- ](\d{4})/i,
+};
+
+// ---------------------------------------------------------------------------
+// Investment / Stock / Mutual Fund Parser Config
+// ---------------------------------------------------------------------------
+
+export const INVESTMENT_COLUMN_ALIASES = {
+  schemeOrSymbol: ['scheme name', 'symbol', 'stock', 'instrument', 'asset', 'security'],
+  isin: ['isin', 'isin code'],
+  units: ['units', 'quantity', 'qty', 'shares', 'available quantity', 'quantity available'],
+  investedValue: ['invested value', 'total cost', 'investment amount', 'buy value'],
+  currentValue: ['current value', 'present value', 'market value'],
+  returns: ['returns', 'unrealized p l', 'unrealized p&l', 'unrealised pnl', 'p&l', 'profit/loss'],
+  averagePrice: ['average price', 'avg price', 'buy avg', 'avg cost'],
+  previousClosingPrice: ['previous closing price', 'prev close'],
+};
+
+export function classifyInvestmentAssetType(
+  sheetKind?: string,
+  sector?: string,
+  instrumentType?: string
+): 'STOCK' | 'MUTUAL_FUND' | 'ETF' | 'OTHER' {
+  const desc = normalizeHeaderKey(`${sector ?? ''} ${instrumentType ?? ''}`);
+  const sheet = normalizeHeaderKey(sheetKind ?? '');
+
+  if (desc.includes('exchange traded fund') || /(^| )etf( |$)/.test(desc)) return 'ETF';
+  if (sheet === 'mutual funds' || desc.includes('mutual fund')) return 'MUTUAL_FUND';
+  if (sheet === 'equity') return 'STOCK';
+  return 'OTHER';
+}
+
+// ---------------------------------------------------------------------------
+// EPFO Passbook Parser Config
+// ---------------------------------------------------------------------------
+
+export const EPFO_PASSBOOK_PATTERNS = {
+  PASSBOOK_LAYOUT_REGEX: /EPF Passbook|Member Passbook|lnL; iklcqd/i,
+  CLOSING_BALANCE_REGEX: /Closing Balance as on\s+(\d{2}\/\d{2}\/\d{4})\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)/i,
+  CONTRIBUTION_ROW_REGEX: /^([a-zA-Z]{3}-\d{4})\s+(\d{2}-\d{2}-\d{4})\s+(CR|DR)\s+(.*?)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)$/,
+  INTEREST_ROW_REGEX: /^(Int\.\s+Updated\s+upto\s+(\d{2}\/\d{2}\/\d{4}))\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)$/i,
+};
+
+// ---------------------------------------------------------------------------
+// Credit Card Parser Patterns (HDFC, SBI, ICICI)
+// ---------------------------------------------------------------------------
+
+export const CREDIT_CARD_PARSER_PATTERNS = {
+  HDFC: {
+    TOTAL_AMOUNT_DUE_REGEX: /TOTAL\s+AMOUNT\s+DUE\s*₹?\s*([\d,]+\.\d{2})/i,
+    ROW_REGEX: /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})(?:,\s*(\d{2}):(\d{2}))?\s+(.+?)\s+₹?\s*([\d,]+\.\d{2})(\s*CR)?$/i,
+  },
+  SBI: {
+    LAYOUT_REGEX: /SBI\s*Card/i,
+    PERIOD_REGEX: /Statement\s*Period/i,
+    ROW_REGEX: /^(\d{2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{2})\s+(.*?)\s+([\d,]+\.\d{2})\s+(C|D)\s*$/i,
+    REFERENCE_REGEX: /\s+([A-Z0-9]{8,})\s*$/i,
+  },
+  ICICI: {
+    CURRENT_LAYOUT_REGEX: /VIEW CURRENT STATEMENT|My Credit Card Details/i,
+    MONTHLY_LAYOUT_REGEX: /STATEMENT SUMMARY|CREDIT SUMMARY|IMPORTANT MESSAGES/i,
+    CURRENT_ROW_END_REGEX: /^(.*?)\s+([\d,]+\.?\d*)\s+(Dr|Cr)\.?(?:\s+(-?\d+))?(?:\s+(\d{6,20}))?\s*$/i,
+    MONTHLY_ROW_REGEX: /^(\d{2})\/(\d{2})\/(\d{4})\s+(?:(\d{8,20})\s+)?(.*?)\s+(?:(-?\d+)\s+)?([\d,]+\.\d{2})\s*(CR|DR)?$/i,
+  },
+};

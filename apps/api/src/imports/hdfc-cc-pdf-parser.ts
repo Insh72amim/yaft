@@ -1,4 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
+import {
+  MONTH_NAME_TO_INDEX,
+  CREDIT_CARD_PARSER_PATTERNS,
+  parseMoneyToMinor,
+  isCreditIndicator,
+} from '@yaft/shared';
 import type { BankPdfParser, ParsedRow, PdfStatementDocument } from './bank-pdf-parser';
 
 export function fixHdfcText(raw: string): string {
@@ -32,11 +38,6 @@ export function fixHdfcText(raw: string): string {
   return s;
 }
 
-const monthMap: Record<string, number> = {
-  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
-};
-
 export const hdfcCcPdfParser: BankPdfParser = {
   id: 'HDFC',
   institutionAliases: ['HDFC', 'HDFC BANK', 'HDFC BANK CREDIT CARD', 'HDFC CREDIT CARD', 'HDFC_CC'],
@@ -61,11 +62,11 @@ export const hdfcCcPdfParser: BankPdfParser = {
       for (const line of lines) {
         // Detect statement summary total if present
         if (!closingBalanceMinor) {
-          const totalMatch = line.match(/TOTAL\s+AMOUNT\s+DUE\s*₹?\s*([\d,]+\.\d{2})/i);
+          const totalMatch = line.match(CREDIT_CARD_PARSER_PATTERNS.HDFC.TOTAL_AMOUNT_DUE_REGEX);
           if (totalMatch) {
-            const parsed = parseFloat(totalMatch[1].replace(/,/g, ''));
-            if (!Number.isNaN(parsed)) {
-              closingBalanceMinor = Math.round(parsed * 100);
+            const parsed = parseMoneyToMinor(totalMatch[1]);
+            if (parsed !== null) {
+              closingBalanceMinor = parsed;
             }
           }
         }
@@ -80,7 +81,7 @@ export const hdfcCcPdfParser: BankPdfParser = {
 
         // Match transaction row: DD MMM YYYY, HH:MM Description Amount [CR]
         // Example: "02 Jun 2026, 21:57 Blinkit ₹723.00" or "02 Jun 2026 Blinkit ₹723.00"
-        const dateMatch = line.match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})(?:,\s*(\d{2}):(\d{2}))?\s+(.+?)\s+₹?\s*([\d,]+\.\d{2})(\s*CR)?$/i);
+        const dateMatch = line.match(CREDIT_CARD_PARSER_PATTERNS.HDFC.ROW_REGEX);
         if (!dateMatch) {
           continue;
         }
@@ -91,7 +92,7 @@ export const hdfcCcPdfParser: BankPdfParser = {
         const hour = dateMatch[4] ? parseInt(dateMatch[4], 10) : 0;
         const minute = dateMatch[5] ? parseInt(dateMatch[5], 10) : 0;
 
-        const month = monthMap[monthStr];
+        const month = MONTH_NAME_TO_INDEX[monthStr];
         if (month === undefined) continue;
 
         const date = new Date(Date.UTC(year, month, day, hour, minute));
@@ -101,15 +102,11 @@ export const hdfcCcPdfParser: BankPdfParser = {
         rawDesc = rawDesc.replace(/[\uE000-\uFFFF]\d+/g, '').replace(/₹.*$/, '').trim();
         if (!rawDesc) continue;
 
-        const amountVal = parseFloat(dateMatch[7].replace(/,/g, ''));
-        if (Number.isNaN(amountVal)) continue;
+        const parsedMinor = parseMoneyToMinor(dateMatch[7]);
+        if (parsedMinor === null || parsedMinor === 0) continue;
 
-        const isCredit = Boolean(dateMatch[8]) || /\b(?:CR|CREDIT|PAYMENT|REFUND)\b/i.test(line);
-        let amountMinor = Math.round(amountVal * 100);
-        // Spend/Debit is negative, Credit/Payment is positive
-        if (!isCredit) {
-          amountMinor = -amountMinor;
-        }
+        const isCredit = Boolean(dateMatch[8]) || isCreditIndicator(line);
+        const amountMinor = isCredit ? Math.abs(parsedMinor) : -Math.abs(parsedMinor);
 
         globalRowIndex++;
         rows.push({

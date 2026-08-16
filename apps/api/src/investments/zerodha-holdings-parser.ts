@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import ExcelJS from 'exceljs';
+import {
+  normalizeHeaderKey,
+  classifyInvestmentAssetType,
+} from '@yaft/shared';
 
 export type ZerodhaAssetType = 'STOCK' | 'MUTUAL_FUND' | 'ETF' | 'OTHER';
 
@@ -23,10 +27,6 @@ const SUPPORTED_SHEETS = new Set(['equity', 'mutual funds']);
 const MAX_ROWS = 20_000;
 const MAX_COLUMNS = 40;
 const MONEY_TOLERANCE_RUPEES = 0.1;
-
-function normalized(value: unknown) {
-  return String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
-}
 
 function displayValue(cell: ExcelJS.Cell) {
   if (cell.value && typeof cell.value === 'object' && 'formula' in cell.value) {
@@ -78,9 +78,9 @@ function findColumn(headers: string[], words: string[], exact = false) {
 }
 
 function layoutFor(sheet: ExcelJS.Worksheet): SheetLayout {
-  const sheetKind = normalized(sheet.name);
+  const sheetKind = normalizeHeaderKey(sheet.name);
   for (let rowNumber = 1; rowNumber <= Math.min(sheet.rowCount, 40); rowNumber += 1) {
-    const headers = Array.from({ length: sheet.columnCount }, (_, index) => normalized(sheet.getRow(rowNumber).getCell(index + 1).value));
+    const headers = Array.from({ length: sheet.columnCount }, (_, index) => normalizeHeaderKey(sheet.getRow(rowNumber).getCell(index + 1).value));
     const symbol = findColumn(headers, ['symbol'], true);
     if (!symbol) continue;
     const isin = findColumn(headers, ['isin'], true);
@@ -103,19 +103,11 @@ function layoutFor(sheet: ExcelJS.Worksheet): SheetLayout {
   throw new BadRequestException(`The Zerodha ${sheet.name} sheet does not contain the supported holdings table.`);
 }
 
-function assetType(sheetKind: string, sector: string | undefined, instrumentType: string | undefined): ZerodhaAssetType {
-  const description = normalized(`${sector ?? ''} ${instrumentType ?? ''}`);
-  if (description.includes('exchange traded fund') || /(^| )etf( |$)/.test(description)) return 'ETF';
-  if (sheetKind === 'mutual funds' || description.includes('mutual fund')) return 'MUTUAL_FUND';
-  if (sheetKind === 'equity') return 'STOCK';
-  return 'OTHER';
-}
-
 function summaryValue(sheet: ExcelJS.Worksheet, beforeRow: number, label: string) {
   for (let rowNumber = 1; rowNumber < beforeRow; rowNumber += 1) {
     const row = sheet.getRow(rowNumber);
     for (let column = 1; column <= sheet.columnCount; column += 1) {
-      if (normalized(row.getCell(column).value) !== label) continue;
+      if (normalizeHeaderKey(row.getCell(column).value) !== label) continue;
       for (let valueColumn = column + 1; valueColumn <= sheet.columnCount; valueColumn += 1) {
         const value = displayValue(row.getCell(valueColumn));
         if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -129,7 +121,7 @@ function parseSheet(sheet: ExcelJS.Worksheet) {
   if (sheet.rowCount > MAX_ROWS || sheet.columnCount > MAX_COLUMNS) {
     throw new BadRequestException('The Zerodha holdings workbook is larger than the supported report layout.');
   }
-  const sheetKind = normalized(sheet.name);
+  const sheetKind = normalizeHeaderKey(sheet.name);
   const layout = layoutFor(sheet);
   const rows: ParsedZerodhaHolding[] = [];
   let investedValue = 0;
@@ -182,7 +174,7 @@ function parseSheet(sheet: ExcelJS.Worksheet) {
     unrealizedPnl += reportedPnl;
     const sector = layout.sector === undefined ? undefined : text(row.getCell(layout.sector)).slice(0, 100) || undefined;
     const instrumentType = layout.instrumentType === undefined ? undefined : text(row.getCell(layout.instrumentType)).slice(0, 100) || undefined;
-    rows.push({ symbol, isin, sector, assetType: assetType(sheetKind, sector, instrumentType), quantity,
+    rows.push({ symbol, isin, sector, assetType: classifyInvestmentAssetType(sheetKind, sector, instrumentType), quantity,
       availableQuantity, discrepantQuantity, longTermQuantity, pledgedQuantity,
       averagePriceMinor: minorUnits(averagePrice), previousClosingPriceMinor: minorUnits(previousClosingPrice),
       currentValueMinor: minorUnits(rowPresentValue), unrealizedPnlMinor: minorUnits(reportedPnl) });
@@ -207,7 +199,7 @@ export async function parseZerodhaHoldings(file: Express.Multer.File): Promise<P
   } catch {
     throw new BadRequestException('The Zerodha holdings workbook could not be read safely.');
   }
-  const supportedSheets = workbook.worksheets.filter((sheet) => SUPPORTED_SHEETS.has(normalized(sheet.name)));
+  const supportedSheets = workbook.worksheets.filter((sheet) => SUPPORTED_SHEETS.has(normalizeHeaderKey(sheet.name)));
   if (!supportedSheets.length) {
     throw new BadRequestException('This workbook does not contain the supported Zerodha Equity or Mutual Funds holdings sheets.');
   }

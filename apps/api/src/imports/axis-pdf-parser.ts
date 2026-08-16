@@ -1,11 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
+import { normalizeHeaderKey, parseMoneyToMinor, MONTH_NAME_TO_INDEX } from '@yaft/shared';
 import type { BankPdfParser, ParsedRow, PdfStatementDocument } from './bank-pdf-parser';
 
 type AxisRow = ParsedRow & { balanceMinor: number };
 
 const compact = (value: string | undefined) => String(value ?? '').replace(/\s+/g, ' ').trim();
 
-const headerCell = (value: string | undefined) => compact(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const headerCell = (value: string | undefined) => normalizeHeaderKey(value);
 
 const isAxisBankHeader = (cells: string[]) => {
   const expected = ['tran date', 'chq no', 'particulars', 'debit', 'credit', 'balance', 'init br'];
@@ -17,14 +18,7 @@ const isAxisCcHeader = (cells: string[]) => {
   return h.includes('date') && h.includes('transaction details') && h.some((c) => c.includes('amount')) && h.some((c) => c.includes('debit') || c.includes('credit'));
 };
 
-const amount = (value: string | undefined) => {
-  let cleaned = compact(value).replace(/[₹,\s]/g, '');
-  if (!cleaned) return null;
-  if (/^\(.*\)$/.test(cleaned)) cleaned = `-${cleaned.slice(1, -1)}`;
-  if (!/^-?\d+(?:\.\d{1,2})?$/.test(cleaned)) return null;
-  const parsed = Number(cleaned);
-  return Number.isSafeInteger(Math.round(parsed * 100)) ? Math.round(parsed * 100) : null;
-};
+const amount = (value: string | undefined) => parseMoneyToMinor(value) ?? null;
 
 const dateBank = (value: string | undefined) => {
   const match = compact(value).match(/^(\d{2})-(\d{2})-(\d{4})$/);
@@ -41,9 +35,8 @@ const dateCc = (value: string | undefined) => {
   if (!match) return null;
   const day = Number(match[1]);
   const monthStr = match[2].toLowerCase();
-  const months: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
-  if (!(monthStr in months)) return null;
-  const month = months[monthStr];
+  if (!(monthStr in MONTH_NAME_TO_INDEX)) return null;
+  const month = MONTH_NAME_TO_INDEX[monthStr];
   let year = Number(match[3]);
   if (year < 100) year += 2000;
   const parsed = new Date(Date.UTC(year, month, day));

@@ -13,6 +13,16 @@ import {
   extractAlertReferenceNumber,
   extractAlertRawMerchant,
   extractAlertDateTime,
+  normalizeHeaderKey,
+  parseMoneyToMinor,
+  isCreditIndicator,
+  isDebitIndicator,
+  MONTH_NAME_TO_INDEX,
+  COMMON_DATE_PATTERNS,
+  INVESTMENT_COLUMN_ALIASES,
+  classifyInvestmentAssetType,
+  EPFO_PASSBOOK_PATTERNS,
+  CREDIT_CARD_PARSER_PATTERNS,
 } from '@yaft/shared';
 
 describe('Parser Config Registry (@yaft/shared)', () => {
@@ -128,6 +138,81 @@ describe('Parser Config Registry (@yaft/shared)', () => {
       const dt = extractAlertDateTime('spent on 14-Aug-2026 at 15:30:20 at SWIGGY');
       expect(dt.dateStr).toBe('14-Aug-2026');
       expect(dt.timeStr).toBe('15:30:20');
+    });
+  });
+
+  describe('Centralized Normalization & Money Helpers', () => {
+    it('normalizes header keys consistently', () => {
+      expect(normalizeHeaderKey('Transaction Date')).toBe('transaction date');
+      expect(normalizeHeaderKey('Chq./Ref.No.')).toBe('chq ref no');
+      expect(normalizeHeaderKey('  Unrealized P&L  ')).toBe('unrealized p l');
+      expect(normalizeHeaderKey('EQUITY')).toBe('equity');
+    });
+
+    it('parses various money representations into minor units', () => {
+      expect(parseMoneyToMinor('₹ 1,500.50')).toBe(150050);
+      expect(parseMoneyToMinor('1234')).toBe(123400);
+      expect(parseMoneyToMinor('(250.00)')).toBe(-25000);
+      expect(parseMoneyToMinor('-45.20')).toBe(-4520);
+      expect(parseMoneyToMinor('50.5%')).toBe(5050);
+      expect(parseMoneyToMinor('')).toBeNull();
+      expect(parseMoneyToMinor(null)).toBeNull();
+      expect(parseMoneyToMinor(undefined)).toBeNull();
+    });
+
+    it('identifies debit and credit indicators correctly', () => {
+      expect(isCreditIndicator('CR')).toBe(true);
+      expect(isCreditIndicator('Credit')).toBe(true);
+      expect(isCreditIndicator('deposit')).toBe(true);
+      expect(isCreditIndicator('C')).toBe(true);
+      expect(isCreditIndicator('DR')).toBe(false);
+
+      expect(isDebitIndicator('DR')).toBe(true);
+      expect(isDebitIndicator('Debit')).toBe(true);
+      expect(isDebitIndicator('withdrawal')).toBe(true);
+      expect(isDebitIndicator('D')).toBe(true);
+      expect(isDebitIndicator('CR')).toBe(false);
+    });
+  });
+
+  describe('Date Mappings & Common Patterns', () => {
+    it('maps all standard 3-letter and full month names', () => {
+      expect(MONTH_NAME_TO_INDEX.jan).toBe(0);
+      expect(MONTH_NAME_TO_INDEX.august).toBe(7);
+      expect(MONTH_NAME_TO_INDEX.dec).toBe(11);
+    });
+
+    it('matches date formats with centralized patterns', () => {
+      expect(COMMON_DATE_PATTERNS.DD_MON_YY_REGEX.test("14 Aug '26")).toBe(true);
+      expect(COMMON_DATE_PATTERNS.DD_MMM_YYYY_REGEX.test('14 Aug 2026, 12:30')).toBe(true);
+      expect(COMMON_DATE_PATTERNS.DD_MM_YYYY_SLASH_OR_DASH_REGEX.test('14/08/2026')).toBe(true);
+      expect(COMMON_DATE_PATTERNS.MON_YYYY_REGEX.test('Aug-2026')).toBe(true);
+    });
+  });
+
+  describe('Investments, EPFO, and Credit Card Regex Configurations', () => {
+    it('classifies investment asset types accurately', () => {
+      expect(classifyInvestmentAssetType('equity', 'IT', 'Equity')).toBe('STOCK');
+      expect(classifyInvestmentAssetType('mutual funds', 'Debt', 'Mutual Fund')).toBe('MUTUAL_FUND');
+      expect(classifyInvestmentAssetType('equity', 'ETF', 'Nifty ETF')).toBe('ETF');
+      expect(classifyInvestmentAssetType(undefined, undefined, 'Gold ETF')).toBe('ETF');
+    });
+
+    it('provides investment column aliases', () => {
+      expect(INVESTMENT_COLUMN_ALIASES.schemeOrSymbol).toContain('symbol');
+      expect(INVESTMENT_COLUMN_ALIASES.isin).toContain('isin');
+      expect(INVESTMENT_COLUMN_ALIASES.units).toContain('quantity');
+    });
+
+    it('provides valid EPFO passbook regex patterns', () => {
+      expect(EPFO_PASSBOOK_PATTERNS.PASSBOOK_LAYOUT_REGEX.test('EPF Passbook for Member')).toBe(true);
+      expect(EPFO_PASSBOOK_PATTERNS.CLOSING_BALANCE_REGEX.test('Closing Balance as on 31/03/2026 1000 2000 3000')).toBe(true);
+    });
+
+    it('provides valid Credit Card parser regex patterns', () => {
+      expect(CREDIT_CARD_PARSER_PATTERNS.HDFC.TOTAL_AMOUNT_DUE_REGEX.test('TOTAL AMOUNT DUE ₹ 12,345.67')).toBe(true);
+      expect(CREDIT_CARD_PARSER_PATTERNS.SBI.LAYOUT_REGEX.test('SBI Card Statement')).toBe(true);
+      expect(CREDIT_CARD_PARSER_PATTERNS.ICICI.CURRENT_LAYOUT_REGEX.test('VIEW CURRENT STATEMENT')).toBe(true);
     });
   });
 });

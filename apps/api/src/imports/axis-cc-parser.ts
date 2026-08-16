@@ -1,5 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 import type ExcelJS from 'exceljs';
+import {
+  MONTH_NAME_TO_INDEX,
+  COMMON_DATE_PATTERNS,
+  parseMoneyToMinor,
+  isDebitIndicator,
+} from '@yaft/shared';
 import type { ParsedRow } from './bank-pdf-parser';
 
 export function parseAxisCcExcel(sheet: ExcelJS.Worksheet): ParsedRow[] {
@@ -35,28 +41,23 @@ export function parseAxisCcExcel(sheet: ExcelJS.Worksheet): ParsedRow[] {
     }
 
     // Parse date (e.g., '21 Jun \'26')
-    const dateMatch = dateText.match(/^(\d{1,2})\s+([a-zA-Z]{3})\s+'(\d{2})$/);
+    const dateMatch = dateText.match(COMMON_DATE_PATTERNS.DD_MON_YY_REGEX);
     if (!dateMatch) return;
 
     const day = parseInt(dateMatch[1], 10);
     const monthStr = dateMatch[2].toLowerCase();
     const year = 2000 + parseInt(dateMatch[3], 10);
-    const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    const month = monthNames.indexOf(monthStr);
-    if (month === -1) return;
+    const month = MONTH_NAME_TO_INDEX[monthStr];
+    if (month === undefined) return;
 
     const date = new Date(Date.UTC(year, month, day));
 
     // Parse amount
-    const parsedAmount = Number(amountText.replace(/[₹,$\s]/g, '').replace(/,/g, ''));
-    if (Number.isNaN(parsedAmount)) return;
+    const parsedMinor = parseMoneyToMinor(amountText);
+    if (parsedMinor === null || parsedMinor === 0) return;
 
-    let amountMinor = Math.round(parsedAmount * 100);
-    
     // In YaFT, Debit is negative (spend), Credit is positive (payment/refund)
-    if (debitCredit.toLowerCase() === 'debit') {
-      amountMinor = -amountMinor;
-    }
+    const amountMinor = isDebitIndicator(debitCredit) ? -Math.abs(parsedMinor) : Math.abs(parsedMinor);
 
     rows.push({
       date,

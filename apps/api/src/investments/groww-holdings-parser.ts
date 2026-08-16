@@ -1,5 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import ExcelJS from 'exceljs';
+import {
+  parseMoneyToMinor,
+  normalizeHeaderKey,
+  INVESTMENT_COLUMN_ALIASES,
+} from '@yaft/shared';
 
 export interface ParsedHolding {
   assetName: string;
@@ -8,13 +13,6 @@ export interface ParsedHolding {
   averagePriceMinor: number;
   currentValueMinor?: number;
   unrealizedPnlMinor?: number;
-}
-
-function parseMoneyToMinor(value: any): number | undefined {
-  if (value === undefined || value === null || value === '') return undefined;
-  const text = String(value).trim().replace(/[₹,$\s]/g, '').replace(/,/g, '').replace(/\((.*)\)/, '-$1');
-  const parsed = Number(text);
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) : undefined;
 }
 
 function parseQuantity(value: any): number | undefined {
@@ -38,8 +36,11 @@ export async function parseGrowwHoldingsXlsx(buffer: Buffer): Promise<ParsedHold
 
   let headerRowIndex = -1;
   sheet.eachRow((row, rowNumber) => {
-    if (headerRowIndex === -1 && String(row.getCell(1).value).trim() === 'Scheme Name') {
-      headerRowIndex = rowNumber;
+    if (headerRowIndex === -1) {
+      const firstCol = normalizeHeaderKey(row.getCell(1).value);
+      if (INVESTMENT_COLUMN_ALIASES.schemeOrSymbol.includes(firstCol)) {
+        headerRowIndex = rowNumber;
+      }
     }
   });
 
@@ -59,17 +60,18 @@ export async function parseGrowwHoldingsXlsx(buffer: Buffer): Promise<ParsedHold
   };
 
   headerRow.eachCell((cell, colNumber) => {
-    const header = String(cell.value).trim();
-    if (header === 'Scheme Name') colIndexes.schemeName = colNumber;
-    if (header === 'Units') colIndexes.units = colNumber;
-    if (header === 'Invested Value') colIndexes.investedValue = colNumber;
-    if (header === 'Current Value') colIndexes.currentValue = colNumber;
-    if (header === 'Returns') colIndexes.returns = colNumber;
+    const header = normalizeHeaderKey(cell.value);
+    if (INVESTMENT_COLUMN_ALIASES.schemeOrSymbol.includes(header)) colIndexes.schemeName = colNumber;
+    if (INVESTMENT_COLUMN_ALIASES.units.includes(header)) colIndexes.units = colNumber;
+    if (INVESTMENT_COLUMN_ALIASES.investedValue.includes(header)) colIndexes.investedValue = colNumber;
+    if (INVESTMENT_COLUMN_ALIASES.currentValue.includes(header)) colIndexes.currentValue = colNumber;
+    if (INVESTMENT_COLUMN_ALIASES.returns.includes(header)) colIndexes.returns = colNumber;
   });
 
   if (colIndexes.schemeName === -1 || colIndexes.units === -1 || colIndexes.investedValue === -1) {
     throw new BadRequestException('Missing required columns in the Holdings sheet (Scheme Name, Units, Invested Value).');
   }
+
 
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber <= headerRowIndex) return;
@@ -82,7 +84,7 @@ export async function parseGrowwHoldingsXlsx(buffer: Buffer): Promise<ParsedHold
     const currentValueMinor = parseMoneyToMinor(row.getCell(colIndexes.currentValue).value);
     const returnsMinor = parseMoneyToMinor(row.getCell(colIndexes.returns).value);
 
-    if (units === undefined || investedValueMinor === undefined || units <= 0) {
+    if (units === undefined || investedValueMinor === null || units <= 0) {
       return; // Skip invalid rows
     }
 
@@ -93,8 +95,8 @@ export async function parseGrowwHoldingsXlsx(buffer: Buffer): Promise<ParsedHold
       assetType: 'MUTUAL_FUND', // Groww holdings export in this format is primarily for MFs
       quantity: units,
       averagePriceMinor,
-      currentValueMinor,
-      unrealizedPnlMinor: returnsMinor,
+      currentValueMinor: currentValueMinor ?? undefined,
+      unrealizedPnlMinor: returnsMinor ?? undefined,
     });
   });
 
