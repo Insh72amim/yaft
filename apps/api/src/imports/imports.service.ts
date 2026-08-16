@@ -8,7 +8,7 @@ import { parseStatementWithMetadata } from './statement-parser';
 
 import { TransfersService } from '../transfers/transfers.service';
 import { CategoryRulesService } from '../category-rules/category-rules.service';
-import { CategoryRule } from '@prisma/client';
+import { CategoryRule, AccountType } from '@prisma/client';
 
 const categoryRules: Array<[RegExp, string]> = [
   [/salary|payroll/i, 'Salary'], [/swiggy|zomato|restaurant|cafe/i, 'Food & dining'],
@@ -182,7 +182,7 @@ export class ImportsService {
 
   async createForCreditCard(userId: string, accountId: string, file: Express.Multer.File, dto: { pdfPassword?: string } = {}) {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId, archived: false,
-      type: 'CREDIT_CARD' } });
+      type: AccountType.CREDIT_CARD } });
     if (!account) throw new ForbiddenException('Eligible credit card account not found.');
     const hash = createHash('sha256').update(file.buffer).digest('hex');
     const existing = await this.prisma.importBatch.findFirst({ where: { userId, accountId, fileHash: hash, status: { not: 'CANCELLED' } } });
@@ -196,7 +196,7 @@ export class ImportsService {
         where: {
           userId,
           archived: false,
-          type: 'CREDIT_CARD',
+          type: AccountType.CREDIT_CARD,
           OR: [
             { vaultEntry: { last4: parsed.extractedAccountDigits } },
             { name: { contains: parsed.extractedAccountDigits } },
@@ -275,13 +275,13 @@ export class ImportsService {
         // If this is a GPay / UPI App statement import, check if row is a non-UPI-Lite transaction (from Bank/CC)
         // If so, update exact transaction timestamp on matching existing bank/CC transaction instead of duplicating
         const isUpiLiteRow = /UPI\s+Lite/i.test(row.descriptionRaw) || (row.reference && /UPI\s+Lite/i.test(row.reference));
-        const isGpayStatement = batch.account.type === 'UPI_LITE' || batch.filename.toLowerCase().includes('gpay');
+        const isGpayStatement = batch.account.type === AccountType.UPI_LITE || batch.filename.toLowerCase().includes('gpay');
 
         if (isGpayStatement && !isUpiLiteRow && row.reference) {
           const refClean = row.reference.trim();
           const existingBankTx = await tx.transaction.findFirst({
             where: {
-              account: { userId, type: { in: ['BANK', 'SAVINGS', 'CREDIT_CARD'] } },
+              account: { userId, type: { in: [AccountType.BANK, AccountType.SAVINGS, AccountType.CREDIT_CARD] } },
               OR: [
                 { reference: refClean },
                 { descriptionRaw: { contains: refClean } },

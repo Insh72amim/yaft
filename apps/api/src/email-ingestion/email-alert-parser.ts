@@ -1,10 +1,15 @@
 import { createHash } from 'crypto';
 import { findInstitution } from '../common/institutions/institution-registry';
+import { parseIndianDate, MONTH_MAP } from '../common/utils/date-utils';
+import { AccountType } from '../common/constants/enums';
+import { FINANCIAL_CONSTANTS } from '../common/constants/financial-constants';
+
+export { parseIndianDate, MONTH_MAP };
 
 export interface ParsedEmailTransaction {
   bankName: string;
   accountLast4?: string;
-  accountType: 'CREDIT_CARD' | 'BANK';
+  accountType: AccountType;
   type: 'DEBIT' | 'CREDIT';
   amountMinor: bigint; // Signed minor units (negative for debit, positive for credit)
   amountDisplay: number; // Absolute rupees
@@ -19,72 +24,6 @@ export function parseMoneyToMinorUnits(amountStr: string): bigint {
   const num = parseFloat(cleanStr);
   if (isNaN(num)) return 0n;
   return BigInt(Math.round(num * 100));
-}
-
-export function parseIndianDate(dateStr: string, timeStr?: string): Date {
-  if (!dateStr) return new Date();
-  const months: Record<string, number> = {
-    jan: 0, january: 0, feb: 1, february: 1, mar: 2, march: 2,
-    apr: 3, april: 3, may: 4, june: 5, jun: 5, july: 6, jul: 6,
-    aug: 7, august: 7, sep: 8, sept: 8, september: 8,
-    oct: 9, october: 9, nov: 10, november: 10, dec: 11, december: 11,
-  };
-
-  let hours = 0, minutes = 0, seconds = 0;
-  if (timeStr) {
-    const tMatch = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(am|pm))?/i);
-    if (tMatch) {
-      hours = parseInt(tMatch[1], 10);
-      minutes = parseInt(tMatch[2], 10);
-      if (tMatch[3]) seconds = parseInt(tMatch[3], 10);
-      if (tMatch[4]?.toLowerCase() === 'pm' && hours < 12) hours += 12;
-      if (tMatch[4]?.toLowerCase() === 'am' && hours === 12) hours = 0;
-    }
-  }
-
-  const cleanDate = dateStr.trim();
-
-  // 1. Match Month DD, YYYY e.g. "Aug 09, 2026", "August 9 2026", "Aug 11, 2026"
-  const monthFirstMatch = cleanDate.match(/^([a-zA-Z]{3,9})\s+(\d{1,2}),?\s+(\d{2,4})$/);
-  if (monthFirstMatch) {
-    const month = months[monthFirstMatch[1].toLowerCase()] ?? 0;
-    const day = parseInt(monthFirstMatch[2], 10);
-    let year = parseInt(monthFirstMatch[3], 10);
-    if (year < 100) year += 2000;
-    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-  }
-
-  // 2. Match DD-Mon-YYYY or DD Mon YYYY e.g. "09-Aug-2026", "09 Aug 2026", "14Aug26"
-  const alphaMatch = cleanDate.match(/^(\d{1,2})[-\s]?([a-zA-Z]{3,9})[-\s,]?(\d{2,4})$/);
-  if (alphaMatch) {
-    const day = parseInt(alphaMatch[1], 10);
-    const month = months[alphaMatch[2].toLowerCase()] ?? 0;
-    let year = parseInt(alphaMatch[3], 10);
-    if (year < 100) year += 2000;
-    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-  }
-
-  // 3. Match DD-MM-YY or DD-MM-YYYY or DD/MM/YYYY or DD/MM/YY e.g. "15/08/26", "14-08-2026"
-  const numMatch = cleanDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
-  if (numMatch) {
-    const day = parseInt(numMatch[1], 10);
-    const month = parseInt(numMatch[2], 10) - 1;
-    let year = parseInt(numMatch[3], 10);
-    if (year < 100) year += 2000;
-    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-  }
-
-  // 4. Match YYYY-MM-DD
-  const isoMatch = cleanDate.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-  if (isoMatch) {
-    const year = parseInt(isoMatch[1], 10);
-    const month = parseInt(isoMatch[2], 10) - 1;
-    const day = parseInt(isoMatch[3], 10);
-    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
-  }
-
-  const parsed = new Date(cleanDate);
-  return isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
 export function cleanMerchantName(raw: string): string {
@@ -157,7 +96,14 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   const isExplicitCreditCard = /credit\s*card|creditcard|pixel\s*play|card\s*ending|card\s*no\.?\s*(?:xx|\d)|card\s*xx\d|amazon\s*pay|card\s+4[xX]+/i.test(fullContext);
   const isExplicitBankAccount = /(?:debited\s+from\s+your\s+A\/c|debited\s+from\s+A\/c|Account\s*Number:\s*XX|from\s+account\s*[\*xX\d]+|savings\s*a\/c|bank\s*a\/c)/i.test(text);
 
-  let accountType: 'CREDIT_CARD' | 'BANK' = isExplicitCreditCard && !isExplicitBankAccount ? 'CREDIT_CARD' : isExplicitBankAccount ? 'BANK' : isExplicitCreditCard ? 'CREDIT_CARD' : 'BANK';
+  let accountType: AccountType =
+    isExplicitCreditCard && !isExplicitBankAccount
+      ? AccountType.CREDIT_CARD
+      : isExplicitBankAccount
+      ? AccountType.BANK
+      : isExplicitCreditCard
+      ? AccountType.CREDIT_CARD
+      : AccountType.BANK;
 
   // 3. Detect Debit vs Credit
   const isCredit = /credited|received|deposited|refund/i.test(text) && !/debited|spent|used|charged|purchase/i.test(text);
@@ -189,7 +135,7 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     }
   }
 
-  if (isNaN(rawAmountNum) || rawAmountNum <= 0 || rawAmountNum > 10_000_000) return null;
+  if (isNaN(rawAmountNum) || rawAmountNum <= 0 || rawAmountNum > FINANCIAL_CONSTANTS.MAX_EMAIL_TRANSACTION_AMOUNT) return null;
 
   const rawMinor = BigInt(Math.round(rawAmountNum * 100));
   const amountMinor = type === 'DEBIT' ? -rawMinor : rawMinor;

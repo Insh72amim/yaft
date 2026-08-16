@@ -10,6 +10,8 @@ import { AccountDocuments } from '@/components/account-documents';
 import { SipModal, type Sip } from '@/components/sip-modal';
 import { SpendRulesModal } from '@/components/spend-rules-modal';
 
+import { AccountType } from '@/lib/constants';
+
 type CategoryOption = { id: string; name: string; color: string };
 
 type AccountLedger = {
@@ -21,8 +23,17 @@ type AccountLedger = {
   pagination: { page: number; pageSize: number; total: number; pages: number };
 };
 
-const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savings account', FIXED_DEPOSIT: 'Fixed deposit',
-  CREDIT_CARD: 'Credit card', LOAN: 'Loan account', STOCKS: 'Stock account', INVESTMENT: 'Investment account', EPFO: 'EPFO account', CASH: 'Cash' };
+const typeLabel: Record<string, string> = {
+  [AccountType.BANK]: 'Bank account',
+  [AccountType.SAVINGS]: 'Savings account',
+  [AccountType.FIXED_DEPOSIT]: 'Fixed deposit',
+  [AccountType.CREDIT_CARD]: 'Credit card',
+  [AccountType.LOAN]: 'Loan account',
+  [AccountType.STOCKS]: 'Stock account',
+  [AccountType.INVESTMENT]: 'Investment account',
+  [AccountType.EPFO]: 'EPFO account',
+  [AccountType.CASH]: 'Cash',
+};
 
 export function AccountTransactions({ accountId, embedded }: { accountId: string; embedded?: boolean }) {
   const searchParams = useSearchParams();
@@ -105,9 +116,9 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   }
 
   const { account, transactions, pagination } = data;
-  const isCreditCard = account.type === 'CREDIT_CARD';
+  const isCreditCard = account.type === AccountType.CREDIT_CARD;
   const supportsDocuments = true;
-  const supportsStatementImport = ['BANK', 'SAVINGS'].includes(account.type);
+  const supportsStatementImport = [AccountType.BANK, AccountType.SAVINGS].includes(account.type as AccountType);
   const statementImportHref = `/import?kind=BANK_STATEMENT&accountId=${encodeURIComponent(account.id)}`;
   const cardOutstanding = Math.max(0, -account.balance);
   const availableCredit = account.creditLimit == null ? null : Math.max(0, account.creditLimit - cardOutstanding);

@@ -57,9 +57,11 @@ const SOURCE_URLS: Record<string, string> = {
   PAYTM: 'https://paytm.com/',
 };
 
+import { ImportSourceType } from "@/lib/constants";
+
 type HistoryImportItem = {
   id: string;
-  sourceType: 'BANK_STATEMENT' | 'CREDIT_CARD' | 'SALARY_PAYSLIP' | 'DOCUMENT';
+  sourceType: ImportSourceType;
   filename: string;
   status: string;
   rowCount: number;

@@ -165,6 +165,8 @@ export function CreditCardDoughnutChart({
   );
 }
 
+import { FINANCIAL_CONSTANTS } from "@/lib/constants";
+
 export function BeautifulCreditCardTile({
   card,
   onVaultClick,
@@ -177,7 +179,7 @@ export function BeautifulCreditCardTile({
   const domain = getDomainForInstitution(card.institution || card.name);
   const logoUrl = localLogo || `https://logo.clearbit.com/${domain}?size=128`;
   const isOverLimit = card.utilizationPercent >= 100;
-  const isHighRisk = card.utilizationPercent > 30;
+  const isHighRisk = card.utilizationPercent > FINANCIAL_CONSTANTS.CREDIT_UTILIZATION_WARNING_THRESHOLD;
   const networkClass = cardNetworkClass(card.cardNetwork);
   const maskedNumber = card.cardLast4
     ? `••••  ••••  ••••  ${card.cardLast4}`

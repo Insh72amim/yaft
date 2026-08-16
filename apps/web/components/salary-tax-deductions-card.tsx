@@ -13,6 +13,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { money } from "@/lib/api";
+import { TAX_CONSTANTS } from "@/lib/constants";
 
 type FyComparisonItem = {
   fy: string;
@@ -40,13 +41,13 @@ export function SalaryTaxDeductionsCard({
   onExportCsv,
 }: SalaryTaxDeductionsProps) {
   // Indian IT Act Section 80C Max Limit is 1,50,000 INR per Financial Year
-  const SECTION_80C_LIMIT = 150000;
+  const SECTION_80C_LIMIT = TAX_CONSTANTS.SECTION_80C_MAX_LIMIT;
   const pf80cClaimed = Math.min(SECTION_80C_LIMIT, currentFyEmployeePf);
   const pf80cPct = Math.min(100, Math.round((pf80cClaimed / SECTION_80C_LIMIT) * 100));
   const remaining80cHeadroom = Math.max(0, SECTION_80C_LIMIT - currentFyEmployeePf);
 
   // Standard deduction under New Tax Regime FY 2024-25 onwards is Rs 75,000
-  const STANDARD_DEDUCTION = 75000;
+  const STANDARD_DEDUCTION = TAX_CONSTANTS.STANDARD_DEDUCTION_NEW_REGIME;
 
   return (
     <section

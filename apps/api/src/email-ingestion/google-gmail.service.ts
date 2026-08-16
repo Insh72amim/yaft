@@ -6,6 +6,7 @@ import { PrismaService } from '../common/prisma.service';
 import { CategoryRulesService } from '../category-rules/category-rules.service';
 import { StatementCredentialCipher } from '../common/statement-credentials.service';
 import { parseMultipleEmailAlerts, ParsedEmailTransaction, getAccountCategoryKey, getAccountCategoryDisplayName, getAlertFingerprint } from './email-alert-parser';
+import { AccountType } from '../common/constants/enums';
 
 @Injectable()
 export class GoogleGmailService {
@@ -268,7 +269,7 @@ export class GoogleGmailService {
 
       // Compute earliest and latest alert dates
       // STRICT FILTER: Gmail sync focuses exclusively on CREDIT CARD alerts for existing credit cards
-      const creditCardAlerts = extractedAlerts.filter((a) => a.accountType === 'CREDIT_CARD');
+      const creditCardAlerts = extractedAlerts.filter((a) => a.accountType === AccountType.CREDIT_CARD);
 
       if (creditCardAlerts.length === 0) {
         const emptySnippet = `Scanned ${messages.length} email(s) from ${config.email} for the past ${syncDays} days. No credit card transaction alerts found.`;
@@ -310,7 +311,7 @@ export class GoogleGmailService {
       // Fetch user's active CREDIT_CARD accounts, categories, and category rules once
       const [userAccounts, categories, userRules] = await Promise.all([
         this.prisma.account.findMany({
-          where: { userId, archived: false, type: 'CREDIT_CARD' },
+          where: { userId, archived: false, type: AccountType.CREDIT_CARD },
         }),
         this.categoryRulesService.listCategories(userId),
         this.prisma.categoryRule.findMany({
@@ -545,7 +546,7 @@ export class GoogleGmailService {
   }
 
   private findMatchingAccount(userAccounts: any[], alert: ParsedEmailTransaction, rawSnippetText?: string): any | null {
-    if (alert.accountType !== 'CREDIT_CARD') {
+    if (alert.accountType !== AccountType.CREDIT_CARD) {
       return null;
     }
     const bankName = (alert.bankName || '').toLowerCase();
@@ -553,7 +554,7 @@ export class GoogleGmailService {
     const text = (rawSnippetText || '').toLowerCase();
 
     // Filter accounts strictly by CREDIT_CARD
-    const candidateAccounts = userAccounts.filter((acc) => acc.type === 'CREDIT_CARD');
+    const candidateAccounts = userAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
 
     if (candidateAccounts.length === 0) {
       return null;

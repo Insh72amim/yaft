@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { api, errorMessage, isUnauthorized } from '@/lib/api';
 import { CardScanner, type CardScanResult } from '@/components/card-scanner';
+import { AccountType } from '@/lib/constants';
 
 interface VaultAccount {
   id: string;
@@ -35,19 +36,19 @@ interface RevealedData {
   cvv?: string;
 }
 
-const BANK_TYPES = ['SAVINGS', 'FIXED_DEPOSIT', 'BANK'];
-const CARD_TYPES = ['CREDIT_CARD'];
+const BANK_TYPES = [AccountType.SAVINGS, AccountType.FIXED_DEPOSIT, AccountType.BANK];
+const CARD_TYPES = [AccountType.CREDIT_CARD];
 
-function isBankAccount(type: string) { return BANK_TYPES.includes(type); }
-function isCardAccount(type: string) { return CARD_TYPES.includes(type); }
+function isBankAccount(type: string) { return BANK_TYPES.includes(type as AccountType); }
+function isCardAccount(type: string) { return CARD_TYPES.includes(type as AccountType); }
 
 function getIcon(type: string) {
-  if (type === 'CREDIT_CARD') return <CreditCard size={18} />;
-  if (type === 'INVESTMENT') return <ChartPie size={18} />;
-  if (type === 'STOCKS') return <TrendingUp size={18} />;
-  if (type === 'EPFO') return <Building2 size={18} />;
-  if (type === 'LOAN') return <BadgeIndianRupee size={18} />;
-  if (type === 'SAVINGS') return <PiggyBank size={18} />;
+  if (type === AccountType.CREDIT_CARD) return <CreditCard size={18} />;
+  if (type === AccountType.INVESTMENT) return <ChartPie size={18} />;
+  if (type === AccountType.STOCKS) return <TrendingUp size={18} />;
+  if (type === AccountType.EPFO) return <Building2 size={18} />;
+  if (type === AccountType.LOAN) return <BadgeIndianRupee size={18} />;
+  if (type === AccountType.SAVINGS) return <PiggyBank size={18} />;
   return <Landmark size={18} />;
 }
 

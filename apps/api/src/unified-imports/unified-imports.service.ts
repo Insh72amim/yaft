@@ -6,6 +6,7 @@ import { bankInstitutionMatchesSource, bankSourceForInstitution, loadPdfStatemen
 import { InvestmentsService } from '../investments/investments.service';
 import { SalaryService } from '../salary/salary.service';
 import { UnifiedImportUploadDto } from './unified-imports.dto';
+import { ImportSourceType, AccountType } from '../common/constants/enums';
 
 export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS', 'UPI_STATEMENT'] as const;
 export type UnifiedImportKind = (typeof UNIFIED_IMPORT_KINDS)[number];
@@ -510,7 +511,7 @@ export class UnifiedImportsService {
 
     const items: Array<{
       id: string;
-      sourceType: 'BANK_STATEMENT' | 'CREDIT_CARD' | 'SALARY_PAYSLIP' | 'DOCUMENT';
+      sourceType: ImportSourceType;
       filename: string;
       status: string;
       rowCount: number;
@@ -558,13 +559,13 @@ export class UnifiedImportsService {
         }))
         .sort((a, b) => b.amount - a.amount);
 
-      const accType = b.account?.type ?? 'SAVINGS';
+      const accType = b.account?.type ?? AccountType.SAVINGS;
       const accName = b.account?.name ?? 'Statement Account';
       const accInst = b.account?.institution ?? null;
 
       items.push({
         id: b.id,
-        sourceType: accType === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'BANK_STATEMENT',
+        sourceType: accType === AccountType.CREDIT_CARD ? ImportSourceType.CREDIT_CARD : ImportSourceType.BANK_STATEMENT,
         filename: b.filename || 'statement.pdf',
         status: b.status || 'COMMITTED',
         rowCount: b.rowCount || rows.length,
@@ -586,7 +587,7 @@ export class UnifiedImportsService {
 
       items.push({
         id: s.id,
-        sourceType: 'SALARY_PAYSLIP',
+        sourceType: ImportSourceType.SALARY_PAYSLIP,
         filename: s.filename || 'payslip.pdf',
         status: s.status || 'COMMITTED',
         rowCount: s.lineItems ? s.lineItems.length : 0,
@@ -594,7 +595,7 @@ export class UnifiedImportsService {
         committedAt: s.committedAt ? s.committedAt.toISOString() : null,
         accountName: s.employer || 'Salary Statement',
         accountType: 'SALARY',
-        accountInstitution: 'Goldman Sachs',
+        accountInstitution: s.employer || null,
         totalSpent: Number(grossD) / 100,
         totalReceived: Number(netP) / 100,
         categories: [
@@ -607,7 +608,7 @@ export class UnifiedImportsService {
     for (const d of documents) {
       items.push({
         id: d.id,
-        sourceType: 'DOCUMENT',
+        sourceType: ImportSourceType.DOCUMENT,
         filename: d.name || 'document.pdf',
         status: 'COMMITTED',
         rowCount: 1,
