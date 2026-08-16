@@ -38,9 +38,9 @@ import { EmailIngestionModule } from './email-ingestion/email-ingestion.module';
     CategoryRulesModule,
     TransfersModule,
     OrganizationsModule,
+    EmailIngestionModule,
     BackupModule,
     TagsModule,
-    EmailIngestionModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { GoogleDriveService } from './google-drive.service';
 import { GoogleGmailService } from '../email-ingestion/google-gmail.service';
@@ -11,6 +11,7 @@ export class BackupSchedulerService implements OnApplicationBootstrap, OnApplica
   constructor(
     private readonly prisma: PrismaService,
     private readonly googleDriveService: GoogleDriveService,
+    @Inject(forwardRef(() => GoogleGmailService))
     private readonly googleGmailService: GoogleGmailService,
   ) {}
 
