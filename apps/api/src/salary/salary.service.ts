@@ -69,30 +69,7 @@ export class SalaryService {
     }
 
     if (!matchedOrg && parsed?.employer) {
-      const cleanEmp = parsed.employer.replace(/\s*\((Bonus|Variable Pay)\)$/i, '').trim();
-      matchedOrg = orgs.find((o: any) => o.name.toLowerCase() === cleanEmp.toLowerCase());
-      if (!matchedOrg && cleanEmp && (this.prisma as any).organization) {
-        try {
-          matchedOrg = await (this.prisma as any).organization.create({
-            data: {
-              userId,
-              name: cleanEmp,
-              currency: 'INR',
-              color: '#4f46e5',
-              isCurrent: orgs.length === 0,
-              parsingConfig: {
-                documentAnchors: [cleanEmp.toUpperCase()],
-                fields: {
-                  payPeriod: { anchor: 'Pay Period' },
-                  grossEarnings: { anchor: 'Gross Earnings' },
-                  grossDeductions: { anchor: 'Total Deductions' },
-                  netPay: { anchor: 'Net Pay' },
-                },
-              },
-            },
-          });
-        } catch {}
-      }
+      matchedOrg = this.findMatchingOrganization(orgs, parsed.employer, payslipSchema);
     }
 
     const existing = await this.prisma.salaryStatement.findFirst({
@@ -337,34 +314,11 @@ export class SalaryService {
       await this.discard(userId, existing.id);
     }
 
-    // Find or auto-create organization for this employer
+    // Find organization for this employer
     let matchedOrg: any = null;
-    const cleanEmp = dto.employer.replace(/\s*\((Bonus|Variable Pay)\)$/i, '').trim();
-    if (cleanEmp && (this.prisma as any).organization) {
+    if ((this.prisma as any).organization) {
       const orgs = await (this.prisma as any).organization.findMany({ where: { userId } });
-      matchedOrg = orgs.find((o: any) => o.name.toLowerCase() === cleanEmp.toLowerCase());
-      if (!matchedOrg) {
-        try {
-          matchedOrg = await (this.prisma as any).organization.create({
-            data: {
-              userId,
-              name: cleanEmp,
-              currency: 'INR',
-              color: '#4f46e5',
-              isCurrent: orgs.length === 0,
-              parsingConfig: {
-                documentAnchors: [cleanEmp.toUpperCase()],
-                fields: {
-                  payPeriod: { anchor: 'Pay Period' },
-                  grossEarnings: { anchor: 'Gross Earnings' },
-                  grossDeductions: { anchor: 'Total Deductions' },
-                  netPay: { anchor: 'Net Pay' },
-                },
-              },
-            },
-          });
-        } catch {}
-      }
+      matchedOrg = this.findMatchingOrganization(orgs, dto.employer);
     }
 
     const statement = await this.prisma.salaryStatement.create({
@@ -455,5 +409,48 @@ export class SalaryService {
         ytdAmount: item.ytdAmount === null ? null : Number(item.ytdAmount),
       })),
     };
+  }
+
+  private findMatchingOrganization(orgs: any[], rawEmployerName?: string, explicitOrgId?: string) {
+    if (!orgs || orgs.length === 0) return null;
+    if (explicitOrgId && explicitOrgId !== 'STANDARD_PAYSLIP' && explicitOrgId !== 'GOLDMAN_SACHS') {
+      const explicit = orgs.find((o) => o.id === explicitOrgId || o.name.toLowerCase() === explicitOrgId.toLowerCase());
+      if (explicit) return explicit;
+    }
+
+    if (!rawEmployerName) {
+      return orgs.find((o) => o.isCurrent) || (orgs.length === 1 ? orgs[0] : null);
+    }
+
+    const clean = rawEmployerName.replace(/\s*\((Bonus|Variable Pay)\)$/i, '').trim().toLowerCase();
+
+    // 1. Exact name match
+    const exact = orgs.find((o) => o.name.toLowerCase() === clean);
+    if (exact) return exact;
+
+    // 2. Org code match
+    const byCode = orgs.find((o) => o.code && o.code.toLowerCase() === clean);
+    if (byCode) return byCode;
+
+    // 3. Document anchors match
+    const byAnchor = orgs.find((o) => {
+      const anchors: string[] = o.parsingConfig?.documentAnchors || [];
+      return anchors.some((a) => a && (a.toLowerCase() === clean || clean.includes(a.toLowerCase()) || a.toLowerCase().includes(clean)));
+    });
+    if (byAnchor) return byAnchor;
+
+    // 4. Substring / inclusion match (e.g. "Google" matching "Google India Private Limited")
+    const substring = orgs.find((o) => {
+      const oName = o.name.toLowerCase();
+      return oName.includes(clean) || clean.includes(oName);
+    });
+    if (substring) return substring;
+
+    // 5. If only 1 organization exists or 1 isCurrent org exists, link to it
+    const current = orgs.find((o) => o.isCurrent);
+    if (current) return current;
+    if (orgs.length === 1) return orgs[0];
+
+    return null;
   }
 }

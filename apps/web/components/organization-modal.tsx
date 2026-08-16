@@ -1,6 +1,6 @@
 "use client";
 import { Building2, X } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { api, errorMessage } from "@/lib/api";
 
 type Organization = {
@@ -32,6 +32,17 @@ export function OrganizationModal({
   const [error, setError] = useState("");
 
   const isEditing = Boolean(org?.id);
+
+  // Sync state whenever org prop updates
+  useEffect(() => {
+    setName(org?.name || "");
+    setCode(org?.code || "");
+    setTaxId(org?.taxId || "");
+    setCurrency(org?.currency || "INR");
+    setColor(org?.color || "#4f46e5");
+    setIsCurrent(Boolean(org?.isCurrent));
+    setError("");
+  }, [org]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

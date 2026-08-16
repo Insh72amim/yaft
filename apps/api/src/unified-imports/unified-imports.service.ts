@@ -366,20 +366,13 @@ export class UnifiedImportsService {
     }
 
     if (spec.kind === 'UPI_STATEMENT') {
-      let upiAccount = await this.prisma.account.findFirst({
-        where: { userId, archived: false, type: 'UPI_LITE' },
+      const upiAccount = await this.prisma.account.findFirst({
+        where: { userId, archived: false, type: { in: ['UPI_LITE', 'BANK', 'SAVINGS'] } },
         select: { id: true, name: true, type: true, institution: true, currency: true },
+        orderBy: { createdAt: 'asc' },
       });
       if (!upiAccount) {
-        upiAccount = await this.prisma.account.create({
-          data: {
-            userId,
-            name: 'UPI Lite',
-            type: 'UPI_LITE',
-            institution: 'Google Pay',
-          },
-          select: { id: true, name: true, type: true, institution: true, currency: true },
-        });
+        throw new BadRequestException('No eligible account found for UPI statement import. Please add a bank account first.');
       }
       return upiAccount;
     }
@@ -451,25 +444,11 @@ export class UnifiedImportsService {
     );
     if (instMatched) return instMatched;
 
-    if (accounts.length === 1) {
+    if (accounts.length > 0) {
       return accounts[0];
     }
 
-    const digitsLabel = extractedDigits ? ` ${extractedDigits}` : '';
-    const accountName = `${spec.label}${digitsLabel}`;
-
-    const newAccount = this.prisma.account?.create
-      ? await this.prisma.account.create({
-          data: {
-            userId,
-            name: accountName,
-            type: targetType,
-            institution: spec.label,
-          },
-        })
-      : { id: 'auto-account-1', name: accountName, type: targetType, institution: spec.label, currency: 'INR' };
-
-    return newAccount;
+    throw new BadRequestException(`No matching account found for ${spec.label}. Please add your ${spec.label} account in YAFT before uploading.`);
   }
 
   async getHistory(userId: string) {

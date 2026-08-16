@@ -29,14 +29,7 @@ export class EmailIngestionService {
     }
 
     if (!account) {
-      account = await this.prisma.account.create({
-        data: {
-          userId,
-          name: 'Email Alert Account',
-          type: 'BANK',
-          institution: parsedAlerts[0].bankName,
-        },
-      });
+      throw new BadRequestException('No matching account found. Please create an account in YAFT before parsing email snippets.');
     }
 
     // Query existing committed transactions, pending review staged transactions, user categories & category rules

@@ -15,63 +15,10 @@ export class OrganizationsService {
   async list(userId: string) {
     if (!this.orgModel) return [];
 
-    // Auto-discover and link organizations from SalaryStatements
-    const statements = await this.prisma.salaryStatement.findMany({
-      where: { userId },
-      select: { id: true, employer: true, organizationId: true },
-    });
-
-    if (statements.length > 0) {
-      let existingOrgs = await this.orgModel.findMany({ where: { userId } });
-      const existingNames = new Set(existingOrgs.map((o: any) => o.name.toLowerCase()));
-
-      for (const s of statements) {
-        const cleanEmployer = s.employer.replace(/\s*\((Bonus|Variable Pay)\)$/i, '').trim();
-        if (!cleanEmployer) continue;
-
-        let matched = existingOrgs.find((o: any) => o.name.toLowerCase() === cleanEmployer.toLowerCase());
-        if (!matched && !existingNames.has(cleanEmployer.toLowerCase())) {
-          existingNames.add(cleanEmployer.toLowerCase());
-          try {
-            matched = await this.orgModel.create({
-              data: {
-                userId,
-                name: cleanEmployer,
-                currency: 'INR',
-                color: '#4f46e5',
-                isCurrent: existingOrgs.length === 0,
-                parsingConfig: {
-                  documentAnchors: [cleanEmployer.toUpperCase()],
-                  fields: {
-                    payPeriod: { anchor: 'Pay Period' },
-                    grossEarnings: { anchor: 'Gross Earnings' },
-                    grossDeductions: { anchor: 'Total Deductions' },
-                    netPay: { anchor: 'Net Pay' },
-                  },
-                },
-              },
-            });
-            existingOrgs.push(matched);
-          } catch {}
-        }
-
-        if (matched) {
-          await this.prisma.salaryStatement.updateMany({
-            where: {
-              userId,
-              organizationId: null,
-              employer: { contains: cleanEmployer, mode: 'insensitive' },
-            },
-            data: { organizationId: matched.id },
-          }).catch(() => {});
-        }
-      }
-    }
-
     const orgs = await this.orgModel.findMany({
       where: { userId },
       include: { _count: { select: { salaryStatements: true } } },
-      orderBy: { name: 'asc' },
+      orderBy: [{ isCurrent: 'desc' }, { name: 'asc' }],
     });
     return orgs.map((o: any) => ({
       id: o.id,
