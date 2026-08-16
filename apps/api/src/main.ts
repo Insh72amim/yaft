@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import express from 'express';
 import { AppModule } from './app.module';
 
 (BigInt.prototype as any).toJSON = function () {
@@ -16,10 +17,12 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.use(helmet());
   app.use(cookieParser());
+  app.use(express.json({ limit: '100mb' }));
+  app.use(express.urlencoded({ limit: '100mb', extended: true }));
   app.enableCors({
     origin: process.env.WEB_ORIGIN ?? 'http://localhost:3000',
     credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT'],
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
 

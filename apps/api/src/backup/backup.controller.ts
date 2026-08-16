@@ -40,7 +40,13 @@ export class BackupController {
   }
 
   @Post('restore')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB limit for large archives
+      },
+    }),
+  )
   async restoreBackup(
     @CurrentUser('id') userId: string,
     @UploadedFile() file: Express.Multer.File,
