@@ -409,26 +409,3 @@ export const EPFO_PASSBOOK_PATTERNS = {
   CONTRIBUTION_ROW_REGEX: /^([a-zA-Z]{3}-\d{4})\s+(\d{2}-\d{2}-\d{4})\s+(CR|DR)\s+(.*?)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)$/,
   INTEREST_ROW_REGEX: /^(Int\.\s+Updated\s+upto\s+(\d{2}\/\d{2}\/\d{4}))\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)$/i,
 };
-
-// ---------------------------------------------------------------------------
-// Credit Card Parser Patterns (HDFC, SBI, ICICI)
-// ---------------------------------------------------------------------------
-
-export const CREDIT_CARD_PARSER_PATTERNS = {
-  HDFC: {
-    TOTAL_AMOUNT_DUE_REGEX: /TOTAL\s+AMOUNT\s+DUE\s*₹?\s*([\d,]+\.\d{2})/i,
-    ROW_REGEX: /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})(?:,\s*(\d{2}):(\d{2}))?\s+(.+?)\s+₹?\s*([\d,]+\.\d{2})(\s*CR)?$/i,
-  },
-  SBI: {
-    LAYOUT_REGEX: /SBI\s*Card/i,
-    PERIOD_REGEX: /Statement\s*Period/i,
-    ROW_REGEX: /^(\d{2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{2})\s+(.*?)\s+([\d,]+\.\d{2})\s+(C|D)\s*$/i,
-    REFERENCE_REGEX: /\s+([A-Z0-9]{8,})\s*$/i,
-  },
-  ICICI: {
-    CURRENT_LAYOUT_REGEX: /VIEW CURRENT STATEMENT|My Credit Card Details/i,
-    MONTHLY_LAYOUT_REGEX: /STATEMENT SUMMARY|CREDIT SUMMARY|IMPORTANT MESSAGES/i,
-    CURRENT_ROW_END_REGEX: /^(.*?)\s+([\d,]+\.?\d*)\s+(Dr|Cr)\.?(?:\s+(-?\d+))?(?:\s+(\d{6,20}))?\s*$/i,
-    MONTHLY_ROW_REGEX: /^(\d{2})\/(\d{2})\/(\d{4})\s+(?:(\d{8,20})\s+)?(.*?)\s+(?:(-?\d+)\s+)?([\d,]+\.\d{2})\s*(CR|DR)?$/i,
-  },
-};

@@ -22,7 +22,6 @@ import {
   INVESTMENT_COLUMN_ALIASES,
   classifyInvestmentAssetType,
   EPFO_PASSBOOK_PATTERNS,
-  CREDIT_CARD_PARSER_PATTERNS,
 } from '@yaft/shared';
 
 describe('Parser Config Registry (@yaft/shared)', () => {
@@ -190,7 +189,7 @@ describe('Parser Config Registry (@yaft/shared)', () => {
     });
   });
 
-  describe('Investments, EPFO, and Credit Card Regex Configurations', () => {
+  describe('Investments and EPFO Regex Configurations', () => {
     it('classifies investment asset types accurately', () => {
       expect(classifyInvestmentAssetType('equity', 'IT', 'Equity')).toBe('STOCK');
       expect(classifyInvestmentAssetType('mutual funds', 'Debt', 'Mutual Fund')).toBe('MUTUAL_FUND');
@@ -207,12 +206,6 @@ describe('Parser Config Registry (@yaft/shared)', () => {
     it('provides valid EPFO passbook regex patterns', () => {
       expect(EPFO_PASSBOOK_PATTERNS.PASSBOOK_LAYOUT_REGEX.test('EPF Passbook for Member')).toBe(true);
       expect(EPFO_PASSBOOK_PATTERNS.CLOSING_BALANCE_REGEX.test('Closing Balance as on 31/03/2026 1000 2000 3000')).toBe(true);
-    });
-
-    it('provides valid Credit Card parser regex patterns', () => {
-      expect(CREDIT_CARD_PARSER_PATTERNS.HDFC.TOTAL_AMOUNT_DUE_REGEX.test('TOTAL AMOUNT DUE ₹ 12,345.67')).toBe(true);
-      expect(CREDIT_CARD_PARSER_PATTERNS.SBI.LAYOUT_REGEX.test('SBI Card Statement')).toBe(true);
-      expect(CREDIT_CARD_PARSER_PATTERNS.ICICI.CURRENT_LAYOUT_REGEX.test('VIEW CURRENT STATEMENT')).toBe(true);
     });
   });
 });

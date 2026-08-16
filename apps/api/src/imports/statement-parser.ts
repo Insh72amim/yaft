@@ -10,7 +10,6 @@ import {
 } from '@yaft/shared';
 import type { ParsedRow, ParseStatementOptions } from './bank-pdf-parser';
 import { parseBankPdf } from './pdf-statement-registry';
-import { parseAxisCcExcel } from './axis-cc-parser';
 
 export type { ParsedRow } from './bank-pdf-parser';
 type RawRow = Record<string, unknown>;
@@ -59,7 +58,7 @@ function normalize(rows: RawRow[]): ParsedRow[] {
 
 export type ParsedStatement = {
   rows: ParsedRow[];
-  parserId?: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'ICICI' | 'HDFC' | 'SBI_CC' | 'GPAY';
+  parserId?: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'GPAY';
   closingBalanceMinor?: number;
   extractedAccountDigits?: string;
 };
@@ -75,17 +74,6 @@ export async function parseStatementWithMetadata(file: Express.Multer.File, _opt
     await workbook.xlsx.load(file.buffer as unknown as ExcelJS.Buffer);
     const sheet = workbook.worksheets[0];
     if (!sheet) throw new BadRequestException('The workbook has no worksheets.');
-
-    // Check if it's an Axis Bank Credit Card statement
-    const firstCellText = String(sheet.getRow(1).getCell(1).text).trim();
-    const fourthCellText = String(sheet.getRow(1).getCell(4).text).trim();
-    if (
-      firstCellText.includes('Axis Bank Credit Card') ||
-      fourthCellText.includes('Axis Rewards Credit Card Monthly Statement') ||
-      fourthCellText.includes('Axis Bank')
-    ) {
-      return { rows: parseAxisCcExcel(sheet), parserId: 'AXIS' }; // We'll just use AXIS here or add AXIS_CC if preferred
-    }
 
     const headers: string[] = [];
     sheet.getRow(1).eachCell((cell, column) => { headers[column] = String(cell.text).trim(); });
