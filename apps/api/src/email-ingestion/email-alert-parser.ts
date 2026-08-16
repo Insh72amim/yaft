@@ -3,8 +3,13 @@ import { findInstitution } from '../common/institutions/institution-registry';
 import { parseIndianDate, MONTH_MAP } from '../common/utils/date-utils';
 import { AccountType } from '../common/constants/enums';
 import { FINANCIAL_CONSTANTS } from '../common/constants/financial-constants';
+import {
+  canonicalizeMerchantName,
+  TRANSACTION_STATUS_CONFIG,
+  isExplicitSuccessfulRefund,
+} from '@yaft/shared';
 
-export { parseIndianDate, MONTH_MAP };
+export { parseIndianDate, MONTH_MAP, canonicalizeMerchantName as cleanMerchantName };
 
 export interface ParsedEmailTransaction {
   bankName: string;
@@ -26,59 +31,6 @@ export function parseMoneyToMinorUnits(amountStr: string): bigint {
   return BigInt(Math.round(num * 100));
 }
 
-export function cleanMerchantName(raw: string): string {
-  if (!raw) return 'General Merchant';
-
-  let s = raw.trim();
-
-  // 1. If it's a UPI VPA e.g. "paytm-urbancompany@ptybl", "payzomato@hdfcbank", "airtel-billpayment.paytm@ptybl"
-  if (s.includes('@')) {
-    s = s.replace(/@[a-zA-Z0-9.-]+$/, ''); // remove handle
-    s = s.replace(/^paytm[-.]?/i, '');
-    s = s.replace(/^pay[-.]?/i, '');
-    s = s.replace(/^ibkpos\.[a-z0-9]+[-.]?/i, '');
-    s = s.replace(/^upi[-.]?/i, '');
-  }
-
-  // 2. If it's a POS / PUR / UPI path e.g. "PUR/YOUTUBEGOOGLE/YOUTUBEGOOGLE/123456" or "UPI/P2A/100000000005/MERCHANT_ONE"
-  if (s.includes('/')) {
-    const parts = s.split('/').filter(p => p && !/^\d+$/.test(p) && !/^(PUR|POS|UPI|P2A|P2M|P2P|INF|NEFT|IMPS)$/i.test(p));
-    if (parts.length > 0) {
-      s = parts[0];
-    }
-  }
-
-  // 3. Known cleanups and brand canonicalization
-  s = s
-    .replace(/^(VPA|UPI|VPS|POS|INF|NEFT|IMPS|PUR)\s*[\/:\*]?\s*/i, '')
-    .replace(/^(?:PVT\s*LTD|PVT\s*LT|LTD|LIMITED|SERVICES|INDIA)$/i, '')
-    .replace(/\b(?:PVT\s*LTD|PVT\s*LT|PRIVATE\s*LIMITED|INDIA\s*PVT\s*LTD)\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (/youtube/i.test(s)) s = 'YouTube Google';
-  else if (/urbancompany/i.test(s)) s = 'Urban Company';
-  else if (/zomato/i.test(s)) s = 'Zomato';
-  else if (/swiggy/i.test(s)) s = 'Swiggy';
-  else if (/makemytrip/i.test(s)) s = 'MakeMyTrip';
-  else if (/amazon/i.test(s)) s = 'Amazon';
-  else if (/zepto|ze\s*pto/i.test(s)) s = 'Zepto';
-  else if (/blinkit/i.test(s)) s = 'Blinkit';
-  else if (/airtel/i.test(s)) s = 'Airtel';
-
-  s = s
-    .replace(/[.,\s\-_]+$/, '')
-    .replace(/^[.,\s\-_]+/, '')
-    .trim()
-    .toUpperCase();
-
-  if (!s || s.length < 2 || /^(VPA|ACCOUNT|A\/C|BANK|REF|TRANSACTION|PURCHASE|CUSTOMER|SUPPORT|HELP|ORM)$/i.test(s)) {
-    return 'General Merchant';
-  }
-
-  return s;
-}
-
 export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: string): ParsedEmailTransaction | null {
   if (!bodyText || typeof bodyText !== 'string') return null;
 
@@ -91,14 +43,11 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   // 0. Detect and reject Declined / Failed / Unsuccessful / Cancelled transactions
   // Banks & Card issuers send decline alerts when transactions fail (e.g. limit exceeded, incorrect OTP/PIN, security check, network timeout).
   // These failed attempts must NEVER be imported as ledger transactions.
-  const isDeclinedOrFailed =
-    /\b(?:declined|unsuccessful|failed|rejected|cancelled|canceled)\b/i.test(fullContext) ||
-    /\b(?:not\s+successful|payment\s+failed|txn\s+failed|transaction\s+failed|payment\s+declined|txn\s+declined|transaction\s+declined|could\s+not\s+be\s+processed|unable\s+to\s+process|was\s+not\s+completed|auto-reversed|auto\s+reversal|payment\s+timed\s*out|transaction\s+timed\s*out)\b/i.test(fullContext);
+  const isDeclinedOrFailed = TRANSACTION_STATUS_CONFIG.EMAIL_FAILURE_REGEX.test(fullContext);
 
   if (isDeclinedOrFailed) {
     // Preserve genuine successful refunds/cashbacks that happen to contain the word "refund"
-    const isExplicitSuccessfulRefund = /\b(?:refund\s+of|credited\s+with\s+refund|refund\s+has\s+been\s+processed|cashback\s+credited)\b/i.test(text);
-    if (!isExplicitSuccessfulRefund) {
+    if (!isExplicitSuccessfulRefund(text)) {
       return null;
     }
   }

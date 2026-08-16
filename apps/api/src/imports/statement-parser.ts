@@ -1,22 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 import { parse } from 'csv-parse/sync';
 import ExcelJS from 'exceljs';
+import { STATEMENT_COLUMN_ALIASES, isDeclinedOrFailedTransaction } from '@yaft/shared';
 import type { ParsedRow, ParseStatementOptions } from './bank-pdf-parser';
 import { parseBankPdf } from './pdf-statement-registry';
 import { parseAxisCcExcel } from './axis-cc-parser';
 
 export type { ParsedRow } from './bank-pdf-parser';
 type RawRow = Record<string, unknown>;
-
-const aliases = {
-  date: ['date', 'transaction date', 'txn date', 'value date', 'posted date'],
-  description: ['description', 'narration', 'transaction details', 'particulars', 'remarks', 'merchant'],
-  amount: ['amount', 'transaction amount', 'txn amount'],
-  debit: ['debit', 'withdrawal', 'withdrawal amt.', 'debit amount'],
-  credit: ['credit', 'deposit', 'deposit amt.', 'credit amount'],
-  reference: ['reference', 'reference number', 'ref no', 'chq./ref.no.', 'transaction id'],
-  status: ['status', 'transaction status', 'txn status', 'payment status', 'state', 'result'],
-};
 
 const normalizedKey = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -48,26 +39,21 @@ function dateValue(value: unknown): Date | null {
 
 function normalize(rows: RawRow[]): ParsedRow[] {
   const parsed = rows.map<ParsedRow | null>((row, index) => {
-    const date = dateValue(find(row, aliases.date));
-    const description = String(find(row, aliases.description) ?? '').trim();
-    const statusVal = String(find(row, aliases.status) ?? '').trim().toLowerCase();
+    const date = dateValue(find(row, STATEMENT_COLUMN_ALIASES.date));
+    const description = String(find(row, STATEMENT_COLUMN_ALIASES.description) ?? '').trim();
+    const statusVal = String(find(row, STATEMENT_COLUMN_ALIASES.status) ?? '').trim();
 
-    // Check if status explicitly denotes a failed, declined, rejected, or cancelled attempt
-    if (statusVal && /^(?:failed|declined|rejected|cancelled|canceled|unsuccessful|failure|declined\/failed|pending)$/i.test(statusVal)) {
+    // Check if status or description denotes a failed, declined, rejected, or cancelled attempt
+    if (isDeclinedOrFailedTransaction(description, statusVal)) {
       return null;
     }
 
-    // Check if description indicates a declined or failed transaction attempt
-    if (/\b(?:txn\s+declined|transaction\s+declined|payment\s+declined|payment\s+failed|txn\s+failed|transaction\s+failed|payment\s+unsuccessful|transaction\s+unsuccessful|unsuccessful\s+transaction|auto\s+reversed|declined\s+at|card\s+declined|declined\s+transaction|failed\s+transaction|charge\s+declined)\b/i.test(description)) {
-      return null;
-    }
-
-    const direct = money(find(row, aliases.amount));
-    const debit = money(find(row, aliases.debit));
-    const credit = money(find(row, aliases.credit));
+    const direct = money(find(row, STATEMENT_COLUMN_ALIASES.amount));
+    const debit = money(find(row, STATEMENT_COLUMN_ALIASES.debit));
+    const credit = money(find(row, STATEMENT_COLUMN_ALIASES.credit));
     const amountMinor = direct ?? (credit !== null ? Math.abs(credit) : debit !== null ? -Math.abs(debit) : null);
     if (!date || !description || amountMinor === null || amountMinor === 0) return null;
-    const reference = String(find(row, aliases.reference) ?? '').trim() || undefined;
+    const reference = String(find(row, STATEMENT_COLUMN_ALIASES.reference) ?? '').trim() || undefined;
     return { date, description, amountMinor, reference, rowNumber: index + 2 };
   }).filter((row): row is ParsedRow => row !== null);
   if (!parsed.length) throw new BadRequestException('No transaction rows were detected. Include date, description, and amount—or debit/credit—columns.');

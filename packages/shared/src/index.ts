@@ -6,3 +6,4 @@ export * from './enums';
 export * from './constants';
 export * from './institutions';
 export * from './date-utils';
+export * from './parser-config';

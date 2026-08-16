@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { isDeclinedOrFailedTransaction } from '@yaft/shared';
 import type { BankPdfParser, ParsedRow, PdfStatementDocument } from './bank-pdf-parser';
 
 export function parseGPayDate(dateStr: string, timeStr: string): Date {
@@ -31,10 +32,7 @@ export function parseGpayDocument(document: PdfStatementDocument): { rows: Parse
     const paymentMethod = paymentMethodRaw.trim();
 
     // Skip failed / declined / cancelled transactions
-    if (
-      /\b(?:failed|declined|cancelled|canceled|unsuccessful)\b/i.test(descTrim) ||
-      /\b(?:failed|declined|cancelled|canceled|unsuccessful)\b/i.test(paymentMethod)
-    ) {
+    if (isDeclinedOrFailedTransaction(descTrim, paymentMethod) || isDeclinedOrFailedTransaction(paymentMethod)) {
       continue;
     }
 

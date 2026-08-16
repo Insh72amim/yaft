@@ -64,19 +64,9 @@ export function extractBeneficiaryName(description: string): string | null {
   return null;
 }
 
-function cleanBeneficiaryToken(token: string): string {
-  return token
-    .replace(/\[.*?\]/g, '')
-    .replace(/\b(?:PVT|LTD|LT|LIMITED|PRIVATE|INDIA|CORP|LLP|INC)\b/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+import { cleanBeneficiaryToken, isRefundOrReversal } from '@yaft/shared';
+export { cleanBeneficiaryToken, isRefundOrReversal };
 
-export function isRefundOrReversal(description: string): boolean {
-  if (!description) return false;
-  const desc = description.toLowerCase();
-  return /refund|reversal|returned|cashback|cb\s|credit\s*adj|cancelled/i.test(desc);
-}
 
 export function getMonthDateRange(
   startDateStr?: string,

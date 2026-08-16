@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { isRefundOrReversal } from '@yaft/shared';
 import { PrismaService } from '../common/prisma.service';
 
 export interface SetCategoryBudgetDto {
@@ -60,7 +61,7 @@ export class BudgetsService {
       const catName = tx.category?.name || '';
       if (/transfer/i.test(catName)) continue;
 
-      const isRefund = tx.amount > 0n && /refund|reversal|returned|cashback|cb\s|credit\s*adj|cancelled/i.test(tx.descriptionRaw);
+      const isRefund = tx.amount > 0n && isRefundOrReversal(tx.descriptionRaw);
       const current = spentMap.get(tx.categoryId) || 0n;
 
       if (tx.amount < 0n) {

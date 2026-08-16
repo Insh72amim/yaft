@@ -9,6 +9,7 @@ import { parseStatementWithMetadata } from './statement-parser';
 import { TransfersService } from '../transfers/transfers.service';
 import { CategoryRulesService } from '../category-rules/category-rules.service';
 import { CategoryRule, AccountType } from '@prisma/client';
+import { isDeclinedOrFailedDescription } from '@yaft/shared';
 
 const categoryRules: Array<[RegExp, string]> = [
   [/salary|payroll/i, 'Salary'], [/swiggy|zomato|restaurant|cafe/i, 'Food & dining'],
@@ -387,7 +388,7 @@ export class ImportsService {
     const isDuplicate = existing.has(fingerprint);
     existing.add(fingerprint);
 
-    const isDeclinedOrFailed = /\b(?:txn\s+declined|transaction\s+declined|payment\s+declined|payment\s+failed|txn\s+failed|transaction\s+failed|payment\s+unsuccessful|transaction\s+unsuccessful|unsuccessful\s+transaction|card\s+declined|declined\s+transaction|failed\s+transaction|charge\s+declined)\b/i.test(row.description);
+    const isDeclinedOrFailed = isDeclinedOrFailedDescription(row.description);
 
     return {
       rowNumber: row.rowNumber,
