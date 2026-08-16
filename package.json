@@ -18,6 +18,7 @@
     "build": "npm run build --workspace @yaft/api && npm run build --workspace @yaft/web",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:ui": "npx tsx scripts/test-ui-pages.ts",
     "db:generate": "npm run prisma:generate --workspace @yaft/api",
     "db:migrate": "npm run prisma:migrate --workspace @yaft/api",
     "docker:reload": "docker compose up -d --build web api"
