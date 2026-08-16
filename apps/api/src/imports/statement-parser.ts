@@ -15,6 +15,7 @@ const aliases = {
   debit: ['debit', 'withdrawal', 'withdrawal amt.', 'debit amount'],
   credit: ['credit', 'deposit', 'deposit amt.', 'credit amount'],
   reference: ['reference', 'reference number', 'ref no', 'chq./ref.no.', 'transaction id'],
+  status: ['status', 'transaction status', 'txn status', 'payment status', 'state', 'result'],
 };
 
 const normalizedKey = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -49,6 +50,18 @@ function normalize(rows: RawRow[]): ParsedRow[] {
   const parsed = rows.map<ParsedRow | null>((row, index) => {
     const date = dateValue(find(row, aliases.date));
     const description = String(find(row, aliases.description) ?? '').trim();
+    const statusVal = String(find(row, aliases.status) ?? '').trim().toLowerCase();
+
+    // Check if status explicitly denotes a failed, declined, rejected, or cancelled attempt
+    if (statusVal && /^(?:failed|declined|rejected|cancelled|canceled|unsuccessful|failure|declined\/failed|pending)$/i.test(statusVal)) {
+      return null;
+    }
+
+    // Check if description indicates a declined or failed transaction attempt
+    if (/\b(?:txn\s+declined|transaction\s+declined|payment\s+declined|payment\s+failed|txn\s+failed|transaction\s+failed|payment\s+unsuccessful|transaction\s+unsuccessful|unsuccessful\s+transaction|auto\s+reversed|declined\s+at|card\s+declined|declined\s+transaction|failed\s+transaction|charge\s+declined)\b/i.test(description)) {
+      return null;
+    }
+
     const direct = money(find(row, aliases.amount));
     const debit = money(find(row, aliases.debit));
     const credit = money(find(row, aliases.credit));

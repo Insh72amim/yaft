@@ -237,4 +237,36 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(d3.getUTCMinutes()).toBe(34);
     expect(d3.getUTCSeconds()).toBe(1);
   });
+
+  it('should ignore and reject declined, failed, unsuccessful, or rejected transaction alerts', () => {
+    // 1. Explicitly declined credit card alert
+    const declinedCc = 'Dear Customer, your transaction of INR 1,500.00 on ICICI Bank Credit Card XX0005 was declined due to insufficient limit on 14-Aug-2026 at SWIGGY.';
+    expect(parseEmailAlertSnippet(declinedCc)).toBeNull();
+
+    // 2. Failed UPI alert
+    const failedUpi = 'Dear Customer, UPI transaction of Rs. 450.00 to merchant@upi from HDFC Bank A/c **1234 failed on 12-Aug-26.';
+    expect(parseEmailAlertSnippet(failedUpi, 'alerts@hdfcbank.net')).toBeNull();
+
+    // 3. Unsuccessful transaction alert
+    const unsuccessfulTxn = 'We noticed an unsuccessful transaction of INR 2,999.00 on your Axis Bank Credit Card ending 0001 on 10-Aug-26.';
+    expect(parseEmailAlertSnippet(unsuccessfulTxn, 'alerts@axisbank.com')).toBeNull();
+
+    // 4. Rejected transaction alert
+    const rejectedTxn = 'Your transaction of INR 850.00 on Card XX8899 was rejected by the bank security checks.';
+    expect(parseEmailAlertSnippet(rejectedTxn)).toBeNull();
+
+    // 5. Payment could not be processed
+    const couldNotProcess = 'Your payment of INR 3,200.00 at AMAZON could not be processed.';
+    expect(parseEmailAlertSnippet(couldNotProcess)).toBeNull();
+
+    // 6. Multiple alerts containing a mix of successful and declined
+    const multiWithDeclined =
+      'Dear Customer, Rs. 2,450.00 has been debited from HDFC Bank account **1234 to VPA zomato@upi on 14-08-26. Ref: 100000000103.\n\n' +
+      'Dear Customer, your transaction of INR 1,500.00 on ICICI Bank Credit Card XX0005 was declined.\n\n' +
+      'Dear Customer, INR 1,299.00 spent on ICICI Bank Credit Card XX4321 on 14-Aug-26 at FLIPKART. Ref: 1000000014.';
+    const list = parseMultipleEmailAlerts(multiWithDeclined);
+    expect(list.length).toBe(2);
+    expect(list[0].amountDisplay).toBe(2450);
+    expect(list[1].amountDisplay).toBe(1299);
+  });
 });

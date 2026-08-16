@@ -27,12 +27,22 @@ export function parseGpayDocument(document: PdfStatementDocument): { rows: Parse
   while ((match = txRegex.exec(fullText)) !== null) {
     const [, dateStr, timeStr, rawDescription, refNo, paymentMethodRaw, amountStr] = match;
 
+    const descTrim = rawDescription.trim();
+    const paymentMethod = paymentMethodRaw.trim();
+
+    // Skip failed / declined / cancelled transactions
+    if (
+      /\b(?:failed|declined|cancelled|canceled|unsuccessful)\b/i.test(descTrim) ||
+      /\b(?:failed|declined|cancelled|canceled|unsuccessful)\b/i.test(paymentMethod)
+    ) {
+      continue;
+    }
+
     const date = parseGPayDate(dateStr, timeStr);
     const amountVal = parseFloat(amountStr.replace(/,/g, ''));
-    const isCredit = /^Received\s+from|^Refund\s+from/i.test(rawDescription.trim());
+    const isCredit = /^Received\s+from|^Refund\s+from/i.test(descTrim);
     const amountMinor = Math.round((isCredit ? amountVal : -amountVal) * 100);
 
-    const paymentMethod = paymentMethodRaw.trim();
     const isUpiLite = /UPI\s+Lite/i.test(paymentMethod);
 
     rows.push({

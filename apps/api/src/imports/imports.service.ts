@@ -386,6 +386,9 @@ export class ImportsService {
     const fingerprint = createHash('sha256').update(fingerprintSeed).digest('hex');
     const isDuplicate = existing.has(fingerprint);
     existing.add(fingerprint);
+
+    const isDeclinedOrFailed = /\b(?:txn\s+declined|transaction\s+declined|payment\s+declined|payment\s+failed|txn\s+failed|transaction\s+failed|payment\s+unsuccessful|transaction\s+unsuccessful|unsuccessful\s+transaction|card\s+declined|declined\s+transaction|failed\s+transaction|charge\s+declined)\b/i.test(row.description);
+
     return {
       rowNumber: row.rowNumber,
       transactionDate: row.date,
@@ -396,7 +399,7 @@ export class ImportsService {
       reference: row.reference?.slice(0, 100),
       fingerprint,
       isDuplicate,
-      include: !isDuplicate,
+      include: !isDuplicate && !isDeclinedOrFailed,
       confidence: catMatch.confidence,
       categoryId: catMatch.categoryId,
     };

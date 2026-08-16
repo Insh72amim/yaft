@@ -88,6 +88,21 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
 
   const fullContext = `${senderOrSubject || ''} ${text}`;
 
+  // 0. Detect and reject Declined / Failed / Unsuccessful / Cancelled transactions
+  // Banks & Card issuers send decline alerts when transactions fail (e.g. limit exceeded, incorrect OTP/PIN, security check, network timeout).
+  // These failed attempts must NEVER be imported as ledger transactions.
+  const isDeclinedOrFailed =
+    /\b(?:declined|unsuccessful|failed|rejected|cancelled|canceled)\b/i.test(fullContext) ||
+    /\b(?:not\s+successful|payment\s+failed|txn\s+failed|transaction\s+failed|payment\s+declined|txn\s+declined|transaction\s+declined|could\s+not\s+be\s+processed|unable\s+to\s+process|was\s+not\s+completed|auto-reversed|auto\s+reversal|payment\s+timed\s*out|transaction\s+timed\s*out)\b/i.test(fullContext);
+
+  if (isDeclinedOrFailed) {
+    // Preserve genuine successful refunds/cashbacks that happen to contain the word "refund"
+    const isExplicitSuccessfulRefund = /\b(?:refund\s+of|credited\s+with\s+refund|refund\s+has\s+been\s+processed|cashback\s+credited)\b/i.test(text);
+    if (!isExplicitSuccessfulRefund) {
+      return null;
+    }
+  }
+
   // 1. Detect Bank Name
   const matchedInst = findInstitution(fullContext);
   const bankName = matchedInst ? matchedInst.name : 'Bank Alert';
