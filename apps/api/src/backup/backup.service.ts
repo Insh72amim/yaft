@@ -1071,7 +1071,7 @@ export class BackupService {
           },
         });
       }
-    });
+    }, { maxWait: 30000, timeout: 180000 });
 
     return {
       accountsRestored: db.accounts?.length || 0,
