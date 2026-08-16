@@ -1,140 +1,167 @@
 <div align="center">
   <h1>💰 YAFT (Yet Another Finance Tracker)</h1>
-  <p><em>A private, local-first and self-hosted workspace for personal financial records.</em></p>
+  <p><em>A private, local-first, self-hosted workspace for personal financial records.</em></p>
 </div>
 
 ---
 
-YAFT turns Indian bank statements, credit-card statements, salary payslips, EPFO passbooks and broker holdings into a reviewed financial ledger. It is designed for one owner to run on infrastructure they control; it is not a hosted service and does not send financial records to a YAFT-operated cloud.
+YAFT turns Indian bank statements, credit card transactions, salary payslips, EPFO passbooks, active SIPs, and broker holdings into a verified, reviewed financial ledger. It is designed for single-owner deployment on infrastructure you control; it is not a hosted SaaS and never sends financial records to third-party cloud servers.
 
-## ✨ What YAFT Does
+---
 
-- **👤 Single-owner workspace:** The first registration claims the instance and later registrations are rejected.
-- **🏦 Accounts and ledger:** Track bank, cash, investment, loan, EPFO, fixed-deposit and credit-card accounts in one place.
-- **📥 Unified imports:** Choose the record type and issuer from one import workspace, then review reconciled data before it enters the ledger.
-- **📄 Verified statement parsing:** Fail-closed PDF parsing for Axis Bank, Punjab National Bank and State Bank of India statements, plus Axis Bank credit-card statements and EPFO passbooks.
-- **🕵️ Duplicate protection:** Exact-file and transaction-level checks keep repeat imports out of the ledger.
-- **🔄 Transfer matching:** Equal-and-opposite movements across owned accounts can be linked and excluded from spending totals.
-- **💼 Salary history:** Import employer payslips, record manual salary or variable payments, retain supporting documents and explore monthly and cumulative pay timelines.
-- **📈 Investments:** Import reconciled Zerodha Kite and Groww holdings snapshots with portfolio totals, sector tags and gain/loss indicators.
-- **💳 Debt tracking:** Monitor credit limits, utilisation, loans, amortisation schedules and confirmed EMIs.
-- **🔒 Credential vault:** Optionally retain document-opening passwords using account-bound AES-256-GCM encryption.
-- **🗂 Account documents:** Attach multiple PDFs or images to Bank/Savings and Loan accounts and view them inline with zoom controls.
-- **📱 Local web UI:** Responsive account, salary, import and dashboard views with dark-mode support.
+## ✨ Core Feature Highlights
 
-The detailed implementation inventory and longer roadmap live in [`features.md`](features.md).
+### 🏦 1. Accounts & Reconciled Ledger (`/accounts`, `/transactions`)
+- **Consolidated Master View**: Grouped by account type—Savings/Bank, Credit Cards, Loans, Investments, EPFO, Fixed Deposits, Cash, and UPI Lite.
+- **Auto-Recalculating Ledger**: Real-time balances, debit/credit color coding, opening balance calculation, and signed integer minor unit (paise) math to eliminate floating-point rounding errors.
+- **Privacy Masking**: Global toggle to hide or reveal account balances, net pay, and debt numbers across the UI.
+- **Data Protection Safeguards**: Double-confirmation deletion (typing exact account name) and a dedicated **Clear Ledger** option (wipes transaction history while preserving account credentials, settings, and documents).
+- **Advanced Filtering**: Filter transactions by date range, account, search query, or Category Group (Expense, Income, Investment, Transfer).
 
-## 🗄️ Local Data and Document Storage
+### 💳 2. Dedicated Credit Cards Hub (`/credit-cards`)
+- **Utilization Command Center**: Aggregated credit utilization rate gauge, health indicators (Healthy / Moderate / High), total outstanding balance, and available credit tracking.
+- **Digital Visual Card Stack**: Interactive card gallery showing bank logos, card networks (Visa, Mastercard, Amex, RuPay), last 4 digits, and live limit progress bars.
+- **Cash Flow Trends**: 6-month visual comparison tracking monthly credit card expenses against bill payments made.
+- **Quick Action Shortcuts**: 1-click triggers for **⚡ Gmail Sync**, **🔐 Vault Credentials**, and **📋 Card Activity**.
 
-YAFT intentionally keeps application data on the self-hosted instance:
+### 💼 3. Salary Management & Dynamic Payslip Engine (`/salary`)
+- **Dynamic Payslip Parser Engine**: Configure company payslips with stored JSON parsing rules (`parsingConfig`), regex anchors, and field extractors without writing code.
+- **Employer Organization Onboarding**: Create and manage employer profiles with custom colors, symbols, tax IDs, and document anchors.
+- **Visual Sandbox & Math Verification**: Upload sample payslips to test dynamic extraction rules with real-time equation validation (`Gross - Deductions = Net Pay`).
+- **Password-Free Inline Payslip Viewer**: Decrypts password-protected payslips on the fly via backend `qpdf` integration and renders them in a zoomable inline viewer without prompting for passwords.
+- **Manual Salary Entries**: Record manual pay records or variable payments with optional proof file attachments stored safely in local MinIO.
+- **Interactive Pay Timelines**: Monthly breakdown charts (Gross, Net, Tax) and cumulative net pay growth feeds.
 
-- **PostgreSQL** stores users, accounts, ledger transactions, import reviews, salary records and other structured data.
-- **MinIO** provides local S3-compatible document storage. Imported salary payslips, manual salary proofs and documents attached to Bank/Savings or Loan accounts are retained there and served through authenticated YAFT endpoints.
-- **Bank, credit-card and EPFO statement files, and broker spreadsheets, are currently parsed in request memory but their original files are not yet retained.** Approved transaction or holdings data is stored in PostgreSQL.
-- Docker persists PostgreSQL and MinIO data in the `postgres_data` and `minio_data` volumes. Removing those volumes removes the corresponding local data.
+### 📥 4. Unified Imports & Statement Parsing (`/import`)
+- **Unified Import Hub**: Single workspace for uploading bank statements, credit card records, EPFO passbooks, and broker sheets.
+- **Fail-Closed Bank Statement Parsers**: Reconciled PDF parsers for **Axis Bank**, **State Bank of India (SBI)**, and **Punjab National Bank (PNB)** with automated password candidate fallback and trailing `Cr.`/`Dr.` balance handling.
+- **EPFO Passbook Parser**: Monthly ledger staging for employee and employer PF deposits, withdrawals, and interest credits.
+- **Broker Holdings Snapshots**: Import Zerodha Kite and Groww portfolio sheets with sector categorization and unrealized P&L badges.
+- **Staged Review Workflow**: Inspect and modify categorized rows, verify opening/closing balances, and deduplicate before committing to the live ledger.
 
-Local storage means the operator controls where the records live. It does not replace access controls, disk encryption or backups. Back up both PostgreSQL and MinIO together so ledger records and retained documents remain consistent.
+### 📧 5. Gmail Transaction Sync (`/email-ingestion`)
+- **Direct Gmail API Integration**: Connect Google Workspace or personal Gmail via OAuth2 to auto-fetch transaction alert emails.
+- **Credit Card Transaction Alerts**: Specialized parsers for HDFC Bank, ICICI Bank, Axis Bank, and SBI Card credit card transaction notifications.
+- **Zero Account Spawning**: Strictly requires pre-existing user accounts and skips unrelated alerts safely.
+
+### 📊 6. Spend Analyser, Budgets & Rule Engine (`/dashboard`, `/budgets`, `/categories`)
+- **Multi-Bank Sankey Flow**: Interactive visual flow diagram tracking income streams, account transfers, and category expenses.
+- **Refund & Reversal Netting**: Automatically offsets merchant refunds and cashbacks against category expenses without breaking individual ledger rows.
+- **Automated Categorization Rules**: Rule builder supporting `CONTAINS`, `STARTS_WITH`, `ENDS_WITH`, and `REGEX` matches with instant retroactive application across the ledger.
+- **Bulk Categorization**: Bulk select transactions by merchant or keyword to apply categories in one click.
+- **Category Budgets**: Set monthly envelope limits per category with visual spend progress bars and threshold warning alerts.
+
+### 🏷️ 7. Custom Tags & Analytics (`/tags`)
+- **Multi-Tagging**: Attach custom tags (e.g. `#Vacation`, `#Tax80C`, `#Medical`) to transactions across accounts.
+- **Range Tagging**: Apply tags and categories across custom date and amount ranges.
+- **Tag Analytics**: Dedicated spend analytics and transaction breakdowns per tag.
+
+### 📈 8. Investments & SIP Tracker (`/sip`)
+- **Active SIP Schedule Tracker**: Track systematic investment plans by execution day, frequency, linked bank account, and monthly commitment.
+- **Holdings Portfolio**: Reconciled stock and mutual fund holdings with sector tags and profit/loss indicators.
+
+### 📉 9. Loans & EMI Amortization
+- **Amortization Engine**: Computes complete EMI schedules with principal/interest breakdowns and running balances.
+- **Interactive EMI Confirmation**: Check off due EMIs to record payments directly into the ledger atomically.
+
+### 🔐 10. Credential Vault & Document Library (`/vault`, `/account-documents`)
+- **AES-256-GCM Encrypted Vault**: Account-bound encryption for credit card numbers, CVVs, expiry dates, IFSC codes, UPI IDs, and PDF statement passwords.
+- **Associated Account Documents**: Attach multiple PDFs or images to Bank/Savings and Loan accounts with secure inline preview and zoom controls.
+
+### 💾 11. One-Click Encrypted Backup & Restore
+- **Full Database & Storage Backups**: Export and restore complete `.yaft-backup` encrypted archives containing both PostgreSQL records and MinIO files.
+
+---
 
 ## 🏗️ Architecture
 
 ```text
 Browser
-  └─ Next.js web app (port 3000)
-       └─ same-origin /api proxy → NestJS API (port 4000)
-            ├─ authentication and owner-scoped services
-            ├─ unified import and staged review pipeline
-            ├─ fail-closed statement and holdings parsers
-            ├─ AES-256-GCM document-credential vault
-            ├─ Prisma → PostgreSQL (structured financial data)
-            └─ S3 client → MinIO (retained documents)
+  └─ Next.js 15 Web App (Port 3000)
+       └─ /api proxy → NestJS API (Port 4000)
+            ├─ Argon2id Authentication & Single-Owner Guard
+            ├─ Unified Import & Staged Review Pipeline
+            ├─ Fail-Closed Statement & Holdings Parsers
+            ├─ AES-256-GCM Document-Credential Vault
+            ├─ Dynamic Payslip Parser Engine
+            ├─ Google Gmail API Ingestion Service
+            ├─ Prisma ORM → PostgreSQL (Structured Financial Ledger)
+            └─ S3 Client → MinIO (Retained Documents & Proofs)
 ```
 
-Money is stored as integer minor units (paise) to avoid floating-point rounding errors. Import parsers reject unknown, ambiguous or unreconciled layouts instead of guessing.
-Transaction-import files are processed in memory. Files intentionally saved as salary proofs or associated account documents remain in local MinIO and are available only through authenticated, owner-scoped endpoints.
+- **Minor Unit Precision**: All currency amounts are stored as `BigInt` minor units (paise) to guarantee arithmetic accuracy.
+- **Tenant & Privacy Isolation**: All database queries strictly scope to the authenticated `userId`.
+- **Fail-Closed Parsing**: Unknown, ambiguous, or unreconciled statement layouts fail immediately rather than guessing financial numbers.
 
-## 🚀 Run Locally with Docker
+---
 
-**Requirements:** Docker with Compose support.
+## 🚀 Quick Start with Docker
 
-1. Create the local environment file:
+### Requirements
+- [Docker](https://docs.docker.com/get-docker/) with Compose support.
 
+### Setup
+1. Clone the repository and copy the environment template:
    ```sh
    cp .env.example .env
    ```
 
-2. Set a long, unique `POSTGRES_PASSWORD` and a `JWT_SECRET` containing at least 32 random characters.
+2. Edit `.env` to set strong passwords and keys:
+   - `POSTGRES_PASSWORD`: Strong database password.
+   - `JWT_SECRET`: Random 32+ character string.
+   - `YAFT_CREDENTIAL_ENCRYPTION_KEY`: Generate using `openssl rand -base64 32`.
 
-3. Generate a separate key for encrypted document-opening passwords:
-
+3. Launch the container stack:
    ```sh
-   openssl rand -base64 32
+   docker compose up --build -d
    ```
 
-   Save the result as `YAFT_CREDENTIAL_ENCRYPTION_KEY` in `.env`. Do not reuse the JWT secret. If this key is lost, remembered PDF passwords cannot be recovered.
+4. Open `http://localhost:3000/register` in your browser. The first registered user claims the instance; subsequent registrations are automatically locked.
 
-4. Start the local stack:
+---
 
-   ```sh
-   docker compose up --build
-   ```
+## 💻 Local Development Setup
 
-5. Open `http://localhost:3000/register`. The first account becomes the sole owner of the instance.
-
-The stack includes the web app, API, PostgreSQL and MinIO. Its default port exposure and MinIO development credentials are intended for a trusted local machine only. Do not expose ports `3000`, `4000`, `5432`, `9000` or `9001` directly to the public internet.
-
-## 💻 Local Development
-
-**Requirements:** Node.js 20+ and Docker.
+### Requirements
+- Node.js 20+
+- Docker (for PostgreSQL & MinIO)
 
 ```sh
+# 1. Setup environment
 cp .env.example .env
+
+# 2. Start PostgreSQL and MinIO
 docker compose up -d postgres minio
+
+# 3. Install dependencies
 npm install
+
+# 4. Run database migrations
 npm run db:generate
 npm run db:migrate
+
+# 5. Start development servers (Next.js + NestJS)
 npm run dev
 ```
 
-- Web app: `http://localhost:3000`
-- API: `http://localhost:4000/api`
-- API documentation: `http://localhost:4000/api/docs`
-- MinIO console: `http://localhost:9001`
+- **Web Application**: `http://localhost:3000`
+- **Backend API**: `http://localhost:4000/api`
+- **Interactive OpenAPI Docs (Swagger)**: `http://localhost:4000/api/docs`
+- **MinIO Storage Console**: `http://localhost:9001`
 
-## 🔒 Security and Operator Responsibilities
+---
 
-Current application protections include:
+## 🔒 Security & Privacy Practices
 
-- Argon2id password hashing.
-- HTTP-only, `SameSite=Strict`, signed session cookies.
-- Single-owner registration lock.
-- Strict request validation, rate limiting and security headers.
-- SHA-256 file hashes and transaction fingerprints for duplicate detection.
-- AES-256-GCM encryption for remembered PDF passwords, bound to the relevant record.
-- Owner-scoped database queries and authenticated document download/view endpoints.
-- Saved account documents accept only signature-verified PDF, PNG, or JPEG content and are served with private, no-store response headers.
-
-For use beyond a trusted local machine, place YAFT behind HTTPS and a private network or VPN, replace all development credentials, restrict host firewall access, encrypt the host disk and establish encrypted, tested backups. TOTP/passkeys and session revocation are not yet implemented, so direct public-internet exposure is not recommended.
-
-## 📥 Import Behaviour
-
-1. **Select:** Choose the record type, issuer/employer and destination account where applicable.
-2. **Validate:** YAFT checks the file type, known layout and printed totals; unknown or changed layouts fail closed.
-3. **Parse:** The upload is parsed in request memory. Retention depends on the document type described above.
-4. **Stage:** Bank, credit-card, EPFO and salary records requiring review are prepared without immediately changing the ledger.
-5. **Review:** Confirm rows, categories, duplicates, balances or payroll totals.
-6. **Commit:** Approved records are written atomically. Broker snapshots replace the selected account's previous snapshot only after full reconciliation.
-
-## 🔮 Next Three Priorities
-
-1. **Complete the local document library:** Retain original bank, credit-card and EPFO import files and extend the existing account-document library with richer metadata and recovery tooling.
-2. **Make self-hosted recovery dependable:** Add encrypted automated backups for PostgreSQL and MinIO, restore verification, configurable MinIO credentials and clear migration/recovery guidance.
-3. **Finish verified import coverage:** Implement the currently planned ICICI and SBI credit-card parsers, add the Acme Corp-style salary schema and ensure the unified importer advertises only sources with fully reconciled parser support.
-
-After these foundations, the next product-value milestone is a transfer-aware spend analyser with editable categorisation rules and mutual-fund transfer reconciliation.
+- **Zero Cloud Exposure**: Self-hosted, private ledger running exclusively on your own machine or private home server.
+- **Single-Owner Instance Lock**: Closes public registration immediately after the first owner signs up.
+- **Account-Bound Encryption**: PDF passwords and card vault credentials use AES-256-GCM with unique initialization vectors (IVs).
+- **Secure File Storage**: Uploaded payslip proofs and account documents are served with private, no-store headers and signature-verified MIME types.
+- **Strict multi-worktree development**: Clean git workflows and branch isolation maintained per [`AGENTS.md`](AGENTS.md).
 
 ---
 
 <div align="center">
-  <i>Run the production compiler to validate application changes:</i><br/>
-  <code>npm run build</code>
+  <i>Run the full test suite and production build:</i><br/>
+  <code>npm run test && npm run build</code>
 </div>
