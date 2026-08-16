@@ -147,7 +147,7 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     rawMerchant = atMatch[1];
   }
 
-  const merchant = cleanMerchantName(rawMerchant);
+  const merchant = canonicalizeMerchantName(rawMerchant);
 
   // 8. Extract Date & Time
   let transactionDate = new Date();
