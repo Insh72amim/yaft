@@ -46,6 +46,19 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
   const [adding, setAdding] = useState(false); 
   const [accountError, setAccountError] = useState(''); 
   const [newType, setNewType] = useState('SAVINGS');
+  const [existingCards, setExistingCards] = useState<any[]>([]);
+  const [isSharedLimit, setIsSharedLimit] = useState(false);
+  const [selectedParentId, setSelectedParentId] = useState('');
+
+  useState(() => {
+    api<any[]>('/accounts')
+      .then((accs) => {
+        const cards = accs.filter((a) => a.type === 'CREDIT_CARD' && !a.parentAccountId);
+        setExistingCards(cards);
+        if (cards.length > 0) setSelectedParentId(cards[0].id);
+      })
+      .catch(() => {});
+  });
 
   async function addAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); 
@@ -67,6 +80,13 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
         payload.loanEmiAmount = Math.round(Number(form.get('loanEmiAmount')) * 100);
         payload.loanEmiDay = Number(form.get('loanEmiDay'));
         payload.loanTermMonths = Number(form.get('loanTermMonths'));
+      } else if (type === 'CREDIT_CARD') {
+        if (isSharedLimit && selectedParentId) {
+          payload.parentAccountId = selectedParentId;
+        } else {
+          payload.creditLimit = form.get('creditLimit') ? Math.round(Number(form.get('creditLimit')) * 100) : undefined;
+          payload.dueDay = form.get('dueDay') ? Number(form.get('dueDay')) : undefined;
+        }
       } else {
         payload.openingBalance = form.get('openingBalance') ? Math.round(Number(form.get('openingBalance')) * 100) : 0;
         payload.creditLimit = form.get('creditLimit') ? Math.round(Number(form.get('creditLimit')) * 100) : undefined;
@@ -83,7 +103,7 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
   }
 
   const accountPlaceholder = (type: string) => {
-    if (type === 'CREDIT_CARD') return 'e.g. Millennia Card';
+    if (type === 'CREDIT_CARD') return 'e.g. Amazon Pay / Coral RuPay';
     if (type === 'SAVINGS') return 'e.g. Salary account';
     return 'Account name';
   };
@@ -92,6 +112,8 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
     if (type === 'LOAN') return 'Lender name';
     return 'Institution name';
   };
+
+  const selectedParentCard = existingCards.find((c) => c.id === selectedParentId);
 
   return (
     <div className="modal-wrap">
@@ -122,6 +144,63 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
           ) : (
             <label>{newType === 'INVESTMENT' ? 'Platform / AMC' : newType === 'EPFO' ? 'Organisation / employer' : 'Institution'}<input name="institution" placeholder={institutionPlaceholder(newType)} /></label>
           )}
+
+          {newType === 'CREDIT_CARD' && existingCards.length > 0 && (
+            <div style={{ background: 'var(--background-alt)', padding: '14px', borderRadius: '10px', border: '1px solid var(--line)', marginTop: '4px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--ink)', display: 'block', marginBottom: '8px' }}>Credit Limit &amp; Billing Arrangement:</span>
+              <div style={{ display: 'flex', gap: '16px', marginBottom: isSharedLimit ? '12px' : '0' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', margin: 0, fontWeight: 500 }}>
+                  <input
+                    type="radio"
+                    name="limitStructure"
+                    checked={!isSharedLimit}
+                    onChange={() => setIsSharedLimit(false)}
+                  />
+                  Standalone Limit
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', margin: 0, fontWeight: 500 }}>
+                  <input
+                    type="radio"
+                    name="limitStructure"
+                    checked={isSharedLimit}
+                    onChange={() => setIsSharedLimit(true)}
+                  />
+                  Shares Limit &amp; Bill with existing card
+                </label>
+              </div>
+
+              {isSharedLimit && (
+                <div>
+                  <label style={{ marginTop: '8px' }}>
+                    Primary Card (Shares Limit Pool)
+                    <select
+                      value={selectedParentId}
+                      onChange={(e) => setSelectedParentId(e.target.value)}
+                      required>
+                      {existingCards.map((card) => (
+                        <option key={card.id} value={card.id}>
+                          {card.name} ({card.institution || 'Credit Card'}) {card.creditLimit ? `— ₹${(card.creditLimit / 100).toLocaleString('en-IN')} Limit` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {selectedParentCard && (
+                    <small style={{ color: 'var(--muted)', fontSize: '11px', display: 'block', marginTop: '6px' }}>
+                      ℹ️ This card will draw from <strong>{selectedParentCard.name}</strong>'s credit limit pool and share billing due dates.
+                    </small>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {newType === 'CREDIT_CARD' && !isSharedLimit && (
+            <div className="form-row">
+              <label>Credit limit (₹)<input name="creditLimit" type="number" min="0" step="0.01" placeholder="e.g. 500000" /></label>
+              <label>Payment due day (1-31)<input name="dueDay" type="number" min="1" max="31" placeholder="e.g. 5" /></label>
+            </div>
+          )}
+
           {newType === 'FIXED_DEPOSIT' && (
             <label>Opening balance (₹)<input name="openingBalance" type="number" step="0.01" defaultValue="0" /></label>
           )}

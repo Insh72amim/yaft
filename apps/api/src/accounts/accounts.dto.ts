@@ -10,6 +10,7 @@ export class CreateAccountDto {
   @IsOptional() @IsInt() @Min(0) creditLimit?: number;
   @IsOptional() @IsInt() @Min(1) @Max(31) statementDay?: number;
   @IsOptional() @IsInt() @Min(1) @Max(31) dueDay?: number;
+  @IsOptional() @IsString() parentAccountId?: string | null;
 
   // Loan properties
   @IsOptional() @IsString() loanStartDate?: string;
@@ -31,6 +32,7 @@ export class UpdateAccountDto {
   @IsOptional() @IsInt() @Min(0) creditLimit?: number;
   @IsOptional() @IsInt() @Min(1) @Max(31) statementDay?: number;
   @IsOptional() @IsInt() @Min(1) @Max(31) dueDay?: number;
+  @IsOptional() @IsString() parentAccountId?: string | null;
 }
 
 export class CreateTransactionDto {

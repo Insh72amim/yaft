@@ -252,4 +252,96 @@ describe('AccountsController & AccountsService getCreditCardsSummary', () => {
     expect(res.overallFlow.topRecipients).toHaveLength(1);
     expect(res.recentTransactions).toHaveLength(1);
   });
+
+  it('correctly calculates pooled limit and available credit for parent and child cards without double-counting', async () => {
+    const parentCard = {
+      id: 'card-parent',
+      name: 'ICICI Sapphiro',
+      type: 'CREDIT_CARD',
+      institution: 'ICICI Bank',
+      openingBalance: 0n,
+      creditLimit: 500000n,
+      statementDay: 15,
+      dueDay: 5,
+      parentAccountId: null,
+      parentAccount: null,
+      childAccounts: [{ id: 'card-child', name: 'ICICI Amazon Pay', creditLimit: null, statementDay: 15, dueDay: 5 }],
+      vaultEntry: { last4: '1001', cardNetwork: 'VISA' },
+    };
+
+    const childCard = {
+      id: 'card-child',
+      name: 'ICICI Amazon Pay',
+      type: 'CREDIT_CARD',
+      institution: 'ICICI Bank',
+      openingBalance: 0n,
+      creditLimit: null,
+      statementDay: 15,
+      dueDay: 5,
+      parentAccountId: 'card-parent',
+      parentAccount: { id: 'card-parent', name: 'ICICI Sapphiro', creditLimit: 500000n, statementDay: 15, dueDay: 5 },
+      childAccounts: [],
+      vaultEntry: { last4: '2002', cardNetwork: 'VISA' },
+    };
+
+    const findManyAccounts = jest.fn().mockResolvedValue([parentCard, childCard]);
+    const findManyTx = jest.fn().mockResolvedValue([
+      {
+        id: 'tx-1',
+        accountId: 'card-parent',
+        amount: -10000n,
+        transactionDate: new Date('2026-07-20T10:00:00Z'),
+        descriptionRaw: 'HOTEL STAY',
+        merchant: 'HOTEL STAY',
+        categoryId: 'cat-1',
+        category: { id: 'cat-1', name: 'Travel', color: '#10b981' },
+        account: { id: 'card-parent', name: 'ICICI Sapphiro' },
+      },
+      {
+        id: 'tx-2',
+        accountId: 'card-child',
+        amount: -40000n,
+        transactionDate: new Date('2026-07-21T10:00:00Z'),
+        descriptionRaw: 'AMAZON IN',
+        merchant: 'AMAZON IN',
+        categoryId: 'cat-2',
+        category: { id: 'cat-2', name: 'Shopping', color: '#3b82f6' },
+        account: { id: 'card-child', name: 'ICICI Amazon Pay' },
+      },
+    ]);
+
+    const prisma = {
+      account: { findMany: findManyAccounts },
+      transaction: { findMany: findManyTx },
+    } as unknown as PrismaService;
+
+    const service = new AccountsService(prisma, {} as StatementCredentialsService, accountDocuments());
+    const controller = new AccountsController(service);
+    const res = await controller.getCreditCardsSummary({ id: 'user-a' });
+
+    // Pool limit is 500,000 (NOT 1,000,000)
+    expect(res.summary.totalLimit).toBe(500000);
+    // Group spends = 10,000 + 40,000 = 50,000
+    expect(res.summary.totalOutstanding).toBe(50000);
+    // Available credit = 450,000
+    expect(res.summary.totalAvailable).toBe(450000);
+    // Utilization = (50,000 / 500,000) * 100 = 10%
+    expect(res.summary.utilizationRate).toBe(10);
+
+    const parentRes = res.cards.find((c) => c.id === 'card-parent')!;
+    const childRes = res.cards.find((c) => c.id === 'card-child')!;
+
+    expect(parentRes.isParent).toBe(true);
+    expect(parentRes.isShared).toBe(true);
+    expect(parentRes.poolOutstanding).toBe(50000);
+    expect(parentRes.poolAvailableCredit).toBe(450000);
+    expect(parentRes.outstanding).toBe(10000);
+
+    expect(childRes.isChild).toBe(true);
+    expect(childRes.isShared).toBe(true);
+    expect(childRes.parentAccountName).toBe('ICICI Sapphiro');
+    expect(childRes.poolOutstanding).toBe(50000);
+    expect(childRes.poolAvailableCredit).toBe(450000);
+    expect(childRes.outstanding).toBe(40000);
+  });
 });

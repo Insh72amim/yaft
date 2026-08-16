@@ -159,6 +159,8 @@ export class AccountsService {
         holdings: { select: { currentValue: true } },
         statementCredential: { select: { accountId: true } },
         vaultEntry: { select: { last4: true, cardNetwork: true } },
+        parentAccount: { select: { id: true, name: true, creditLimit: true, statementDay: true, dueDay: true } },
+        childAccounts: { select: { id: true, name: true, creditLimit: true } },
         loans: {
           include: {
             installments: {
@@ -169,7 +171,7 @@ export class AccountsService {
       }
     });
 
-    return accounts.map(({ transactions, holdings = [], statementCredential, vaultEntry, loans = [], ...account }) => {
+    return accounts.map(({ transactions, holdings = [], statementCredential, vaultEntry, parentAccount, childAccounts = [], loans = [], ...account }) => {
       if (account.type === AccountType.LOAN) {
         const loan = loans[0];
         let balance = Number(account.openingBalance);
@@ -228,16 +230,25 @@ export class AccountsService {
       const monthlyCredited = currentMonthTxns.filter((t: any) => t.amount > 0).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
       const monthlyDebited = Math.abs(currentMonthTxns.filter((t: any) => t.amount < 0).reduce((sum: number, t: any) => sum + Number(t.amount), 0));
 
+      const effectiveCreditLimit = account.creditLimit !== null
+        ? Number(account.creditLimit)
+        : (parentAccount?.creditLimit !== null && parentAccount?.creditLimit !== undefined ? Number(parentAccount.creditLimit) : null);
+
       return {
         ...account,
         openingBalance: Number(account.openingBalance),
-        creditLimit: account.creditLimit === null ? null : Number(account.creditLimit),
+        creditLimit: effectiveCreditLimit,
         balance,
         monthlyCredited,
         monthlyDebited,
         cardLast4: account.type === AccountType.CREDIT_CARD ? vaultEntry?.last4 ?? null : null,
         cardNetwork: account.type === AccountType.CREDIT_CARD ? vaultEntry?.cardNetwork ?? null : null,
         hasStatementPassword: Boolean(statementCredential),
+        parentAccountId: account.parentAccountId ?? null,
+        parentAccountName: parentAccount?.name ?? null,
+        isShared: Boolean(account.parentAccountId || (childAccounts && childAccounts.length > 0)),
+        isChild: Boolean(account.parentAccountId),
+        childAccountCount: childAccounts?.length ?? 0,
       };
     });
   }
@@ -249,6 +260,36 @@ export class AccountsService {
     }
     if (dto.type === AccountType.STOCKS && !SUPPORTED_STOCK_BROKERS.some((broker) => broker === institution)) {
       throw new BadRequestException('Choose Zerodha or Groww for a stock account.');
+    }
+
+    let validatedParentAccountId: string | null = null;
+    let statementDay = dto.statementDay;
+    let dueDay = dto.dueDay;
+    let creditLimit = dto.creditLimit !== undefined ? BigInt(dto.creditLimit) : undefined;
+
+    if (dto.parentAccountId) {
+      if (dto.type !== AccountType.CREDIT_CARD) {
+        throw new BadRequestException('Only credit cards can be linked under a shared limit/bill.');
+      }
+      const parentCard = await this.prisma.account.findFirst({
+        where: { id: dto.parentAccountId, userId, archived: false, type: AccountType.CREDIT_CARD },
+      });
+      if (!parentCard) {
+        throw new BadRequestException('Selected parent credit card was not found.');
+      }
+      if (parentCard.parentAccountId) {
+        throw new BadRequestException('The selected parent card is already linked to another card. Multi-level nesting is not supported.');
+      }
+      validatedParentAccountId = parentCard.id;
+      if (statementDay === undefined && parentCard.statementDay) {
+        statementDay = parentCard.statementDay;
+      }
+      if (dueDay === undefined && parentCard.dueDay) {
+        dueDay = parentCard.dueDay;
+      }
+      if (creditLimit === undefined && parentCard.creditLimit) {
+        creditLimit = parentCard.creditLimit;
+      }
     }
 
     if (dto.type === AccountType.LOAN) {
@@ -328,17 +369,29 @@ export class AccountsService {
         institution,
         currency: dto.currency?.toUpperCase() ?? 'INR',
         openingBalance: BigInt(dto.openingBalance ?? 0),
-        creditLimit: dto.creditLimit === undefined ? undefined : BigInt(dto.creditLimit),
-        statementDay: dto.statementDay,
-        dueDay: dto.dueDay,
-      }
+        creditLimit,
+        statementDay,
+        dueDay,
+        parentAccountId: validatedParentAccountId,
+      },
+      include: {
+        parentAccount: { select: { id: true, name: true, creditLimit: true, statementDay: true, dueDay: true } },
+      },
     });
+
+    const effectiveCreditLimit = account.creditLimit !== null
+      ? Number(account.creditLimit)
+      : (account.parentAccount?.creditLimit !== null && account.parentAccount?.creditLimit !== undefined ? Number(account.parentAccount.creditLimit) : null);
 
     return {
       ...account,
       openingBalance: Number(account.openingBalance),
-      creditLimit: account.creditLimit === null ? null : Number(account.creditLimit),
+      creditLimit: effectiveCreditLimit,
       hasStatementPassword: false,
+      parentAccountId: account.parentAccountId ?? null,
+      parentAccountName: account.parentAccount?.name ?? null,
+      isShared: Boolean(account.parentAccountId),
+      isChild: Boolean(account.parentAccountId),
     };
   }
 
@@ -430,9 +483,13 @@ export class AccountsService {
   ) {
     const account = await this.prisma.account.findFirst({
       where: { id: accountId, userId, archived: false },
-      select: { id: true, name: true, type: true, institution: true, currency: true, openingBalance: true,
-        creditLimit: true, statementDay: true, dueDay: true,
-        vaultEntry: { select: { last4: true, cardNetwork: true } } },
+      select: {
+        id: true, name: true, type: true, institution: true, currency: true, openingBalance: true,
+        creditLimit: true, statementDay: true, dueDay: true, parentAccountId: true,
+        parentAccount: { select: { id: true, name: true, creditLimit: true, statementDay: true, dueDay: true } },
+        childAccounts: { select: { id: true, name: true, creditLimit: true } },
+        vaultEntry: { select: { last4: true, cardNetwork: true } },
+      },
     });
     if (!account) throw new NotFoundException('Account not found.');
 
@@ -452,12 +509,24 @@ export class AccountsService {
       this.prisma.category.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
     ]);
 
+    const effectiveCreditLimit = account.creditLimit !== null
+      ? Number(account.creditLimit)
+      : (account.parentAccount?.creditLimit !== null && account.parentAccount?.creditLimit !== undefined ? Number(account.parentAccount.creditLimit) : null);
+
     return {
-      account: { id: account.id, name: account.name, type: account.type, institution: account.institution, currency: account.currency,
+      account: {
+        id: account.id, name: account.name, type: account.type, institution: account.institution, currency: account.currency,
         openingBalance: Number(account.openingBalance), balance: Number(account.openingBalance) + Number(amount._sum.amount ?? 0n),
-        creditLimit: account.creditLimit === null ? null : Number(account.creditLimit), statementDay: account.statementDay, dueDay: account.dueDay,
+        creditLimit: effectiveCreditLimit,
+        statementDay: account.statementDay ?? account.parentAccount?.statementDay ?? null,
+        dueDay: account.dueDay ?? account.parentAccount?.dueDay ?? null,
+        parentAccountId: account.parentAccountId ?? null,
+        parentAccountName: account.parentAccount?.name ?? null,
+        isShared: Boolean(account.parentAccountId || (account.childAccounts && account.childAccounts.length > 0)),
+        isChild: Boolean(account.parentAccountId),
         cardLast4: account.type === AccountType.CREDIT_CARD ? account.vaultEntry?.last4 ?? null : null,
-        cardNetwork: account.type === AccountType.CREDIT_CARD ? account.vaultEntry?.cardNetwork ?? null : null },
+        cardNetwork: account.type === AccountType.CREDIT_CARD ? account.vaultEntry?.cardNetwork ?? null : null,
+      },
       transactions: transactions.map((item) => ({ id: item.id, transactionDate: item.transactionDate, postedDate: item.postedDate,
         description: item.merchant || item.descriptionRaw, details: item.merchant ? item.descriptionRaw : null, amount: Number(item.amount),
         categoryId: item.categoryId, category: item.category?.name ?? 'Uncategorised', categoryColor: item.category?.color ?? '#94a3b8',
@@ -468,7 +537,10 @@ export class AccountsService {
   }
 
   async updateAccount(userId: string, accountId: string, dto: UpdateAccountDto) {
-    const account = await this.prisma.account.findFirst({ where: { id: accountId, userId } });
+    const account = await this.prisma.account.findFirst({
+      where: { id: accountId, userId },
+      include: { childAccounts: { select: { id: true } } },
+    });
     if (!account) throw new NotFoundException('Account not found.');
     
     const updateData: any = {};
@@ -478,16 +550,55 @@ export class AccountsService {
     if (dto.creditLimit !== undefined) updateData.creditLimit = dto.creditLimit !== null ? BigInt(dto.creditLimit) : null;
     if (dto.statementDay !== undefined) updateData.statementDay = dto.statementDay;
     if (dto.dueDay !== undefined) updateData.dueDay = dto.dueDay;
+
+    if (dto.parentAccountId !== undefined) {
+      if (dto.parentAccountId) {
+        if (account.type !== AccountType.CREDIT_CARD) {
+          throw new BadRequestException('Only credit cards can be linked under a shared limit/bill.');
+        }
+        if (dto.parentAccountId === account.id) {
+          throw new BadRequestException('A card cannot link to itself.');
+        }
+        if (account.childAccounts && account.childAccounts.length > 0) {
+          throw new BadRequestException('This card has other cards linked to it and cannot become a child card.');
+        }
+        const parentCard = await this.prisma.account.findFirst({
+          where: { id: dto.parentAccountId, userId, archived: false, type: AccountType.CREDIT_CARD },
+        });
+        if (!parentCard) {
+          throw new BadRequestException('Selected parent credit card was not found.');
+        }
+        if (parentCard.parentAccountId) {
+          throw new BadRequestException('The selected parent card is already linked to another card. Multi-level nesting is not supported.');
+        }
+        updateData.parentAccountId = parentCard.id;
+      } else {
+        updateData.parentAccountId = null;
+      }
+    }
     
     const updated = await this.prisma.account.update({
       where: { id: account.id },
-      data: updateData
+      data: updateData,
+      include: {
+        parentAccount: { select: { id: true, name: true, creditLimit: true, statementDay: true, dueDay: true } },
+        childAccounts: { select: { id: true, name: true, creditLimit: true } },
+      },
     });
+
+    const effectiveCreditLimit = updated.creditLimit !== null
+      ? Number(updated.creditLimit)
+      : (updated.parentAccount?.creditLimit !== null && updated.parentAccount?.creditLimit !== undefined ? Number(updated.parentAccount.creditLimit) : null);
     
     return {
       ...updated,
       openingBalance: Number(updated.openingBalance),
-      creditLimit: updated.creditLimit !== null ? Number(updated.creditLimit) : null
+      creditLimit: effectiveCreditLimit,
+      parentAccountId: updated.parentAccountId ?? null,
+      parentAccountName: updated.parentAccount?.name ?? null,
+      isShared: Boolean(updated.parentAccountId || (updated.childAccounts && updated.childAccounts.length > 0)),
+      isChild: Boolean(updated.parentAccountId),
+      childAccountCount: updated.childAccounts?.length ?? 0,
     };
   }
 
@@ -612,6 +723,8 @@ export class AccountsService {
       where: { userId, type: AccountType.CREDIT_CARD, archived: false },
       include: {
         vaultEntry: true,
+        parentAccount: { select: { id: true, name: true, creditLimit: true, statementDay: true, dueDay: true } },
+        childAccounts: { select: { id: true, name: true, creditLimit: true, statementDay: true, dueDay: true } },
       },
     });
 
@@ -759,20 +872,55 @@ export class AccountsService {
       count: Math.max(0, filteredAnalyticsTransactions.filter((t) => t.amount < 0).length - overallTopRecCount),
     };
 
+    // Pre-calculate balances for each individual card
+    const cardBalances = new Map<string, { currentBalance: number; outstanding: number }>();
+    cardAccounts.forEach((card) => {
+      const cardTxns = allCardTransactions.filter((t) => t.accountId === card.id);
+      cardBalances.set(card.id, computeCreditCardCurrentBalance(card, cardTxns));
+    });
+
+    // Group cards into shared pools by root parent ID
+    const poolMap = new Map<string, { rootCard: any; members: any[]; poolLimit: number; poolOutstanding: number }>();
+    cardAccounts.forEach((card) => {
+      const rootId = card.parentAccountId || card.id;
+      const rootCard = cardAccounts.find((c) => c.id === rootId) || card;
+      const poolLimit = rootCard.creditLimit ? Number(rootCard.creditLimit) : (card.creditLimit ? Number(card.creditLimit) : 0);
+
+      const existing = poolMap.get(rootId) || { rootCard, members: [], poolLimit, poolOutstanding: 0 };
+      existing.members.push(card);
+      existing.poolOutstanding += (cardBalances.get(card.id)?.outstanding ?? 0);
+      if (poolLimit > existing.poolLimit) existing.poolLimit = poolLimit;
+      poolMap.set(rootId, existing);
+    });
+
     let totalLimit = 0;
     let totalOutstanding = 0;
     let totalAvailable = 0;
 
+    // Total limit counts each unique pool once (avoids double counting child cards)
+    poolMap.forEach((pool) => {
+      totalLimit += pool.poolLimit;
+      const poolAvailable = Math.max(0, pool.poolLimit - pool.poolOutstanding);
+      totalAvailable += poolAvailable;
+    });
+
     const cards = cardAccounts.map((card) => {
       const cardTxns = allCardTransactions.filter((t) => t.accountId === card.id);
-      const creditLimit = card.creditLimit ? Number(card.creditLimit) : 0;
-      const { currentBalance, outstanding } = computeCreditCardCurrentBalance(card, cardTxns);
-      const availableCredit = Math.max(0, creditLimit - outstanding);
-      const utilizationPercent = creditLimit > 0 ? Math.min(100, Math.round((outstanding / creditLimit) * 100)) : 0;
+      const rootId = card.parentAccountId || card.id;
+      const pool = poolMap.get(rootId)!;
 
-      totalLimit += creditLimit;
+      const isChild = Boolean(card.parentAccountId);
+      const isParent = Boolean(card.childAccounts && card.childAccounts.length > 0);
+      const isShared = isChild || isParent;
+
+      const { currentBalance, outstanding } = cardBalances.get(card.id)!;
       totalOutstanding += outstanding;
-      totalAvailable += availableCredit;
+
+      const cardCreditLimit = isShared ? pool.poolLimit : (card.creditLimit ? Number(card.creditLimit) : 0);
+      const availableCredit = isShared ? Math.max(0, pool.poolLimit - pool.poolOutstanding) : Math.max(0, cardCreditLimit - outstanding);
+      const utilizationPercent = cardCreditLimit > 0
+        ? Math.min(100, Math.round(((isShared ? pool.poolOutstanding : outstanding) / cardCreditLimit) * 100))
+        : 0;
 
       let cardInbound = 0;
       let cardOutbound = 0;
@@ -828,19 +976,33 @@ export class AccountsService {
         count: Math.max(0, cardAnalyticsTxns.filter((t) => t.amount < 0).length - topRecCount),
       };
 
+      const statementDate = card.statementDay ?? card.parentAccount?.statementDay ?? null;
+      const dueDate = card.dueDay ?? card.parentAccount?.dueDay ?? null;
+      const linkedCardNames = pool.members.filter((m) => m.id !== card.id).map((m) => m.name);
+
       return {
         id: card.id,
         name: card.name,
         institution: card.institution,
         cardLast4: card.vaultEntry?.last4 ?? null,
         cardNetwork: card.vaultEntry?.cardNetwork ?? null,
-        creditLimit,
+        creditLimit: cardCreditLimit,
         currentBalance,
         outstanding,
         availableCredit,
         utilizationPercent,
-        statementDate: card.statementDay,
-        dueDate: card.dueDay,
+        statementDate,
+        dueDate,
+        isShared,
+        isParent,
+        isChild,
+        parentAccountId: card.parentAccountId ?? null,
+        parentAccountName: card.parentAccount?.name ?? null,
+        linkedCardNames,
+        poolCreditLimit: pool.poolLimit,
+        poolOutstanding: pool.poolOutstanding,
+        poolAvailableCredit: Math.max(0, pool.poolLimit - pool.poolOutstanding),
+        poolUtilization: pool.poolLimit > 0 ? Math.min(100, Math.round((pool.poolOutstanding / pool.poolLimit) * 100)) : 0,
         totalInbound: cardInbound,
         totalOutbound: cardOutbound,
         categories,

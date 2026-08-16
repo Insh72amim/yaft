@@ -26,6 +26,11 @@ export type Account = {
   cardNetwork: string | null;
   monthlyCredited: number;
   monthlyDebited: number;
+  parentAccountId?: string | null;
+  parentAccountName?: string | null;
+  isShared?: boolean;
+  isChild?: boolean;
+  childAccountCount?: number;
   loanOutstanding?: number;
   nextEmiDate?: string;
   nextEmiAmount?: number;
@@ -152,7 +157,23 @@ export function CreditCardAccountCard({
             <CreditCard size={20} />
           )}
         </div>
-        <span>{account.cardNetwork || "Credit card"}</span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" }}>
+          <span>{account.cardNetwork || "Credit card"}</span>
+          {account.isShared && (
+            <span
+              style={{
+                fontSize: "10px",
+                fontWeight: 700,
+                color: "rgba(255, 255, 255, 0.95)",
+                background: "rgba(0, 0, 0, 0.35)",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                backdropFilter: "blur(4px)",
+              }}>
+              {account.isChild ? `🔗 Shared with ${account.parentAccountName || "Primary"}` : "🔗 Shared Pool"}
+            </span>
+          )}
+        </div>
       </div>
       <strong className="credit-account-card-number" aria-label={account.cardLast4 ? `Card ending ${account.cardLast4}` : "Card number not stored"}>
         {maskedNumber}
@@ -174,6 +195,14 @@ export function CreditCardAccountCard({
             <AccountAmount value={outstanding} visible={amountsVisible} />
           </strong>
         </span>
+        {account.creditLimit && (
+          <span style={{ textAlign: "right" }}>
+            <small>{account.isShared ? "Pool Limit" : "Limit"}</small>
+            <strong>
+              <AccountAmount value={account.creditLimit} visible={amountsVisible} />
+            </strong>
+          </span>
+        )}
       </div>
     </button>
   );

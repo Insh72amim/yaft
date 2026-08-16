@@ -15,8 +15,24 @@ import { AccountType } from '@/lib/constants';
 type CategoryOption = { id: string; name: string; color: string };
 
 type AccountLedger = {
-  account: { id: string; name: string; type: string; institution: string | null; currency: string; openingBalance: number; balance: number;
-    creditLimit?: number | null; statementDay?: number | null; dueDay?: number | null; cardLast4?: string | null; cardNetwork?: string | null };
+  account: {
+    id: string;
+    name: string;
+    type: string;
+    institution: string | null;
+    currency: string;
+    openingBalance: number;
+    balance: number;
+    creditLimit?: number | null;
+    statementDay?: number | null;
+    dueDay?: number | null;
+    parentAccountId?: string | null;
+    parentAccountName?: string | null;
+    isShared?: boolean;
+    isChild?: boolean;
+    cardLast4?: string | null;
+    cardNetwork?: string | null;
+  };
   transactions: { id: string; transactionDate: string; postedDate: string | null; description: string; details: string | null;
     amount: number; categoryId?: string | null; category: string; categoryColor?: string; isTransfer: boolean }[];
   categories?: CategoryOption[];
@@ -250,7 +266,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
             <div>
               <small>Available credit</small>
               <strong>{availableCredit === null ? 'Not set' : money(availableCredit)}</strong>
-              <em>{account.creditLimit == null ? 'Add a credit limit in card settings' : `${money(account.creditLimit)} total limit`}</em>
+              <em>{account.creditLimit == null ? 'Add a credit limit in card settings' : account.isChild ? `Shared with ${account.parentAccountName || 'Primary Card'} (${money(account.creditLimit)})` : `${money(account.creditLimit)} total limit`}</em>
             </div>
           </article>
           <article>

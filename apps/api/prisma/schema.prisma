@@ -131,7 +131,12 @@ model Account {
   statementCredential StatementCredential?
   vaultEntry          AccountVaultEntry?
 
+  parentAccountId String?
+  parentAccount   Account?  @relation("AccountHierarchy", fields: [parentAccountId], references: [id], onDelete: SetNull)
+  childAccounts   Account[] @relation("AccountHierarchy")
+
   @@index([userId])
+  @@index([parentAccountId])
 }
 
 model AccountDocument {

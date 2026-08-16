@@ -35,6 +35,16 @@ export type CardSummary = {
   utilizationPercent: number;
   statementDate: number | null;
   dueDate: number | null;
+  isShared?: boolean;
+  isParent?: boolean;
+  isChild?: boolean;
+  parentAccountId?: string | null;
+  parentAccountName?: string | null;
+  linkedCardNames?: string[];
+  poolCreditLimit?: number;
+  poolOutstanding?: number;
+  poolAvailableCredit?: number;
+  poolUtilization?: number;
   totalInbound: number;
   totalOutbound: number;
   categories: CardCategoryItem[];
@@ -239,11 +249,32 @@ export function BeautifulCreditCardTile({
           </div>
         </div>
 
+        {card.isShared && (
+          <div style={{ marginTop: "8px", marginBottom: "4px" }}>
+            <span
+              style={{
+                fontSize: "10px",
+                fontWeight: 700,
+                color: "rgba(255, 255, 255, 0.95)",
+                background: "rgba(0, 0, 0, 0.4)",
+                padding: "3px 8px",
+                borderRadius: "6px",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                backdropFilter: "blur(6px)",
+              }}>
+              {card.isChild ? `🔗 Shared Limit with ${card.parentAccountName || "Primary Card"}` : `🔗 Shared Pool (${(card.linkedCardNames?.length || 1) + 1} Cards)`}
+            </span>
+          </div>
+        )}
+
         <strong
           className="credit-account-card-number"
           style={{
             display: "block",
-            margin: "12px 0 10px 0",
+            margin: "8px 0 10px 0",
             fontSize: "1.25rem",
             letterSpacing: "2px",
             fontFamily: "monospace",
@@ -300,7 +331,7 @@ export function BeautifulCreditCardTile({
         }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", marginBottom: "6px" }}>
           <span style={{ color: "rgba(255,255,255,0.9)" }}>Due: <strong style={{ color: card.outstanding > 0 ? "#f87171" : "#ffffff" }}>{money(card.outstanding)}</strong></span>
-          <span style={{ color: "rgba(255,255,255,0.9)" }}>Avail: <strong style={{ color: "#4ade80" }}>{money(card.availableCredit)}</strong></span>
+          <span style={{ color: "rgba(255,255,255,0.9)" }}>{card.isShared ? "Pool Avail:" : "Avail:"} <strong style={{ color: "#4ade80" }}>{money(card.availableCredit)}</strong></span>
           <span style={{ fontWeight: 800, color: isHighRisk ? "#f87171" : "#4ade80" }}>{card.utilizationPercent}% Used</span>
         </div>
 
