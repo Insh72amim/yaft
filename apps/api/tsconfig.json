@@ -10,10 +10,8 @@
     "target": "ES2022",
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "./src",
     "baseUrl": "./",
-    "paths": {
-      "@yaft/shared": ["../../packages/shared/src/index.ts"]
-    },
     "incremental": true,
     "strict": true,
     "skipLibCheck": true,
