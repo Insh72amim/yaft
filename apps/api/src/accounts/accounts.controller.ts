@@ -175,4 +175,22 @@ export class AccountsController {
   ) {
     return this.accountsService.updateTransactionCategory(user.id, accountId, transactionId, dto.categoryId);
   }
+
+  @Get(':accountId/loan')
+  async getLoanDetails(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+  ) {
+    return this.accountsService.getLoanDetails(user.id, accountId);
+  }
+
+  @Patch(':accountId/installments/:installmentId/confirm')
+  async confirmLoanInstallment(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Param('installmentId') installmentId: string,
+  ) {
+    return this.accountsService.confirmLoanInstallment(user.id, accountId, installmentId);
+  }
 }
+

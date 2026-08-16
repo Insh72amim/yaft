@@ -1135,4 +1135,120 @@ export class AccountsService {
       where: { id: transaction.id }
     });
   }
+
+  async getLoanDetails(userId: string, accountId: string) {
+    const account = await this.prisma.account.findFirst({
+      where: { id: accountId, userId },
+      include: {
+        loans: {
+          include: {
+            installments: {
+              orderBy: { dueDate: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!account) {
+      throw new NotFoundException('Account not found.');
+    }
+
+    const loan = account.loans[0];
+    if (!loan) {
+      throw new NotFoundException('Loan details not found for this account.');
+    }
+
+    const installments = loan.installments;
+    const now = new Date();
+    const todayYMD = now.toISOString().slice(0, 10);
+    const dueIds = installments
+      .filter((i: any) => i.status === 'FUTURE' && (i.dueDate <= now || i.dueDate.toISOString().slice(0, 10) <= todayYMD))
+      .map((i: any) => i.id);
+
+    if (dueIds.length > 0) {
+      await this.prisma.loanInstallment.updateMany({
+        where: { id: { in: dueIds } },
+        data: { status: 'PAST_UNCONFIRMED' },
+      });
+      for (const inst of installments) {
+        if (dueIds.includes(inst.id)) {
+          inst.status = 'PAST_UNCONFIRMED' as any;
+        }
+      }
+    }
+
+    const totalInterest = installments.reduce((sum: number, i: any) => sum + Number(i.interestAmount), 0);
+    const paidInstallments = installments.filter((i: any) => i.status === 'PAID');
+    const totalPaid = paidInstallments.reduce((sum: number, i: any) => sum + Number(i.emiAmount), 0);
+    const lastPaid = paidInstallments[paidInstallments.length - 1];
+    const outstanding = lastPaid ? Number(lastPaid.balance) : Number(loan.principal);
+
+    return {
+      accountName: account.name,
+      loan: {
+        id: loan.id,
+        startDate: loan.startDate.toISOString(),
+        principal: Number(loan.principal),
+        interestRate: Number(loan.interestRate),
+        emiAmount: Number(loan.emiAmount),
+        emiDay: loan.emiDay,
+        termMonths: loan.termMonths,
+      },
+      installments: installments.map((i: any, idx: number) => ({
+        id: i.id,
+        number: idx + 1,
+        dueDate: i.dueDate.toISOString(),
+        principalAmount: Number(i.principalAmount),
+        interestAmount: Number(i.interestAmount),
+        emiAmount: Number(i.emiAmount),
+        balance: Number(i.balance),
+        status: i.status,
+        confirmedAt: i.confirmedAt ? i.confirmedAt.toISOString() : null,
+      })),
+      summary: {
+        totalInterest,
+        totalPaid,
+        outstanding,
+        paidCount: paidInstallments.length,
+        totalCount: installments.length,
+      },
+    };
+  }
+
+  async confirmLoanInstallment(userId: string, accountId: string, installmentId: string) {
+    const account = await this.prisma.account.findFirst({
+      where: { id: accountId, userId },
+      include: { loans: true },
+    });
+    if (!account) throw new NotFoundException('Account not found.');
+    const loan = account.loans[0];
+    if (!loan) throw new NotFoundException('Loan not found.');
+
+    const inst = await this.prisma.loanInstallment.findFirst({
+      where: { id: installmentId, loanId: loan.id },
+    });
+    if (!inst) throw new NotFoundException('Installment not found.');
+    if (inst.status === 'PAID') return { ok: true };
+
+    const confirmedAt = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const txn = await tx.transaction.create({
+        data: {
+          accountId: loan.accountId,
+          transactionDate: confirmedAt,
+          descriptionRaw: `Loan EMI payment (${loan.id})`,
+          amount: BigInt(-Number(inst.emiAmount)),
+          fingerprint: `${loan.id}:${inst.id}`,
+        },
+      });
+
+      const updatedInst = await tx.loanInstallment.update({
+        where: { id: inst.id },
+        data: { status: 'PAID', confirmedAt },
+      });
+      return { txnId: txn.id, installmentId: updatedInst.id, ok: true };
+    });
+  }
 }
+
