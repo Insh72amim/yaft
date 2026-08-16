@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@yaft/shared": [
+        "../../packages/shared/src/index.ts"
       ]
     }
   },

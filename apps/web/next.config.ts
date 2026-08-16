@@ -5,6 +5,7 @@ const apiOrigin = (process.env.YAFT_API_INTERNAL_URL ?? 'http://localhost:4000')
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  transpilePackages: ['@yaft/shared'],
   distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   outputFileTracingRoot: path.join(__dirname, '../..'),
   async rewrites() {
