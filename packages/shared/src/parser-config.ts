@@ -258,21 +258,21 @@ export function extractAlertReferenceNumber(text: string): string | undefined {
 
 export function extractAlertRawMerchant(text: string): string {
   const merchantNameMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_NAME_LABEL_REGEX);
-  if (merchantNameMatch) return merchantNameMatch[1];
+  if (merchantNameMatch) return merchantNameMatch[1].replace(/[.,\s\-_]+$/, '').trim();
 
   const txnInfoMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_TXN_INFO_REGEX);
-  if (txnInfoMatch) return txnInfoMatch[1];
+  if (txnInfoMatch) return txnInfoMatch[1].replace(/[.,\s\-_]+$/, '').trim();
 
   const toVpaMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_TO_VPA_REGEX);
   if (toVpaMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank)$/i.test(toVpaMatch[1].trim())) {
-    return toVpaMatch[1];
+    return toVpaMatch[1].replace(/[.,\s\-_]+$/, '').trim();
   }
 
   const towardsMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_TOWARDS_REGEX);
-  if (towardsMatch) return towardsMatch[1];
+  if (towardsMatch) return towardsMatch[1].replace(/[.,\s\-_]+$/, '').trim();
 
   const atMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_AT_REGEX);
-  if (atMatch) return atMatch[1];
+  if (atMatch) return atMatch[1].replace(/[.,\s\-_]+$/, '').trim();
 
   return 'General Merchant';
 }
