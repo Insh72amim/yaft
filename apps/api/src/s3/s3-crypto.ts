@@ -17,6 +17,7 @@ export type YaftBackupPayload = {
     fileCount: number;
     salaryCount?: number;
     organizationCount?: number;
+    holdingCount?: number;
   };
   database: {
     accounts: any[];
@@ -27,6 +28,8 @@ export type YaftBackupPayload = {
     sips: any[];
     loans: any[];
     loanInstallments: any[];
+    assets?: any[];
+    portfolioHoldings?: any[];
     importBatches: any[];
     stagedTransactions: any[];
     accountDocuments: any[];
@@ -37,6 +40,8 @@ export type YaftBackupPayload = {
     salaryLineItems?: any[];
     tags?: any[];
     transactionTags?: any[];
+    googleEmailConfigs?: any[];
+    emailSyncLogs?: any[];
   };
   files: Array<{
     s3Key: string;

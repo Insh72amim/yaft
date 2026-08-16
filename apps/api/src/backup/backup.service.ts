@@ -85,6 +85,8 @@ export class BackupService {
       sips,
       loans,
       loanInstallments,
+      assets,
+      portfolioHoldings,
       importBatches,
       stagedTransactions,
       accountDocuments,
@@ -92,6 +94,8 @@ export class BackupService {
       salaryLineItems,
       tags,
       transactionTags,
+      googleEmailConfigs,
+      emailSyncLogs,
     ] = await Promise.all([
       this.prisma.organization.findMany({ where: { userId } }),
       this.prisma.account.findMany({ where: { userId } }),
@@ -104,6 +108,8 @@ export class BackupService {
       this.prisma.activeSip.findMany({ where: { userId } }),
       this.prisma.loan.findMany({ where: { account: { userId } } }),
       this.prisma.loanInstallment.findMany({ where: { loan: { account: { userId } } } }),
+      this.prisma.asset.findMany({ where: { holdings: { some: { account: { userId } } } } }),
+      this.prisma.portfolioHolding.findMany({ where: { account: { userId } } }),
       this.prisma.importBatch.findMany({ where: { userId } }),
       this.prisma.stagedTransaction.findMany({ where: { batch: { userId } } }),
       this.prisma.accountDocument.findMany({ where: { account: { userId } } }),
@@ -111,9 +117,11 @@ export class BackupService {
       this.prisma.salaryLineItem.findMany({ where: { statement: { userId } } }),
       this.prisma.tag.findMany({ where: { userId } }),
       this.prisma.transactionTag.findMany({ where: { transaction: { account: { userId } } } }),
+      this.prisma.googleEmailConfig.findMany({ where: { userId } }),
+      this.prisma.emailSyncLog.findMany({ where: { userId } }),
     ]);
 
-    // Download & bundle attached document files from S3 / MinIO (both Account Documents and Salary Payslips)
+    // Download & bundle attached document files from S3 / MinIO (Account Documents and Salary Payslips)
     const files: YaftBackupPayload['files'] = [];
 
     // 1. Account Documents
@@ -149,7 +157,7 @@ export class BackupService {
 
     const payload: YaftBackupPayload = {
       metadata: {
-        version: '1.1',
+        version: '1.2',
         exportedAt: new Date().toISOString(),
         userId,
         accountCount: accounts.length,
@@ -157,6 +165,7 @@ export class BackupService {
         fileCount: files.length,
         salaryCount: salaryStatements.length,
         organizationCount: organizations.length,
+        holdingCount: portfolioHoldings.length,
       },
       database: serializeBigInts({
         organizations,
@@ -170,6 +179,8 @@ export class BackupService {
         sips,
         loans,
         loanInstallments,
+        assets,
+        portfolioHoldings,
         importBatches,
         stagedTransactions,
         accountDocuments,
@@ -177,6 +188,8 @@ export class BackupService {
         salaryLineItems,
         tags,
         transactionTags,
+        googleEmailConfigs,
+        emailSyncLogs,
       }),
       files,
     };
@@ -195,6 +208,7 @@ export class BackupService {
     documentsRestored: number;
     salariesRestored: number;
     organizationsRestored: number;
+    holdingsRestored: number;
     filesRestored: number;
   }> {
     if (!passphrase || passphrase.trim().length === 0) {
@@ -213,6 +227,7 @@ export class BackupService {
     }
 
     const db = deserializeBigInts(payload.database);
+    const originalUserId = payload.metadata?.userId;
 
     // Re-upload attachments to S3 / MinIO
     let filesRestored = 0;
@@ -221,6 +236,13 @@ export class BackupService {
         try {
           const fileBuffer = Buffer.from(file.base64Data, 'base64');
           await this.s3Service.uploadFile(file.s3Key, fileBuffer, file.mimeType);
+
+          // If restoring to a new user account, ensure the salary file is also placed under the new userId path
+          if (originalUserId && originalUserId !== userId && file.s3Key.startsWith(`salaries/${originalUserId}/`)) {
+            const remappedKey = file.s3Key.replace(`salaries/${originalUserId}/`, `salaries/${userId}/`);
+            await this.s3Service.uploadFile(remappedKey, fileBuffer, file.mimeType);
+          }
+
           filesRestored++;
         } catch (err: any) {
           this.logger.warn(`Failed to re-upload S3 file ${file.s3Key}: ${err.message}`);
@@ -331,7 +353,46 @@ export class BackupService {
         });
       }
 
-      // 7. Salary Statements & Line Items
+      // 7. Assets & Portfolio Holdings
+      for (const asset of db.assets || []) {
+        await tx.asset.upsert({
+          where: { symbol: asset.symbol },
+          create: {
+            id: asset.id,
+            symbol: asset.symbol,
+            name: asset.name,
+            type: asset.type,
+            isin: asset.isin,
+            sector: asset.sector,
+          },
+          update: {
+            name: asset.name,
+            type: asset.type,
+            isin: asset.isin,
+            sector: asset.sector,
+          },
+        });
+      }
+      for (const holding of db.portfolioHoldings || []) {
+        await tx.portfolioHolding.upsert({
+          where: { accountId_assetId: { accountId: holding.accountId, assetId: holding.assetId } },
+          create: holding,
+          update: {
+            quantity: holding.quantity,
+            availableQuantity: holding.availableQuantity,
+            discrepantQuantity: holding.discrepantQuantity,
+            longTermQuantity: holding.longTermQuantity,
+            pledgedQuantity: holding.pledgedQuantity,
+            averagePrice: holding.averagePrice,
+            previousClosingPrice: holding.previousClosingPrice,
+            currentValue: holding.currentValue,
+            unrealizedPnl: holding.unrealizedPnl,
+            asOfDate: holding.asOfDate,
+          },
+        });
+      }
+
+      // 8. Salary Statements & Line Items
       for (const stmt of db.salaryStatements || []) {
         await tx.salaryStatement.upsert({
           where: { id: stmt.id },
@@ -389,7 +450,7 @@ export class BackupService {
         });
       }
 
-      // 8. Import Batches & Staged Txns
+      // 9. Import Batches & Staged Txns
       for (const batch of db.importBatches || []) {
         await tx.importBatch.upsert({
           where: { id: batch.id },
@@ -405,7 +466,7 @@ export class BackupService {
         });
       }
 
-      // 9. Transactions
+      // 10. Transactions
       for (const t of db.transactions || []) {
         await tx.transaction.upsert({
           where: { id: t.id },
@@ -424,7 +485,7 @@ export class BackupService {
         });
       }
 
-      // 10. Tags & TransactionTags
+      // 11. Tags & TransactionTags
       for (const tag of db.tags || []) {
         await tx.tag.upsert({
           where: { id: tag.id },
@@ -440,7 +501,7 @@ export class BackupService {
         });
       }
 
-      // 11. Category Budgets
+      // 12. Category Budgets
       for (const b of db.budgets || []) {
         await tx.categoryBudget.upsert({
           where: { id: b.id },
@@ -449,7 +510,7 @@ export class BackupService {
         });
       }
 
-      // 12. SIPs
+      // 13. SIPs
       for (const sip of db.sips || []) {
         await tx.activeSip.upsert({
           where: { id: sip.id },
@@ -458,7 +519,7 @@ export class BackupService {
         });
       }
 
-      // 13. Loans & Installments
+      // 14. Loans & Installments
       for (const loan of db.loans || []) {
         await tx.loan.upsert({
           where: { id: loan.id },
@@ -474,12 +535,39 @@ export class BackupService {
         });
       }
 
-      // 14. Account Documents
+      // 15. Account Documents
       for (const doc of db.accountDocuments || []) {
         await tx.accountDocument.upsert({
           where: { id: doc.id },
           create: doc,
           update: { name: doc.name, mimeType: doc.mimeType, byteSize: doc.byteSize },
+        });
+      }
+
+      // 16. Google Email Configs & Sync Logs
+      for (const cfg of db.googleEmailConfigs || []) {
+        await tx.googleEmailConfig.upsert({
+          where: { userId_email: { userId, email: cfg.email } },
+          create: { ...cfg, userId },
+          update: {
+            refreshCipher: cfg.refreshCipher,
+            refreshIv: cfg.refreshIv,
+            refreshTag: cfg.refreshTag,
+            syncStatus: cfg.syncStatus,
+            lastSyncAt: cfg.lastSyncAt,
+          },
+        });
+      }
+      for (const log of db.emailSyncLogs || []) {
+        await tx.emailSyncLog.upsert({
+          where: { id: log.id },
+          create: { ...log, userId },
+          update: {
+            status: log.status,
+            emailsScanned: log.emailsScanned,
+            alertsParsed: log.alertsParsed,
+            transactionsAdded: log.transactionsAdded,
+          },
         });
       }
     });
@@ -491,6 +579,7 @@ export class BackupService {
       documentsRestored: db.accountDocuments?.length || 0,
       salariesRestored: db.salaryStatements?.length || 0,
       organizationsRestored: db.organizations?.length || 0,
+      holdingsRestored: db.portfolioHoldings?.length || 0,
       filesRestored,
     };
   }

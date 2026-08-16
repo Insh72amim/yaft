@@ -21,6 +21,8 @@ describe('BackupService', () => {
       activeSip: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       loan: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       loanInstallment: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
+      asset: { findMany: jest.fn().mockResolvedValue([{ id: 'asset-1', symbol: 'RELIANCE', name: 'Reliance Industries', type: 'STOCK' }]), upsert: jest.fn() },
+      portfolioHolding: { findMany: jest.fn().mockResolvedValue([{ id: 'hold-1', accountId: 'acc-1', assetId: 'asset-1', quantity: 10, averagePrice: 250000n }]), upsert: jest.fn() },
       importBatch: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       stagedTransaction: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       accountDocument: { findMany: jest.fn().mockResolvedValue([{ id: 'doc-1', storageKey: 'docs/test.pdf', mimeType: 'application/pdf', name: 'test.pdf' }]), upsert: jest.fn() },
@@ -28,6 +30,8 @@ describe('BackupService', () => {
       salaryLineItem: { findMany: jest.fn().mockResolvedValue([{ id: 'item-1', statementId: 'stmt-1', type: 'BASIC', description: 'Basic Salary', currentAmount: 50000n }]), upsert: jest.fn() },
       tag: { findMany: jest.fn().mockResolvedValue([{ id: 'tag-1', name: 'Vacation' }]), upsert: jest.fn() },
       transactionTag: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
+      googleEmailConfig: { findMany: jest.fn().mockResolvedValue([{ id: 'g-1', email: 'user@example.com', refreshCipher: Buffer.from('rc'), refreshIv: Buffer.from('ri'), refreshTag: Buffer.from('rt') }]), upsert: jest.fn() },
+      emailSyncLog: { findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
       $transaction: jest.fn().mockImplementation((cb) => cb(prisma)),
     };
 
@@ -43,7 +47,7 @@ describe('BackupService', () => {
     await expect(service.exportBackup('user-1', '12345')).rejects.toThrow(BadRequestException);
   });
 
-  it('exports an encrypted backup buffer successfully including salary and documents', async () => {
+  it('exports an encrypted backup buffer successfully including salary, assets, and documents', async () => {
     const buffer = await service.exportBackup('user-1', 'MySecretPassphrase123');
     expect(buffer).toBeInstanceOf(Buffer);
     expect(buffer.length).toBeGreaterThan(60);
@@ -54,11 +58,12 @@ describe('BackupService', () => {
     expect(s3Service.downloadFile).toHaveBeenCalledWith('salaries/user-1/stmt-1.pdf');
   });
 
-  it('restores backup successfully when given correct passphrase', async () => {
+  it('restores backup successfully into a new account re-binding all user data', async () => {
     const passphrase = 'SuperSecurePassphrase2026';
     const encrypted = await service.exportBackup('user-1', passphrase);
 
-    const result = await service.restoreBackup('user-1', passphrase, encrypted);
+    // Restore into a different user account ('new-user-999')
+    const result = await service.restoreBackup('new-user-999', passphrase, encrypted);
     expect(result).toEqual({
       accountsRestored: 1,
       transactionsRestored: 1,
@@ -66,18 +71,24 @@ describe('BackupService', () => {
       documentsRestored: 1,
       salariesRestored: 1,
       organizationsRestored: 1,
+      holdingsRestored: 1,
       filesRestored: 2, // 1 account document + 1 salary payslip
     });
 
-    expect(prisma.organization.upsert).toHaveBeenCalled();
+    expect(prisma.organization.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId_name: { userId: 'new-user-999', name: 'Acme Corp' } } })
+    );
     expect(prisma.account.upsert).toHaveBeenCalled();
+    expect(prisma.asset.upsert).toHaveBeenCalled();
+    expect(prisma.portfolioHolding.upsert).toHaveBeenCalled();
     expect(prisma.statementCredential.upsert).toHaveBeenCalled();
     expect(prisma.salaryStatement.upsert).toHaveBeenCalled();
     expect(prisma.salaryLineItem.upsert).toHaveBeenCalled();
     expect(prisma.tag.upsert).toHaveBeenCalled();
     expect(prisma.transaction.upsert).toHaveBeenCalled();
+    expect(prisma.googleEmailConfig.upsert).toHaveBeenCalled();
     expect(s3Service.uploadFile).toHaveBeenCalledWith('docs/test.pdf', expect.any(Buffer), 'application/pdf');
-    expect(s3Service.uploadFile).toHaveBeenCalledWith('salaries/user-1/stmt-1.pdf', expect.any(Buffer), 'application/pdf');
+    expect(s3Service.uploadFile).toHaveBeenCalledWith('salaries/new-user-999/stmt-1.pdf', expect.any(Buffer), 'application/pdf');
   });
 
   it('fails closed when restoring with an incorrect passphrase', async () => {
