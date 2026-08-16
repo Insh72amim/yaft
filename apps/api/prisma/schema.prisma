@@ -54,6 +54,7 @@ model User {
   tags         Tag[]
   emailSyncLogs EmailSyncLog[]
   googleEmailConfigs GoogleEmailConfig[]
+  googleDriveConfig GoogleDriveConfig?
 }
 
 model SalaryStatement {
@@ -508,3 +509,30 @@ model Organization {
   @@unique([userId, name])
   @@index([userId])
 }
+
+model GoogleDriveConfig {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email                String
+  folderId             String?
+  fileId               String?
+  refreshCipher        Bytes
+  refreshIv            Bytes
+  refreshTag           Bytes
+  refreshKeyVersion    Int       @default(1)
+
+  autoBackupEnabled    Boolean   @default(true)
+  autoPassphraseCipher Bytes?
+  autoPassphraseIv      Bytes?
+  autoPassphraseTag     Bytes?
+
+  lastBackupAt         DateTime?
+  lastBackupStatus     String?   // SUCCESS, ERROR
+  lastBackupError      String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([userId])
+}
+
