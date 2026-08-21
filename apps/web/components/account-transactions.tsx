@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, ArrowRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files, Pencil, Trash, TrendingUp, Search, Filter, RotateCcw, SlidersHorizontal, X, Tag, Workflow } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files, Pencil, Trash, TrendingUp, Search, Filter, RotateCcw, SlidersHorizontal, X, Tag, Workflow, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -33,8 +33,25 @@ type AccountLedger = {
     cardLast4?: string | null;
     cardNetwork?: string | null;
   };
-  transactions: { id: string; transactionDate: string; postedDate: string | null; description: string; details: string | null;
-    amount: number; categoryId?: string | null; category: string; categoryColor?: string; isTransfer: boolean }[];
+  transactions: {
+    id: string;
+    transactionDate: string;
+    postedDate: string | null;
+    description: string;
+    details: string | null;
+    amount: number;
+    categoryId?: string | null;
+    category: string;
+    categoryColor?: string;
+    isTransfer: boolean;
+    emailReference?: {
+      messageId?: string | null;
+      subject?: string | null;
+      sender?: string | null;
+      date?: string | null;
+      snippet?: string | null;
+    } | null;
+  }[];
   categories?: CategoryOption[];
   pagination: { page: number; pageSize: number; total: number; pages: number };
 };
@@ -92,6 +109,10 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [showFilters, setShowFilters] = useState(false);
   const [showCategoryEdit, setShowCategoryEdit] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [selectedEmailRef, setSelectedEmailRef] = useState<{
+    tx: { accountName: string; amount: number; cardLast4?: string | null };
+    ref: { messageId?: string | null; subject?: string | null; sender?: string | null; date?: string | null; snippet?: string | null };
+  } | null>(null);
 
   const load = useCallback(() => {
     setError('');
@@ -629,7 +650,41 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                 <span className="time-text">{new Date(transaction.transactionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })}</span>
               </time>
               <div className="transaction-description-cell">
-                <strong>{transaction.description}</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <strong>{transaction.description}</strong>
+                  {transaction.emailReference && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedEmailRef({
+                          tx: {
+                            accountName: account.name,
+                            amount: transaction.amount,
+                            cardLast4: account.cardLast4 ?? null,
+                          },
+                          ref: transaction.emailReference!,
+                        });
+                      }}
+                      title="View source email reference"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        padding: '1px 6px',
+                        borderRadius: '12px',
+                        background: 'rgba(59, 130, 246, 0.12)',
+                        color: '#3b82f6',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        cursor: 'pointer',
+                      }}>
+                      <Mail style={{ width: '10px', height: '10px' }} />
+                      <span>Email Alert</span>
+                    </button>
+                  )}
+                </div>
                 <small>{transaction.details || (transaction.postedDate ? `Posted ${new Date(transaction.postedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}` : 'Ledger transaction')}</small>
               </div>
               <div className="transaction-category-cell">
@@ -746,6 +801,184 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
               </div>
             </form>
           </section>
+        </div>
+      )}
+
+      {selectedEmailRef && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setSelectedEmailRef(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}>
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '600px',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+              overflow: 'hidden',
+            }}>
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--line)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '8px',
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#3b82f6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Mail style={{ width: '18px', height: '18px' }} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
+                    Source Email Reference
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '12px', color: 'var(--muted)' }}>
+                    Gmail Alert Ingestion Details
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEmailRef(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}>
+                <X style={{ width: '18px', height: '18px' }} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ background: 'var(--bg-subtle, rgba(255,255,255,0.03))', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Account</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600 }}>{selectedEmailRef.tx.accountName} {selectedEmailRef.tx.cardLast4 ? `(••••${selectedEmailRef.tx.cardLast4})` : ''}</span>
+                </div>
+                <div style={{ background: 'var(--bg-subtle, rgba(255,255,255,0.03))', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Amount</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: selectedEmailRef.tx.amount < 0 ? '#ef4444' : '#10b981' }}>{money(selectedEmailRef.tx.amount)}</span>
+                </div>
+              </div>
+
+              {selectedEmailRef.ref.sender && (
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>Sender</span>
+                  <div style={{ fontSize: '13px', fontWeight: 500, background: 'var(--bg-subtle, rgba(255,255,255,0.03))', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                    {selectedEmailRef.ref.sender}
+                  </div>
+                </div>
+              )}
+
+              {selectedEmailRef.ref.subject && (
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>Subject</span>
+                  <div style={{ fontSize: '13px', fontWeight: 600, background: 'var(--bg-subtle, rgba(255,255,255,0.03))', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                    {selectedEmailRef.ref.subject}
+                  </div>
+                </div>
+              )}
+
+              {selectedEmailRef.ref.date && (
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>Received At</span>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                    {new Date(selectedEmailRef.ref.date).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'medium' })}
+                  </div>
+                </div>
+              )}
+
+              {selectedEmailRef.ref.snippet && (
+                <div>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Parsed Email Content</span>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      lineHeight: '1.6',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-card-muted, rgba(0,0,0,0.25))',
+                      border: '1px solid var(--line)',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      fontFamily: 'monospace',
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                    }}>
+                    {selectedEmailRef.ref.snippet}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                padding: '12px 20px',
+                borderTop: '1px solid var(--line)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'var(--bg-subtle, rgba(255,255,255,0.02))',
+              }}>
+              {selectedEmailRef.ref.messageId ? (
+                <a
+                  href={`https://mail.google.com/mail/u/0/#inbox/${selectedEmailRef.ref.messageId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '12px',
+                    color: '#3b82f6',
+                    textDecoration: 'none',
+                    fontWeight: 600,
+                  }}>
+                  <span>Open in Gmail</span>
+                  <ArrowUpRight style={{ width: '14px', height: '14px' }} />
+                </a>
+              ) : (
+                <div />
+              )}
+              <button
+                type="button"
+                onClick={() => setSelectedEmailRef(null)}
+                className="button secondary compact"
+                style={{ padding: '6px 16px', fontSize: '13px' }}>
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

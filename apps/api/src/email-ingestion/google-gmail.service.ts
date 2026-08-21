@@ -227,9 +227,16 @@ export class GoogleGmailService {
           const headers = msgDetail.data.payload?.headers || [];
           const subject = headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value || '';
           const from = headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value || '';
+          const dateHeader = headers.find((h: any) => h.name?.toLowerCase() === 'date')?.value;
+          const internalDate = msgDetail.data.internalDate ? new Date(Number(msgDetail.data.internalDate)) : (dateHeader ? new Date(dateHeader) : undefined);
+          const validEmailDate = internalDate && !isNaN(internalDate.getTime()) ? internalDate : undefined;
 
           const alerts = parseMultipleEmailAlerts(bodyText + ' ' + snippet, `${from} ${subject}`);
           for (const alert of alerts) {
+            alert.emailMessageId = msgDetail.data.id || undefined;
+            alert.emailSubject = subject || undefined;
+            alert.emailSender = from || undefined;
+            alert.emailDate = validEmailDate;
             extractedAlerts.push(alert);
           }
         }
@@ -380,6 +387,11 @@ export class GoogleGmailService {
             isDuplicate,
             include: !isDuplicate,
             confidence: isDuplicate ? 100 : catMatch.confidence,
+            emailMessageId: alert.emailMessageId ?? null,
+            emailSubject: alert.emailSubject ?? null,
+            emailSender: alert.emailSender ?? null,
+            emailDate: alert.emailDate ?? null,
+            emailSnippet: alert.rawSnippet ?? null,
           };
         });
 

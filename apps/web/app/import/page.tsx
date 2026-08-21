@@ -1,6 +1,6 @@
 'use client';
-import { AlertTriangle, ArrowLeft, BadgeIndianRupee, BriefcaseBusiness, Building2, Calendar, Check, CreditCard, FileSpreadsheet, KeyRound, Landmark,
-  Mail, RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowUpRight, BadgeIndianRupee, BriefcaseBusiness, Building2, Calendar, Check, CreditCard, FileSpreadsheet, KeyRound, Landmark,
+  Mail, RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
@@ -15,8 +15,27 @@ type KindOption = { kind: ImportKind; label: string; description: string; source
 type OrganizationInfo = { id: string; name: string; code?: string | null; isCurrent: boolean };
 type Catalog = { accounts: Account[]; organizations?: OrganizationInfo[]; options: KindOption[] };
 type Category = { id: string; name: string; color: string };
-type BankRow = { id: string; rowNumber: number; transactionDate: string; postedDate: string | null; descriptionRaw: string; merchant: string | null;
-  amount: number; reference: string | null; categoryId: string | null; isDuplicate: boolean; include: boolean; confidence: number };
+type BankRow = {
+  id: string;
+  rowNumber: number;
+  transactionDate: string;
+  postedDate: string | null;
+  descriptionRaw: string;
+  merchant: string | null;
+  amount: number;
+  reference: string | null;
+  categoryId: string | null;
+  isDuplicate: boolean;
+  include: boolean;
+  confidence: number;
+  emailReference?: {
+    messageId?: string | null;
+    subject?: string | null;
+    sender?: string | null;
+    date?: string | null;
+    snippet?: string | null;
+  } | null;
+};
 type BankReview = { id: string; filename: string; status: string; rowCount: number; createdAt: string; account: { id: string; name: string; institution?: string | null; last4?: string | null };
   categories: Category[]; staged: BankRow[]; statementBalance: number | null };
 type SalaryItem = { id: string; type: 'EARNING' | 'DEDUCTION' | 'EMPLOYER_CONTRIBUTION'; description: string; currentAmount: number; ytdAmount: number | null };
@@ -1015,6 +1034,10 @@ function ImportWorkspace() {
 function BankReviewPanel({ item, busy, update, finish }: { item: BankPending; busy: boolean;
   update: (item: BankPending, row: BankRow, changes: { include?: boolean; categoryId?: string }) => void;
   finish: (item: PendingImport, action: 'commit' | 'discard') => void }) {
+  const [selectedEmailRef, setSelectedEmailRef] = useState<{
+    row: BankRow;
+    ref: NonNullable<BankRow['emailReference']>;
+  } | null>(null);
   const included = item.review.staged.filter((row) => row.include && !row.isDuplicate);
   const duplicates = item.review.staged.filter((row) => row.isDuplicate).length;
   const accountDetails = `${item.review.account.name}${item.review.account.last4 ? ` (••••${item.review.account.last4})` : ''}`;
@@ -1026,13 +1049,233 @@ function BankReviewPanel({ item, busy, update, finish }: { item: BankPending; bu
     <section className="review-table panel"><div className="review-head"><span>Include</span><span>Date &amp; description</span><span>Category</span><span>Amount</span></div>
       {item.review.staged.map((row) => <div className={`review-row ${!row.include ? 'excluded' : ''}`} key={row.id}><label className="check"><input type="checkbox" checked={row.include}
         disabled={busy || row.isDuplicate} aria-label={`Include ${row.merchant || row.descriptionRaw}`} onChange={(event) => void update(item, row, { include: event.target.checked })}/><span><Check/></span></label>
-        <div><strong>{row.merchant || row.descriptionRaw}</strong><small>Value {new Date(row.transactionDate).toLocaleDateString('en-IN')}{row.postedDate ? ` · Posted ${new Date(row.postedDate).toLocaleDateString('en-IN')}` : ''} · {row.descriptionRaw}</small>
-          {row.isDuplicate && <em><AlertTriangle size={12}/>Likely duplicate</em>}</div><select aria-label={`Category for ${row.merchant || row.descriptionRaw}`} value={row.categoryId ?? ''}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <strong>{row.merchant || row.descriptionRaw}</strong>
+            {row.emailReference && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedEmailRef({ row, ref: row.emailReference! });
+                }}
+                title="View source email reference"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  padding: '1px 6px',
+                  borderRadius: '12px',
+                  background: 'rgba(59, 130, 246, 0.12)',
+                  color: '#3b82f6',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  cursor: 'pointer',
+                }}
+              >
+                <Mail style={{ width: '10px', height: '10px' }} />
+                <span>Email Alert</span>
+              </button>
+            )}
+          </div>
+          <small>Value {new Date(row.transactionDate).toLocaleDateString('en-IN')}{row.postedDate ? ` · Posted ${new Date(row.postedDate).toLocaleDateString('en-IN')}` : ''} · {row.descriptionRaw}</small>
+          {row.isDuplicate && <em><AlertTriangle size={12}/>Likely duplicate</em>}
+        </div>
+        <select aria-label={`Category for ${row.merchant || row.descriptionRaw}`} value={row.categoryId ?? ''}
           disabled={busy} onChange={(event) => void update(item, row, { categoryId: event.target.value })}><option value="">Uncategorised</option>{item.review.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
         <b className={row.amount > 0 ? 'positive' : ''}>{money(row.amount)}</b></div>)}</section>
     <div className="commit-bar"><div><ShieldCheck/><span><strong>{included.length} transactions ready</strong><small>Duplicates and unchecked rows will be skipped.</small></span></div>
       <div className="review-actions"><button type="button" className="ghost" disabled={busy} onClick={() => void finish(item, 'discard')}>Discard</button>
-        <button type="button" className="primary" disabled={busy || !included.length} onClick={() => void finish(item, 'commit')}>{busy ? 'Working…' : 'Approve & import'}</button></div></div></>;
+        <button type="button" className="primary" disabled={busy || !included.length} onClick={() => void finish(item, 'commit')}>{busy ? 'Working…' : 'Approve & import'}</button></div></div>
+
+    {selectedEmailRef && (
+      <div
+        className="modal-backdrop"
+        onClick={() => setSelectedEmailRef(null)}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px',
+        }}
+      >
+        <div
+          className="modal-card"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            background: 'var(--card)',
+            border: '1px solid var(--line)',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '600px',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--line)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  color: '#3b82f6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Mail style={{ width: '18px', height: '18px' }} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
+                  Source Email Reference
+                </h3>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--muted)' }}>
+                  Gmail Alert Ingestion Details
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedEmailRef(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--muted)',
+                cursor: 'pointer',
+                padding: '4px',
+              }}
+            >
+              <X style={{ width: '18px', height: '18px' }} />
+            </button>
+          </div>
+
+          <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ background: 'var(--bg-subtle, rgba(255,255,255,0.03))', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Account</span>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>{accountDetails}</span>
+              </div>
+              <div style={{ background: 'var(--bg-subtle, rgba(255,255,255,0.03))', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Amount</span>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: selectedEmailRef.row.amount < 0 ? '#ef4444' : '#10b981' }}>{money(selectedEmailRef.row.amount)}</span>
+              </div>
+            </div>
+
+            {selectedEmailRef.ref.sender && (
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>Sender</span>
+                <div style={{ fontSize: '13px', fontWeight: 500, background: 'var(--bg-subtle, rgba(255,255,255,0.03))', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                  {selectedEmailRef.ref.sender}
+                </div>
+              </div>
+            )}
+
+            {selectedEmailRef.ref.subject && (
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>Subject</span>
+                <div style={{ fontSize: '13px', fontWeight: 600, background: 'var(--bg-subtle, rgba(255,255,255,0.03))', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                  {selectedEmailRef.ref.subject}
+                </div>
+              </div>
+            )}
+
+            {selectedEmailRef.ref.date && (
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>Received At</span>
+                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                  {new Date(selectedEmailRef.ref.date).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'medium' })}
+                </div>
+              </div>
+            )}
+
+            {selectedEmailRef.ref.snippet && (
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Parsed Email Content</span>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    lineHeight: '1.6',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-card-muted, rgba(0,0,0,0.25))',
+                    border: '1px solid var(--line)',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    fontFamily: 'monospace',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                  }}
+                >
+                  {selectedEmailRef.ref.snippet}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              padding: '12px 20px',
+              borderTop: '1px solid var(--line)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'var(--bg-subtle, rgba(255,255,255,0.02))',
+            }}
+          >
+            {selectedEmailRef.ref.messageId ? (
+              <a
+                href={`https://mail.google.com/mail/u/0/#inbox/${selectedEmailRef.ref.messageId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '12px',
+                  color: '#3b82f6',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                <span>Open in Gmail</span>
+                <ArrowUpRight style={{ width: '14px', height: '14px' }} />
+              </a>
+            ) : (
+              <div />
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectedEmailRef(null)}
+              className="button secondary compact"
+              style={{ padding: '6px 16px', fontSize: '13px' }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>;
 }
 
 function SalaryReviewPanel({ item, busy, finish, download }: { item: SalaryPending; busy: boolean; finish: (item: PendingImport, action: 'commit' | 'discard') => void; download: (id: string, filename: string) => void }) {

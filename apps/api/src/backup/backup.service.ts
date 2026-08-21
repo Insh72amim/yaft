@@ -804,6 +804,11 @@ export class BackupService {
             isDuplicate: staged.isDuplicate,
             include: staged.include,
             confidence: staged.confidence,
+            emailMessageId: staged.emailMessageId ?? null,
+            emailSubject: staged.emailSubject ?? null,
+            emailSender: staged.emailSender ?? null,
+            emailDate: staged.emailDate ?? null,
+            emailSnippet: staged.emailSnippet ?? null,
           },
           update: { include: staged.include, categoryId: mappedCatId },
         });
@@ -835,6 +840,11 @@ export class BackupService {
               categoryId: mappedCatId,
               transferGroupId: mappedTransferGroupId,
               userVerified: t.userVerified,
+              emailMessageId: t.emailMessageId ?? null,
+              emailSubject: t.emailSubject ?? null,
+              emailSender: t.emailSender ?? null,
+              emailDate: t.emailDate ?? null,
+              emailSnippet: t.emailSnippet ?? null,
             },
           });
         } else {
@@ -854,6 +864,11 @@ export class BackupService {
               categoryId: mappedCatId,
               transferGroupId: mappedTransferGroupId,
               userVerified: t.userVerified,
+              emailMessageId: t.emailMessageId ?? null,
+              emailSubject: t.emailSubject ?? null,
+              emailSender: t.emailSender ?? null,
+              emailDate: t.emailDate ?? null,
+              emailSnippet: t.emailSnippet ?? null,
             },
             update: {
               transactionDate: t.transactionDate,
@@ -865,6 +880,11 @@ export class BackupService {
               categoryId: mappedCatId,
               transferGroupId: mappedTransferGroupId,
               userVerified: t.userVerified,
+              emailMessageId: t.emailMessageId ?? null,
+              emailSubject: t.emailSubject ?? null,
+              emailSender: t.emailSender ?? null,
+              emailDate: t.emailDate ?? null,
+              emailSnippet: t.emailSnippet ?? null,
             },
           });
         }

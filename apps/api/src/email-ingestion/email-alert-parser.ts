@@ -30,6 +30,10 @@ export interface ParsedEmailTransaction {
   referenceNumber?: string;
   transactionDate: Date;
   rawSnippet: string;
+  emailMessageId?: string;
+  emailSubject?: string;
+  emailSender?: string;
+  emailDate?: Date;
 }
 
 export function parseMoneyToMinorUnits(amountStr: string): bigint {

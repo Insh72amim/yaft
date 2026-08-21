@@ -241,6 +241,13 @@ model StagedTransaction {
   include        Boolean     @default(true)
   confidence     Int         @default(0)
 
+  // Reference email metadata (for alerts ingested via Gmail sync)
+  emailMessageId  String?
+  emailSubject    String?
+  emailSender     String?
+  emailDate       DateTime?
+  emailSnippet    String?
+
   @@unique([batchId, rowNumber])
   @@index([fingerprint])
 }
@@ -264,6 +271,13 @@ model Transaction {
   userVerified    Boolean      @default(false)
   tags            TransactionTag[]
   createdAt       DateTime     @default(now())
+
+  // Reference email metadata (for alerts ingested via Gmail sync)
+  emailMessageId  String?
+  emailSubject    String?
+  emailSender     String?
+  emailDate       DateTime?
+  emailSnippet    String?
 
   @@index([accountId, transactionDate])
   @@index([fingerprint])

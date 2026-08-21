@@ -245,6 +245,13 @@ export class ImportsService {
         descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: Number(row.amount), reference: row.reference,
         categoryId: row.categoryId, isDuplicate: row.isDuplicate, include: row.include, confidence: row.confidence,
         category: row.category ? { id: row.category.id, name: row.category.name, color: row.category.color } : null,
+        emailReference: (row.emailSnippet || row.emailMessageId || row.emailSubject) ? {
+          messageId: row.emailMessageId,
+          subject: row.emailSubject,
+          sender: row.emailSender,
+          date: row.emailDate,
+          snippet: row.emailSnippet,
+        } : null,
       })),
       categories: categories.map((category) => ({ id: category.id, name: category.name, color: category.color })),
     };
@@ -327,9 +334,25 @@ export class ImportsService {
         const transferGroupId = opposite ? randomUUID() : null;
         if (opposite && transferGroupId) await tx.transaction.update({ where: { id: opposite.id }, data: { transferGroupId } });
         
-        await tx.transaction.create({ data: { accountId: batch.accountId, importBatchId: batch.id, categoryId: row.categoryId,
-          transactionDate: row.transactionDate, postedDate: row.postedDate, descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: row.amount,
-          reference: row.reference, fingerprint: row.fingerprint, transferGroupId, userVerified: true } });
+        await tx.transaction.create({ data: {
+          accountId: batch.accountId,
+          importBatchId: batch.id,
+          categoryId: row.categoryId,
+          transactionDate: row.transactionDate,
+          postedDate: row.postedDate,
+          descriptionRaw: row.descriptionRaw,
+          merchant: row.merchant,
+          amount: row.amount,
+          reference: row.reference,
+          fingerprint: row.fingerprint,
+          transferGroupId,
+          userVerified: true,
+          emailMessageId: row.emailMessageId,
+          emailSubject: row.emailSubject,
+          emailSender: row.emailSender,
+          emailDate: row.emailDate,
+          emailSnippet: row.emailSnippet,
+        } });
         imported += 1;
       }
 

@@ -56,19 +56,24 @@ export class EmailIngestionService {
         alert.referenceNumber,
       );
 
-      return {
-        rowNumber: idx + 1,
-        transactionDate: alert.transactionDate,
-        descriptionRaw,
-        merchant: alert.merchant,
-        amount: alert.amountMinor,
-        reference: alert.referenceNumber || null,
-        fingerprint,
-        categoryId: catMatch.categoryId ?? null,
-        isDuplicate,
-        include: !isDuplicate,
-        confidence: isDuplicate ? 100 : catMatch.confidence,
-      };
+        return {
+          rowNumber: idx + 1,
+          transactionDate: alert.transactionDate,
+          descriptionRaw,
+          merchant: alert.merchant,
+          amount: alert.amountMinor,
+          reference: alert.referenceNumber || null,
+          fingerprint,
+          categoryId: catMatch.categoryId ?? null,
+          isDuplicate,
+          include: !isDuplicate,
+          confidence: isDuplicate ? 100 : catMatch.confidence,
+          emailMessageId: alert.emailMessageId ?? null,
+          emailSubject: dto.senderOrSubject ?? null,
+          emailSender: null,
+          emailDate: alert.transactionDate ?? null,
+          emailSnippet: alert.rawSnippet ?? null,
+        };
     });
 
     const fileHash = createHash('sha256').update(dto.snippet + stagedRows.map(r => r.fingerprint).join('-')).digest('hex');
