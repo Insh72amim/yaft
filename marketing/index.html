@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YAFT — Private, Self-Hosted Financial Workspace</title>
+  <meta name="description" content="A private, local-first financial ledger for Indian bank statements, credit card utilization, corporate payslips, EPFO passbooks, and broker holdings. Zero cloud exposure." />
+  <meta name="keywords" content="personal finance, self-hosted, private finance, Indian bank parser, SBI statement parser, Axis bank statement, EPFO passbook, credit card tracker, local-first" />
+  <meta property="og:title" content="YAFT — Private, Self-Hosted Financial Workspace" />
+  <meta property="og:description" content="Consolidate Indian bank statements, credit card swipe alerts, payslips, and broker holdings into an immutable ledger on iron you own." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Global Header Navigation -->
+  <header id="navbar" class="mkt-header">
+    <div class="mkt-container mkt-header-inner">
+      <a href="#" class="mkt-brand" aria-label="YAFT Home">
+        <div class="mkt-brand-mark">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="22" x2="21" y2="22"></line>
+            <line x1="6" y1="18" x2="6" y2="11"></line>
+            <line x1="10" y1="18" x2="10" y2="11"></line>
+            <line x1="14" y1="18" x2="14" y2="11"></line>
+            <line x1="18" y1="18" x2="18" y2="11"></line>
+            <polygon points="12 2 20 7 4 7"></polygon>
+          </svg>
+        </div>
+        <div class="mkt-brand-text">
+          <strong>YAFT</strong>
+          <span class="mkt-brand-badge">Self-Hosted</span>
+        </div>
+      </a>
+
+      <!-- Desktop Nav -->
+      <nav class="mkt-nav-links">
+        <a href="#features">Features</a>
+        <a href="#ecosystem">Indian Ecosystem</a>
+        <a href="#security">Privacy Manifesto</a>
+        <a href="#comparison">Comparison</a>
+        <a href="#deploy">Quickstart</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+
+      <!-- Actions -->
+      <div class="mkt-header-actions">
+        <button id="themeToggleBtn" class="mkt-theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+
+        <a href="https://github.com/yaft-finance/yaft" target="_blank" rel="noopener noreferrer" class="mkt-btn-ghost" title="View Source on GitHub">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+
+        <a href="#deploy" class="mkt-btn-primary">
+          <span>Deploy Self-Hosted</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+      </div>
+
+      <!-- Mobile Menu Button -->
+      <button id="mobileMenuBtn" class="mkt-mobile-btn" aria-label="Open mobile menu">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobile Drawer -->
+    <div id="mobileDrawer" class="mkt-mobile-drawer">
+      <nav class="mkt-mobile-nav">
+        <a href="#features" class="mkt-mob-link">Features</a>
+        <a href="#ecosystem" class="mkt-mob-link">Indian Ecosystem</a>
+        <a href="#security" class="mkt-mob-link">Privacy Manifesto</a>
+        <a href="#comparison" class="mkt-mob-link">Comparison</a>
+        <a href="#deploy" class="mkt-mob-link">Quickstart</a>
+        <a href="#faq" class="mkt-mob-link">FAQ</a>
+        <div class="mkt-mobile-actions">
+          <a href="#deploy" class="mkt-btn-primary mkt-mob-link">Deploy with Docker</a>
+          <a href="https://github.com/yaft-finance/yaft" target="_blank" rel="noopener noreferrer" class="mkt-btn-secondary">View on GitHub</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="mkt-hero-section">
+    <div class="mkt-hero-glow"></div>
+    <div class="mkt-container">
+      <div class="mkt-hero-badge-wrap">
+        <span class="mkt-pill-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <span>Private • 100% Self-Hosted • Zero Cloud Exposure</span>
+        </span>
+      </div>
+
+      <h1 class="mkt-hero-title">
+        Your Financial Life.<br />
+        <span class="mkt-hero-gradient-text">100% On Your Own Terms.</span>
+      </h1>
+
+      <p class="mkt-hero-subtitle">
+        Consolidate Indian bank statements, credit card swipe alerts, corporate payslips,
+        EPFO passbooks, and broker holdings into an immutable financial ledger —
+        running strictly on iron you control.
+      </p>
+
+      <div class="mkt-hero-ctas">
+        <a href="#deploy" class="mkt-btn-primary mkt-btn-lg">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+          <span>Deploy in 60 Seconds</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+        <a href="#demo" class="mkt-btn-secondary mkt-btn-lg">
+          <span>Explore Live Preview</span>
+        </a>
+      </div>
+
+      <!-- Quick Docker Snippet Bar -->
+      <div class="mkt-terminal-bar">
+        <div class="mkt-terminal-pill">
+          <span class="mkt-terminal-dot red"></span>
+          <span class="mkt-terminal-dot yellow"></span>
+          <span class="mkt-terminal-dot green"></span>
+        </div>
+        <code><span class="mkt-term-prompt">$</span> docker compose up -d</code>
+        <button id="copyHeroDockerBtn" class="mkt-terminal-copy-btn" title="Copy command">
+          <span class="copy-text">Copy</span>
+        </button>
+      </div>
+
+      <!-- Trust Badges Bar -->
+      <div class="mkt-trust-grid">
+        <div class="mkt-trust-item">
+          <span class="mkt-trust-icon">🏛️</span>
+          <div>
+            <strong>Native Indian Parsers</strong>
+            <span>Axis, SBI, PNB, EPFO & Zerodha</span>
+          </div>
+        </div>
+        <div class="mkt-trust-item">
+          <span class="mkt-trust-icon">🔒</span>
+          <div>
+            <strong>Single-Owner Security</strong>
+            <span>Argon2id + AES-256-GCM Vault</span>
+          </div>
+        </div>
+        <div class="mkt-trust-item">
+          <span class="mkt-trust-icon">⚖️</span>
+          <div>
+            <strong>Fail-Closed Ledger</strong>
+            <span>Minor-unit (paise) integer math</span>
+          </div>
+        </div>
+        <div class="mkt-trust-item">
+          <span class="mkt-trust-icon">⚡</span>
+          <div>
+            <strong>Direct Gmail Sync</strong>
+            <span>Real-time credit card swipe alerts</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Simulated Interactive Command Center Mockup -->
+      <div id="demo" class="mkt-hero-mockup-wrapper">
+        <div class="mkt-mockup-window">
+          <!-- Window Header -->
+          <div class="mkt-mockup-header">
+            <div class="mkt-mockup-controls">
+              <span class="mkt-dot red"></span>
+              <span class="mkt-dot yellow"></span>
+              <span class="mkt-dot green"></span>
+              <span class="mkt-mockup-title">YAFT Sovereign Command Center — localhost:3000</span>
+            </div>
+            <div class="mkt-mockup-actions">
+              <button id="maskToggleBtn" class="mkt-mask-btn" title="Toggle Global Privacy Amount Masking">
+                <svg class="eye-open" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg class="eye-closed" style="display:none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+                <span id="maskBtnText">Mask Numbers</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mockup Tabs -->
+          <div class="mkt-mockup-tabs">
+            <button class="mkt-mockup-tab active" data-target="tab-ledger">
+              🏛️ <span>Reconciled Master Ledger</span>
+            </button>
+            <button class="mkt-mockup-tab" data-target="tab-cards">
+              💳 <span>Credit Cards Hub & Utilization</span>
+            </button>
+            <button class="mkt-mockup-tab" data-target="tab-payslip">
+              💼 <span>Dynamic Payslip Engine</span>
+            </button>
+            <button class="mkt-mockup-tab" data-target="tab-sankey">
+              📊 <span>Multi-Bank Cash Flow</span>
+            </button>
+          </div>
+
+          <!-- Mockup Screen Content -->
+          <div class="mkt-mockup-body">
+            <!-- TAB 1: LEDGER -->
+            <div id="tab-ledger" class="mkt-tab-content active">
+              <div class="mkt-demo-screen">
+                <div class="mkt-demo-hero-stat">
+                  <div>
+                    <span class="mkt-demo-label">Total Liquid Net Worth</span>
+                    <strong class="mkt-demo-value maskable" data-real="₹ 18,42,850.00">₹ 18,42,850.00</strong>
+                    <small class="mkt-demo-subtext">
+                      <span class="mkt-text-green">✓</span> Reconciled across 4 bank & investment accounts
+                    </small>
+                  </div>
+                  <div class="mkt-demo-stat-pill">
+                    <span>Monthly Inflow</span>
+                    <strong class="mkt-text-green maskable" data-real="+ ₹ 2,45,000.00">+ ₹ 2,45,000.00</strong>
+                  </div>
+                  <div class="mkt-demo-stat-pill">
+                    <span>Monthly Spend</span>
+                    <strong class="mkt-text-orange maskable" data-real="- ₹ 68,430.00">- ₹ 68,430.00</strong>
+                  </div>
+                </div>
+
+                <div class="mkt-demo-accounts-strip">
+                  <div class="mkt-demo-account-card">
+                    <div class="mkt-demo-acc-head">
+                      <span class="mkt-acc-badge axis">Axis Bank</span>
+                      <small>•• 8492</small>
+                    </div>
+                    <strong class="maskable" data-real="₹ 5,84,320.00">₹ 5,84,320.00</strong>
+                    <span class="mkt-acc-status">✓ Verified from PDF</span>
+                  </div>
+                  <div class="mkt-demo-account-card">
+                    <div class="mkt-demo-acc-head">
+                      <span class="mkt-acc-badge sbi">SBI Savings</span>
+                      <small>•• 1042</small>
+                    </div>
+                    <strong class="maskable" data-real="₹ 3,12,400.00">₹ 3,12,400.00</strong>
+                    <span class="mkt-acc-status">✓ Running balance check</span>
+                  </div>
+                  <div class="mkt-demo-account-card">
+                    <div class="mkt-demo-acc-head">
+                      <span class="mkt-acc-badge epfo">EPFO Passbook</span>
+                      <small>UAN Verified</small>
+                    </div>
+                    <strong class="maskable" data-real="₹ 6,45,130.00">₹ 6,45,130.00</strong>
+                    <span class="mkt-acc-status">✓ +8.25% Interest Added</span>
+                  </div>
+                  <div class="mkt-demo-account-card">
+                    <div class="mkt-demo-acc-head">
+                      <span class="mkt-acc-badge zerodha">Zerodha Kite</span>
+                      <small>Holdings</small>
+                    </div>
+                    <strong class="maskable" data-real="₹ 3,01,000.00">₹ 3,01,000.00</strong>
+                    <span class="mkt-acc-status mkt-text-green">+18.4% Unrealized P&L</span>
+                  </div>
+                </div>
+
+                <div class="mkt-demo-transactions">
+                  <div class="mkt-demo-table-header">
+                    <span>Date & Time</span>
+                    <span>Description / Merchant</span>
+                    <span>Account</span>
+                    <span>Category</span>
+                    <span style="text-align:right;">Amount</span>
+                  </div>
+                  <div class="mkt-demo-table-row">
+                    <div class="mkt-row-date">
+                      <strong>22 Aug 2026</strong>
+                      <small>14:32 IST</small>
+                    </div>
+                    <div class="mkt-row-desc">
+                      <strong>INFOSYS TECHNOLOGIES / SALARY</strong>
+                      <small>Ref: SAL-20260822-0941 • Parsed Payslip</small>
+                    </div>
+                    <div><span class="mkt-acc-pill axis">Axis ••8492</span></div>
+                    <div><span class="mkt-cat-pill income">Income / Salary</span></div>
+                    <div class="mkt-row-amount positive">
+                      <strong class="maskable" data-real="+ ₹ 2,45,000.00">+ ₹ 2,45,000.00</strong>
+                    </div>
+                  </div>
+                  <div class="mkt-demo-table-row">
+                    <div class="mkt-row-date">
+                      <strong>21 Aug 2026</strong>
+                      <small>19:40 IST</small>
+                    </div>
+                    <div class="mkt-row-desc">
+                      <strong>SWIGGY BANGALORE IN</strong>
+                      <small>Gmail Sync • Instant Alert • Card Swipe</small>
+                    </div>
+                    <div><span class="mkt-acc-pill hdfc">HDFC Diners</span></div>
+                    <div><span class="mkt-cat-pill expense">Food & Dining</span></div>
+                    <div class="mkt-row-amount negative">
+                      <strong class="maskable" data-real="- ₹ 840.00">- ₹ 840.00</strong>
+                    </div>
+                  </div>
+                  <div class="mkt-demo-table-row">
+                    <div class="mkt-row-date">
+                      <strong>19 Aug 2026</strong>
+                      <small>11:15 IST</small>
+                    </div>
+                    <div class="mkt-row-desc">
+                      <strong>AMAZON PAY INDIA / REFUND</strong>
+                      <small>Reversal Netting • Rule Applied</small>
+                    </div>
+                    <div><span class="mkt-acc-pill sbi">SBI ••1042</span></div>
+                    <div><span class="mkt-cat-pill refund">Shopping (Net Refund)</span></div>
+                    <div class="mkt-row-amount positive">
+                      <strong class="maskable" data-real="+ ₹ 2,199.00">+ ₹ 2,199.00</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 2: CREDIT CARDS -->
+            <div id="tab-cards" class="mkt-tab-content">
+              <div class="mkt-demo-screen">
+                <div class="mkt-demo-cards-top">
+                  <div class="mkt-utilization-card">
+                    <div class="mkt-util-header">
+                      <span class="mkt-demo-label">Aggregate Credit Utilization</span>
+                      <span class="mkt-health-badge healthy">✓ Healthy (&lt; 30%)</span>
+                    </div>
+                    <div class="mkt-util-stat">
+                      <strong>14.2%</strong>
+                      <div class="mkt-util-progress-wrap">
+                        <div class="mkt-util-progress-bar" style="width: 14.2%;"></div>
+                      </div>
+                    </div>
+                    <div class="mkt-util-details">
+                      <span>Total Outstanding: <strong class="maskable" data-real="₹ 71,200.00">₹ 71,200.00</strong></span>
+                      <span>Total Available Limit: <strong class="maskable" data-real="₹ 5,00,000.00">₹ 5,00,000.00</strong></span>
+                    </div>
+                  </div>
+
+                  <div class="mkt-cards-cashflow-card">
+                    <span class="mkt-demo-label">6-Month Credit Cashflow</span>
+                    <strong>Zero Interest Paid</strong>
+                    <p>All statements auto-reconciled against bank repayment legs with 100% on-time settlement.</p>
+                    <div class="mkt-cards-mini-bars">
+                      <div class="mkt-mini-bar-col">
+                        <div class="mkt-bar spend" style="height: 55%;"></div>
+                        <div class="mkt-bar pay" style="height: 55%;"></div>
+                        <small>May</small>
+                      </div>
+                      <div class="mkt-mini-bar-col">
+                        <div class="mkt-bar spend" style="height: 70%;"></div>
+                        <div class="mkt-bar pay" style="height: 70%;"></div>
+                        <small>Jun</small>
+                      </div>
+                      <div class="mkt-mini-bar-col">
+                        <div class="mkt-bar spend" style="height: 45%;"></div>
+                        <div class="mkt-bar pay" style="height: 45%;"></div>
+                        <small>Jul</small>
+                      </div>
+                      <div class="mkt-mini-bar-col">
+                        <div class="mkt-bar spend" style="height: 35%;"></div>
+                        <div class="mkt-bar pay" style="height: 35%;"></div>
+                        <small>Aug</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mkt-card-gallery">
+                  <div class="mkt-digital-card hdfc-card">
+                    <div class="mkt-dcard-top">
+                      <span class="mkt-bank-name">HDFC BANK</span>
+                      <span class="mkt-network">Diners Club Black</span>
+                    </div>
+                    <div class="mkt-dcard-number">•••• •••• •••• 4091</div>
+                    <div class="mkt-dcard-bottom">
+                      <div>
+                        <small>Used / Limit</small>
+                        <strong class="maskable" data-real="₹ 42,800 / ₹ 3,00,000">₹ 42,800 / ₹ 3,00,000</strong>
+                      </div>
+                      <div class="mkt-dcard-util">14% Util</div>
+                    </div>
+                  </div>
+                  <div class="mkt-digital-card icici-card">
+                    <div class="mkt-dcard-top">
+                      <span class="mkt-bank-name">ICICI BANK</span>
+                      <span class="mkt-network">Amazon Pay Visa</span>
+                    </div>
+                    <div class="mkt-dcard-number">•••• •••• •••• 7123</div>
+                    <div class="mkt-dcard-bottom">
+                      <div>
+                        <small>Used / Limit</small>
+                        <strong class="maskable" data-real="₹ 18,400 / ₹ 1,50,000">₹ 18,400 / ₹ 1,50,000</strong>
+                      </div>
+                      <div class="mkt-dcard-util">12% Util</div>
+                    </div>
+                  </div>
+                  <div class="mkt-digital-card axis-card">
+                    <div class="mkt-dcard-top">
+                      <span class="mkt-bank-name">AXIS BANK</span>
+                      <span class="mkt-network">Atlas Mastercard</span>
+                    </div>
+                    <div class="mkt-dcard-number">•••• •••• •••• 9920</div>
+                    <div class="mkt-dcard-bottom">
+                      <div>
+                        <small>Used / Limit</small>
+                        <strong class="maskable" data-real="₹ 10,000 / ₹ 50,000">₹ 10,000 / ₹ 50,000</strong>
+                      </div>
+                      <div class="mkt-dcard-util">20% Util</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 3: PAYSLIP -->
+            <div id="tab-payslip" class="mkt-tab-content">
+              <div class="mkt-demo-screen">
+                <div class="mkt-payslip-rule-box">
+                  <div class="mkt-sandbox-header">
+                    <strong>Dynamic JSON Payslip Parser Sandbox</strong>
+                    <span class="mkt-badge-math">Math Verified</span>
+                  </div>
+                  <p>Zero hardcoding. Configure regex anchors for any Indian employer. Backend executes password-free in-memory decryption via <code>qpdf</code>.</p>
+                  <div class="mkt-payslip-equation">
+                    <div class="mkt-eq-col">
+                      <small>Gross Earnings</small>
+                      <strong class="mkt-text-green maskable" data-real="₹ 3,20,000.00">₹ 3,20,000.00</strong>
+                    </div>
+                    <span class="mkt-eq-operator">-</span>
+                    <div class="mkt-eq-col">
+                      <small>Total Deductions (TDS + PF)</small>
+                      <strong class="mkt-text-red maskable" data-real="₹ 75,000.00">₹ 75,000.00</strong>
+                    </div>
+                    <span class="mkt-eq-operator">=</span>
+                    <div class="mkt-eq-col highlight">
+                      <small>Reconciled Net Pay</small>
+                      <strong class="maskable" data-real="₹ 2,45,000.00">₹ 2,45,000.00</strong>
+                    </div>
+                  </div>
+                  <div class="mkt-payslip-breakdown-grid">
+                    <div class="mkt-breakdown-item">
+                      <span>Basic Salary:</span>
+                      <strong class="maskable" data-real="₹ 1,50,000.00">₹ 1,50,000.00</strong>
+                    </div>
+                    <div class="mkt-breakdown-item">
+                      <span>House Rent Allowance (HRA):</span>
+                      <strong class="maskable" data-real="₹ 75,000.00">₹ 75,000.00</strong>
+                    </div>
+                    <div class="mkt-breakdown-item">
+                      <span>Special Allowance:</span>
+                      <strong class="maskable" data-real="₹ 95,000.00">₹ 95,000.00</strong>
+                    </div>
+                    <div class="mkt-breakdown-item">
+                      <span>Provident Fund (Employee 80C):</span>
+                      <strong class="mkt-text-red maskable" data-real="- ₹ 18,000.00">- ₹ 18,000.00</strong>
+                    </div>
+                    <div class="mkt-breakdown-item">
+                      <span>Income Tax (TDS Section 192):</span>
+                      <strong class="mkt-text-red maskable" data-real="- ₹ 55,000.00">- ₹ 55,000.00</strong>
+                    </div>
+                    <div class="mkt-breakdown-item">
+                      <span>Professional Tax:</span>
+                      <strong class="mkt-text-red maskable" data-real="- ₹ 2,000.00">- ₹ 2,000.00</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 4: SANKEY -->
+            <div id="tab-sankey" class="mkt-tab-content">
+              <div class="mkt-demo-screen">
+                <div class="mkt-demo-sankey-wrap">
+                  <div class="mkt-sankey-header">
+                    <div>
+                      <strong>Multi-Bank Cash Flow Visualization</strong>
+                      <p>Income flows into savings, automatically splitting into investments and budgeted envelopes.</p>
+                    </div>
+                    <span class="mkt-badge-netting">✓ Refund Netting Active</span>
+                  </div>
+                  <div class="mkt-sankey-flow-diagram">
+                    <div class="mkt-sankey-column">
+                      <span class="mkt-sankey-col-title">Inflow Sources</span>
+                      <div class="mkt-sankey-node source income">
+                        <strong>Monthly Salary</strong>
+                        <small class="maskable" data-real="₹ 2,45,000">₹ 2,45,000</small>
+                      </div>
+                      <div class="mkt-sankey-node source dividend">
+                        <strong>Stock Dividends</strong>
+                        <small class="maskable" data-real="₹ 12,000">₹ 12,000</small>
+                      </div>
+                    </div>
+                    <div class="mkt-sankey-column">
+                      <span class="mkt-sankey-col-title">Main Accounts</span>
+                      <div class="mkt-sankey-node account">
+                        <strong>Axis Salary Account</strong>
+                        <small class="maskable" data-real="₹ 2,45,000">₹ 2,45,000</small>
+                      </div>
+                      <div class="mkt-sankey-node account">
+                        <strong>SBI Secondary</strong>
+                        <small class="maskable" data-real="₹ 12,000">₹ 12,000</small>
+                      </div>
+                    </div>
+                    <div class="mkt-sankey-column">
+                      <span class="mkt-sankey-col-title">Envelopes & Wealth</span>
+                      <div class="mkt-sankey-node dest invest">
+                        <strong>SIPs & Equities</strong>
+                        <small class="maskable" data-real="₹ 1,00,000 (41%)">₹ 1,00,000 (41%)</small>
+                      </div>
+                      <div class="mkt-sankey-node dest pf">
+                        <strong>EPFO & VPF</strong>
+                        <small class="maskable" data-real="₹ 36,000 (15%)">₹ 36,000 (15%)</small>
+                      </div>
+                      <div class="mkt-sankey-node dest living">
+                        <strong>Living Expenses</strong>
+                        <small class="maskable" data-real="₹ 48,000 (20%)">₹ 48,000 (20%)</small>
+                      </div>
+                      <div class="mkt-sankey-node dest discretionary">
+                        <strong>Lifestyle & Dining</strong>
+                        <small class="maskable" data-real="₹ 20,430 (8%)">₹ 20,430 (8%)</small>
+                      </div>
+                      <div class="mkt-sankey-node dest emergency">
+                        <strong>Emergency Reserve</strong>
+                        <small class="maskable" data-real="₹ 52,570 (21%)">₹ 52,570 (21%)</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mockup Footer -->
+          <div class="mkt-mockup-footer">
+            <div class="mkt-mockup-foot-left">
+              <span class="mkt-pulse-indicator"></span>
+              <span>Single-Owner Instance Guard Active (Registration Locked)</span>
+            </div>
+            <div class="mkt-mockup-foot-right">
+              <span>AES-256-GCM Vault</span>
+              <span>•</span>
+              <span>PostgreSQL 16</span>
+              <span>•</span>
+              <span>MinIO S3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INDIAN ECOSYSTEM SECTION -->
+  <section id="ecosystem" class="mkt-section mkt-ecosystem-section">
+    <div class="mkt-container">
+      <div class="mkt-section-header">
+        <span class="mkt-section-eyebrow">Engineered for India</span>
+        <h2 class="mkt-section-title">
+          First-Class Support for the <br />
+          <span class="mkt-hero-gradient-text">Indian Financial Ecosystem</span>
+        </h2>
+        <p class="mkt-section-desc">
+          Foreign finance apps fail when confronted with Indian password-protected bank PDFs,
+          TDS salary deductions, EPFO passbooks, and UPI swipe alerts. YAFT is purpose-built to parse,
+          verify, and reconcile them with zero friction.
+        </p>
+      </div>
+
+      <div class="mkt-ecosystem-grid">
+        <div class="mkt-eco-card">
+          <div class="mkt-eco-header">
+            <span class="mkt-eco-icon">🏛️</span>
+            <span class="mkt-acc-badge axis">Axis Bank</span>
+          </div>
+          <h3 class="mkt-eco-title">Axis Bank Statement PDF Engine</h3>
+          <p class="mkt-eco-desc">Handles multi-account statements, trailing Cr./Dr. balance notations, automated password candidate fallback, and strict running balance validation.</p>
+          <ul class="mkt-eco-list">
+            <li><span class="mkt-text-green">✓</span> Reconciled opening & closing balances</li>
+            <li><span class="mkt-text-green">✓</span> Signed integer minor-unit arithmetic</li>
+            <li><span class="mkt-text-green">✓</span> Password candidate fallback from Vault</li>
+          </ul>
+        </div>
+
+        <div class="mkt-eco-card">
+          <div class="mkt-eco-header">
+            <span class="mkt-eco-icon">🏦</span>
+            <span class="mkt-acc-badge sbi">State Bank of India</span>
+          </div>
+          <h3 class="mkt-eco-title">State Bank of India (SBI) Parser</h3>
+          <p class="mkt-eco-desc">Parses complex multi-column SBI savings and current account statements with strict date formatting and duplicate row rejection.</p>
+          <ul class="mkt-eco-list">
+            <li><span class="mkt-text-green">✓</span> Multi-page table flow detection</li>
+            <li><span class="mkt-text-green">✓</span> Txn Ref & UPI merchant resolution</li>
+            <li><span class="mkt-text-green">✓</span> Zero hallucinated transactions</li>
+          </ul>
+        </div>
+
+        <div class="mkt-eco-card">
+          <div class="mkt-eco-header">
+            <span class="mkt-eco-icon">🏢</span>
+            <span class="mkt-acc-badge pnb">Punjab National Bank</span>
+          </div>
+          <h3 class="mkt-eco-title">Punjab National Bank (PNB) Reconciler</h3>
+          <p class="mkt-eco-desc">Reconciles PNB statement formats with custom balance ledger verification and automated date normalization.</p>
+          <ul class="mkt-eco-list">
+            <li><span class="mkt-text-green">✓</span> Fail-closed balance checks</li>
+            <li><span class="mkt-text-green">✓</span> Staged review before ledger commit</li>
+            <li><span class="mkt-text-green">✓</span> Category rule auto-assignment</li>
+          </ul>
+        </div>
+
+        <div class="mkt-eco-card">
+          <div class="mkt-eco-header">
+            <span class="mkt-eco-icon">🏛️</span>
+            <span class="mkt-acc-badge epfo">EPFO India</span>
+          </div>
+          <h3 class="mkt-eco-title">EPFO Passbook & Retirement Ledger</h3>
+          <p class="mkt-eco-desc">Complete breakdown of monthly Employee Share, Employer Share, Pension Fund contribution, and annual statutory interest accruals.</p>
+          <ul class="mkt-eco-list">
+            <li><span class="mkt-text-green">✓</span> Separate Member ID ledger tracking</li>
+            <li><span class="mkt-text-green">✓</span> Annual compound interest logging</li>
+            <li><span class="mkt-text-green">✓</span> Historical retirement net worth feed</li>
+          </ul>
+        </div>
+
+        <div class="mkt-eco-card">
+          <div class="mkt-eco-header">
+            <span class="mkt-eco-icon">📈</span>
+            <span class="mkt-acc-badge zerodha">Broker Snapshots</span>
+          </div>
+          <h3 class="mkt-eco-title">Zerodha Kite & Groww Holdings</h3>
+          <p class="mkt-eco-desc">One-click import of CSV/XLSX portfolio holdings sheets with sector categorization, purchase price reconciliation, and live unrealized P&L badges.</p>
+          <ul class="mkt-eco-list">
+            <li><span class="mkt-text-green">✓</span> Sector tag allocation (IT, Banking, Pharma)</li>
+            <li><span class="mkt-text-green">✓</span> Atomic snapshot replacement</li>
+            <li><span class="mkt-text-green">✓</span> Equity & Mutual Fund asset weighting</li>
+          </ul>
+        </div>
+
+        <div class="mkt-eco-card">
+          <div class="mkt-eco-header">
+            <span class="mkt-eco-icon">⚡</span>
+            <span class="mkt-acc-badge hdfc">Credit Card Alerts</span>
+          </div>
+          <h3 class="mkt-eco-title">Direct Gmail Transaction Sync</h3>
+          <p class="mkt-eco-desc">Direct Gmail API OAuth2 integration for real-time credit card swipe notifications across HDFC, ICICI, Axis, and SBI Card without account spawning.</p>
+          <ul class="mkt-eco-list">
+            <li><span class="mkt-text-green">✓</span> Parses swipe amounts, merchants & dates</li>
+            <li><span class="mkt-text-green">✓</span> Zero cloud scrapers or third-party bots</li>
+            <li><span class="mkt-text-green">✓</span> Inspect raw reference email anytime</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Dynamic Payslip Banner -->
+      <div class="mkt-payslip-highlight-banner">
+        <div class="mkt-payslip-hl-left">
+          <span class="mkt-pill-badge light">Dynamic Payslip Engine</span>
+          <h3>JSON-Driven Dynamic Payslip Parser & Sandbox</h3>
+          <p>
+            Never write custom parser code for each new employer. YAFT lets you configure
+            regex field anchors, test with sample payslips in an interactive math sandbox
+            (<code>Gross - Deductions = Net Pay</code>), and view password-protected PDFs
+            instantly without typing passwords via backend <code>qpdf</code> integration.
+          </p>
+          <div class="mkt-payslip-tags">
+            <span>Section 80C PF Extraction</span>
+            <span>TDS Section 192 Tax Tracking</span>
+            <span>HRA & Special Allowance Markers</span>
+            <span>In-Memory RAM Decryption</span>
+          </div>
+        </div>
+        <div class="mkt-payslip-hl-right">
+          <div class="mkt-hl-code-window">
+            <div class="mkt-hl-code-header">
+              <span class="mkt-dot red"></span>
+              <span class="mkt-dot yellow"></span>
+              <span class="mkt-dot green"></span>
+              <span>payslip-config.json</span>
+            </div>
+            <pre><code>{
+  "employer": "Tech Corp India",
+  "anchors": {
+    "grossEarnings": "GROSS EARNINGS\\s+INR\\s+([\\d,.]+)",
+    "netPay": "NET PAY\\s+INR\\s+([\\d,.]+)",
+    "pfDeduction": "PROVIDENT FUND\\s+([\\d,.]+)",
+    "tdsTax": "INCOME TAX (TDS)\\s+([\\d,.]+)"
+  },
+  "mathRule": "GROSS - DEDUCTIONS == NET_PAY"
+}</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES SECTION -->
+  <section id="features" class="mkt-section mkt-features-section">
+    <div class="mkt-container">
+      <div class="mkt-section-header">
+        <span class="mkt-section-eyebrow">Core Capabilities</span>
+        <h2 class="mkt-section-title">
+          Built with Institutional Rigor. <br />
+          <span class="mkt-hero-gradient-text">Designed for Absolute Clarity.</span>
+        </h2>
+        <p class="mkt-section-desc">
+          YAFT combines the precision of high-frequency accounting systems with the tranquil,
+          focused user experience of modern personal software.
+        </p>
+      </div>
+
+      <div class="mkt-features-grid">
+        <div class="mkt-feature-card">
+          <div class="mkt-feature-icon-wrap text-green">⚖️</div>
+          <span class="mkt-feature-subtitle">Zero Floating-Point Drift</span>
+          <h3 class="mkt-feature-title">Signed Integer Minor-Unit Math</h3>
+          <p class="mkt-feature-desc">Financial software must not suffer from IEEE 754 float imprecision (0.1 + 0.2 ≠ 0.3). Every single currency calculation in YAFT is computed in exact integer minor units (paise) down to the last decimal.</p>
+          <div class="mkt-feature-highlight">
+            <span class="mkt-text-green">✓</span>
+            <span>BigInt paise precision across all DB models</span>
+          </div>
+        </div>
+
+        <div class="mkt-feature-card">
+          <div class="mkt-feature-icon-wrap text-teal">🛡️</div>
+          <span class="mkt-feature-subtitle">Never Hallucinates Missing Numbers</span>
+          <h3 class="mkt-feature-title">Fail-Closed Statement Parsers</h3>
+          <p class="mkt-feature-desc">If a bank statement or corporate payslip is unreadable, ambiguous, or fails balance equations (Opening + Inflows - Outflows = Closing), YAFT fails closed immediately rather than corrupting your ledger.</p>
+          <div class="mkt-feature-highlight">
+            <span class="mkt-text-green">✓</span>
+            <span>Strict running-balance verification guarantee</span>
+          </div>
+        </div>
+
+        <div class="mkt-feature-card">
+          <div class="mkt-feature-icon-wrap text-orange">💳</div>
+          <span class="mkt-feature-subtitle">Health Gauges & Visual Card Stack</span>
+          <h3 class="mkt-feature-title">Credit Cards Command Center</h3>
+          <p class="mkt-feature-desc">Monitor aggregated credit utilization rates with color-coded health indicators (Healthy / Moderate / High). Track 6-month spend vs bill payments and preview digital cards with bank branding.</p>
+          <div class="mkt-feature-highlight">
+            <span class="mkt-text-green">✓</span>
+            <span>Instant 1-click sync via Gmail & statement review</span>
+          </div>
+        </div>
+
+        <div class="mkt-feature-card">
+          <div class="mkt-feature-icon-wrap text-purple">🔐</div>
+          <span class="mkt-feature-subtitle">Account-Bound Encrypted Storage</span>
+          <h3 class="mkt-feature-title">AES-256-GCM Credential Vault</h3>
+          <p class="mkt-feature-desc">Store document-unlock passwords, card CVVs, expiry dates, and IFSC codes safely on disk with AES-256-GCM encryption. In-memory decryption ensures passwords are never leaked in logs or APIs.</p>
+          <div class="mkt-feature-highlight">
+            <span class="mkt-text-green">✓</span>
+            <span>Transient RAM decryption via backend qpdf</span>
+          </div>
+        </div>
+
+        <div class="mkt-feature-card">
+          <div class="mkt-feature-icon-wrap text-blue">📊</div>
+          <span class="mkt-feature-subtitle">Visual Money Streams & Envelopes</span>
+          <h3 class="mkt-feature-title">Multi-Bank Sankey Flows & Budgets</h3>
+          <p class="mkt-feature-desc">Trace money from income sources across bank transfers to category spending envelopes. Automatically nets merchant refunds and cashbacks without breaking individual double-entry ledger rows.</p>
+          <div class="mkt-feature-highlight">
+            <span class="mkt-text-green">✓</span>
+            <span>Retroactive regex rule builder with 1-click bulk tagging</span>
+          </div>
+        </div>
+
+        <div class="mkt-feature-card">
+          <div class="mkt-feature-icon-wrap text-amber">📉</div>
+          <span class="mkt-feature-subtitle">Principal vs Interest Schedules</span>
+          <h3 class="mkt-feature-title">Loan EMI Amortization Engine</h3>
+          <p class="mkt-feature-desc">Generate complete loan amortization tables tracking remaining principal, interest splits, and payoff timelines. Confirm scheduled EMIs to record transactions directly into the ledger.</p>
+          <div class="mkt-feature-highlight">
+            <span class="mkt-text-green">✓</span>
+            <span>Atomic ledger debit upon EMI confirmation</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECURITY & PRIVACY MANIFESTO -->
+  <section id="security" class="mkt-section mkt-security-section">
+    <div class="mkt-container">
+      <div class="mkt-section-header">
+        <span class="mkt-section-eyebrow">Sovereign Security Architecture</span>
+        <h2 class="mkt-section-title">
+          Your Financial Records Belong <br />
+          <span class="mkt-hero-gradient-text">Exclusively on Iron You Own</span>
+        </h2>
+        <p class="mkt-section-desc">
+          SaaS financial aggregators harvest your spending habits, monetize merchant graphs,
+          and store raw financial statements on multi-tenant cloud servers. YAFT eliminates the
+          middleman entirely.
+        </p>
+      </div>
+
+      <div class="mkt-security-grid">
+        <div class="mkt-security-card">
+          <div class="mkt-sec-icon-wrap">☁️🚫</div>
+          <h3>Zero Cloud Telemetry</h3>
+          <p>YAFT never communicates with external tracking servers, third-party LLM endpoints, or advertising networks. Your entire financial history lives strictly on your local machine or private home server.</p>
+        </div>
+        <div class="mkt-security-card">
+          <div class="mkt-sec-icon-wrap">👤🔒</div>
+          <h3>Single-Owner Instance Lock</h3>
+          <p>The moment you create your administrator account on initial setup, YAFT permanently locks public registration. No unauthorized guest accounts can ever be spawned on your private instance.</p>
+        </div>
+        <div class="mkt-security-card">
+          <div class="mkt-sec-icon-wrap">🔑🛡️</div>
+          <h3>AES-256-GCM Credential Vault</h3>
+          <p>Bank statement passwords, card CVVs, and sensitive document keys are stored encrypted on disk using AES-256-GCM with unique Initialization Vectors (IVs) and authenticated tags.</p>
+        </div>
+        <div class="mkt-security-card">
+          <div class="mkt-sec-icon-wrap">💾📦</div>
+          <h3>Local MinIO S3 Storage</h3>
+          <p>Uploaded PDF bank statements, corporate salary slips, and account proof documents are stored in a self-hosted MinIO object storage container — isolated from the public internet.</p>
+        </div>
+        <div class="mkt-security-card">
+          <div class="mkt-sec-icon-wrap">🔐⚡</div>
+          <h3>Argon2id Password Security</h3>
+          <p>User authentication uses memory-hard Argon2id hashing with HTTP-only, SameSite session cookies to safeguard against offline brute-force and token hijacking attacks.</p>
+        </div>
+        <div class="mkt-security-card">
+          <div class="mkt-sec-icon-wrap">🗄️✨</div>
+          <h3>1-Click Encrypted Backups</h3>
+          <p>Export your entire instance — PostgreSQL ledger tables, categorization rules, dynamic parser configs, and MinIO document storage — into an encrypted .yaft-backup archive in seconds.</p>
+        </div>
+      </div>
+
+      <div class="mkt-security-banner">
+        <div class="mkt-sec-banner-text">
+          <h3>Strict Financial Privacy Invariants</h3>
+          <p>Built into the YAFT core codebase and verified by automated regression test suites:</p>
+        </div>
+        <div class="mkt-sec-checklist">
+          <div class="mkt-sec-check-item">
+            <span class="mkt-text-green">✓</span>
+            <span>Never logs, prints, or exposes statement passwords in plain text</span>
+          </div>
+          <div class="mkt-sec-check-item">
+            <span class="mkt-text-green">✓</span>
+            <span>In-memory PDF decryption via <code>qpdf</code> without disk caching</span>
+          </div>
+          <div class="mkt-sec-check-item">
+            <span class="mkt-text-green">✓</span>
+            <span>Zero external JavaScript CDN dependencies or third-party trackers</span>
+          </div>
+          <div class="mkt-sec-check-item">
+            <span class="mkt-text-green">✓</span>
+            <span>All database queries strictly isolated by authenticated <code>userId</code></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON TABLE SECTION -->
+  <section id="comparison" class="mkt-section mkt-comparison-section">
+    <div class="mkt-container">
+      <div class="mkt-section-header">
+        <span class="mkt-section-eyebrow">Honest Breakdown</span>
+        <h2 class="mkt-section-title">
+          How YAFT Compares to <br />
+          <span class="mkt-hero-gradient-text">Other Finance Tools</span>
+        </h2>
+        <p class="mkt-section-desc">
+          See why sovereign individuals and engineers are moving away from closed-source cloud apps
+          and error-prone manual spreadsheets.
+        </p>
+      </div>
+
+      <div class="mkt-cmp-table-wrap">
+        <table class="mkt-cmp-table">
+          <thead>
+            <tr>
+              <th class="mkt-cmp-feature-head">Capability / Feature</th>
+              <th class="mkt-cmp-yaft-head">
+                <div class="mkt-yaft-highlight-badge">
+                  <strong>YAFT</strong>
+                  <span>(Self-Hosted)</span>
+                </div>
+              </th>
+              <th>
+                <span>Fintech SaaS</span>
+                <small>Fold / CRED</small>
+              </th>
+              <th>
+                <span>US Apps</span>
+                <small>YNAB / Monarch</small>
+              </th>
+              <th>
+                <span>Spreadsheets</span>
+                <small>Excel / Sheets</small>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="even">
+              <td class="mkt-cmp-feat-cell">
+                <strong>Self-Hosted / 100% Data Sovereignty</strong>
+                <small>Your data lives on your own hardware, not on multi-tenant SaaS servers.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+            </tr>
+            <tr class="odd">
+              <td class="mkt-cmp-feat-cell">
+                <strong>Native Indian Bank Statement Parsers (Axis, SBI, PNB)</strong>
+                <small>Parses password-protected bank PDFs with trailing Cr./Dr. balances and reconciliation.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge partial">Partial</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+            </tr>
+            <tr class="even">
+              <td class="mkt-cmp-feat-cell">
+                <strong>Dynamic JSON Payslip & Tax Engine (TDS, PF, 80C)</strong>
+                <small>Regex-based parser sandbox with math verification: Gross - Deductions = Net Pay.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+            </tr>
+            <tr class="odd">
+              <td class="mkt-cmp-feat-cell">
+                <strong>In-Memory Password-Free PDF Viewer</strong>
+                <small>Decrypts password-protected PDFs via backend qpdf on the fly in RAM without saving plaintext to disk.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+            </tr>
+            <tr class="even">
+              <td class="mkt-cmp-feat-cell">
+                <strong>Direct Gmail Swipe Alerts Sync (No Account Spawning)</strong>
+                <small>Fetches credit card notifications directly via official Gmail OAuth2 API.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge partial">Cloud Scraper</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+            </tr>
+            <tr class="odd">
+              <td class="mkt-cmp-feat-cell">
+                <strong>Signed Integer Minor-Unit Math (Paise Precision)</strong>
+                <small>Zero floating-point rounding errors (0.1 + 0.2 ≠ 0.3) in ledger calculations.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+            </tr>
+            <tr class="even">
+              <td class="mkt-cmp-feat-cell">
+                <strong>Credit Utilization Radar & Visual Card Stack</strong>
+                <small>Visual card gallery with bank logos, credit limits, and 6-month cashflow trends.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge partial">Partial</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+            </tr>
+            <tr class="odd">
+              <td class="mkt-cmp-feat-cell">
+                <strong>Fail-Closed Statement & Holdings Validation</strong>
+                <small>Rejects malformed or unreconciled statements rather than guessing transactions.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+            </tr>
+            <tr class="even">
+              <td class="mkt-cmp-feat-cell">
+                <strong>Zero Subscription Fees / Free Forever</strong>
+                <small>Open source and free without recurring $100+/year subscription fees or advertisements.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Free OSS</span></td>
+              <td><span class="mkt-cmp-badge partial">Ads / Upsells</span></td>
+              <td><span class="mkt-cmp-badge no">$100+/yr</span></td>
+              <td><span class="mkt-cmp-badge yes">✓ Free</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEPLOY & QUICKSTART SECTION -->
+  <section id="deploy" class="mkt-section mkt-deploy-section">
+    <div class="mkt-container">
+      <div class="mkt-section-header">
+        <span class="mkt-section-eyebrow">Developer Quickstart</span>
+        <h2 class="mkt-section-title">
+          Deploy in 60 Seconds. <br />
+          <span class="mkt-hero-gradient-text">Own Your Entire Stack.</span>
+        </h2>
+        <p class="mkt-section-desc">
+          YAFT ships with ready-to-run Docker Compose manifests, PostgreSQL migrations, and MinIO
+          storage configurations. Zero complex cloud orchestration required.
+        </p>
+      </div>
+
+      <div class="mkt-deploy-tabs">
+        <button class="mkt-deploy-tab active" data-deploy="docker">
+          📦 <span>Docker Compose (Recommended)</span>
+        </button>
+        <button class="mkt-deploy-tab" data-deploy="local">
+          💻 <span>Local Node.js Development</span>
+        </button>
+        <button class="mkt-deploy-tab" data-deploy="arch">
+          🏗️ <span>System Architecture</span>
+        </button>
+      </div>
+
+      <div class="mkt-deploy-panel">
+        <!-- DOCKER PANEL -->
+        <div id="deploy-docker" class="mkt-deploy-content active">
+          <div class="mkt-terminal-window">
+            <div class="mkt-terminal-top">
+              <div class="mkt-terminal-dots">
+                <span class="mkt-dot red"></span>
+                <span class="mkt-dot yellow"></span>
+                <span class="mkt-dot green"></span>
+                <span class="mkt-terminal-label">bash — docker compose</span>
+              </div>
+              <button class="mkt-terminal-copy-btn copy-snippet-btn" data-code="# 1. Clone repository
+git clone https://github.com/yaft-finance/yaft.git
+cd yaft
+
+# 2. Configure environment
+cp .env.example .env
+
+# 3. Launch full stack with Docker Compose
+docker compose up --build -d
+
+# 4. Open in browser to claim instance
+# → http://localhost:3000/register">
+                <span class="copy-text">Copy Snippet</span>
+              </button>
+            </div>
+            <pre class="mkt-terminal-code"><code># 1. Clone repository
+git clone https://github.com/yaft-finance/yaft.git
+cd yaft
+
+# 2. Configure environment
+cp .env.example .env
+
+# 3. Launch full stack with Docker Compose
+docker compose up --build -d
+
+# 4. Open in browser to claim instance
+# → http://localhost:3000/register</code></pre>
+          </div>
+        </div>
+
+        <!-- LOCAL DEV PANEL -->
+        <div id="deploy-local" class="mkt-deploy-content">
+          <div class="mkt-terminal-window">
+            <div class="mkt-terminal-top">
+              <div class="mkt-terminal-dots">
+                <span class="mkt-dot red"></span>
+                <span class="mkt-dot yellow"></span>
+                <span class="mkt-dot green"></span>
+                <span class="mkt-terminal-label">bash — local development</span>
+              </div>
+              <button class="mkt-terminal-copy-btn copy-snippet-btn" data-code="# 1. Install dependencies
+npm install
+
+# 2. Start PostgreSQL & MinIO storage
+docker compose up -d postgres minio
+
+# 3. Run database migrations
+npm run db:generate
+npm run db:migrate
+
+# 4. Start Next.js & NestJS dev servers
+npm run dev
+
+# → Web App: http://localhost:3000
+# → Swagger API Docs: http://localhost:4000/api/docs">
+                <span class="copy-text">Copy Snippet</span>
+              </button>
+            </div>
+            <pre class="mkt-terminal-code"><code># 1. Install dependencies
+npm install
+
+# 2. Start PostgreSQL & MinIO storage
+docker compose up -d postgres minio
+
+# 3. Run database migrations
+npm run db:generate
+npm run db:migrate
+
+# 4. Start Next.js & NestJS dev servers
+npm run dev
+
+# → Web App: http://localhost:3000
+# → Swagger API Docs: http://localhost:4000/api/docs</code></pre>
+          </div>
+        </div>
+
+        <!-- ARCHITECTURE PANEL -->
+        <div id="deploy-arch" class="mkt-deploy-content">
+          <div class="mkt-arch-diagram-wrap">
+            <div class="mkt-arch-grid">
+              <div class="mkt-arch-node client">
+                <span class="mkt-arch-tag">Frontend Client</span>
+                <strong>Next.js 15 App Router</strong>
+                <p>React 19, Server Components, DM Sans & Manrope typography, Dark/Light theme token system.</p>
+                <small>Port 3000</small>
+              </div>
+              <div class="mkt-arch-arrow">→</div>
+              <div class="mkt-arch-node api">
+                <span class="mkt-arch-tag">Backend Service</span>
+                <strong>NestJS Modular API</strong>
+                <p>Argon2id auth, AES-256-GCM vault, fail-closed parsers, dynamic payslip engine & Gmail OAuth sync.</p>
+                <small>Port 4000 /api</small>
+              </div>
+              <div class="mkt-arch-arrow">→</div>
+              <div class="mkt-arch-col">
+                <div class="mkt-arch-node db">
+                  <span class="mkt-arch-tag">Relational Ledger</span>
+                  <strong>PostgreSQL + Prisma</strong>
+                  <p>BigInt minor-unit paise precision, multi-account double entry ledger.</p>
+                  <small>Port 5432</small>
+                </div>
+                <div class="mkt-arch-node storage">
+                  <span class="mkt-arch-tag">Object Storage</span>
+                  <strong>Local MinIO S3</strong>
+                  <p>Retained statement PDFs, payslip proofs, and encrypted backup archives.</p>
+                  <small>Port 9000 / 9001</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ SECTION -->
+  <section id="faq" class="mkt-section mkt-faq-section">
+    <div class="mkt-container">
+      <div class="mkt-section-header">
+        <span class="mkt-section-eyebrow">Got Questions?</span>
+        <h2 class="mkt-section-title">
+          Frequently Asked <br />
+          <span class="mkt-hero-gradient-text">Questions</span>
+        </h2>
+        <p class="mkt-section-desc">
+          Everything you need to know about YAFT architecture, security, and statement parsing.
+        </p>
+      </div>
+
+      <div class="mkt-faq-accordion">
+        <div class="mkt-faq-item open">
+          <button class="mkt-faq-question" aria-expanded="true">
+            <span>Why self-hosted instead of a cloud app like Fold, CRED, or Mint?</span>
+            <svg class="mkt-faq-chevron rotate" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="mkt-faq-answer">
+            <p>Financial records contain your most sensitive personal information: salary, bank account balances, tax deductions, medical expenses, and daily whereabouts. Cloud finance apps monetize this data, train models on your habits, or shut down unexpectedly (like Mint). YAFT runs strictly on your own hardware, guaranteeing zero third-party cloud data harvesting.</p>
+          </div>
+        </div>
+
+        <div class="mkt-faq-item">
+          <button class="mkt-faq-question" aria-expanded="false">
+            <span>Which Indian banks and institutions are currently supported?</span>
+            <svg class="mkt-faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="mkt-faq-answer">
+            <p>YAFT includes native fail-closed PDF parsers for Axis Bank, State Bank of India (SBI), Punjab National Bank (PNB), and EPFO Passbooks. It also imports Zerodha Kite and Groww portfolio snapshot sheets, plus real-time credit card swipe alert sync for HDFC Bank, ICICI Bank, Axis Bank, and SBI Card via the Gmail API.</p>
+          </div>
+        </div>
+
+        <div class="mkt-faq-item">
+          <button class="mkt-faq-question" aria-expanded="false">
+            <span>How does the Gmail Sync work securely without sharing my Google password?</span>
+            <svg class="mkt-faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="mkt-faq-answer">
+            <p>YAFT connects directly to the official Google Workspace / Gmail API using client-controlled OAuth2 tokens. Your credentials remain in your local PostgreSQL database. The worker fetches only credit card transaction alert emails, parses the merchant and amount, and matches them to your pre-existing accounts without spawning extraneous accounts.</p>
+          </div>
+        </div>
+
+        <div class="mkt-faq-item">
+          <button class="mkt-faq-question" aria-expanded="false">
+            <span>How does the Dynamic Payslip Engine handle different employer formats?</span>
+            <svg class="mkt-faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="mkt-faq-answer">
+            <p>Instead of requiring custom code changes for every employer, YAFT provides a dynamic JSON parsing engine (<code>parsingConfig</code>). You can configure regex anchors for Gross Earnings, Deductions (TDS, PF, Professional Tax), and Net Pay, test them in a visual equation sandbox (<code>Gross - Deductions = Net Pay</code>), and decrypt password-protected PDFs on the fly in RAM using <code>qpdf</code>.</p>
+          </div>
+        </div>
+
+        <div class="mkt-faq-item">
+          <button class="mkt-faq-question" aria-expanded="false">
+            <span>How does YAFT eliminate floating-point rounding errors?</span>
+            <svg class="mkt-faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="mkt-faq-answer">
+            <p>Standard JavaScript numbers use IEEE 754 floating-point math, where 0.1 + 0.2 equals 0.30000000000000004. In accounting, this creates balance drifts. YAFT stores and calculates all balances and transactions as signed integer minor units (<code>BigInt</code> paise), ensuring 100% exact balance arithmetic down to the paisa.</p>
+          </div>
+        </div>
+
+        <div class="mkt-faq-item">
+          <button class="mkt-faq-question" aria-expanded="false">
+            <span>Can I run YAFT on a Raspberry Pi, NAS, or private home server?</span>
+            <svg class="mkt-faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="mkt-faq-answer">
+            <p>Yes! YAFT is fully containerized with Docker Compose. It runs smoothly on any Linux, macOS, or Windows machine, including Raspberry Pi 4/5, Synology NAS, Unraid, TrueNAS, or home server environments.</p>
+          </div>
+        </div>
+
+        <div class="mkt-faq-item">
+          <button class="mkt-faq-question" aria-expanded="false">
+            <span>How do I backup and restore my ledger data?</span>
+            <svg class="mkt-faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="mkt-faq-answer">
+            <p>YAFT features a 1-click backup and restore engine under Settings (<code>/me</code>). It packages all PostgreSQL database rows and MinIO S3 statement PDFs into an encrypted <code>.yaft-backup</code> archive file that you can restore to any new machine or container in seconds.</p>
+          </div>
+        </div>
+
+        <div class="mkt-faq-item">
+          <button class="mkt-faq-question" aria-expanded="false">
+            <span>Is YAFT completely free and open source?</span>
+            <svg class="mkt-faq-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="mkt-faq-answer">
+            <p>Yes. YAFT is 100% free and open-source under a permissive license. There are no paid tiers, hidden subscriptions, paywalls, or feature gates.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER & PREFOOTER -->
+  <footer class="mkt-footer">
+    <div class="mkt-container">
+      <div class="mkt-prefooter-card">
+        <div class="mkt-prefooter-content">
+          <span class="mkt-pill-badge light">Sovereign Financial Freedom</span>
+          <h2>Take Full Control of Your Financial Privacy Today</h2>
+          <p>
+            Join engineers, founders, and privacy advocates who track their complete net worth
+            without handing their financial lives over to third-party cloud servers.
+          </p>
+          <div class="mkt-prefooter-actions">
+            <a href="#deploy" class="mkt-btn-primary mkt-btn-lg">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 17 10 11 4 5"></polyline>
+                <line x1="12" y1="19" x2="20" y2="19"></line>
+              </svg>
+              <span>Deploy Self-Hosted Instance</span>
+            </a>
+            <a href="https://github.com/yaft-finance/yaft" target="_blank" rel="noopener noreferrer" class="mkt-btn-secondary mkt-btn-lg">
+              <span>Star on GitHub</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="mkt-footer-main">
+        <div class="mkt-footer-brand-col">
+          <a href="#" class="mkt-brand">
+            <div class="mkt-brand-mark">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="22" x2="21" y2="22"></line>
+                <line x1="6" y1="18" x2="6" y2="11"></line>
+                <line x1="10" y1="18" x2="10" y2="11"></line>
+                <line x1="14" y1="18" x2="14" y2="11"></line>
+                <line x1="18" y1="18" x2="18" y2="11"></line>
+                <polygon points="12 2 20 7 4 7"></polygon>
+              </svg>
+            </div>
+            <div class="mkt-brand-text">
+              <strong>YAFT</strong>
+              <span class="mkt-brand-badge">Open Source</span>
+            </div>
+          </a>
+          <p class="mkt-footer-quote">
+            “Money becomes calmer when the whole picture is visible.”
+          </p>
+          <span class="mkt-footer-sub">
+            A private, local-first workspace for personal financial records.
+          </span>
+        </div>
+
+        <div class="mkt-footer-links-col">
+          <h4>Architecture</h4>
+          <ul>
+            <li><span>Next.js 15 App Router</span></li>
+            <li><span>NestJS Modular Backend</span></li>
+            <li><span>Prisma ORM & PostgreSQL</span></li>
+            <li><span>MinIO S3 Object Storage</span></li>
+            <li><span>qpdf In-Memory Decryption</span></li>
+            <li><span>Google Gmail OAuth2 API</span></li>
+          </ul>
+        </div>
+
+        <div class="mkt-footer-links-col">
+          <h4>Security & Ops</h4>
+          <ul>
+            <li><a href="#security">Privacy Manifesto</a></li>
+            <li><a href="#ecosystem">Indian Bank Parsers</a></li>
+            <li><a href="#deploy">Docker Compose Guide</a></li>
+            <li><a href="#comparison">Feature Comparison</a></li>
+            <li><a href="https://github.com/yaft-finance/yaft" target="_blank" rel="noopener noreferrer">Source Code</a></li>
+          </ul>
+        </div>
+
+        <div class="mkt-footer-links-col">
+          <h4>Deploy & Run</h4>
+          <ul>
+            <li><a href="#deploy">Docker One-Liner</a></li>
+            <li><a href="#deploy">Local Setup</a></li>
+            <li><a href="#faq">FAQ</a></li>
+            <li><a href="https://github.com/yaft-finance/yaft/issues" target="_blank" rel="noopener noreferrer">Issue Tracker</a></li>
+            <li><a href="https://github.com/yaft-finance/yaft/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">License</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="mkt-footer-bottom">
+        <p>© 2026 YAFT (Yet Another Financial Tracker). 100% Free & Open Source.</p>
+        <button id="scrollTopBtn" class="mkt-scroll-top-btn" title="Back to top">
+          <span>Back to top</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"></line>
+            <polyline points="5 12 12 5 19 12"></polyline>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
