@@ -147,24 +147,12 @@ html[data-theme='dark'] .mkt-header.scrolled {
   gap: 10px;
 }
 
-.mkt-brand-title-wrap {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-}
-
-.mkt-brand-title-wrap strong {
+.mkt-brand-text strong {
   font-family: 'Manrope', sans-serif;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.5px;
-}
-
-.mkt-brand-subname {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--muted);
-  letter-spacing: 0.1px;
+  color: var(--ink);
 }
 
 .mkt-brand-badge {
@@ -172,11 +160,12 @@ html[data-theme='dark'] .mkt-header.scrolled {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 6px;
   background: var(--theme-soft-start);
   color: var(--green);
   border: 1px solid var(--theme-border-soft);
+  white-space: nowrap;
 }
 
 .mkt-nav-links {
@@ -368,14 +357,53 @@ html[data-theme='dark'] .mkt-hero-glow {
 .mkt-pill-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: 20px;
+  gap: 10px;
+  padding: 7px 18px;
+  border-radius: 30px;
   background: var(--theme-soft-start);
-  color: var(--green);
+  color: var(--ink);
   border: 1px solid var(--theme-border-soft);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+}
+
+.mkt-badge-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+  animation: pulse-dot 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+.mkt-badge-accent {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800;
+  color: var(--green);
+  letter-spacing: -0.2px;
+}
+
+.mkt-badge-divider {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.mkt-badge-title {
   font-weight: 600;
+  color: var(--ink);
+}
+
+.mkt-badge-meta {
+  color: var(--muted);
+  font-size: 12.5px;
 }
 
 .mkt-pill-badge.light {
