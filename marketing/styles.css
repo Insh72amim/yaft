@@ -144,14 +144,27 @@ html[data-theme='dark'] .mkt-header.scrolled {
 .mkt-brand-text {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.mkt-brand-text strong {
+.mkt-brand-title-wrap {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.mkt-brand-title-wrap strong {
   font-family: 'Manrope', sans-serif;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.5px;
+}
+
+.mkt-brand-subname {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.1px;
 }
 
 .mkt-brand-badge {
