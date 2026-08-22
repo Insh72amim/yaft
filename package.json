@@ -25,7 +25,8 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "docker:prod:deploy": "bash scripts/deploy-prod.sh"
+    "docker:prod:deploy": "bash scripts/deploy-prod.sh",
+    "marketing:dev": "npx -y serve marketing -l 3333"
   },
   "engines": {
     "node": ">=20.11"
