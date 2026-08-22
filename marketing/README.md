@@ -1,6 +1,6 @@
 # YAFT Marketing Website (Standalone & Netlify Ready)
 
-A 100% static, high-performance marketing website for **YAFT (Yet Another Financial Tracker)**, decoupled from the core Next.js web application and NestJS backend.
+A 100% static, high-performance marketing website for **YAFT (Yet Another Financial Tool)**, decoupled from the core Next.js web application and NestJS backend.
 
 ---
 
