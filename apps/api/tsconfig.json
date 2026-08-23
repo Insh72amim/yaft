@@ -9,10 +9,11 @@
     "esModuleInterop": true,
     "target": "ES2022",
     "sourceMap": true,
+    "rootDir": "src",
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "@yaft/shared": ["../../packages/shared/src/index.ts"]
+      "@yaft/shared": ["../../packages/shared/dist/index.d.ts"]
     },
     "incremental": true,
     "strict": true,

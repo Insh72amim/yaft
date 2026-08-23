@@ -2,7 +2,9 @@
   "name": "@yaft/api",
   "private": true,
   "scripts": {
+    "prebuild": "npm run build --workspace @yaft/shared",
     "build": "nest build",
+    "prestart:dev": "npm run build --workspace @yaft/shared",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "lint": "eslint \"src/**/*.ts\"",
