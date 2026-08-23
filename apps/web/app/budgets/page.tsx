@@ -10,6 +10,8 @@ import {
   Tag as TagIcon,
   SlidersHorizontal,
   FolderPlus,
+  X,
+  Check,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { api, errorMessage } from "@/lib/api";
@@ -212,6 +214,89 @@ function BudgetsContent() {
       if (inspectedTagId) loadTagAnalytics(inspectedTagId);
     } catch (err) {
       setError(errorMessage(err, "Failed to remove tag."));
+    }
+  };
+
+  const handleSaveTag = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tagName.trim()) {
+      setError("Please enter a tag name.");
+      return;
+    }
+
+    try {
+      setSavingTag(true);
+      setError("");
+      setSuccessMsg("");
+
+      const payload = {
+        name: tagName.trim(),
+        color: tagColor,
+        description: tagDesc.trim() || undefined,
+        startDate: tagStart ? new Date(tagStart).toISOString() : undefined,
+        endDate: tagEnd ? new Date(tagEnd).toISOString() : undefined,
+        budgetLimit: tagBudget ? parseFloat(tagBudget) : undefined,
+      };
+
+      if (editingTag) {
+        await api(`/tags/${editingTag.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        setSuccessMsg(`Updated tag "${tagName.trim()}"!`);
+      } else {
+        await api("/tags", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        setSuccessMsg(`Created tag "${tagName.trim()}"!`);
+      }
+
+      setTagModalOpen(false);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to save tag."));
+    } finally {
+      setSavingTag(false);
+    }
+  };
+
+  const handleSaveCategoryEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory || !editCatName.trim()) return;
+
+    try {
+      setError("");
+      setSuccessMsg("");
+      await api(`/categories/${editingCategory.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: editCatName.trim(),
+          type: editCatType,
+          color: editCatColor,
+        }),
+      });
+
+      if (editCatBudgetLimit) {
+        const val = parseFloat(editCatBudgetLimit);
+        if (!isNaN(val) && val > 0) {
+          await api("/budgets", {
+            method: "POST",
+            body: JSON.stringify({
+              categoryId: editingCategory.id,
+              monthlyLimit: val,
+              month: selectedMonth,
+              year: selectedYear,
+            }),
+          });
+        }
+      }
+
+      setSuccessMsg(`Updated category "${editCatName.trim()}"!`);
+      setEditingCategory(null);
+      loadData();
+    } catch (err) {
+      setError(errorMessage(err, "Failed to update category."));
     }
   };
 
@@ -566,6 +651,203 @@ function BudgetsContent() {
             handleConfirmGroup={handleConfirmGroup}
             activeTab={activeTab}
           />
+        )}
+
+        {/* TAG MODAL */}
+        {tagModalOpen && (
+          <div className="modal-wrap" style={{ zIndex: 99999 }}>
+            <button className="backdrop" onClick={() => setTagModalOpen(false)} aria-label="Close modal" />
+            <section className="modal" style={{ width: "min(520px, 95vw)", padding: "24px", borderRadius: "14px", background: "var(--card)", border: "1px solid var(--line)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--ink)" }}>
+                  {editingTag ? `Edit Tag "${editingTag.name}"` : "Create New Custom Tag"}
+                </h3>
+                <button type="button" className="icon-button" onClick={() => setTagModalOpen(false)}>
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveTag} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Tag / Trip Name</label>
+                  <input
+                    type="text"
+                    value={tagName}
+                    onChange={(e) => setTagName(e.target.value)}
+                    placeholder="e.g. ✈️ Goa Trip 2026, 🏠 Living Room Decor, 💼 Client Dinner"
+                    required
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Description (Optional)</label>
+                  <input
+                    type="text"
+                    value={tagDesc}
+                    onChange={(e) => setTagDesc(e.target.value)}
+                    placeholder="e.g. Flights, hotels, restaurants & activities"
+                    style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Start Date (Optional)</label>
+                    <input
+                      type="date"
+                      value={tagStart}
+                      onChange={(e) => setTagStart(e.target.value)}
+                      style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>End Date (Optional)</label>
+                    <input
+                      type="date"
+                      value={tagEnd}
+                      onChange={(e) => setTagEnd(e.target.value)}
+                      style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Trip Budget Limit (₹ Optional)</label>
+                  <input
+                    type="number"
+                    value={tagBudget}
+                    onChange={(e) => setTagBudget(e.target.value)}
+                    placeholder="e.g. 50000"
+                    step="any"
+                    style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "8px" }}>Color Theme</label>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    {COLOR_PRESETS.map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setTagColor(p)}
+                        style={{
+                          width: "30px",
+                          height: "30px",
+                          borderRadius: "50%",
+                          background: p,
+                          border: tagColor === p ? "3px solid var(--ink)" : "none",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}>
+                        {tagColor === p && <Check size={14} color="#ffffff" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
+                  <button type="button" className="secondary" onClick={() => setTagModalOpen(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={savingTag} className="primary">
+                    {savingTag ? "Saving..." : editingTag ? "Save Tag Changes" : "Create Tag"}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
+
+        {/* EDIT CATEGORY MODAL */}
+        {editingCategory && (
+          <div className="modal-wrap" style={{ zIndex: 99999 }}>
+            <button className="backdrop" onClick={() => setEditingCategory(null)} aria-label="Close modal" />
+            <section className="modal" style={{ width: "min(480px, 95vw)", padding: "24px", borderRadius: "14px", background: "var(--card)", border: "1px solid var(--line)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--ink)" }}>
+                  Edit Category "{editingCategory.name}"
+                </h3>
+                <button type="button" className="icon-button" onClick={() => setEditingCategory(null)}>
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveCategoryEdit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Category Name</label>
+                  <input
+                    type="text"
+                    value={editCatName}
+                    onChange={(e) => setEditCatName(e.target.value)}
+                    required
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Category Type</label>
+                  <select
+                    value={editCatType}
+                    onChange={(e: any) => setEditCatType(e.target.value)}
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                    <option value="EXPENSE">Expense</option>
+                    <option value="INCOME">Income</option>
+                    <option value="INVESTMENT">Investment</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Monthly Envelope Target (₹)</label>
+                  <input
+                    type="number"
+                    value={editCatBudgetLimit}
+                    onChange={(e) => setEditCatBudgetLimit(e.target.value)}
+                    placeholder="e.g. 15000"
+                    step="any"
+                    style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "8px" }}>Color Theme</label>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    {COLOR_PRESETS.map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setEditCatColor(p)}
+                        style={{
+                          width: "30px",
+                          height: "30px",
+                          borderRadius: "50%",
+                          background: p,
+                          border: editCatColor === p ? "3px solid var(--ink)" : "none",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}>
+                        {editCatColor === p && <Check size={14} color="#ffffff" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                  <button type="button" className="secondary" onClick={() => setEditingCategory(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="primary">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
         )}
       </div>
     </Shell>
