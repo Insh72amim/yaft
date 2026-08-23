@@ -458,7 +458,8 @@ export function TransactionsSection({
     (data?.accounts || []).filter((acc) => {
       if (mode === "CREDIT_CARD") return acc.type === "CREDIT_CARD";
       if (mode === "BANK") return ["BANK", "SAVINGS"].includes(acc.type);
-      return ["BANK", "SAVINGS", "CREDIT_CARD"].includes(acc.type);
+      if (mode === "UPI_LITE") return acc.type === "UPI_LITE";
+      return ["BANK", "SAVINGS", "CREDIT_CARD", "UPI_LITE"].includes(acc.type);
     });
 
   const content = (
@@ -557,6 +558,22 @@ export function TransactionsSection({
 
           <button
             type="button"
+            className={`secondary ${mode === "CREDIT_CARD" ? "active" : ""}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "10px",
+              fontWeight: 600,
+            }}
+            onClick={() => handleModeChange("CREDIT_CARD")}>
+            <CreditCard size={18} color="#ef4444" />
+            <span>Credit Cards</span>
+          </button>
+
+          <button
+            type="button"
             className={`secondary ${mode === "UPI_LITE" ? "active" : ""}`}
             style={{
               display: "flex",
@@ -569,6 +586,22 @@ export function TransactionsSection({
             onClick={() => handleModeChange("UPI_LITE")}>
             <Zap size={18} color="#f59e0b" />
             <span>UPI Lite</span>
+          </button>
+
+          <button
+            type="button"
+            className={`secondary ${mode === "ALL" ? "active" : ""}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "10px",
+              fontWeight: 600,
+            }}
+            onClick={() => handleModeChange("ALL")}>
+            <Layers size={18} color="#3b82f6" />
+            <span>All Accounts</span>
           </button>
         </div>
       )}

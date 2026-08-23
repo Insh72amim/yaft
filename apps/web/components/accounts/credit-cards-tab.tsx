@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { CreditCard, Lock, Calendar, AlertCircle } from "lucide-react";
 import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
 import { VaultModal } from "@/components/vault-modal";
-import { TransactionsSection } from "@/components/transactions-section";
 import { getDomainForInstitution, getLocalLogo, cardNetworkClass } from "./account-card";
 
 export type CardCategoryItem = {
@@ -673,9 +672,6 @@ export function CreditCardsTab() {
           </div>
         )}
       </div>
-
-      {/* Transactions Ledger (Clean Embedded Table) */}
-      <TransactionsSection embedded={true} forceMode="CREDIT_CARD" />
 
       {vaultAccount && (
         <VaultModal
