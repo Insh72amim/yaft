@@ -290,5 +290,9 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     // 5. OTP verification email
     const otp = 'One Time Password (OTP) for your online transaction of Rs. 1,450.00 at MYNTRA DES is 482910. Do not share your OTP with anyone.';
     expect(parseEmailAlertSnippet(otp, 'onlinesbicard@sbicard.com')).toBeNull();
+
+    // 6. Discount & promotional marketing offer emails (e.g. Google Pixel ₹10,000 off)
+    const promoDiscount = 'Up to &#8377;10,000 off on Google Pixel 11 with ICICI Bank Credit Card EMI & non-EMI transactions Avail Now Bring home Google Pixel 11 with an exciting offer on ICICI Bank Credit Card EMI & non-EMI transactions.';
+    expect(parseEmailAlertSnippet(promoDiscount, 'ICICI Bank <services@customer.icici.bank.in>')).toBeNull();
   });
 });

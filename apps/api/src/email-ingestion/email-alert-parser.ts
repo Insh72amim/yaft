@@ -46,8 +46,10 @@ export function parseMoneyToMinorUnits(amountStr: string): bigint {
 export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
   // EMI conversions & loan offers
   '(?:flexi\\s*emi|flexipay|easy\\s*emi|smart\\s*emi|convert.*(?:trxn|txn|transaction|expenses?|spends?).*into.*emi|converting your transaction|processing fee on converting|convert.*into.*easy.*emi|convert.*transactions? worth|turn your eligible spends into)',
-  // Marketing & reward offers
-  '(?:unlock.*(?:voucher|reward|cashback|exciting)|gift card, with|enjoy.*cashback on your next|special offer for you|pre-approved|apply now|upgrade your card|file your taxes|guide to smart credit card|switch to faster|complimentary voucher|rewards? on your.*credit card)',
+  // Marketing & reward offers & discounts
+  '(?:unlock.*(?:voucher|reward|cashback|exciting)|gift card, with|enjoy.*cashback on your next|special offer|pre-approved|apply now|upgrade your card|file your taxes|guide to smart credit card|switch to faster|complimentary voucher|rewards? on your.*credit card)',
+  '(?:up\\s+to\\s*(?:rs\\.?|inr|₹|&#8377;)?\\s*[\\d,]+\\s*(?:off|cashback|discount|voucher|rewards?)|\\b\\d+%\\s*off|\\bflat\\s+(?:rs\\.?|inr|₹|&#8377;)?\\s*[\\d,]+\\s*off|\\boff\\s+on\\b)',
+  '(?:avail\\s*(?:now|offer|discount|cashback)|exciting\\s*offer|exclusive\\s*offer|great\\s*offer|limited\\s*period\\s*offer|save\\s+up\\s+to|get\\s+up\\s+to|instant\\s+discount|discount\\s+on|discounts\\s+on|cashback\\s+offer)',
   // OTPs & Authentication emails
   '(?:one time password|\\botp\\b|authentication code|secret code)',
   // Statement notifications & monthly summary bills
@@ -55,6 +57,8 @@ export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
   // Declined & Failed
   '(?:declined|transaction declined|payment failed|unsuccessful transaction)'
 ].join('|'), 'i');
+
+export const EXPLICIT_TRANSACTION_INDICATOR_REGEX = /\b(?:debited|credited|spent|charged|used\s+for|used\s+at|purchase\s+of|payment\s+of|withdrawn|received|deposited|refund\s+of|transfer\s+of|amount\s+debited|amount\s+credited|transaction\s+of|processed\s+for|successful\s+transaction|paid\s+to|paid\s+for|txn\s+of)\b/i;
 
 export const PROMOTIONAL_SENDER_REGEX = /offers@|deals@|marketing@|promo@|newsletter@|campaign@|digital\.axisbankmail|statements?@/i;
 
@@ -74,6 +78,12 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   const isRejected = PROMOTIONAL_OR_NON_TRANSACTION_REGEX.test(fullContext) || TRANSACTION_STATUS_CONFIG.EMAIL_FAILURE_REGEX.test(fullContext);
 
   if (isRejected && !isExplicitSuccessfulRefund(text)) {
+    return null;
+  }
+
+  // Require an explicit transaction action verb or confirmation indicator unless it's a valid refund
+  const hasTransactionAction = EXPLICIT_TRANSACTION_INDICATOR_REGEX.test(fullContext) || EMAIL_ALERT_PATTERNS.DEBIT_TXN_REGEX.test(text) || EMAIL_ALERT_PATTERNS.CREDIT_TXN_REGEX.test(text);
+  if (!hasTransactionAction && !isExplicitSuccessfulRefund(text)) {
     return null;
   }
 
