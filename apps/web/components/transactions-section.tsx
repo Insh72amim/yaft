@@ -138,7 +138,6 @@ export function TransactionsSection({
   const [rangeStartDateTime, setRangeStartDateTime] = useState("");
   const [rangeEndDateTime, setRangeEndDateTime] = useState("");
   const [rangeTagId, setRangeTagId] = useState("");
-  const [rangeCategoryId, setRangeCategoryId] = useState("");
   const [rangeAccountId, setRangeAccountId] = useState("all");
   const [rangeKeywords, setRangeKeywords] = useState("");
   const [rangeSubmitting, setRangeSubmitting] = useState(false);
@@ -389,6 +388,10 @@ export function TransactionsSection({
 
   const handleRunRangeAction = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!rangeTagId) {
+      setError("Please select a tag to apply.");
+      return;
+    }
     if (!rangeStartDateTime && !rangeEndDateTime && !rangeKeywords.trim()) {
       setError("Please enter a date/time range or keyword search.");
       return;
@@ -401,13 +404,12 @@ export function TransactionsSection({
         .map((k) => k.trim())
         .filter(Boolean);
 
-      const res = await api<{ matchedCount: number; newlyTaggedCount: number; newlyCategorizedCount: number }>("/tags/range-apply", {
+      const res = await api<{ matchedCount: number; newlyTaggedCount: number }>("/tags/range-apply", {
         method: "POST",
         body: JSON.stringify({
           startDate: rangeStartDateTime || undefined,
           endDate: rangeEndDateTime || undefined,
-          tagIds: rangeTagId ? [rangeTagId] : undefined,
-          categoryId: rangeCategoryId || undefined,
+          tagIds: [rangeTagId],
           accountId: rangeAccountId !== "all" ? rangeAccountId : undefined,
           keywords: keywordsArray.length > 0 ? keywordsArray : undefined,
         }),
@@ -415,12 +417,12 @@ export function TransactionsSection({
 
       setReconcileMsg({
         type: "success",
-        text: `Updated ${res.matchedCount} matching transactions in date/time range (${res.newlyTaggedCount} tagged, ${res.newlyCategorizedCount} categorized)!`,
+        text: `Applied tag to ${res.newlyTaggedCount || res.matchedCount} matching transactions in date/time range!`,
       });
       setShowRangeActionModal(false);
       fetchTransactions();
     } catch (err) {
-      setError(errorMessage(err, "Could not apply range tag/categorization."));
+      setError(errorMessage(err, "Could not apply range tag."));
     } finally {
       setRangeSubmitting(false);
     }
@@ -820,7 +822,7 @@ export function TransactionsSection({
                 fontWeight: 600,
               }}>
               <Calendar size={14} color="var(--green)" />
-              <span>Tag / Categorise by Range</span>
+              <span>Tag by Range</span>
             </button>
             <button
               type="button"
@@ -2132,16 +2134,16 @@ export function TransactionsSection({
         </div>
       )}
 
-      {/* Date/Time Range Tag & Categorize Modal */}
+      {/* Date/Time Range Tag Modal */}
       {showRangeActionModal && (
         <div className="modal-wrap" style={{ zIndex: 99999 }}>
           <button className="backdrop" onClick={() => setShowRangeActionModal(false)} aria-label="Close range action modal" />
           <section className="modal" style={{ width: "min(460px, 90vw)", padding: "20px", borderRadius: "14px", background: "var(--card)", border: "1px solid var(--line)" }}>
             <h3 style={{ margin: "0 0 10px 0", fontSize: "1.15rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
-              <Calendar size={18} color="var(--green)" /> Tag & Categorise by Date/Time Range
+              <Calendar size={18} color="var(--green)" /> Tag by Date/Time Range
             </h3>
             <p style={{ margin: "0 0 14px 0", fontSize: "12px", color: "var(--muted)" }}>
-              Tag or re-categorise all transactions occurring between a specific start and end date/time.
+              Apply a tag to all transactions occurring between a specific start and end date/time (e.g. #Trip, #Vacation, #Project).
             </p>
 
             <form onSubmit={handleRunRangeAction} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -2167,30 +2169,16 @@ export function TransactionsSection({
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Tag to Apply (Optional)</label>
+                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Select Tag to Apply *</label>
                 <select
+                  required
                   value={rangeTagId}
                   onChange={(e) => setRangeTagId(e.target.value)}
                   style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
-                  <option value="">Do not apply tag</option>
+                  <option value="">Choose a tag...</option>
                   {data?.tags?.map((t) => (
                     <option key={t.id} value={t.id}>
                       #{t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Category to Assign (Optional)</label>
-                <select
-                  value={rangeCategoryId}
-                  onChange={(e) => setRangeCategoryId(e.target.value)}
-                  style={{ width: "100%", height: "36px", fontSize: "12px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
-                  <option value="">Keep current category</option>
-                  {data?.categories?.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
                     </option>
                   ))}
                 </select>
@@ -2212,7 +2200,7 @@ export function TransactionsSection({
                   Cancel
                 </button>
                 <button type="submit" disabled={rangeSubmitting} className="secondary compact" style={{ background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700 }}>
-                  {rangeSubmitting ? <Loader2 size={14} className="spin" /> : "Apply to Range"}
+                  {rangeSubmitting ? <Loader2 size={14} className="spin" /> : "Apply Tag to Range"}
                 </button>
               </div>
             </form>
