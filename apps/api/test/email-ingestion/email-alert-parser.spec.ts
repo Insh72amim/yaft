@@ -269,4 +269,26 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(list[0].amountDisplay).toBe(2450);
     expect(list[1].amountDisplay).toBe(1299);
   });
+
+  it('should reject promotional, marketing, EMI conversion, OTP, and monthly statement emails', () => {
+    // 1. Axis Bank Flexi EMI marketing offer
+    const axisEmi = 'Available on Axis Bank Credit Cards Turn your eligible spends into FLEXI EMI instantly! Dear Test User , Managing your expenses has never been easier. Convert transactions worth INR 1932 on your Axis Bank';
+    expect(parseEmailAlertSnippet(axisEmi, 'Axis Bank Cards <info@digital.axisbankmail.bank.in>')).toBeNull();
+
+    // 2. SBI Flexipay EMI conversion promo
+    const sbiEmi = 'Having trouble viewing this e-mail? View this message in your browser SBI Card - App SBI Card Book Flexipay Enjoy ZERO Processing Fee* on converting your transaction of ₹3284.72 done on 20 AUG 2026';
+    expect(parseEmailAlertSnippet(sbiEmi, 'SBI Card <offers@offers.sbicard.com>')).toBeNull();
+
+    // 3. Rewards / vouchers marketing
+    const rewards = 'Unlock exciting rewards on your Axis Bank Credit Card with vouchers from top brands worth INR 1,000.';
+    expect(parseEmailAlertSnippet(rewards, 'Axis Bank Cards <info@digital.axisbankmail.bank.in>')).toBeNull();
+
+    // 4. Monthly statement summary
+    const statement = 'Dear Customer, We trust that your experience of using your HDFC Bank Pixel Cards has been enjoyable. Total Amount Due ₹9288.87 Minimum Amount Due ₹464.44 Payment Due Date 03-09-2026';
+    expect(parseEmailAlertSnippet(statement, 'HDFC Bank <alerts@hdfcbank.net>')).toBeNull();
+
+    // 5. OTP verification email
+    const otp = 'One Time Password (OTP) for your online transaction of Rs. 1,450.00 at MYNTRA DES is 482910. Do not share your OTP with anyone.';
+    expect(parseEmailAlertSnippet(otp, 'onlinesbicard@sbicard.com')).toBeNull();
+  });
 });

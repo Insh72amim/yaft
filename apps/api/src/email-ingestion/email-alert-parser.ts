@@ -43,19 +43,37 @@ export function parseMoneyToMinorUnits(amountStr: string): bigint {
   return BigInt(Math.round(num * 100));
 }
 
+export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
+  // EMI conversions & loan offers
+  '(?:flexi\\s*emi|flexipay|easy\\s*emi|smart\\s*emi|convert.*(?:trxn|txn|transaction|expenses?|spends?).*into.*emi|converting your transaction|processing fee on converting|convert.*into.*easy.*emi|convert.*transactions? worth|turn your eligible spends into)',
+  // Marketing & reward offers
+  '(?:unlock.*(?:voucher|reward|cashback|exciting)|gift card, with|enjoy.*cashback on your next|special offer for you|pre-approved|apply now|upgrade your card|file your taxes|guide to smart credit card|switch to faster|complimentary voucher|rewards? on your.*credit card)',
+  // OTPs & Authentication emails
+  '(?:one time password|\\botp\\b|authentication code|secret code)',
+  // Statement notifications & monthly summary bills
+  '(?:monthly statement|e-statement|your.*statement for|statement summary|total amount due|minimum amount due|payment due date|consolidated account statement)',
+  // Declined & Failed
+  '(?:declined|transaction declined|payment failed|unsuccessful transaction)'
+].join('|'), 'i');
+
+export const PROMOTIONAL_SENDER_REGEX = /offers@|deals@|marketing@|promo@|newsletter@|campaign@|digital\.axisbankmail|statements?@/i;
+
 export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: string): ParsedEmailTransaction | null {
   if (!bodyText || typeof bodyText !== 'string') return null;
+
+  // Reject explicit marketing senders immediately
+  if (senderOrSubject && PROMOTIONAL_SENDER_REGEX.test(senderOrSubject)) {
+    return null;
+  }
 
   // Pre-clean boilerplate warnings and footers so they don't corrupt merchant or account extraction
   const text = cleanEmailAlertText(bodyText);
   const fullContext = `${senderOrSubject || ''} ${text}`;
 
-  // 0. Detect and reject Declined / Failed / Unsuccessful / Cancelled transactions
-  // Banks & Card issuers send decline alerts when transactions fail (e.g. limit exceeded, incorrect OTP/PIN, security check, network timeout).
-  // These failed attempts must NEVER be imported as ledger transactions.
-  const isDeclinedOrFailed = TRANSACTION_STATUS_CONFIG.EMAIL_FAILURE_REGEX.test(fullContext);
+  // 0. Detect and reject Declined / Failed / Unsuccessful / Cancelled / Promotional / EMI / Statement transactions
+  const isRejected = PROMOTIONAL_OR_NON_TRANSACTION_REGEX.test(fullContext) || TRANSACTION_STATUS_CONFIG.EMAIL_FAILURE_REGEX.test(fullContext);
 
-  if (isDeclinedOrFailed && !isExplicitSuccessfulRefund(text)) {
+  if (isRejected && !isExplicitSuccessfulRefund(text)) {
     return null;
   }
 
