@@ -208,13 +208,13 @@ function ImportWorkspace() {
     }
   };
 
-  const handleSyncGmailNow = async (customDays?: number) => {
+  const handleSyncGmailNow = async (customDays?: number, emailId?: string) => {
     const daysToSync = typeof customDays === 'number' ? customDays : syncDays;
     setSyncingGmail(true); setError(''); setNotice('');
     try {
       const res = await api<any>('/email-ingestion/google/sync', {
         method: 'POST',
-        body: JSON.stringify({ days: daysToSync }),
+        body: JSON.stringify({ days: daysToSync, emailId }),
       });
       setNotice(res.message);
       if (res.dateRange) {
@@ -233,11 +233,15 @@ function ImportWorkspace() {
     }
   };
 
-  const handleDisconnectGoogle = async () => {
-    if (!confirm('Are you sure you want to disconnect your Google Account?')) return;
+  const handleDisconnectGoogle = async (emailId?: string, emailName?: string) => {
+    const confirmMsg = emailName
+      ? `Are you sure you want to disconnect ${emailName}?`
+      : 'Are you sure you want to disconnect Google Account(s)?';
+    if (!confirm(confirmMsg)) return;
     setError(''); setNotice('');
     try {
-      const res = await api<any>('/email-ingestion/google/disconnect', { method: 'DELETE' });
+      const url = emailId ? `/email-ingestion/google/disconnect?emailId=${encodeURIComponent(emailId)}` : '/email-ingestion/google/disconnect';
+      const res = await api<any>(url, { method: 'DELETE' });
       setNotice(res.message);
       await loadGoogleConfig();
     } catch (err) {
@@ -804,7 +808,7 @@ function ImportWorkspace() {
 
               {googleConfig?.connected ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       className="primary compact"
@@ -812,14 +816,17 @@ function ImportWorkspace() {
                       disabled={syncingGmail}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                       <RefreshCw size={14} className={syncingGmail ? 'spin' : ''} />
-                      <span>{syncingGmail ? `Scanning Past ${syncDays} Days…` : `Sync Inbox (${syncDays === 90 ? '3 Months' : `${syncDays} Days`})`}</span>
+                      <span>{syncingGmail ? `Syncing past ${syncDays} days…` : `Sync All Inboxes (${syncDays === 90 ? '3 Months' : `${syncDays} Days`})`}</span>
                     </button>
+
                     <button
                       type="button"
                       className="secondary compact"
-                      onClick={handleDisconnectGoogle}
-                      style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
-                      Disconnect
+                      onClick={handleConnectGoogle}
+                      disabled={connectingGoogle}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Mail size={14} />
+                      <span>+ Connect Another Gmail</span>
                     </button>
                   </div>
                 </div>
@@ -854,9 +861,9 @@ function ImportWorkspace() {
             </div>
 
             {googleConfig?.connected ? (
-              <div style={{ marginTop: '20px', background: 'var(--background-alt)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+              <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {/* Time Range Selector */}
-                <div style={{ marginBottom: '14px', paddingBottom: '14px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ background: 'var(--background-alt)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <Calendar size={14} /> Scan Time Window:
                   </span>
@@ -877,30 +884,49 @@ function ImportWorkspace() {
                   ))}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                  <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    ✓ Connected
-                  </span>
-                  <strong style={{ fontSize: '14px', color: 'var(--ink)' }}>{googleConfig.email}</strong>
-                </div>
+                {/* Account Cards Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
+                  {(googleConfig.configs && googleConfig.configs.length > 0 ? googleConfig.configs : [{ id: 'single', email: googleConfig.email, lastSyncAt: googleConfig.lastSyncAt, syncStatus: googleConfig.syncStatus }]).map((cfg: any) => (
+                    <div key={cfg.id || cfg.email} style={{ background: 'var(--background-alt)', padding: '16px', borderRadius: '12px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '3px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            ✓ Connected
+                          </span>
+                          <span style={{ fontSize: '11px', color: cfg.syncStatus === 'ACTIVE' ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+                            {cfg.syncStatus || 'ACTIVE'}
+                          </span>
+                        </div>
+                        <strong style={{ fontSize: '14px', color: 'var(--ink)', display: 'block', wordBreak: 'break-all' }}>{cfg.email}</strong>
+                        <small style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                          Last Synced: {cfg.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Not synced yet'}
+                        </small>
+                      </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '12px' }}>
-                  <div>
-                    <span style={{ color: 'var(--muted)' }}>Last Synced: </span>
-                    <strong>{googleConfig.lastSyncAt ? new Date(googleConfig.lastSyncAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Not synced yet'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--muted)' }}>Status: </span>
-                    <strong style={{ color: googleConfig.syncStatus === 'ACTIVE' ? '#10b981' : '#ef4444' }}>{googleConfig.syncStatus || 'ACTIVE'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--muted)' }}>Scope: </span>
-                    <strong>Read-Only (`gmail.readonly`)</strong>
-                  </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--line)', paddingTop: '10px', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          className="secondary compact"
+                          onClick={() => handleSyncGmailNow(syncDays, cfg.id !== 'single' ? cfg.id : undefined)}
+                          disabled={syncingGmail}
+                          style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <RefreshCw size={12} className={syncingGmail ? 'spin' : ''} />
+                          <span>Sync This Inbox</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button danger"
+                          onClick={() => handleDisconnectGoogle(cfg.id !== 'single' ? cfg.id : undefined, cfg.email)}
+                          style={{ color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px' }}>
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 {lastSyncMeta && (
-                  <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Calendar size={14} color="#3b82f6" />
                     <span style={{ color: 'var(--ink)' }}>
                       <strong>Latest Synced Alerts Range:</strong> {lastSyncMeta.label || `Past ${lastSyncMeta.daysSynced} days`}
@@ -912,10 +938,10 @@ function ImportWorkspace() {
               <div style={{ marginTop: '20px', background: 'var(--background-alt)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)', fontSize: '13px', lineHeight: 1.5, color: 'var(--muted)' }}>
                 <strong style={{ color: 'var(--ink)', display: 'block', marginBottom: '6px' }}>🔒 Privacy &amp; Security Guarantees:</strong>
                 <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                  <li><strong>No Banking Passwords Required</strong>: Uses Google's official OAuth 2.0 standard.</li>
+                  <li><strong>Multiple Google Accounts Supported</strong>: Connect separate Gmail accounts for different bank accounts &amp; credit cards.</li>
+                  <li><strong>Bank &amp; Credit Card Alerts Ingested</strong>: Ingest transaction emails across Bank Savings accounts, UPI Lite, and Credit Cards.</li>
                   <li><strong>Read-Only Access</strong>: YAFT only requests `gmail.readonly` permission to detect transaction alert subjects &amp; amounts.</li>
                   <li><strong>Local Token Encryption</strong>: OAuth refresh tokens are encrypted at rest using local AES-256-GCM.</li>
-                  <li><strong>You Control Sync</strong>: Sync transactions whenever you want or disconnect anytime with 1 click.</li>
                 </ul>
               </div>
             )}

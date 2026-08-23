@@ -5,7 +5,7 @@ import { google } from 'googleapis';
 import { PrismaService } from '../common/prisma.service';
 import { CategoryRulesService } from '../category-rules/category-rules.service';
 import { StatementCredentialCipher } from '../common/statement-credentials.service';
-import { parseMultipleEmailAlerts, ParsedEmailTransaction, getAccountCategoryKey, getAccountCategoryDisplayName, getAlertFingerprint } from './email-alert-parser';
+import { parseMultipleEmailAlerts, ParsedEmailTransaction, getAlertFingerprint } from './email-alert-parser';
 import { AccountType } from '../common/constants/enums';
 
 @Injectable()
@@ -70,14 +70,6 @@ export class GoogleGmailService {
       const { tokens } = await oauth2Client.getToken(code);
       oauth2Client.setCredentials(tokens);
 
-      if (!tokens.refresh_token) {
-        // If user previously authorized without consent prompt, retrieve existing token or demand consent
-        const existing = await this.prisma.googleEmailConfig.findFirst({ where: { userId } });
-        if (!existing) {
-          throw new BadRequestException('No refresh token returned by Google. Please disconnect and grant consent again.');
-        }
-      }
-
       // Fetch user profile email
       const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
       const userInfo = await oauth2.userinfo.get();
@@ -87,17 +79,21 @@ export class GoogleGmailService {
         throw new BadRequestException('Could not retrieve email address from Google Account.');
       }
 
-      const existingConfig = await this.prisma.googleEmailConfig.findFirst({ where: { userId } });
+      const emailLower = email.toLowerCase().trim();
+      const existingConfig = await this.prisma.googleEmailConfig.findFirst({
+        where: { userId, email: emailLower },
+      });
+
       const refreshTokenToUse = tokens.refresh_token || (existingConfig ? this.decryptRefreshToken(userId, existingConfig) : null);
 
       if (!refreshTokenToUse) {
-        throw new BadRequestException('Failed to secure a refresh token for background Gmail sync.');
+        throw new BadRequestException('Failed to secure a refresh token for background Gmail sync. Please grant consent again.');
       }
 
       const encrypted = this.cipher.encrypt(userId, refreshTokenToUse);
 
       const dataPayload = {
-        email: email.toLowerCase().trim(),
+        email: emailLower,
         refreshCipher: new Uint8Array(encrypted.ciphertext),
         refreshIv: new Uint8Array(encrypted.iv),
         refreshTag: new Uint8Array(encrypted.authTag),
@@ -121,8 +117,8 @@ export class GoogleGmailService {
 
       return {
         success: true,
-        message: `Successfully connected Gmail account (${email}). Ready for transaction alert ingestion.`,
-        email,
+        message: `Successfully connected Gmail account (${emailLower}). Ready for bank & credit card alert ingestion.`,
+        email: emailLower,
       };
     } catch (err: any) {
       this.logger.error(`Google OAuth callback failed: ${err.message}`, err.stack);
@@ -131,7 +127,7 @@ export class GoogleGmailService {
   }
 
   async getConfig(userId: string) {
-    const config = await this.prisma.googleEmailConfig.findFirst({
+    const configs = await this.prisma.googleEmailConfig.findMany({
       where: { userId },
       select: {
         id: true,
@@ -141,354 +137,307 @@ export class GoogleGmailService {
         createdAt: true,
         updatedAt: true,
       },
+      orderBy: { createdAt: 'desc' },
     });
 
     const isClientConfigured = !!(this.configService.get('GOOGLE_CLIENT_ID') && this.configService.get('GOOGLE_CLIENT_SECRET'));
 
-    if (!config) {
+    if (configs.length === 0) {
       return {
         connected: false,
         oauthServerConfigured: isClientConfigured,
+        configs: [],
       };
     }
 
     return {
       connected: true,
       oauthServerConfigured: isClientConfigured,
-      email: config.email,
-      lastSyncAt: config.lastSyncAt,
-      syncStatus: config.syncStatus,
-      createdAt: config.createdAt,
+      email: configs[0].email,
+      lastSyncAt: configs[0].lastSyncAt,
+      syncStatus: configs[0].syncStatus,
+      createdAt: configs[0].createdAt,
+      configs,
     };
   }
 
-  async syncGmail(userId: string, days?: number) {
-    const config = await this.prisma.googleEmailConfig.findFirst({ where: { userId } });
-    if (!config) {
-      throw new BadRequestException('No connected Gmail account found. Please click "Connect Gmail" first.');
+  async syncGmail(userId: string, days?: number, emailId?: string) {
+    let configs = [];
+    if (emailId) {
+      const cfg = await this.prisma.googleEmailConfig.findFirst({ where: { id: emailId, userId } });
+      if (cfg) configs.push(cfg);
+    } else {
+      configs = await this.prisma.googleEmailConfig.findMany({ where: { userId } });
     }
 
-    const refreshToken = this.decryptRefreshToken(userId, config);
-    const oauth2Client = this.getOAuthClient();
-
-    if (!oauth2Client || !refreshToken) {
-      throw new BadRequestException('Unable to authenticate with Gmail API. OAuth configuration or refresh token missing.');
+    if (configs.length === 0) {
+      throw new BadRequestException('No connected Gmail accounts found. Please click "Connect Gmail" first.');
     }
-
-    oauth2Client.setCredentials({ refresh_token: refreshToken });
 
     const syncDays = typeof days === 'number' && days > 0 ? days : 90;
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - syncDays);
     const afterDateStr = `${cutoffDate.getFullYear()}/${String(cutoffDate.getMonth() + 1).padStart(2, '0')}/${String(cutoffDate.getDate()).padStart(2, '0')}`;
 
-    try {
-      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    const allBatchIds: string[] = [];
+    let grandTotalScanned = 0;
+    let grandTotalParsed = 0;
+    let grandTotalStaged = 0;
+    const emailSummaries: string[] = [];
 
-      // Fast server-side filtered search for transaction emails across all major Indian banks & cards within the time window
-      const baseBankFilter = 'from:(hdfcbank.net OR hdfcbank.com OR hdfc.bank.in OR icicibank.com OR icicibank.co.in OR icici.bank.in OR axisbank.com OR axis.bank.in OR sbi.co.in OR sbi.bank.in OR kotak.com OR kotak.bank.in OR americanexpress.com OR pnb.co.in OR pnb.bank.in OR indusind.com OR idfcfirstbank.com OR rblbank.com OR standardchartered.co.in OR citibank.com OR "ICICI Bank" OR "Axis Bank" OR "HDFC Bank")';
-      const keywordsFilter = '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs.")';
-      const query = `${baseBankFilter} ${keywordsFilter} after:${afterDateStr}`;
+    // Fetch user's active accounts, categories, and category rules once for all Gmail accounts
+    const [userAccounts, categories, userRules] = await Promise.all([
+      this.prisma.account.findMany({
+        where: { userId, archived: false },
+      }),
+      this.prisma.category.findMany({ where: { userId } }),
+      this.prisma.categoryRule.findMany({
+        where: { userId },
+        orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      }),
+    ]);
 
-      const listRes = await gmail.users.messages.list({
-        userId: 'me',
-        q: query,
-        maxResults: 100,
-      });
+    for (const config of configs) {
+      const refreshToken = this.decryptRefreshToken(userId, config);
+      const oauth2Client = this.getOAuthClient();
 
-      const messages = listRes.data.messages || [];
-      const extractedAlerts: ParsedEmailTransaction[] = [];
-
-      // Parallel batch fetching in chunks of 10 for maximum throughput without rate limiting
-      const BATCH_SIZE = 10;
-      for (let i = 0; i < messages.length; i += BATCH_SIZE) {
-        const chunk = messages.slice(i, i + BATCH_SIZE);
-        const details = await Promise.all(
-          chunk.map((msgRef) =>
-            msgRef.id
-              ? gmail.users.messages
-                  .get({
-                    userId: 'me',
-                    id: msgRef.id,
-                    format: 'full',
-                  })
-                  .catch((e) => {
-                    this.logger.warn(`Failed to fetch message ${msgRef.id}: ${e.message}`);
-                    return null;
-                  })
-              : null,
-          ),
-        );
-
-        for (const msgDetail of details) {
-          if (!msgDetail || !msgDetail.data) continue;
-          const snippet = msgDetail.data.snippet || '';
-          const bodyText = this.extractMessageBody(msgDetail.data.payload) || snippet;
-          const headers = msgDetail.data.payload?.headers || [];
-          const subject = headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value || '';
-          const from = headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value || '';
-          const dateHeader = headers.find((h: any) => h.name?.toLowerCase() === 'date')?.value;
-          const internalDate = msgDetail.data.internalDate ? new Date(Number(msgDetail.data.internalDate)) : (dateHeader ? new Date(dateHeader) : undefined);
-          const validEmailDate = internalDate && !isNaN(internalDate.getTime()) ? internalDate : undefined;
-
-          const alerts = parseMultipleEmailAlerts(bodyText + ' ' + snippet, `${from} ${subject}`);
-          for (const alert of alerts) {
-            alert.emailMessageId = msgDetail.data.id || undefined;
-            alert.emailSubject = subject || undefined;
-            alert.emailSender = from || undefined;
-            alert.emailDate = validEmailDate;
-            extractedAlerts.push(alert);
-          }
-        }
+      if (!oauth2Client || !refreshToken) {
+        this.logger.warn(`Unable to decrypt refresh token for ${config.email}`);
+        continue;
       }
 
-      // Update sync timestamp
-      await this.prisma.googleEmailConfig.update({
-        where: { id: config.id },
-        data: { lastSyncAt: new Date(), syncStatus: 'ACTIVE' },
-      });
+      oauth2Client.setCredentials({ refresh_token: refreshToken });
 
-      if (extractedAlerts.length === 0) {
-        const emptySnippet = `Scanned ${messages.length} email(s) for the past ${syncDays} days (since ${cutoffDate.toLocaleDateString('en-IN')}). No new financial alerts found.`;
-        await this.prisma.emailSyncLog.create({
-          data: {
-            userId,
-            status: 'SUCCESS',
-            emailsScanned: messages.length,
-            alertsParsed: 0,
-            transactionsAdded: 0,
-            sourceSnippet: emptySnippet,
-          },
+      try {
+        const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+        // Fast server-side filtered search for transaction emails across all major Indian banks & cards
+        const baseBankFilter = 'from:(hdfcbank.net OR hdfcbank.com OR hdfc.bank.in OR icicibank.com OR icicibank.co.in OR icici.bank.in OR axisbank.com OR axis.bank.in OR sbi.co.in OR sbi.bank.in OR kotak.com OR kotak.bank.in OR americanexpress.com OR pnb.co.in OR pnb.bank.in OR indusind.com OR idfcfirstbank.com OR rblbank.com OR standardchartered.co.in OR citibank.com OR "ICICI Bank" OR "Axis Bank" OR "HDFC Bank" OR "State Bank of India" OR "Punjab National Bank")';
+        const keywordsFilter = '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs.")';
+        const query = `${baseBankFilter} ${keywordsFilter} after:${afterDateStr}`;
+
+        const listRes = await gmail.users.messages.list({
+          userId: 'me',
+          q: query,
+          maxResults: 100,
         });
 
-        return {
-          success: true,
-          message: `Scanned ${messages.length} email(s) from ${config.email} for the past ${syncDays} days. No new transaction alerts detected.`,
-          scannedCount: messages.length,
-          parsedCount: 0,
-          dateRange: {
-            earliest: null,
-            latest: null,
-            daysSynced: syncDays,
-          },
-        };
-      }
+        const messages = listRes.data.messages || [];
+        grandTotalScanned += messages.length;
+        const extractedAlerts: ParsedEmailTransaction[] = [];
 
-      // Compute earliest and latest alert dates
-      // STRICT FILTER: Gmail sync focuses exclusively on CREDIT CARD alerts for existing credit cards
-      const creditCardAlerts = extractedAlerts.filter((a) => a.accountType === AccountType.CREDIT_CARD);
-
-      if (creditCardAlerts.length === 0) {
-        const emptySnippet = `Scanned ${messages.length} email(s) from ${config.email} for the past ${syncDays} days. No credit card transaction alerts found.`;
-        await this.prisma.emailSyncLog.create({
-          data: {
-            userId,
-            status: 'SUCCESS',
-            emailsScanned: messages.length,
-            alertsParsed: 0,
-            transactionsAdded: 0,
-            sourceSnippet: emptySnippet,
-          },
-        });
-
-        return {
-          success: true,
-          message: `Scanned ${messages.length} email(s) from ${config.email} for the past ${syncDays} days. No credit card transaction alerts detected.`,
-          scannedCount: messages.length,
-          parsedCount: 0,
-          dateRange: {
-            earliest: null,
-            latest: null,
-            daysSynced: syncDays,
-          },
-        };
-      }
-
-      const validDates = creditCardAlerts
-        .map((a) => a.transactionDate)
-        .filter((d) => !isNaN(d.getTime()))
-        .sort((a, b) => a.getTime() - b.getTime());
-      const earliestAlertDate = validDates[0] || null;
-      const latestAlertDate = validDates[validDates.length - 1] || null;
-
-      const dateRangeLabel = earliestAlertDate && latestAlertDate
-        ? `${earliestAlertDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} to ${latestAlertDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
-        : `Past ${syncDays} days`;
-
-      // Fetch user's active CREDIT_CARD accounts, categories, and category rules once
-      const [userAccounts, categories, userRules] = await Promise.all([
-        this.prisma.account.findMany({
-          where: { userId, archived: false, type: AccountType.CREDIT_CARD },
-        }),
-        this.prisma.category.findMany({ where: { userId } }),
-        this.prisma.categoryRule.findMany({
-          where: { userId },
-          orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
-        }),
-      ]);
-
-      // Route each alert strictly to an existing user credit card account. NEVER create accounts automatically!
-      const accountGroups = new Map<string, { account: any; alerts: ParsedEmailTransaction[] }>();
-      let skippedUnmatchedCount = 0;
-
-      for (const alert of creditCardAlerts) {
-        const matchedAccount = this.findMatchingAccount(userAccounts, alert, alert.rawSnippet);
-        if (!matchedAccount) {
-          skippedUnmatchedCount++;
-          this.logger.warn(`Skipping alert: No existing Credit Card account found for bank="${alert.bankName}", last4="${alert.accountLast4 || ''}", merchant="${alert.merchant}"`);
-          continue;
-        }
-
-        if (!accountGroups.has(matchedAccount.id)) {
-          accountGroups.set(matchedAccount.id, { account: matchedAccount, alerts: [] });
-        }
-        accountGroups.get(matchedAccount.id)!.alerts.push(alert);
-      }
-
-      const createdBatchIds: string[] = [];
-      let totalStaged = 0;
-
-      for (const [accountId, { account, alerts: groupAlerts }] of accountGroups.entries()) {
-        const sampleAlert = groupAlerts[0];
-        const targetType = account.type;
-        const bankName = account.institution || sampleAlert.bankName;
-        const last4 = sampleAlert.accountLast4;
-
-        // Query existing committed transactions and pending review staged transactions for this account
-        const existingTxFingerprints = new Set(
-          (await this.prisma.transaction.findMany({ where: { accountId: account.id }, select: { fingerprint: true } })).map((x) => x.fingerprint)
-        );
-        const existingStagedFingerprints = new Set(
-          (await this.prisma.stagedTransaction.findMany({ where: { batch: { accountId: account.id, status: 'REVIEW' } }, select: { fingerprint: true } })).map((x) => x.fingerprint)
-        );
-
-        const stagedRows = groupAlerts.map((alert, idx) => {
-          const fingerprint = getAlertFingerprint(account.id, alert);
-          const isDuplicate = existingTxFingerprints.has(fingerprint) || existingStagedFingerprints.has(fingerprint);
-          existingTxFingerprints.add(fingerprint);
-          const descriptionRaw = `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' ••' + alert.accountLast4 : ''}]`;
-          const catMatch = this.categoryRulesService.matchTransactionCategory(
-            userRules,
-            categories,
-            descriptionRaw,
-            alert.merchant,
-            alert.referenceNumber,
+        // Parallel batch fetching in chunks of 10
+        const BATCH_SIZE = 10;
+        for (let i = 0; i < messages.length; i += BATCH_SIZE) {
+          const chunk = messages.slice(i, i + BATCH_SIZE);
+          const details = await Promise.all(
+            chunk.map((msgRef) =>
+              msgRef.id
+                ? gmail.users.messages
+                    .get({
+                      userId: 'me',
+                      id: msgRef.id,
+                      format: 'full',
+                    })
+                    .catch((e) => {
+                      this.logger.warn(`Failed to fetch message ${msgRef.id}: ${e.message}`);
+                      return null;
+                    })
+                : null,
+            ),
           );
 
-          return {
-            rowNumber: idx + 1,
-            transactionDate: alert.transactionDate,
-            descriptionRaw,
-            merchant: alert.merchant,
-            amount: alert.amountMinor,
-            reference: alert.referenceNumber || null,
-            fingerprint,
-            categoryId: catMatch.categoryId ?? null,
-            isDuplicate,
-            include: !isDuplicate,
-            confidence: isDuplicate ? 100 : catMatch.confidence,
-            emailMessageId: alert.emailMessageId ?? null,
-            emailSubject: alert.emailSubject ?? null,
-            emailSender: alert.emailSender ?? null,
-            emailDate: alert.emailDate ?? null,
-            emailSnippet: alert.rawSnippet ?? null,
-          };
+          for (const msgDetail of details) {
+            if (!msgDetail || !msgDetail.data) continue;
+            const snippet = msgDetail.data.snippet || '';
+            const bodyText = this.extractMessageBody(msgDetail.data.payload) || snippet;
+            const headers = msgDetail.data.payload?.headers || [];
+            const subject = headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value || '';
+            const from = headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value || '';
+            const dateHeader = headers.find((h: any) => h.name?.toLowerCase() === 'date')?.value;
+            const internalDate = msgDetail.data.internalDate ? new Date(Number(msgDetail.data.internalDate)) : (dateHeader ? new Date(dateHeader) : undefined);
+            const validEmailDate = internalDate && !isNaN(internalDate.getTime()) ? internalDate : undefined;
+
+            const alerts = parseMultipleEmailAlerts(bodyText + ' ' + snippet, `${from} ${subject}`);
+            for (const alert of alerts) {
+              alert.emailMessageId = msgDetail.data.id || undefined;
+              alert.emailSubject = subject || undefined;
+              alert.emailSender = from || undefined;
+              alert.emailDate = validEmailDate;
+              extractedAlerts.push(alert);
+            }
+          }
+        }
+
+        // Update sync timestamp
+        await this.prisma.googleEmailConfig.update({
+          where: { id: config.id },
+          data: { lastSyncAt: new Date(), syncStatus: 'ACTIVE' },
         });
 
-        // Count how many new (non-duplicate) items exist
-        const newRowsCount = stagedRows.filter((r) => !r.isDuplicate).length;
+        grandTotalParsed += extractedAlerts.length;
 
-        // If every single alert is already committed/staged, we don't need to create a redundant review batch
-        if (newRowsCount === 0 && stagedRows.length > 0) {
+        if (extractedAlerts.length === 0) {
+          emailSummaries.push(`${config.email}: 0 alerts from ${messages.length} email(s)`);
           continue;
         }
 
-        const fileHash = createHash('sha256')
-          .update(accountId + stagedRows.map((r) => r.fingerprint).join(';'))
-          .digest('hex');
+        // Route alerts to existing user accounts (both Bank accounts and Credit Cards)
+        const accountGroups = new Map<string, { account: any; alerts: ParsedEmailTransaction[] }>();
 
-        // Check if an identical batch with this exact hash is already pending review
-        const existingPendingBatch = await this.prisma.importBatch.findFirst({
-          where: { accountId: account.id, fileHash, status: 'REVIEW' },
-        });
-        if (existingPendingBatch) {
-          createdBatchIds.push(existingPendingBatch.id);
-          continue;
+        for (const alert of extractedAlerts) {
+          const matchedAccount = this.findMatchingAccount(userAccounts, alert, alert.rawSnippet);
+          if (!matchedAccount) {
+            this.logger.warn(`Skipping alert: No matching account found for type="${alert.accountType}", bank="${alert.bankName}", last4="${alert.accountLast4 || ''}", merchant="${alert.merchant}"`);
+            continue;
+          }
+
+          if (!accountGroups.has(matchedAccount.id)) {
+            accountGroups.set(matchedAccount.id, { account: matchedAccount, alerts: [] });
+          }
+          accountGroups.get(matchedAccount.id)!.alerts.push(alert);
         }
 
-        const cleanBankSlug = (account.institution || bankName).replace(/[^a-zA-Z0-9]/g, '-');
-        const batchFilename = `gmail-sync-${cleanBankSlug}-${targetType}-${last4 || 'all'}-${new Date().toISOString().slice(0, 10)}.txt`;
+        let configStagedCount = 0;
 
-        const batch = await this.prisma.importBatch.create({
-          data: {
-            userId,
-            accountId: account.id,
-            filename: batchFilename,
-            fileHash,
-            rowCount: stagedRows.length,
-            status: 'REVIEW',
-            staged: {
-              create: stagedRows,
+        for (const [accountId, { account, alerts: groupAlerts }] of accountGroups.entries()) {
+          const sampleAlert = groupAlerts[0];
+          const targetType = account.type;
+          const bankName = account.institution || sampleAlert.bankName;
+          const last4 = sampleAlert.accountLast4;
+
+          const existingTxFingerprints = new Set(
+            (await this.prisma.transaction.findMany({ where: { accountId: account.id }, select: { fingerprint: true } })).map((x) => x.fingerprint)
+          );
+          const existingStagedFingerprints = new Set(
+            (await this.prisma.stagedTransaction.findMany({ where: { batch: { accountId: account.id, status: 'REVIEW' } }, select: { fingerprint: true } })).map((x) => x.fingerprint)
+          );
+
+          const stagedRows = groupAlerts.map((alert, idx) => {
+            const fingerprint = getAlertFingerprint(account.id, alert);
+            const isDuplicate = existingTxFingerprints.has(fingerprint) || existingStagedFingerprints.has(fingerprint);
+            existingTxFingerprints.add(fingerprint);
+            const descriptionRaw = `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' ••' + alert.accountLast4 : ''}]`;
+            const catMatch = this.categoryRulesService.matchTransactionCategory(
+              userRules,
+              categories,
+              descriptionRaw,
+              alert.merchant,
+              alert.referenceNumber,
+            );
+
+            return {
+              rowNumber: idx + 1,
+              transactionDate: alert.transactionDate,
+              descriptionRaw,
+              merchant: alert.merchant,
+              amount: alert.amountMinor,
+              reference: alert.referenceNumber || null,
+              fingerprint,
+              categoryId: catMatch.categoryId ?? null,
+              isDuplicate,
+              include: !isDuplicate,
+              confidence: isDuplicate ? 100 : catMatch.confidence,
+              emailMessageId: alert.emailMessageId ?? null,
+              emailSubject: alert.emailSubject ?? null,
+              emailSender: alert.emailSender ?? null,
+              emailDate: alert.emailDate ?? null,
+              emailSnippet: alert.rawSnippet ?? null,
+            };
+          });
+
+          const newRowsCount = stagedRows.filter((r) => !r.isDuplicate).length;
+
+          if (newRowsCount === 0 && stagedRows.length > 0) {
+            continue;
+          }
+
+          const fileHash = createHash('sha256')
+            .update(accountId + stagedRows.map((r) => r.fingerprint).join(';'))
+            .digest('hex');
+
+          const existingPendingBatch = await this.prisma.importBatch.findFirst({
+            where: { accountId: account.id, fileHash, status: 'REVIEW' },
+          });
+          if (existingPendingBatch) {
+            allBatchIds.push(existingPendingBatch.id);
+            continue;
+          }
+
+          const cleanBankSlug = (account.institution || bankName).replace(/[^a-zA-Z0-9]/g, '-');
+          const batchFilename = `gmail-sync-${cleanBankSlug}-${targetType}-${last4 || 'all'}-${new Date().toISOString().slice(0, 10)}.txt`;
+
+          const batch = await this.prisma.importBatch.create({
+            data: {
+              userId,
+              accountId: account.id,
+              filename: batchFilename,
+              fileHash,
+              rowCount: stagedRows.length,
+              status: 'REVIEW',
+              staged: {
+                create: stagedRows,
+              },
             },
-          },
-          include: { staged: true },
+            include: { staged: true },
+          });
+
+          allBatchIds.push(batch.id);
+          const addedCount = stagedRows.filter((r) => !r.isDuplicate).length;
+          grandTotalStaged += addedCount;
+          configStagedCount += addedCount;
+        }
+
+        emailSummaries.push(`${config.email}: ${configStagedCount} new alert(s) from ${messages.length} email(s)`);
+      } catch (err: any) {
+        this.logger.error(`Gmail sync failed for ${config.email}: ${err.message}`, err.stack);
+        await this.prisma.googleEmailConfig.update({
+          where: { id: config.id },
+          data: { syncStatus: 'ERROR' },
         });
-
-        createdBatchIds.push(batch.id);
-        totalStaged += stagedRows.filter((r) => !r.isDuplicate).length;
       }
-
-      await this.prisma.emailSyncLog.create({
-        data: {
-          userId,
-          status: 'SUCCESS',
-          emailsScanned: messages.length,
-          alertsParsed: extractedAlerts.length,
-          transactionsAdded: totalStaged,
-          sourceSnippet: `Ingested ${totalStaged} new alert(s) across ${createdBatchIds.length} account batch(es) from ${config.email} (${dateRangeLabel}).`,
-        },
-      });
-
-      const message = totalStaged > 0
-        ? `Successfully ingested ${totalStaged} new alert(s) across ${createdBatchIds.length} account batch(es) from ${config.email} (${dateRangeLabel})!`
-        : `Scanned ${messages.length} email(s) (${dateRangeLabel}). Found ${extractedAlerts.length} alert(s), all of which were already previously imported.`;
-
-      return {
-        success: true,
-        message,
-        batchIds: createdBatchIds,
-        scannedCount: messages.length,
-        parsedCount: extractedAlerts.length,
-        stagedRowsCount: totalStaged,
-        dateRange: {
-          earliest: earliestAlertDate?.toISOString() || null,
-          latest: latestAlertDate?.toISOString() || null,
-          daysSynced: syncDays,
-          label: dateRangeLabel,
-        },
-      };
-    } catch (err: any) {
-      this.logger.error(`Gmail sync failed for user ${userId}: ${err.message}`, err.stack);
-      await this.prisma.googleEmailConfig.update({
-        where: { id: config.id },
-        data: { syncStatus: 'ERROR' },
-      });
-      const isInvalidGrant = err.message?.includes('invalid_grant') || err.response?.data?.error === 'invalid_grant';
-      if (isInvalidGrant) {
-        throw new BadRequestException(
-          'Google authorization expired or was revoked (invalid_grant). Please click "Disconnect" and reconnect your Google account. (Tip: In Google Cloud Console, set your OAuth publishing status to "In production" to prevent 7-day token expiration.)',
-        );
-      }
-      throw new BadRequestException(`Gmail sync error: ${err.message || err}`);
     }
+
+    await this.prisma.emailSyncLog.create({
+      data: {
+        userId,
+        status: 'SUCCESS',
+        emailsScanned: grandTotalScanned,
+        alertsParsed: grandTotalParsed,
+        transactionsAdded: grandTotalStaged,
+        sourceSnippet: `Synced ${configs.length} Gmail account(s) for past ${syncDays} days: ${emailSummaries.join('; ')}`,
+      },
+    });
+
+    const summaryText = grandTotalStaged > 0
+      ? `Successfully ingested ${grandTotalStaged} new alert(s) across ${configs.length} connected Gmail account(s) for past ${syncDays} days!`
+      : `Scanned ${grandTotalScanned} email(s) across ${configs.length} Gmail account(s) (past ${syncDays} days). No new alerts pending import.`;
+
+    return {
+      success: true,
+      message: summaryText,
+      batchIds: allBatchIds,
+      scannedCount: grandTotalScanned,
+      parsedCount: grandTotalParsed,
+      stagedRowsCount: grandTotalStaged,
+      summaries: emailSummaries,
+    };
   }
 
-  async disconnect(userId: string) {
-    const config = await this.prisma.googleEmailConfig.findFirst({ where: { userId } });
-    if (!config) return { success: true, message: 'No connected Gmail account found.' };
+  async disconnect(userId: string, emailId?: string) {
+    if (emailId) {
+      const config = await this.prisma.googleEmailConfig.findFirst({ where: { id: emailId, userId } });
+      if (!config) return { success: true, message: 'Specified Gmail account not found.' };
 
-    await this.prisma.googleEmailConfig.delete({ where: { id: config.id } });
-    return { success: true, message: `Disconnected Gmail account (${config.email}).` };
+      await this.prisma.googleEmailConfig.delete({ where: { id: config.id } });
+      return { success: true, message: `Disconnected Gmail account (${config.email}).` };
+    }
+
+    const configs = await this.prisma.googleEmailConfig.findMany({ where: { userId } });
+    if (configs.length === 0) return { success: true, message: 'No connected Gmail accounts found.' };
+
+    await this.prisma.googleEmailConfig.deleteMany({ where: { userId } });
+    return { success: true, message: `Disconnected ${configs.length} Gmail account(s).` };
   }
 
   private decryptRefreshToken(userId: string, config: any): string | null {
@@ -513,14 +462,12 @@ export class GoogleGmailService {
     if (payload.body && payload.body.data) {
       rawContent = Buffer.from(payload.body.data, 'base64').toString('utf-8');
     } else if (payload.parts && Array.isArray(payload.parts)) {
-      // Look for text/plain part first
       for (const part of payload.parts) {
         if (part.mimeType === 'text/plain' && part.body && part.body.data) {
           rawContent = Buffer.from(part.body.data, 'base64').toString('utf-8');
           break;
         }
       }
-      // If no text/plain, look for text/html part
       if (!rawContent) {
         for (const part of payload.parts) {
           if (part.mimeType === 'text/html' && part.body && part.body.data) {
@@ -529,7 +476,6 @@ export class GoogleGmailService {
           }
         }
       }
-      // If still empty, recurse into nested multipart
       if (!rawContent) {
         for (const part of payload.parts) {
           const nested = this.extractMessageBody(part);
@@ -564,15 +510,22 @@ export class GoogleGmailService {
   }
 
   private findMatchingAccount(userAccounts: any[], alert: ParsedEmailTransaction, rawSnippetText?: string): any | null {
-    if (alert.accountType !== AccountType.CREDIT_CARD) {
-      return null;
-    }
     const bankName = (alert.bankName || '').toLowerCase();
     const last4 = alert.accountLast4 ? alert.accountLast4.toLowerCase() : '';
     const text = (rawSnippetText || '').toLowerCase();
 
-    // Filter accounts strictly by CREDIT_CARD
-    const candidateAccounts = userAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
+    // Filter candidate user accounts matching the alert type
+    let candidateAccounts: any[] = [];
+    if (alert.accountType === AccountType.CREDIT_CARD) {
+      candidateAccounts = userAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
+    } else {
+      candidateAccounts = userAccounts.filter((acc) =>
+        [AccountType.BANK, AccountType.SAVINGS, AccountType.UPI_LITE, AccountType.CASH].includes(acc.type as any)
+      );
+      if (candidateAccounts.length === 0) {
+        candidateAccounts = userAccounts;
+      }
+    }
 
     if (candidateAccounts.length === 0) {
       return null;
@@ -588,9 +541,16 @@ export class GoogleGmailService {
         return name.includes(last4) || name.includes(`••${last4}`) || name.includes(`xx${last4}`) || name.includes(`*${last4}`);
       });
       if (last4Match) return last4Match;
+
+      // Also try last4 match without institution restriction if uniquely matching an account
+      const anyLast4Matches = candidateAccounts.filter((acc) => {
+        const name = (acc.name || '').toLowerCase();
+        return name.includes(last4) || name.includes(`••${last4}`) || name.includes(`xx${last4}`) || name.includes(`*${last4}`);
+      });
+      if (anyLast4Matches.length === 1) return anyLast4Matches[0];
     }
 
-    // 2. Card product / brand keyword matching in email text (e.g. Pixel, Amazon, Flipkart, Neo, MMT, Rewards)
+    // 2. Card / Account product or brand keyword matching in email snippet
     const productMatch = candidateAccounts.find((acc) => {
       const name = (acc.name || '').toLowerCase();
       const inst = (acc.institution || '').toLowerCase();
@@ -599,19 +559,10 @@ export class GoogleGmailService {
 
       if (name.includes('flipkart') && text.includes('flipkart')) return true;
       if (name.includes('amazon') && (text.includes('amazon') || text.includes('amz'))) return true;
-      if (name.includes('pixel') && text.includes('pixel')) {
-        if (name.includes('rupay') && (text.includes('rupay') || text.includes('upi'))) return true;
-        if (!name.includes('rupay') && !text.includes('rupay')) return true;
-        return true;
-      }
-      if ((name.includes('mmt') || name.includes('makemytrip')) && (text.includes('makemytrip') || text.includes('mmt'))) {
-        if (name.includes('rupay') && (text.includes('rupay') || text.includes('upi'))) return true;
-        if (!name.includes('rupay') && !text.includes('rupay')) return true;
-        return true;
-      }
+      if (name.includes('pixel') && text.includes('pixel')) return true;
+      if ((name.includes('mmt') || name.includes('makemytrip')) && (text.includes('makemytrip') || text.includes('mmt'))) return true;
       if (name.includes('neo') && text.includes('neo')) return true;
       if (name.includes('rewards') && text.includes('reward')) return true;
-
       if (name.length > 3 && text.includes(name)) return true;
       return false;
     });
@@ -628,7 +579,7 @@ export class GoogleGmailService {
       return instMatches[0];
     } else if (instMatches.length > 1) {
       if (text.includes('rupay') || text.includes('upi')) {
-        const rupayAcc = instMatches.find((a) => a.name.toLowerCase().includes('rupay'));
+        const rupayAcc = instMatches.find((a) => a.name.toLowerCase().includes('rupay') || a.type === AccountType.UPI_LITE);
         if (rupayAcc) return rupayAcc;
       }
       return instMatches[0];

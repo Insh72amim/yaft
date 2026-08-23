@@ -3,7 +3,7 @@ import { JwtAuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { GoogleGmailService } from './google-gmail.service';
 import { EmailIngestionService } from './email-ingestion.service';
-import { GoogleOAuthCallbackDto, ParseEmailSnippetDto } from './email-ingestion.dto';
+import { GoogleOAuthCallbackDto, ParseEmailSnippetDto, SyncGmailDto } from './email-ingestion.dto';
 
 @Controller('email-ingestion')
 @UseGuards(JwtAuthGuard)
@@ -40,12 +40,12 @@ export class EmailIngestionController {
   }
 
   @Post('google/sync')
-  async syncGmailInbox(@CurrentUser() user: { id: string }, @Body() body?: { days?: number }) {
-    return this.googleGmailService.syncGmail(user.id, body?.days);
+  async syncGmailInbox(@CurrentUser() user: { id: string }, @Body() body?: SyncGmailDto) {
+    return this.googleGmailService.syncGmail(user.id, body?.days, body?.emailId);
   }
 
   @Delete('google/disconnect')
-  async disconnectGoogle(@CurrentUser() user: { id: string }) {
-    return this.googleGmailService.disconnect(user.id);
+  async disconnectGoogle(@CurrentUser() user: { id: string }, @Query('emailId') emailId?: string) {
+    return this.googleGmailService.disconnect(user.id, emailId);
   }
 }

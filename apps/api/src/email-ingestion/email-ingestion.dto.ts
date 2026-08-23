@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class ParseEmailSnippetDto {
   @IsString()
@@ -20,4 +20,14 @@ export class GoogleOAuthCallbackDto {
   @IsString()
   @IsOptional()
   redirectUri?: string;
+}
+
+export class SyncGmailDto {
+  @IsNumber()
+  @IsOptional()
+  days?: number;
+
+  @IsString()
+  @IsOptional()
+  emailId?: string;
 }
