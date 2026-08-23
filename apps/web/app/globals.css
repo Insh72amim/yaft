@@ -629,8 +629,8 @@ html[data-theme='dark'] .brand-muted{color:#93a39b}
 html[data-theme='dark'] .sidebar nav a,html[data-theme='dark'] .logout{color:#9caca4}
 html[data-theme='dark'] .sidebar nav a:hover,html[data-theme='dark'] .sidebar nav a.active{background:var(--theme-soft-start);color:var(--green)}
 html[data-theme='dark'] .privacy-note,html[data-theme='dark'] .secondary,html[data-theme='dark'] .mobile-menu,html[data-theme='dark'] .theme-toggle{background:var(--card);border-color:var(--line)}
-html[data-theme='dark'] .secondary.active,html[data-theme='dark'] button.secondary.active,html[data-theme='dark'] a.secondary.active{background:var(--ink)!important;color:var(--paper)!important;border-color:var(--ink)!important;box-shadow:0 2px 10px rgba(0,0,0,0.45)!important}
-html[data-theme='dark'] .secondary.active svg,html[data-theme='dark'] button.secondary.active svg,html[data-theme='dark'] a.secondary.active svg{color:var(--paper)!important}
+html[data-theme='dark'] .secondary.active,html[data-theme='dark'] button.secondary.active,html[data-theme='dark'] a.secondary.active{background:var(--green)!important;color:#ffffff!important;border-color:var(--green)!important;box-shadow:0 4px 16px var(--theme-shadow-color)!important}
+html[data-theme='dark'] .secondary.active svg,html[data-theme='dark'] button.secondary.active svg,html[data-theme='dark'] a.secondary.active svg{color:#ffffff!important}
 html[data-theme='dark'] .privacy-note{color:#8ad9b2}
 html[data-theme='dark'] .logout:hover{color:#ff9a94;background:#321d1d}
 html[data-theme='dark'] .eyebrow{color:#8db7a2}
@@ -644,17 +644,17 @@ html[data-theme='dark'] .account-row,html[data-theme='dark'] .transaction-list>d
 .secondary.active,
 button.secondary.active,
 a.secondary.active {
-  background: var(--ink) !important;
-  color: var(--paper) !important;
-  border-color: var(--ink) !important;
+  background: var(--green) !important;
+  color: #ffffff !important;
+  border-color: var(--green) !important;
   font-weight: 700 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16) !important;
+  box-shadow: 0 4px 14px var(--theme-shadow-color) !important;
 }
 
 .secondary.active svg,
 button.secondary.active svg,
 a.secondary.active svg {
-  color: var(--paper) !important;
+  color: #ffffff !important;
 }
 
 html[data-theme='dark'] .util{background:#293831}
