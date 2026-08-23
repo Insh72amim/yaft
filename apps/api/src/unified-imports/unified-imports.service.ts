@@ -323,6 +323,14 @@ export class UnifiedImportsService {
         id: row.id, rowNumber: row.rowNumber, transactionDate: row.transactionDate, postedDate: row.postedDate,
         descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: row.amount, reference: row.reference,
         categoryId: row.categoryId, isDuplicate: row.isDuplicate, include: row.include, confidence: row.confidence,
+        category: (row as any).category ? { id: (row as any).category.id, name: (row as any).category.name, color: (row as any).category.color } : null,
+        emailReference: (row as any).emailReference ?? ((row as any).emailSnippet || (row as any).emailMessageId || (row as any).emailSubject ? {
+          messageId: (row as any).emailMessageId,
+          subject: (row as any).emailSubject,
+          sender: (row as any).emailSender,
+          date: (row as any).emailDate,
+          snippet: (row as any).emailSnippet,
+        } : null),
       })),
     };
   }

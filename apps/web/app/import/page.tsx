@@ -1059,27 +1059,47 @@ function BankReviewPanel({ item, busy, update, finish }: { item: BankPending; bu
                   e.stopPropagation();
                   setSelectedEmailRef({ row, ref: row.emailReference! });
                 }}
-                title="View source email reference"
+                title="View original source email proof and raw alert text"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '3px',
-                  fontSize: '10px',
+                  gap: '4px',
+                  fontSize: '11px',
                   fontWeight: 600,
-                  padding: '1px 6px',
+                  padding: '2px 8px',
                   borderRadius: '12px',
-                  background: 'rgba(59, 130, 246, 0.12)',
+                  background: 'rgba(59, 130, 246, 0.14)',
                   color: '#3b82f6',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  border: '1px solid rgba(59, 130, 246, 0.35)',
                   cursor: 'pointer',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                <Mail style={{ width: '10px', height: '10px' }} />
-                <span>Email Alert</span>
+                <Mail style={{ width: '12px', height: '12px' }} />
+                <span>Mail Proof</span>
               </button>
             )}
           </div>
           <small>Value {new Date(row.transactionDate).toLocaleDateString('en-IN')}{row.postedDate ? ` · Posted ${new Date(row.postedDate).toLocaleDateString('en-IN')}` : ''} · {row.descriptionRaw}</small>
+          {row.emailReference?.snippet && (
+            <div
+              onClick={() => setSelectedEmailRef({ row, ref: row.emailReference! })}
+              style={{
+                fontSize: '11px',
+                color: 'var(--muted)',
+                marginTop: '2px',
+                fontFamily: 'monospace',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+              title="Click to view full email proof"
+            >
+              <span style={{ color: '#3b82f6' }}>📧 Proof:</span>
+              <span>{row.emailReference.snippet.slice(0, 90)}…</span>
+            </div>
+          )}
           {row.isDuplicate && <em><AlertTriangle size={12}/>Likely duplicate</em>}
         </div>
         <select aria-label={`Category for ${row.merchant || row.descriptionRaw}`} value={row.categoryId ?? ''}
