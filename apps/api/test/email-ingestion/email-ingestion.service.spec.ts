@@ -20,6 +20,9 @@ describe('EmailIngestionService Deduplication and Auto-Categorization', () => {
       stagedTransaction: {
         findMany: jest.fn().mockResolvedValue([]),
       },
+      category: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       categoryRule: {
         findMany: jest.fn().mockResolvedValue([]),
       },
