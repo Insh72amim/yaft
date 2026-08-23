@@ -9,6 +9,8 @@ import {
   X,
   Layers,
   FolderTree,
+  Tag,
+  ArrowRight,
 } from "lucide-react";
 import { api, errorMessage } from "@/lib/api";
 import { CategoryOption, SuperCategoryOption } from "./envelopes-tab";
@@ -221,7 +223,7 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
 
   // Delete Super Category
   const handleDeleteSuperCategory = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete super category "${name}"? Child categories will become unparented but remain safe.`)) return;
+    if (!confirm(`Are you sure you want to delete super category "${name}"? Child categories will remain safe.`)) return;
     try {
       setError("");
       setSuccessMsg("");
@@ -237,17 +239,17 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
   const getKindBadge = (kind: string) => {
     switch (kind) {
       case "EXPENSE":
-        return { bg: "rgba(239, 68, 68, 0.12)", color: "#ef4444", label: "Expense" };
+        return { bg: "rgba(239, 68, 68, 0.1)", color: "#ef4444", label: "Expense" };
       case "INCOME":
-        return { bg: "rgba(16, 185, 129, 0.12)", color: "#10b981", label: "Income" };
+        return { bg: "rgba(16, 185, 129, 0.1)", color: "#10b981", label: "Income" };
       case "INVESTMENT":
-        return { bg: "rgba(139, 92, 246, 0.12)", color: "#8b5cf6", label: "Investment" };
+        return { bg: "rgba(139, 92, 246, 0.1)", color: "#8b5cf6", label: "Investment" };
       case "TRANSFER":
-        return { bg: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", label: "Internal Transfer" };
+        return { bg: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", label: "Transfer" };
       case "OTHER":
-        return { bg: "rgba(100, 116, 139, 0.12)", color: "#64748b", label: "Others" };
+        return { bg: "rgba(100, 116, 139, 0.1)", color: "#64748b", label: "Others" };
       default:
-        return { bg: "rgba(100, 116, 139, 0.12)", color: "#64748b", label: kind };
+        return { bg: "rgba(100, 116, 139, 0.1)", color: "#64748b", label: kind };
     }
   };
 
@@ -258,15 +260,20 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "32px", paddingBottom: "24px" }}>
       {/* Header & Global Actions */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
         <div>
-          <h3 style={{ margin: "0", fontSize: "1.3rem", fontWeight: 800, color: "var(--ink)" }}>
-            Financial Taxonomy &amp; Categories
-          </h3>
-          <p style={{ margin: "3px 0 0 0", fontSize: "13px", color: "var(--muted)" }}>
-            Create and organize custom Super Categories and nest your financial categories under them.
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <h3 style={{ margin: "0", fontSize: "1.35rem", fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+              Financial Taxonomy &amp; Categories
+            </h3>
+            <span style={{ padding: "3px 9px", borderRadius: "100px", background: "var(--background-alt)", border: "1px solid var(--line)", fontSize: "11px", fontWeight: 700, color: "var(--muted)" }}>
+              {superCategories.length} Super &bull; {categories.length} Sub-Categories
+            </span>
+          </div>
+          <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "var(--muted)" }}>
+            Structure and organize custom Super Categories and nest granular transaction categories under them.
           </p>
         </div>
 
@@ -275,8 +282,17 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
             type="button"
             className="secondary"
             onClick={openCreateSuperModal}
-            style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 16px", borderRadius: "10px", fontWeight: 700, fontSize: "13px" }}>
-            <FolderTree size={16} color="var(--green)" />
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "9px 15px",
+              borderRadius: "10px",
+              fontWeight: 700,
+              fontSize: "13px",
+              transition: "all 0.15s ease",
+            }}>
+            <FolderTree size={15} color="var(--green)" />
             <span>+ Add Super Category</span>
           </button>
 
@@ -284,87 +300,127 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
             type="button"
             className="primary"
             onClick={openCreateCatModal}
-            style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 18px", borderRadius: "10px", fontWeight: 700, fontSize: "13px" }}>
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "9px 18px",
+              borderRadius: "10px",
+              fontWeight: 700,
+              fontSize: "13px",
+              boxShadow: "0 2px 8px rgba(184, 91, 53, 0.25)",
+            }}>
             <Plus size={16} />
-            <span>+ Add Category</span>
+            <span>Add Category</span>
           </button>
         </div>
       </div>
 
       {/* Notifications */}
       {error && (
-        <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#ef4444", padding: "12px 16px", borderRadius: "10px", fontSize: "13px" }}>
-          {error}
+        <div style={{ background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.25)", color: "#ef4444", padding: "12px 16px", borderRadius: "12px", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <span>⚠️</span> {error}
         </div>
       )}
       {successMsg && (
-        <div style={{ background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", color: "#10b981", padding: "12px 16px", borderRadius: "10px", fontSize: "13px" }}>
-          {successMsg}
+        <div style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.25)", color: "#10b981", padding: "12px 16px", borderRadius: "12px", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <Check size={16} /> {successMsg}
         </div>
       )}
 
       {/* SECTION 1: SUPER CATEGORIES */}
-      <section style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+      <section style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Layers size={18} color="var(--green)" />
             <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)" }}>
-              Super Categories ({superCategories.length})
+              Super Categories
             </h4>
+            <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+              ({superCategories.length})
+            </span>
           </div>
           <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-            High-level financial parent groups
+            High-level parent groups
           </span>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "12px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "14px" }}>
           {superCategories.map((s) => {
             const kindBadge = getKindBadge(s.kind);
             const count = s._count?.categories ?? s.categories?.length ?? 0;
+            const themeColor = s.color || "#3b82f6";
 
             return (
               <div
                 key={s.id}
                 style={{
-                  padding: "14px 16px",
-                  borderRadius: "12px",
-                  border: `1.5px solid ${s.color || "var(--line)"}40`,
+                  padding: "16px 18px",
+                  borderRadius: "14px",
+                  border: "1px solid var(--line)",
+                  borderLeft: `4px solid ${themeColor}`,
                   background: "var(--card)",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+                  transition: "transform 0.15s ease, box-shadow 0.15s ease",
                 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
-                  <span style={{ width: "14px", height: "14px", borderRadius: "4px", background: s.color || "#3b82f6", flexShrink: 0 }} />
                   <div style={{ minWidth: 0 }}>
-                    <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {s.name}
-                    </h4>
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "4px" }}>
-                      <span style={{ padding: "2px 6px", borderRadius: "5px", background: kindBadge.bg, color: kindBadge.color, fontSize: "9px", fontWeight: 800 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {s.name}
+                      </h4>
+                    </div>
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "6px" }}>
+                      <span style={{ padding: "2px 7px", borderRadius: "6px", background: kindBadge.bg, color: kindBadge.color, fontSize: "10px", fontWeight: 800 }}>
                         {kindBadge.label}
                       </span>
                       <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>
-                        {count} {count === 1 ? "cat" : "cats"}
+                        &bull; {count} {count === 1 ? "category" : "categories"}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: "4px", flexShrink: 0, marginLeft: "8px" }}>
                   <button
                     type="button"
-                    className="icon-button"
                     title="Edit Super Category"
-                    onClick={() => openEditSuperModal(s)}>
+                    onClick={() => openEditSuperModal(s)}
+                    style={{
+                      width: "30px",
+                      height: "30px",
+                      borderRadius: "8px",
+                      border: "1px solid var(--line)",
+                      background: "var(--background-alt)",
+                      color: "var(--ink)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}>
                     <Pencil size={13} />
                   </button>
                   <button
                     type="button"
-                    className="icon-button danger"
                     title="Delete Super Category"
-                    onClick={() => handleDeleteSuperCategory(s.id, s.name)}>
+                    onClick={() => handleDeleteSuperCategory(s.id, s.name)}
+                    style={{
+                      width: "30px",
+                      height: "30px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(239, 68, 68, 0.2)",
+                      background: "rgba(239, 68, 68, 0.06)",
+                      color: "#ef4444",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -374,20 +430,26 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
         </div>
       </section>
 
-      {/* SECTION 2: CATEGORIES */}
-      <section style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-          <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)" }}>
-            Categories ({filteredCategories.length})
-          </h4>
+      {/* SECTION 2: SUB-CATEGORIES */}
+      <section style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Tag size={18} color="var(--green)" />
+            <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)" }}>
+              Sub-Categories
+            </h4>
+            <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
+              ({filteredCategories.length})
+            </span>
+          </div>
 
           {/* Filter Pills by Super Category */}
-          <div style={{ display: "flex", gap: "6px", background: "var(--background-alt)", padding: "4px", borderRadius: "10px", border: "1px solid var(--line)", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "5px", background: "var(--background-alt)", padding: "4px", borderRadius: "12px", border: "1px solid var(--line)", flexWrap: "wrap" }}>
             <button
               type="button"
               className={`secondary compact ${selectedSuperFilterId === "ALL" ? "active" : ""}`}
               onClick={() => setSelectedSuperFilterId("ALL")}
-              style={{ fontSize: "11px", fontWeight: 700, padding: "5px 12px", borderRadius: "7px" }}>
+              style={{ fontSize: "11px", fontWeight: 700, padding: "5px 12px", borderRadius: "8px" }}>
               All ({categories.length})
             </button>
             {superCategories.map((s) => {
@@ -398,8 +460,17 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
                   type="button"
                   className={`secondary compact ${selectedSuperFilterId === s.id ? "active" : ""}`}
                   onClick={() => setSelectedSuperFilterId(s.id)}
-                  style={{ fontSize: "11px", fontWeight: 700, padding: "5px 12px", borderRadius: "7px" }}>
-                  {s.name} ({catCount})
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    padding: "5px 12px",
+                    borderRadius: "8px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}>
+                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: s.color || "#3b82f6" }} />
+                  <span>{s.name} ({catCount})</span>
                 </button>
               );
             })}
@@ -407,60 +478,95 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
         </div>
 
         {/* Categories Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "12px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: "14px" }}>
           {filteredCategories.map((cat) => {
             const parentSuper = superCategories.find((s) => s.id === (cat.superCategoryId || cat.superCategory?.id));
             const parentName = parentSuper ? parentSuper.name : cat.superCategory?.name || cat.type || "General";
             const parentColor = parentSuper ? parentSuper.color : cat.superCategory?.color || "#64748b";
+            const dotColor = cat.color || "#3b82f6";
 
             return (
               <div
                 key={cat.id}
-                className="panel"
                 style={{
-                  padding: "14px 16px",
-                  borderRadius: "12px",
+                  padding: "16px 18px",
+                  borderRadius: "14px",
                   border: "1px solid var(--line)",
                   background: "var(--card)",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+                  transition: "all 0.15s ease",
                 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
-                  <span style={{ width: "14px", height: "14px", borderRadius: "50%", background: cat.color || "#3b82f6", flexShrink: 0 }} />
+                  <span style={{
+                    width: "12px",
+                    height: "12px",
+                    borderRadius: "50%",
+                    background: dotColor,
+                    flexShrink: 0,
+                    boxShadow: `0 0 0 3px ${dotColor}25`,
+                  }} />
                   <div style={{ minWidth: 0 }}>
                     <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {cat.name}
                     </h4>
                     <span style={{
-                      display: "inline-block",
-                      marginTop: "4px",
-                      padding: "2px 7px",
-                      borderRadius: "5px",
-                      background: `${parentColor}20`,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      marginTop: "5px",
+                      padding: "2px 8px",
+                      borderRadius: "6px",
+                      background: `${parentColor}15`,
                       color: parentColor,
-                      fontSize: "9.5px",
+                      fontSize: "10px",
                       fontWeight: 800,
-                      letterSpacing: "0.02em",
+                      letterSpacing: "0.01em",
                     }}>
                       📁 {parentName}
                     </span>
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: "4px", flexShrink: 0, marginLeft: "8px" }}>
                   <button
                     type="button"
-                    className="icon-button"
                     title="Edit Category"
-                    onClick={() => openEditCatModal(cat)}>
+                    onClick={() => openEditCatModal(cat)}
+                    style={{
+                      width: "30px",
+                      height: "30px",
+                      borderRadius: "8px",
+                      border: "1px solid var(--line)",
+                      background: "var(--background-alt)",
+                      color: "var(--ink)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}>
                     <Pencil size={13} />
                   </button>
                   <button
                     type="button"
-                    className="icon-button danger"
                     title="Delete Category"
-                    onClick={() => handleDeleteCategory(cat.id, cat.name)}>
+                    onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                    style={{
+                      width: "30px",
+                      height: "30px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(239, 68, 68, 0.2)",
+                      background: "rgba(239, 68, 68, 0.06)",
+                      color: "#ef4444",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -474,40 +580,49 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
       {superModalOpen && (
         <div className="modal-wrap" style={{ zIndex: 99999 }}>
           <button className="backdrop" onClick={() => setSuperModalOpen(false)} aria-label="Close modal" />
-          <section className="modal" style={{ width: "min(480px, 95vw)", padding: "24px", borderRadius: "14px", background: "var(--card)", border: "1px solid var(--line)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: "8px" }}>
-                <FolderTree size={20} color="var(--green)" />
-                {editingSuper ? `Edit "${editingSuper.name}"` : "Create Super Category"}
-              </h3>
+          <section className="modal" style={{ width: "min(480px, 95vw)", padding: "26px", borderRadius: "16px", background: "var(--card)", border: "1px solid var(--line)", boxShadow: "0 20px 40px rgba(0,0,0,0.15)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "rgba(184, 91, 53, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <FolderTree size={18} color="var(--green)" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--ink)" }}>
+                    {editingSuper ? `Edit "${editingSuper.name}"` : "New Super Category"}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
+                    High-level parent group for your categories
+                  </p>
+                </div>
+              </div>
               <button type="button" className="icon-button" onClick={() => setSuperModalOpen(false)}>
                 <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveSuperCategory} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <form onSubmit={handleSaveSuperCategory} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
               <div>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
                   Super Category Name
                 </label>
                 <input
                   type="text"
                   value={superName}
                   onChange={(e) => setSuperName(e.target.value)}
-                  placeholder="e.g. Living & Household, Lifestyle & Fun, Passive Income"
+                  placeholder="e.g. Living & Household, Lifestyle & Fun, Subscriptions"
                   required
-                  style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  style={{ width: "100%", height: "42px", fontSize: "13px", padding: "0 14px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
                 />
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
                   Financial Accounting Nature
                 </label>
                 <select
                   value={superKind}
                   onChange={(e: any) => setSuperKind(e.target.value)}
-                  style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                  style={{ width: "100%", height: "42px", fontSize: "13px", padding: "0 14px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
                   <option value="EXPENSE">Expense (Outflows &amp; Spending)</option>
                   <option value="INCOME">Income (Earnings &amp; Inflows)</option>
                   <option value="INVESTMENT">Investment (Wealth &amp; Assets)</option>
@@ -518,7 +633,7 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
 
               <div>
                 <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "8px" }}>
-                  Color Theme
+                  Theme Accent Color
                 </label>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   {COLOR_PRESETS.map((p) => (
@@ -527,15 +642,16 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
                       type="button"
                       onClick={() => setSuperColor(p)}
                       style={{
-                        width: "28px",
-                        height: "28px",
-                        borderRadius: "6px",
+                        width: "30px",
+                        height: "30px",
+                        borderRadius: "8px",
                         background: p,
-                        border: superColor === p ? "3px solid var(--ink)" : "none",
+                        border: superColor === p ? "3px solid var(--ink)" : "1px solid transparent",
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        transition: "transform 0.1s ease",
                       }}>
                       {superColor === p && <Check size={14} color="#ffffff" />}
                     </button>
@@ -543,7 +659,7 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
                 <button type="button" className="secondary" onClick={() => setSuperModalOpen(false)}>
                   Cancel
                 </button>
@@ -560,19 +676,29 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
       {catModalOpen && (
         <div className="modal-wrap" style={{ zIndex: 99999 }}>
           <button className="backdrop" onClick={() => setCatModalOpen(false)} aria-label="Close modal" />
-          <section className="modal" style={{ width: "min(480px, 95vw)", padding: "24px", borderRadius: "14px", background: "var(--card)", border: "1px solid var(--line)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--ink)" }}>
-                {editingCategory ? `Edit "${editingCategory.name}"` : "Create Category"}
-              </h3>
+          <section className="modal" style={{ width: "min(480px, 95vw)", padding: "26px", borderRadius: "16px", background: "var(--card)", border: "1px solid var(--line)", boxShadow: "0 20px 40px rgba(0,0,0,0.15)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "rgba(184, 91, 53, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Tag size={18} color="var(--green)" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--ink)" }}>
+                    {editingCategory ? `Edit "${editingCategory.name}"` : "New Category"}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
+                    Granular classification for transactions
+                  </p>
+                </div>
+              </div>
               <button type="button" className="icon-button" onClick={() => setCatModalOpen(false)}>
                 <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveCategory} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <form onSubmit={handleSaveCategory} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
               <div>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
                   Category Name
                 </label>
                 <input
@@ -581,18 +707,18 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
                   onChange={(e) => setCatName(e.target.value)}
                   placeholder="e.g. Subscriptions, Pet Care, Utilities"
                   required
-                  style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  style={{ width: "100%", height: "42px", fontSize: "13px", padding: "0 14px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
                 />
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
                   Parent Super Category
                 </label>
                 <select
                   value={catSuperId}
                   onChange={(e) => setCatSuperId(e.target.value)}
-                  style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                  style={{ width: "100%", height: "42px", fontSize: "13px", padding: "0 14px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
                   {superCategories.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} ({s.kind})
@@ -603,7 +729,7 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
 
               <div>
                 <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "8px" }}>
-                  Color Theme
+                  Category Color Dot
                 </label>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   {COLOR_PRESETS.map((p) => (
@@ -612,15 +738,16 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
                       type="button"
                       onClick={() => setCatColor(p)}
                       style={{
-                        width: "28px",
-                        height: "28px",
+                        width: "30px",
+                        height: "30px",
                         borderRadius: "50%",
                         background: p,
-                        border: catColor === p ? "3px solid var(--ink)" : "none",
+                        border: catColor === p ? "3px solid var(--ink)" : "1px solid transparent",
                         cursor: "pointer",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        transition: "transform 0.1s ease",
                       }}>
                       {catColor === p && <Check size={14} color="#ffffff" />}
                     </button>
@@ -628,7 +755,7 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
                 <button type="button" className="secondary" onClick={() => setCatModalOpen(false)}>
                   Cancel
                 </button>
@@ -643,4 +770,5 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
     </div>
   );
 }
+
 
