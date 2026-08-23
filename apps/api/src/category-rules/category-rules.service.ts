@@ -231,7 +231,16 @@ export class CategoryRulesService {
   async listCategories(userId: string) {
     let list = await this.prisma.category.findMany({
       where: { userId },
-      select: { id: true, name: true, type: true, color: true },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        color: true,
+        superCategoryId: true,
+        superCategory: {
+          select: { id: true, name: true, kind: true, color: true },
+        },
+      },
       orderBy: [{ type: 'asc' }, { name: 'asc' }],
     });
 
@@ -272,7 +281,16 @@ export class CategoryRulesService {
 
       list = await this.prisma.category.findMany({
         where: { userId },
-        select: { id: true, name: true, type: true, color: true },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          color: true,
+          superCategoryId: true,
+          superCategory: {
+            select: { id: true, name: true, kind: true, color: true },
+          },
+        },
         orderBy: [{ type: 'asc' }, { name: 'asc' }],
       });
     }
@@ -286,28 +304,59 @@ export class CategoryRulesService {
     return list;
   }
 
-  async createCategory(userId: string, name: string, color?: string, type?: any) {
+  async createCategory(
+    userId: string,
+    name: string,
+    color?: string,
+    type?: any,
+    superCategoryId?: string | null,
+  ) {
     const trimmed = name.trim();
     if (!trimmed) {
       throw new BadRequestException('Category name cannot be empty.');
     }
     const existing = await this.prisma.category.findFirst({
       where: { userId, name: { equals: trimmed, mode: 'insensitive' } },
+      include: { superCategory: true },
     });
     if (existing) {
       return existing;
     }
+
+    let finalType = type || 'EXPENSE';
+    if (superCategoryId) {
+      const superCat = await this.prisma.superCategory.findFirst({
+        where: { id: superCategoryId, userId },
+      });
+      if (superCat) {
+        finalType = superCat.kind;
+      }
+    }
+
     return this.prisma.category.create({
       data: {
         userId,
         name: trimmed,
         color: color || '#3b82f6',
-        type: type || 'EXPENSE',
+        type: finalType,
+        superCategoryId: superCategoryId || null,
+      },
+      include: {
+        superCategory: {
+          select: { id: true, name: true, kind: true, color: true },
+        },
       },
     });
   }
 
-  async updateCategory(userId: string, id: string, name?: string, color?: string, type?: any) {
+  async updateCategory(
+    userId: string,
+    id: string,
+    name?: string,
+    color?: string,
+    type?: any,
+    superCategoryId?: string | null,
+  ) {
     const existing = await this.prisma.category.findFirst({
       where: { id, userId },
     });
@@ -329,13 +378,29 @@ export class CategoryRulesService {
       }
     }
 
+    let finalType = type !== undefined ? type : existing.type;
+    if (superCategoryId) {
+      const superCat = await this.prisma.superCategory.findFirst({
+        where: { id: superCategoryId, userId },
+      });
+      if (superCat) {
+        finalType = superCat.kind;
+      }
+    }
+
     try {
       return await this.prisma.category.update({
         where: { id },
         data: {
           name: trimmed,
           color: color !== undefined ? color : existing.color,
-          type: type !== undefined ? type : existing.type,
+          type: finalType,
+          superCategoryId: superCategoryId !== undefined ? superCategoryId : existing.superCategoryId,
+        },
+        include: {
+          superCategory: {
+            select: { id: true, name: true, kind: true, color: true },
+          },
         },
       });
     } catch (err: any) {

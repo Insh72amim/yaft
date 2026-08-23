@@ -24,11 +24,29 @@ import {
 } from "lucide-react";
 import { api, errorMessage, money } from "@/lib/api";
 
+export type SuperCategoryOption = {
+  id: string;
+  name: string;
+  kind: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER";
+  color: string;
+  icon?: string | null;
+  order?: number;
+  categories?: { id: string; name: string; color: string; type: string }[];
+  _count?: { categories: number };
+};
+
 export type CategoryOption = {
   id: string;
   name: string;
   type?: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER";
   color: string;
+  superCategoryId?: string | null;
+  superCategory?: {
+    id: string;
+    name: string;
+    kind: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER";
+    color: string;
+  } | null;
 };
 
 export type CategoryBudgetItem = {

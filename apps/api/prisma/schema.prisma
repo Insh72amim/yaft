@@ -52,6 +52,7 @@ model User {
   organizations Organization[]
   activeSips   ActiveSip[]
   tags         Tag[]
+  superCategories SuperCategory[]
   emailSyncLogs EmailSyncLog[]
   googleEmailConfigs GoogleEmailConfig[]
   googleDriveConfig GoogleDriveConfig?
@@ -160,19 +161,39 @@ enum CategoryType {
   TRANSFER
 }
 
-model Category {
-  id           String        @id @default(cuid())
-  userId       String
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name         String
-  type         CategoryType  @default(EXPENSE)
-  color        String        @default("#64748b")
-  transactions Transaction[]
-  staged       StagedTransaction[]
-  rules        CategoryRule[]
-  budgets      CategoryBudget[]
+model SuperCategory {
+  id         String        @id @default(cuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  kind       CategoryType  @default(EXPENSE)
+  color      String        @default("#3b82f6")
+  icon       String?
+  order      Int           @default(0)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  categories Category[]
 
   @@unique([userId, name])
+  @@index([userId, kind])
+}
+
+model Category {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  type            CategoryType   @default(EXPENSE)
+  color           String         @default("#64748b")
+  superCategoryId String?
+  superCategory   SuperCategory? @relation(fields: [superCategoryId], references: [id], onDelete: SetNull)
+  transactions    Transaction[]
+  staged          StagedTransaction[]
+  rules           CategoryRule[]
+  budgets         CategoryBudget[]
+
+  @@unique([userId, name])
+  @@index([superCategoryId])
 }
 
 enum MatchType {

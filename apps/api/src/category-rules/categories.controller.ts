@@ -17,18 +17,18 @@ export class CategoriesController {
   @Post()
   createCategory(
     @CurrentUser() user: { id: string },
-    @Body() body: { name: string; color?: string; type?: any },
+    @Body() body: { name: string; color?: string; type?: any; superCategoryId?: string | null },
   ) {
-    return this.categoryRules.createCategory(user.id, body.name, body.color, body.type);
+    return this.categoryRules.createCategory(user.id, body.name, body.color, body.type, body.superCategoryId);
   }
 
   @Put(':id')
   updateCategory(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
-    @Body() body: { name?: string; color?: string; type?: any },
+    @Body() body: { name?: string; color?: string; type?: any; superCategoryId?: string | null },
   ) {
-    return this.categoryRules.updateCategory(user.id, id, body.name, body.color, body.type);
+    return this.categoryRules.updateCategory(user.id, id, body.name, body.color, body.type, body.superCategoryId);
   }
 
   @Delete(':id')

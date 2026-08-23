@@ -19,6 +19,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { BackupModule } from './backup/backup.module';
 import { TagsModule } from './tags/tags.module';
 import { EmailIngestionModule } from './email-ingestion/email-ingestion.module';
+import { SuperCategoriesModule } from './super-categories/super-categories.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { EmailIngestionModule } from './email-ingestion/email-ingestion.module';
     UnifiedImportsModule,
     VaultModule,
     CategoryRulesModule,
+    SuperCategoriesModule,
     TransfersModule,
     OrganizationsModule,
     EmailIngestionModule,

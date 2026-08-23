@@ -12,11 +12,11 @@ describe('CategoriesController', () => {
       listCategories: jest.fn().mockResolvedValue([
         { id: 'cat-1', name: 'Food & Dining', color: '#3b82f6', type: 'EXPENSE' },
       ]),
-      createCategory: jest.fn().mockImplementation((userId, name, color, type) =>
-        Promise.resolve({ id: 'cat-2', name, color: color || '#3b82f6', type: type || 'EXPENSE', userId })
+      createCategory: jest.fn().mockImplementation((userId, name, color, type, superCategoryId) =>
+        Promise.resolve({ id: 'cat-2', name, color: color || '#3b82f6', type: type || 'EXPENSE', superCategoryId: superCategoryId || null, userId })
       ),
-      updateCategory: jest.fn().mockImplementation((userId, id, name, color, type) =>
-        Promise.resolve({ id, name: name || 'Updated Name', color: color || '#10b981', type: type || 'EXPENSE', userId })
+      updateCategory: jest.fn().mockImplementation((userId, id, name, color, type, superCategoryId) =>
+        Promise.resolve({ id, name: name || 'Updated Name', color: color || '#10b981', type: type || 'EXPENSE', superCategoryId: superCategoryId || null, userId })
       ),
       deleteCategory: jest.fn().mockResolvedValue({ success: true, message: 'Category deleted successfully' }),
     };
@@ -36,8 +36,9 @@ describe('CategoriesController', () => {
       name: 'Subscriptions',
       color: '#ef4444',
       type: 'EXPENSE',
+      superCategoryId: 'sc-1',
     });
-    expect(mockService.createCategory).toHaveBeenCalledWith('user-123', 'Subscriptions', '#ef4444', 'EXPENSE');
+    expect(mockService.createCategory).toHaveBeenCalledWith('user-123', 'Subscriptions', '#ef4444', 'EXPENSE', 'sc-1');
     expect(created.name).toBe('Subscriptions');
     expect(created.color).toBe('#ef4444');
   });
@@ -46,8 +47,9 @@ describe('CategoriesController', () => {
     const updated = await controller.updateCategory(mockUser, 'cat-1', {
       name: 'Dining & Outing',
       color: '#10b981',
+      superCategoryId: 'sc-1',
     });
-    expect(mockService.updateCategory).toHaveBeenCalledWith('user-123', 'cat-1', 'Dining & Outing', '#10b981', undefined);
+    expect(mockService.updateCategory).toHaveBeenCalledWith('user-123', 'cat-1', 'Dining & Outing', '#10b981', undefined, 'sc-1');
     expect(updated.name).toBe('Dining & Outing');
   });
 
