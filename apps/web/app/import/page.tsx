@@ -59,6 +59,22 @@ function kindIcon(kind: string) {
   return Landmark;
 }
 
+function getPendingKindLabel(item: PendingImport, accounts?: Account[]) {
+  if (item.kind === 'SALARY_PAYSLIP') return 'Salary payslip';
+  const account = accounts?.find((a) => a.id === item.review.account?.id);
+  const accountType = account?.type || (item.review.account as any)?.type;
+  const filename = (item.review as any)?.filename || '';
+  const isCreditCard =
+    accountType === 'CREDIT_CARD' ||
+    item.source?.includes('CC') ||
+    filename.toUpperCase().includes('CREDIT_CARD');
+
+  if (isCreditCard) {
+    return filename.startsWith('gmail-sync') ? 'Credit Card Alert' : 'Credit Card Statement';
+  }
+  return 'Bank Statement';
+}
+
 const SOURCE_URLS: Record<string, string> = {
   SBI: 'https://yonoretail.sbi.bank.in/registration/welcome',
   PNB: 'https://iretail.pnb.bank.in/',
@@ -1021,8 +1037,8 @@ function ImportWorkspace() {
     <section className="pending-workspace"><div className="panel-title"><div><span className="eyebrow">Review queue</span><h2>{pending.length} pending import{pending.length === 1 ? '' : 's'}</h2></div></div>
       {pending.length ? <><nav className="pending-tabs" aria-label="Pending imports">{pending.map((item) => <button type="button" key={item.review.id}
         className={item.review.id === selectedReviewId ? 'selected' : ''} aria-pressed={item.review.id === selectedReviewId} onClick={() => setSelectedReviewId(item.review.id)}>
-        <span>{item.kind === 'BANK_STATEMENT' ? 'Statement' : 'Salary payslip'}</span><strong>{item.kind === 'SALARY_PAYSLIP' ? (item as any).review.employer : `${(item as any).review.account.name}${(item as any).review.account.last4 ? ` (••••${(item as any).review.account.last4})` : ''}`}</strong><small>{new Date(item.createdAt).toLocaleString('en-IN')}</small></button>)}</nav>
-        {selectedPending?.kind === 'BANK_STATEMENT' ? <BankReviewPanel item={selectedPending as BankPending} busy={busy} update={updateBank} finish={finishReview}/>
+        <span>{getPendingKindLabel(item, catalog?.accounts)}</span><strong>{item.kind === 'SALARY_PAYSLIP' ? (item as any).review.employer : `${(item as any).review.account.name}${(item as any).review.account.last4 ? ` (••••${(item as any).review.account.last4})` : ''}`}</strong><small>{new Date(item.createdAt).toLocaleString('en-IN')}</small></button>)}</nav>
+        {selectedPending?.kind === 'BANK_STATEMENT' ? <BankReviewPanel item={selectedPending as BankPending} accounts={catalog?.accounts} busy={busy} update={updateBank} finish={finishReview}/>
           : selectedPending?.kind === 'SALARY_PAYSLIP' ? <SalaryReviewPanel item={selectedPending} busy={busy} finish={finishReview} download={downloadReview}/> : null}</>
         : <div className="unified-empty panel"><ShieldCheck/><strong>No reviews waiting</strong><p>Validated bank statements and payslips will appear here before they are committed.</p></div>}
       </section>
@@ -1031,7 +1047,7 @@ function ImportWorkspace() {
   </Shell>;
 }
 
-function BankReviewPanel({ item, busy, update, finish }: { item: BankPending; busy: boolean;
+function BankReviewPanel({ item, accounts, busy, update, finish }: { item: BankPending; accounts?: Account[]; busy: boolean;
   update: (item: BankPending, row: BankRow, changes: { include?: boolean; categoryId?: string }) => void;
   finish: (item: PendingImport, action: 'commit' | 'discard') => void }) {
   const [selectedEmailRef, setSelectedEmailRef] = useState<{
@@ -1041,7 +1057,8 @@ function BankReviewPanel({ item, busy, update, finish }: { item: BankPending; bu
   const included = item.review.staged.filter((row) => row.include && !row.isDuplicate);
   const duplicates = item.review.staged.filter((row) => row.isDuplicate).length;
   const accountDetails = `${item.review.account.name}${item.review.account.last4 ? ` (••••${item.review.account.last4})` : ''}`;
-  return <><section className="review-summary"><div><FileSpreadsheet/><span><strong>{item.review.filename}</strong><small>{accountDetails} · {item.source}</small></span></div>
+  const statementTypeLabel = getPendingKindLabel(item, accounts);
+  return <><section className="review-summary"><div><FileSpreadsheet/><span><strong>{item.review.filename}</strong><small>{accountDetails} · {statementTypeLabel}</small></span></div>
     <div><span><strong>{item.review.staged.length}</strong><small>rows found</small></span><span><strong>{duplicates}</strong><small>duplicates</small></span>
       <span><strong>{money(included.reduce((sum, row) => sum + row.amount, 0))}</strong><small>net movement</small></span>
       {item.review.statementBalance != null && <span><strong>{money(item.review.statementBalance)}</strong><small>predicted closing balance</small></span>}
