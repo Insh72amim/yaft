@@ -320,7 +320,7 @@ export class GoogleGmailService {
         this.prisma.account.findMany({
           where: { userId, archived: false, type: AccountType.CREDIT_CARD },
         }),
-        this.categoryRulesService.listCategories(userId),
+        this.prisma.category.findMany({ where: { userId } }),
         this.prisma.categoryRule.findMany({
           where: { userId },
           orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],

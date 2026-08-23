@@ -36,7 +36,7 @@ export class EmailIngestionService {
     const [existingTx, existingStaged, categories, userRules] = await Promise.all([
       this.prisma.transaction.findMany({ where: { accountId: account.id }, select: { fingerprint: true } }),
       this.prisma.stagedTransaction.findMany({ where: { batch: { accountId: account.id, status: 'REVIEW' } }, select: { fingerprint: true } }),
-      this.categoryRulesService.listCategories(userId),
+      this.prisma.category.findMany({ where: { userId } }),
       this.prisma.categoryRule.findMany({ where: { userId }, orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }] }),
     ]);
 
