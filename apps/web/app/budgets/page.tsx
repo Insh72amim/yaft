@@ -52,13 +52,17 @@ function BudgetsContent() {
 
   const [activeTab, setActiveTab] = useState<"ENVELOPES" | "TAGS" | "CATEGORIES" | "RULES" | "CONFIRMATIONS">(initialTab);
 
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
+
   // Main Data States
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [budgets, setBudgets] = useState<CategoryBudgetItem[]>([]);
   const [rules, setRules] = useState<CategoryRuleItem[]>([]);
   const [unverifiedCategories, setUnverifiedCategories] = useState<UnverifiedCategoryGroup[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
-  const [summary, setSummary] = useState({ totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0 });
+  const [summary, setSummary] = useState({ totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0, totalTransactionsCount: 0 });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -120,7 +124,7 @@ function BudgetsContent() {
 
       const [catRes, budgetRes, ruleRes, unverifiedRes, tagRes] = await Promise.all([
         api<any>("/categories").catch(() => []),
-        api<{ summary: any; budgets: CategoryBudgetItem[] }>("/budgets").catch(() => ({ summary: { totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0 }, budgets: [] })),
+        api<{ summary: any; budgets: CategoryBudgetItem[] }>(`/budgets?year=${selectedYear}&month=${selectedMonth}`).catch(() => ({ summary: { totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0, totalTransactionsCount: 0 }, budgets: [] })),
         api<CategoryRuleItem[]>("/category-rules").catch(() => []),
         api<UnverifiedCategoryGroup[]>("/category-rules/unverified").catch(() => []),
         api<TagItem[]>("/tags").catch(() => []),
@@ -147,7 +151,7 @@ function BudgetsContent() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCatId, ruleCategoryId, selectedTagForAuto]);
+  }, [selectedCatId, ruleCategoryId, selectedTagForAuto, selectedMonth, selectedYear]);
 
   const loadTagAnalytics = useCallback(async (tagId: string) => {
     try {
@@ -252,7 +256,12 @@ function BudgetsContent() {
     try {
       await api("/budgets", {
         method: "POST",
-        body: JSON.stringify({ categoryId: selectedCatId, monthlyLimit: val }),
+        body: JSON.stringify({
+          categoryId: selectedCatId,
+          monthlyLimit: val,
+          month: selectedMonth,
+          year: selectedYear,
+        }),
       });
       setSuccessMsg("Updated budget target.");
       setLimitInput("");
@@ -456,6 +465,12 @@ function BudgetsContent() {
             categories={categories}
             budgets={budgets}
             summary={summary}
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onMonthChange={(m, y) => {
+              setSelectedMonth(m);
+              setSelectedYear(y);
+            }}
             selectedCatId={selectedCatId}
             setSelectedCatId={setSelectedCatId}
             limitInput={limitInput}
@@ -469,6 +484,7 @@ function BudgetsContent() {
             setEditCatType={setEditCatType}
             setEditCatColor={setEditCatColor}
             setEditCatBudgetLimit={setEditCatBudgetLimit}
+            onReload={loadData}
           />
         )}
 

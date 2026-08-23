@@ -22,8 +22,15 @@ export class BudgetsService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
+    // Fetch user's categories
+    const categories = await this.prisma.category.findMany({
+      where: { userId },
+      select: { id: true, name: true, type: true, color: true },
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
+    });
+
     // Fetch user's set category budgets
-    const budgets = await (this.prisma as any).categoryBudget.findMany({
+    const budgetRecords = await (this.prisma as any).categoryBudget.findMany({
       where: { userId },
       include: {
         category: {
@@ -33,83 +40,112 @@ export class BudgetsService {
       orderBy: { createdAt: 'desc' },
     });
 
+    const budgetMap = new Map<string, any>();
+    for (const b of budgetRecords) {
+      if (b.month === month && b.year === year) {
+        budgetMap.set(b.categoryId, b);
+      } else if (!budgetMap.has(b.categoryId) && (b.month === 0 || b.month === null)) {
+        budgetMap.set(b.categoryId, b);
+      }
+    }
+
     // Fetch actual category transactions in the target month (debits minus refunds, excluding transfers)
     const transactions = await this.prisma.transaction.findMany({
       where: {
-        account: { userId },
+        account: { userId, archived: false },
         transactionDate: {
           gte: startDate,
           lte: endDate,
         },
         transferGroupId: null,
-        categoryId: { not: null },
       },
       select: {
+        id: true,
         categoryId: true,
         amount: true,
         descriptionRaw: true,
         category: {
-          select: { name: true },
+          select: { id: true, name: true, type: true },
         },
       },
     });
 
-    // Map categoryId -> net spent minor units (debits - refunds)
+    // Map categoryId -> net spent minor units (debits - refunds) and count
     const spentMap = new Map<string, bigint>();
+    const txCountMap = new Map<string, number>();
+    let totalAllExpensesSpentMinor = 0n;
+
     for (const tx of transactions) {
-      if (!tx.categoryId) continue;
+      const catId = tx.categoryId || 'uncategorised';
       const catName = tx.category?.name || '';
       if (/transfer/i.test(catName)) continue;
 
       const isRefund = tx.amount > 0n && isRefundOrReversal(tx.descriptionRaw);
-      const current = spentMap.get(tx.categoryId) || 0n;
+      const current = spentMap.get(catId) || 0n;
+      const count = txCountMap.get(catId) || 0;
 
       if (tx.amount < 0n) {
-        spentMap.set(tx.categoryId, current + (-tx.amount));
+        spentMap.set(catId, current + (-tx.amount));
+        txCountMap.set(catId, count + 1);
+        totalAllExpensesSpentMinor += -tx.amount;
       } else if (isRefund) {
         const net = current - tx.amount;
-        spentMap.set(tx.categoryId, net < 0n ? 0n : net);
+        spentMap.set(catId, net < 0n ? 0n : net);
+        totalAllExpensesSpentMinor = totalAllExpensesSpentMinor > tx.amount ? totalAllExpensesSpentMinor - tx.amount : 0n;
       }
     }
 
-    let totalBudgeted = 0n;
-    let totalSpent = 0n;
+    let totalBudgetedMinor = 0n;
+    let totalBudgetedSpentMinor = 0n;
 
-    const items = budgets.map((b: any) => {
-      const spentMinor = spentMap.get(b.categoryId) || 0n;
-      const limitMinor = b.monthlyLimit;
+    // Filter to expense categories
+    const expenseCategories = categories.filter((c) => (c.type || 'EXPENSE') === 'EXPENSE');
 
-      totalBudgeted += limitMinor;
-      totalSpent += spentMinor;
+    const items = expenseCategories.map((cat) => {
+      const b = budgetMap.get(cat.id);
+      const spentMinor = spentMap.get(cat.id) || 0n;
+      const txCount = txCountMap.get(cat.id) || 0;
+      const limitMinor = b ? BigInt(b.monthlyLimit) : 0n;
+
+      if (b) {
+        totalBudgetedMinor += limitMinor;
+        totalBudgetedSpentMinor += spentMinor;
+      }
 
       const spentNum = Number(spentMinor) / 100;
       const limitNum = Number(limitMinor) / 100;
-      const remainingNum = Math.max(0, limitNum - spentNum);
+      const remainingNum = limitNum > 0 ? Math.max(0, limitNum - spentNum) : 0;
       const percentage = limitNum > 0 ? Math.round((spentNum / limitNum) * 100) : 0;
 
-      let status: 'OK' | 'WARNING' | 'EXCEEDED' = 'OK';
-      if (spentMinor > limitMinor) status = 'EXCEEDED';
-      else if (percentage >= 80) status = 'WARNING';
+      let status: 'OK' | 'WARNING' | 'EXCEEDED' | 'NO_LIMIT' = 'NO_LIMIT';
+      if (limitNum > 0) {
+        if (spentMinor > limitMinor) status = 'EXCEEDED';
+        else if (percentage >= 80) status = 'WARNING';
+        else status = 'OK';
+      }
 
       return {
-        id: b.id,
-        categoryId: b.categoryId,
-        categoryName: b.category.name,
-        categoryColor: b.category.color,
+        id: b ? b.id : `cat-budget-${cat.id}`,
+        budgetId: b ? b.id : null,
+        hasBudget: Boolean(b),
+        categoryId: cat.id,
+        categoryName: cat.name,
+        categoryColor: cat.color,
         monthlyLimit: limitNum,
         spentAmount: spentNum,
         remainingAmount: remainingNum,
         percentage,
         status,
-        month: b.month,
-        year: b.year,
+        transactionCount: txCount,
+        month: b?.month ?? month,
+        year: b?.year ?? year,
       };
     });
 
-    const totalBudgetedNum = Number(totalBudgeted) / 100;
-    const totalSpentNum = Number(totalSpent) / 100;
-    const totalRemainingNum = Math.max(0, totalBudgetedNum - totalSpentNum);
-    const overallPercentage = totalBudgetedNum > 0 ? Math.round((totalSpentNum / totalBudgetedNum) * 100) : 0;
+    const totalBudgetedNum = Number(totalBudgetedMinor) / 100;
+    const totalSpentNum = Number(totalAllExpensesSpentMinor) / 100;
+    const totalRemainingNum = Math.max(0, totalBudgetedNum - (Number(totalBudgetedSpentMinor) / 100));
+    const overallPercentage = totalBudgetedNum > 0 ? Math.round(((Number(totalBudgetedSpentMinor) / 100) / totalBudgetedNum) * 100) : 0;
 
     return {
       month,
@@ -119,8 +155,113 @@ export class BudgetsService {
         totalSpent: totalSpentNum,
         totalRemaining: totalRemainingNum,
         overallPercentage,
+        totalTransactionsCount: transactions.filter((t) => t.amount < 0n).length,
       },
       budgets: items,
+    };
+  }
+
+  async getBudgetTransactions(
+    userId: string,
+    categoryId?: string,
+    targetYear?: number,
+    targetMonth?: number,
+    search?: string,
+  ) {
+    const now = new Date();
+    const year = targetYear || now.getFullYear();
+    const month = targetMonth !== undefined && targetMonth !== null ? targetMonth : now.getMonth() + 1;
+
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const where: any = {
+      account: { userId, archived: false },
+      transactionDate: {
+        gte: startDate,
+        lte: endDate,
+      },
+      transferGroupId: null,
+    };
+
+    if (categoryId && categoryId !== 'all') {
+      if (categoryId === 'uncategorised') {
+        where.categoryId = null;
+      } else {
+        where.categoryId = categoryId;
+      }
+    }
+
+    if (search && search.trim()) {
+      const q = search.trim();
+      where.OR = [
+        { descriptionRaw: { contains: q, mode: 'insensitive' } },
+        { merchant: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const transactions = await this.prisma.transaction.findMany({
+      where,
+      include: {
+        account: { select: { id: true, name: true, type: true, institution: true } },
+        category: { select: { id: true, name: true, color: true } },
+        tags: {
+          include: {
+            tag: { select: { id: true, name: true, color: true } },
+          },
+        },
+      },
+      orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    let totalSpentMinor = 0n;
+    let totalRefundsMinor = 0n;
+
+    const formatted = transactions.map((t) => {
+      const isRefund = t.amount > 0n && isRefundOrReversal(t.descriptionRaw);
+      if (t.amount < 0n) {
+        totalSpentMinor += -t.amount;
+      } else if (isRefund) {
+        totalRefundsMinor += t.amount;
+      }
+
+      return {
+        id: t.id,
+        accountId: t.accountId,
+        accountName: t.account.name,
+        accountType: t.account.type,
+        institution: t.account.institution,
+        transactionDate: t.transactionDate,
+        description: t.merchant || t.descriptionRaw,
+        rawDescription: t.descriptionRaw,
+        merchant: t.merchant,
+        amount: Number(t.amount) / 100,
+        amountMinor: Number(t.amount),
+        categoryId: t.categoryId,
+        categoryName: t.category?.name ?? 'Uncategorised',
+        categoryColor: t.category?.color ?? '#94a3b8',
+        tags: t.tags.map((tg) => ({
+          id: tg.tag.id,
+          name: tg.tag.name,
+          color: tg.tag.color,
+        })),
+        isRefund,
+      };
+    });
+
+    const netOutflowMinor = totalSpentMinor > totalRefundsMinor ? totalSpentMinor - totalRefundsMinor : 0n;
+
+    return {
+      month,
+      year,
+      categoryId: categoryId || 'all',
+      summary: {
+        totalSpent: Number(totalSpentMinor) / 100,
+        totalRefunds: Number(totalRefundsMinor) / 100,
+        netOutflow: Number(netOutflowMinor) / 100,
+        count: formatted.length,
+      },
+      transactions: formatted,
     };
   }
 
