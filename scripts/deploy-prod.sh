@@ -11,28 +11,35 @@ echo "=========================================================="
 CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || echo 'detached')"
 echo "Current branch: $CURRENT_BRANCH"
 
-# Check if production branch exists
-if git show-ref --verify --quiet refs/heads/production; then
-  echo "Found 'production' branch."
-else
-  echo "Branch 'production' not found yet. Creating 'production' from current HEAD..."
-  git branch production HEAD
+# 1. Update production branch to match main
+echo "Syncing 'production' branch with 'main'..."
+git branch -f production main
+
+# 2. Sync marketing folder if standalone directory exists
+if [ -d "/Users/yaft/Code/yaft-mkt" ] && [ -d "$ROOT_DIR/marketing" ]; then
+  echo "Syncing marketing site to /Users/yaft/Code/yaft-mkt..."
+  cp -R "$ROOT_DIR/marketing/"* /Users/yaft/Code/yaft-mkt/ 2>/dev/null || true
 fi
 
 echo "Building and launching Docker containers for Web (Port ${DOCKER_WEB_PORT:-3001}) and API (Port ${DOCKER_API_PORT:-4001})..."
 
-# Use .env.docker if present, otherwise default fallback values in docker-compose.yml
+# Use .env.docker if present, otherwise .env, otherwise default fallback values in docker-compose.yml
 if [ -f .env.docker ]; then
   docker compose --env-file .env.docker up -d --build
+elif [ -f .env ]; then
+  docker compose --env-file .env up -d --build
 else
   docker compose up -d --build
 fi
 
 echo ""
-echo "✅ Docker Production snapshot deployed successfully!"
-echo "   - Web UI:  http://localhost:${DOCKER_WEB_PORT:-3001}"
-echo "   - API:     http://localhost:${DOCKER_API_PORT:-4001}"
-echo "   - Swagger: http://localhost:${DOCKER_API_PORT:-4001}/api/docs"
+echo "=========================================================="
+echo "✅ YAFT Production Snapshot Deployed Successfully!"
+echo "=========================================================="
+echo "   - Local Web UI:    http://yaft.mylocal.com (or http://localhost:${DOCKER_WEB_PORT:-3001})"
+echo "   - Local API:       http://api.yaft.mylocal.com (or http://localhost:${DOCKER_API_PORT:-4001})"
+echo "   - API Docs:        http://api.yaft.mylocal.com/api/docs (or http://localhost:${DOCKER_API_PORT:-4001}/api/docs)"
+echo "   - Marketing Site:  http://mkt.yaft.mylocal.com"
 echo "   - Connected to host PostgreSQL (5432) & MinIO (9000)"
 echo ""
 echo "Note: Your PM2 development server remains active on Port 3000 / 4000."

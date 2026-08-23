@@ -26,7 +26,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-yaft}:${POSTGRES_PASSWORD:-yaft-development-only}@postgres:5432/${POSTGRES_DB:-yaft_finance}?schema=public
       JWT_SECRET: ${JWT_SECRET:-<REDACTED_JWT_SECRET>}
       YAFT_CREDENTIAL_ENCRYPTION_KEY: ${YAFT_CREDENTIAL_ENCRYPTION_KEY:-<REDACTED_ENCRYPTION_KEY>}
-      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3001}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3001,http://yaft.mylocal.com,http://localhost:3000}
       API_PORT: 4000
       NODE_ENV: production
       S3_ENDPOINT: http://minio:9000
@@ -39,6 +39,7 @@ services:
       GOOGLE_DRIVE_BACKUP_FOLDER_NAME: ${GOOGLE_DRIVE_BACKUP_FOLDER_NAME:-YAFT-Backups}
       GOOGLE_DRIVE_REDIRECT_URI: ${GOOGLE_DRIVE_REDIRECT_URI:-}
       GOOGLE_GMAIL_REDIRECT_URI: ${GOOGLE_GMAIL_REDIRECT_URI:-}
+      YAFT_BKP: ${YAFT_BKP:-}
     ports:
       - "${DOCKER_API_PORT:-4001}:4000"
     depends_on:
