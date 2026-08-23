@@ -48,7 +48,7 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
   const [superModalOpen, setSuperModalOpen] = useState(false);
   const [editingSuper, setEditingSuper] = useState<SuperCategoryOption | null>(null);
   const [superName, setSuperName] = useState("");
-  const [superKind, setSuperKind] = useState<"EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER">("EXPENSE");
+  const [superKind, setSuperKind] = useState<"EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER" | "OTHER">("EXPENSE");
   const [superColor, setSuperColor] = useState("#3b82f6");
   const [superSaving, setSuperSaving] = useState(false);
 
@@ -244,6 +244,8 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
         return { bg: "rgba(139, 92, 246, 0.12)", color: "#8b5cf6", label: "Investment" };
       case "TRANSFER":
         return { bg: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", label: "Internal Transfer" };
+      case "OTHER":
+        return { bg: "rgba(100, 116, 139, 0.12)", color: "#64748b", label: "Others" };
       default:
         return { bg: "rgba(100, 116, 139, 0.12)", color: "#64748b", label: kind };
     }
@@ -510,6 +512,7 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
                   <option value="INCOME">Income (Earnings &amp; Inflows)</option>
                   <option value="INVESTMENT">Investment (Wealth &amp; Assets)</option>
                   <option value="TRANSFER">Internal Transfer (Balance Neutral)</option>
+                  <option value="OTHER">Others (General &amp; Unclassified)</option>
                 </select>
               </div>
 

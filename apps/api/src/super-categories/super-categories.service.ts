@@ -27,12 +27,13 @@ export class SuperCategoriesService {
     });
 
     if (superCats.length === 0) {
-      // Seed default 4 system super categories
+      // Seed default system super categories
       const defaults = [
         { name: 'Expense', kind: CategoryType.EXPENSE, color: '#ef4444', order: 1 },
         { name: 'Income', kind: CategoryType.INCOME, color: '#10b981', order: 2 },
         { name: 'Investment', kind: CategoryType.INVESTMENT, color: '#8b5cf6', order: 3 },
         { name: 'Internal Transfer', kind: CategoryType.TRANSFER, color: '#3b82f6', order: 4 },
+        { name: 'Others', kind: CategoryType.OTHER, color: '#64748b', order: 5 },
       ];
 
       for (const d of defaults) {

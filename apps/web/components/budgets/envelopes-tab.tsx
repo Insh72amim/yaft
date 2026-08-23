@@ -27,7 +27,7 @@ import { api, errorMessage, money } from "@/lib/api";
 export type SuperCategoryOption = {
   id: string;
   name: string;
-  kind: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER";
+  kind: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER" | "OTHER";
   color: string;
   icon?: string | null;
   order?: number;
@@ -38,13 +38,13 @@ export type SuperCategoryOption = {
 export type CategoryOption = {
   id: string;
   name: string;
-  type?: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER";
+  type?: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER" | "OTHER";
   color: string;
   superCategoryId?: string | null;
   superCategory?: {
     id: string;
     name: string;
-    kind: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER";
+    kind: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER" | "OTHER";
     color: string;
   } | null;
 };

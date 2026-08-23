@@ -159,6 +159,7 @@ enum CategoryType {
   INCOME
   INVESTMENT
   TRANSFER
+  OTHER
 }
 
 model SuperCategory {
