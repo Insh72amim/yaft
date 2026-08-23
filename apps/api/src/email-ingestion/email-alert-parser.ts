@@ -58,7 +58,7 @@ export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
   '(?:declined|transaction declined|payment failed|unsuccessful transaction)'
 ].join('|'), 'i');
 
-export const EXPLICIT_TRANSACTION_INDICATOR_REGEX = /\b(?:debited|credited|spent|charged|used\s+for|used\s+at|purchase\s+of|payment\s+of|withdrawn|received|deposited|refund\s+of|transfer\s+of|amount\s+debited|amount\s+credited|transaction\s+of|processed\s+for|successful\s+transaction|paid\s+to|paid\s+for|txn\s+of)\b/i;
+export const EXPLICIT_TRANSACTION_INDICATOR_REGEX = /\b(?:debited|credited|spent|charged|used\s+for|used\s+at|purchase\s+of|payment\s+of|withdrawn|received|deposited|refund\s+of|transfer\s+of|amount\s+debited|amount\s+credited|transaction\s*(?:on|amount|of|for|info|details|summary)?|processed\s+for|successful\s+transaction|paid\s+to|paid\s+for|txn\s*(?:of|on|amount)?)\b/i;
 
 export const PROMOTIONAL_SENDER_REGEX = /offers@|deals@|marketing@|promo@|newsletter@|campaign@|digital\.axisbankmail|statements?@/i;
 
