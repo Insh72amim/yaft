@@ -34,13 +34,13 @@ const COLOR_PRESETS = [
 ];
 
 export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
-  const [filterType, setFilterType] = useState<"ALL" | "EXPENSE" | "INCOME" | "INVESTMENT">("ALL");
+  const [filterType, setFilterType] = useState<"ALL" | "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER">("ALL");
 
   // Modal / Form state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<CategoryOption | null>(null);
   const [name, setName] = useState("");
-  const [type, setType] = useState<"EXPENSE" | "INCOME" | "INVESTMENT">("EXPENSE");
+  const [type, setType] = useState<"EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER">("EXPENSE");
   const [color, setColor] = useState("#3b82f6");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -120,20 +120,34 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
   const expenseCount = categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE").length;
   const incomeCount = categories.filter((c) => c.type === "INCOME").length;
   const investmentCount = categories.filter((c) => c.type === "INVESTMENT").length;
+  const transferCount = categories.filter((c) => c.type === "TRANSFER").length;
+
+  const getTypeBadge = (t?: string) => {
+    const catType = t || "EXPENSE";
+    switch (catType) {
+      case "EXPENSE":
+        return { bg: "rgba(239, 68, 68, 0.12)", color: "#ef4444", label: "Expense" };
+      case "INCOME":
+        return { bg: "rgba(16, 185, 129, 0.12)", color: "#10b981", label: "Income" };
+      case "INVESTMENT":
+        return { bg: "rgba(139, 92, 246, 0.12)", color: "#8b5cf6", label: "Investment" };
+      case "TRANSFER":
+        return { bg: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", label: "Internal Transfer" };
+      default:
+        return { bg: "rgba(100, 116, 139, 0.12)", color: "#64748b", label: catType };
+    }
+  };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      {/* Header Banner & Action */}
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {/* Header & Action */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
         <div>
-          <span style={{ background: "rgba(59, 130, 246, 0.15)", color: "#3b82f6", padding: "3px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Taxonomy Governance
-          </span>
-          <h3 style={{ margin: "4px 0 0 0", fontSize: "1.25rem", fontWeight: 800, color: "var(--ink)" }}>
-            Categories Manager
+          <h3 style={{ margin: "0", fontSize: "1.25rem", fontWeight: 800, color: "var(--ink)" }}>
+            Categories
           </h3>
           <p style={{ margin: "3px 0 0 0", fontSize: "13px", color: "var(--muted)" }}>
-            Create and edit custom financial categories, manage color themes, and organize expense, income, and investment types.
+            Manage financial categories, color themes, and super category classifications.
           </p>
         </div>
 
@@ -143,7 +157,7 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
           onClick={openCreateModal}
           style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 18px", borderRadius: "10px", fontWeight: 700, fontSize: "13px" }}>
           <Plus size={16} />
-          <span>+ Create New Category</span>
+          <span>+ Add Category</span>
         </button>
       </div>
 
@@ -159,66 +173,37 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
         </div>
       )}
 
-      {/* Summary Metrics */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-        <div style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "12px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "14px" }}>
-          <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Layers size={20} />
-          </div>
-          <div>
-            <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Total Categories</span>
-            <strong style={{ fontSize: "1.3rem", fontWeight: 800, color: "var(--ink)" }}>{categories.length}</strong>
-          </div>
-        </div>
-
-        <div style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "12px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "14px" }}>
-          <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "rgba(239, 68, 68, 0.12)", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <FolderPlus size={20} />
-          </div>
-          <div>
-            <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Expenses</span>
-            <strong style={{ fontSize: "1.3rem", fontWeight: 800, color: "var(--ink)" }}>{expenseCount}</strong>
-          </div>
-        </div>
-
-        <div style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "12px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "14px" }}>
-          <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "rgba(16, 185, 129, 0.12)", color: "#10b981", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Sparkles size={20} />
-          </div>
-          <div>
-            <span style={{ fontSize: "11px", color: "var(--muted)", textTransform: "uppercase", fontWeight: 700, display: "block" }}>Income &amp; Investment</span>
-            <strong style={{ fontSize: "1.3rem", fontWeight: 800, color: "var(--ink)" }}>{incomeCount + investmentCount}</strong>
-          </div>
-        </div>
-      </div>
-
       {/* Filter Tabs */}
-      <div style={{ display: "flex", gap: "8px", background: "var(--background-alt)", padding: "4px", borderRadius: "10px", border: "1px solid var(--line)", width: "fit-content" }}>
-        {(["ALL", "EXPENSE", "INCOME", "INVESTMENT"] as const).map((t) => (
+      <div style={{ display: "flex", gap: "8px", background: "var(--background-alt)", padding: "4px", borderRadius: "10px", border: "1px solid var(--line)", width: "fit-content", flexWrap: "wrap" }}>
+        {[
+          { id: "ALL", label: `All (${categories.length})` },
+          { id: "EXPENSE", label: `Expense (${expenseCount})` },
+          { id: "INCOME", label: `Income (${incomeCount})` },
+          { id: "INVESTMENT", label: `Investment (${investmentCount})` },
+          { id: "TRANSFER", label: `Internal Transfer (${transferCount})` },
+        ].map((tab) => (
           <button
-            key={t}
+            key={tab.id}
             type="button"
-            className={`secondary compact ${filterType === t ? "active" : ""}`}
-            onClick={() => setFilterType(t)}
-            style={{ fontSize: "12px", fontWeight: 700, padding: "5px 14px", borderRadius: "8px" }}>
-            {t === "ALL" ? `All (${categories.length})` : t === "EXPENSE" ? `Expense (${expenseCount})` : t === "INCOME" ? `Income (${incomeCount})` : `Investment (${investmentCount})`}
+            className={`secondary compact ${filterType === tab.id ? "active" : ""}`}
+            onClick={() => setFilterType(tab.id as any)}
+            style={{ fontSize: "12px", fontWeight: 700, padding: "6px 14px", borderRadius: "8px" }}>
+            {tab.label}
           </button>
         ))}
       </div>
 
       {/* Categories Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "14px" }}>
         {filteredCategories.map((cat) => {
-          const catType = cat.type || "EXPENSE";
-          const badgeBg = catType === "EXPENSE" ? "rgba(239, 68, 68, 0.12)" : catType === "INCOME" ? "rgba(16, 185, 129, 0.12)" : "rgba(139, 92, 246, 0.12)";
-          const badgeColor = catType === "EXPENSE" ? "#ef4444" : catType === "INCOME" ? "#10b981" : "#8b5cf6";
+          const badge = getTypeBadge(cat.type);
 
           return (
             <div
               key={cat.id}
               className="panel"
               style={{
-                padding: "18px",
+                padding: "16px 18px",
                 borderRadius: "12px",
                 border: "1px solid var(--line)",
                 background: "var(--card)",
@@ -229,9 +214,9 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <span style={{ width: "16px", height: "16px", borderRadius: "50%", background: cat.color || "#3b82f6", flexShrink: 0 }} />
                 <div>
-                  <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "var(--ink)" }}>{cat.name}</h4>
-                  <span style={{ display: "inline-block", marginTop: "4px", padding: "2px 8px", borderRadius: "6px", background: badgeBg, color: badgeColor, fontSize: "10px", fontWeight: 800, letterSpacing: "0.04em" }}>
-                    {catType}
+                  <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)" }}>{cat.name}</h4>
+                  <span style={{ display: "inline-block", marginTop: "4px", padding: "2px 8px", borderRadius: "6px", background: badge.bg, color: badge.color, fontSize: "10px", fontWeight: 800, letterSpacing: "0.03em" }}>
+                    {badge.label}
                   </span>
                 </div>
               </div>
@@ -285,14 +270,15 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Category Type</label>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Super Category</label>
                 <select
                   value={type}
                   onChange={(e: any) => setType(e.target.value)}
                   style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
-                  <option value="EXPENSE">Expense</option>
-                  <option value="INCOME">Income</option>
-                  <option value="INVESTMENT">Investment</option>
+                  <option value="EXPENSE">Expense (Daily spending & bills)</option>
+                  <option value="INCOME">Income (Salary, earnings & inflows)</option>
+                  <option value="INVESTMENT">Investment (Mutual funds, stocks & capital assets)</option>
+                  <option value="TRANSFER">Internal Transfer (Self transfers & credit card payments)</option>
                 </select>
               </div>
 

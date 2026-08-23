@@ -27,7 +27,7 @@ import { api, errorMessage, money } from "@/lib/api";
 export type CategoryOption = {
   id: string;
   name: string;
-  type?: "EXPENSE" | "INCOME" | "INVESTMENT";
+  type?: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER";
   color: string;
 };
 
