@@ -100,6 +100,10 @@ describe('Parser Config Registry (@yaft/shared)', () => {
       expect(canonicalizeMerchantName('AMAZON PAY')).toBe('AMAZON');
       expect(canonicalizeMerchantName('FLIPKART INDIA')).toBe('FLIPKART');
       expect(canonicalizeMerchantName('AIRTEL BILLPAY')).toBe('AIRTEL');
+      expect(canonicalizeMerchantName('MMT INDIA')).toBe('MAKEMYTRIP');
+      expect(canonicalizeMerchantName('MMT ONLINE GURGAON')).toBe('MAKEMYTRIP');
+      expect(canonicalizeMerchantName('MAKE MY TRIP INDIA PVT LTD')).toBe('MAKEMYTRIP');
+      expect(canonicalizeMerchantName('paytm-mmt@ptybl')).toBe('MAKEMYTRIP');
     });
   });
 

@@ -1093,25 +1093,6 @@ function BankReviewPanel({ item, accounts, busy, update, finish }: { item: BankP
                 )}
               </div>
               <small>Value {new Date(row.transactionDate).toLocaleDateString('en-IN')}{row.postedDate ? ` · Posted ${new Date(row.postedDate).toLocaleDateString('en-IN')}` : ''} · {row.descriptionRaw}</small>
-              {row.emailReference?.snippet && (
-                <div
-                  onClick={() => setSelectedEmailRef({ row, ref: row.emailReference! })}
-                  style={{
-                    fontSize: '11px',
-                    color: 'var(--muted)',
-                    marginTop: '2px',
-                    fontFamily: 'monospace',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                  title="Click to view full email proof"
-                >
-                  <span style={{ color: '#3b82f6' }}>📧 Proof:</span>
-                  <span>{row.emailReference.snippet.slice(0, 75)}…</span>
-                </div>
-              )}
               {row.isDuplicate && <em><AlertTriangle size={12}/>Likely duplicate</em>}
             </div>
             <select aria-label={`Category for ${row.merchant || row.descriptionRaw}`} value={row.categoryId ?? ''}

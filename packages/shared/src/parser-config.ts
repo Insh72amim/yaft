@@ -79,10 +79,10 @@ export interface BrandCanonicalRule {
 
 export const BRAND_CANONICAL_RULES: BrandCanonicalRule[] = [
   { pattern: /youtube/i, canonical: 'YouTube Google' },
-  { pattern: /urbancompany/i, canonical: 'Urban Company' },
+  { pattern: /urbancompany|urban\s*company/i, canonical: 'Urban Company' },
   { pattern: /zomato/i, canonical: 'Zomato' },
   { pattern: /swiggy/i, canonical: 'Swiggy' },
-  { pattern: /makemytrip/i, canonical: 'MakeMyTrip' },
+  { pattern: /makemytrip|make\s*my\s*trip|\bmmt\b|mmtrip/i, canonical: 'MakeMyTrip' },
   { pattern: /amazon/i, canonical: 'Amazon' },
   { pattern: /zepto|ze\s*pto/i, canonical: 'Zepto' },
   { pattern: /blinkit/i, canonical: 'Blinkit' },
@@ -94,6 +94,12 @@ export const BRAND_CANONICAL_RULES: BrandCanonicalRule[] = [
   { pattern: /netflix/i, canonical: 'Netflix' },
   { pattern: /spotify/i, canonical: 'Spotify' },
   { pattern: /apple/i, canonical: 'Apple' },
+  { pattern: /bookmyshow|book\s*my\s*show/i, canonical: 'BookMyShow' },
+  { pattern: /irctc/i, canonical: 'IRCTC' },
+  { pattern: /godaddy/i, canonical: 'GoDaddy' },
+  { pattern: /jiomart|jio\b/i, canonical: 'Jio' },
+  { pattern: /paytm/i, canonical: 'Paytm' },
+  { pattern: /\bcred\b/i, canonical: 'CRED' },
 ];
 
 export function cleanBeneficiaryToken(token: string): string {
