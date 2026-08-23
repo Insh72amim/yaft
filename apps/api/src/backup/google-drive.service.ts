@@ -378,6 +378,12 @@ export class GoogleDriveService {
           lastBackupError: err.message || 'Google Drive upload error',
         },
       });
+      const isInvalidGrant = err.message?.includes('invalid_grant') || err.response?.data?.error === 'invalid_grant';
+      if (isInvalidGrant) {
+        throw new BadRequestException(
+          'Google Drive authorization expired or was revoked (invalid_grant). Please click "Disconnect" and reconnect Google Drive. (Tip: In Google Cloud Console, set your OAuth publishing status to "In production" to prevent 7-day token expiration.)',
+        );
+      }
       throw new BadRequestException(`Google Drive upload failed: ${err.message}`);
     }
   }
