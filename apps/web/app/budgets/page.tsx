@@ -9,12 +9,14 @@ import {
   Target,
   Tag as TagIcon,
   SlidersHorizontal,
+  FolderPlus,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { api, errorMessage } from "@/lib/api";
 
 import { EnvelopesTab, CategoryOption, CategoryBudgetItem } from "@/components/budgets/envelopes-tab";
 import { TagsTab, TagItem, TagAnalytics } from "@/components/budgets/tags-tab";
+import { CategoriesTab } from "@/components/budgets/categories-tab";
 import { CategoryRulesTab, CategoryRuleItem, UnverifiedCategoryGroup } from "@/components/budgets/category-rules-tab";
 
 const COLOR_PRESETS = [
@@ -415,6 +417,16 @@ function BudgetsContent() {
 
             <button
               type="button"
+              className={`secondary compact ${activeTab === "CATEGORIES" ? "active" : ""}`}
+              onClick={() => setActiveTab("CATEGORIES")}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
+            >
+              <FolderPlus size={15} color={activeTab === "CATEGORIES" ? "#3b82f6" : "var(--muted)"} />
+              Categories ({categories.length})
+            </button>
+
+            <button
+              type="button"
               className={`secondary compact ${activeTab === "TAGS" ? "active" : ""}`}
               onClick={() => setActiveTab("TAGS")}
               style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "13px", fontWeight: 600, padding: "6px 14px" }}
@@ -487,6 +499,13 @@ function BudgetsContent() {
             setEditCatType={setEditCatType}
             setEditCatColor={setEditCatColor}
             setEditCatBudgetLimit={setEditCatBudgetLimit}
+            onReload={loadData}
+          />
+        )}
+
+        {activeTab === "CATEGORIES" && (
+          <CategoriesTab
+            categories={categories}
             onReload={loadData}
           />
         )}
