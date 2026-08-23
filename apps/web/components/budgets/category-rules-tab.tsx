@@ -25,12 +25,22 @@ export type CategoryRuleItem = {
 };
 
 export type UnverifiedCategoryGroup = {
-  categoryId: string;
-  categoryName: string;
-  categoryColor: string;
-  unverifiedCount: number;
-  sampleDescriptions: string[];
-  transactionIds: string[];
+  categoryId?: string;
+  categoryName?: string;
+  categoryColor?: string;
+  category?: { id: string; name: string; color: string };
+  unverifiedCount?: number;
+  totalCount?: number;
+  sampleDescriptions?: string[];
+  transactionIds?: string[];
+  transactions?: Array<{
+    id: string;
+    transactionDate: string;
+    descriptionRaw: string;
+    merchant?: string | null;
+    amount: number;
+    userVerified: boolean;
+  }>;
 };
 
 interface CategoryRulesTabProps {
@@ -99,37 +109,52 @@ export function CategoryRulesTab({
             <p style={{ color: "var(--muted)", fontSize: "13px" }}>All transactions are verified! No pending auto-assignments in queue.</p>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
-              {unverifiedCategories.map((group) => (
-                <div key={group.categoryId} style={{ background: "var(--background-alt)", border: "1px solid var(--line)", borderRadius: "12px", padding: "16px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "12px" }}>
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <span style={{ padding: "4px 10px", borderRadius: "6px", background: `${group.categoryColor}20`, color: group.categoryColor, fontWeight: 700, fontSize: "12px" }}>
-                        {group.categoryName}
-                      </span>
-                      <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>{group.unverifiedCount} rows pending</span>
-                    </div>
+              {unverifiedCategories.map((group, gIdx) => {
+                const catId = group.categoryId || group.category?.id || `group-${gIdx}`;
+                const catName = group.categoryName || group.category?.name || "Uncategorized";
+                const catColor = group.categoryColor || group.category?.color || "#3b82f6";
+                const unverifiedCount = group.unverifiedCount ?? group.transactions?.length ?? 0;
+                const sampleDescriptions = (group.sampleDescriptions && group.sampleDescriptions.length > 0)
+                  ? group.sampleDescriptions
+                  : group.transactions?.map((t) => t.merchant || t.descriptionRaw).filter(Boolean) || [];
+                const txIds = group.transactionIds && group.transactionIds.length > 0
+                  ? group.transactionIds
+                  : group.transactions?.map((t) => t.id) || [];
 
-                    <div style={{ fontSize: "11px", color: "var(--muted)", display: "flex", flexDirection: "column", gap: "4px", margin: "8px 0" }}>
-                      <strong>Sample descriptions:</strong>
-                      {group.sampleDescriptions.slice(0, 3).map((desc, idx) => (
-                        <span key={idx} style={{ opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          • {desc}
+                return (
+                  <div key={catId} style={{ background: "var(--background-alt)", border: "1px solid var(--line)", borderRadius: "12px", padding: "16px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "12px" }}>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <span style={{ padding: "4px 10px", borderRadius: "6px", background: `${catColor}20`, color: catColor, fontWeight: 700, fontSize: "12px" }}>
+                          {catName}
                         </span>
-                      ))}
-                    </div>
-                  </div>
+                        <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>{unverifiedCount} rows pending</span>
+                      </div>
 
-                  <button
-                    type="button"
-                    disabled={confirmingCatId === group.categoryId}
-                    onClick={() => handleConfirmGroup(group.transactionIds, group.categoryId)}
-                    className="primary compact"
-                    style={{ width: "100%", justifyContent: "center", display: "inline-flex", gap: "6px" }}>
-                    {confirmingCatId === group.categoryId ? <Loader2 size={14} className="spin" /> : <CheckCircle2 size={14} />}
-                    <span>Confirm All {group.unverifiedCount} Transactions</span>
-                  </button>
-                </div>
-              ))}
+                      {sampleDescriptions.length > 0 && (
+                        <div style={{ fontSize: "11px", color: "var(--muted)", display: "flex", flexDirection: "column", gap: "4px", margin: "8px 0" }}>
+                          <strong>Sample descriptions:</strong>
+                          {sampleDescriptions.slice(0, 3).map((desc, idx) => (
+                            <span key={idx} style={{ opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              • {desc}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={confirmingCatId === catId || txIds.length === 0}
+                      onClick={() => handleConfirmGroup(txIds, catId)}
+                      className="primary compact"
+                      style={{ width: "100%", justifyContent: "center", display: "inline-flex", gap: "6px" }}>
+                      {confirmingCatId === catId ? <Loader2 size={14} className="spin" /> : <CheckCircle2 size={14} />}
+                      <span>Confirm All {unverifiedCount} Transactions</span>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>

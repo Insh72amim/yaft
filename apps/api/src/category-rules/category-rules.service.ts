@@ -410,6 +410,7 @@ export class CategoryRulesService {
       where: {
         account: { userId },
         categoryId: { not: null },
+        userVerified: false,
       },
       select: {
         id: true,
@@ -421,15 +422,20 @@ export class CategoryRulesService {
         category: { select: { id: true, name: true, color: true } },
       },
       orderBy: { transactionDate: 'desc' },
-      take: 200,
+      take: 500,
     });
 
     const categoryMap = new Map<
       string,
       {
+        categoryId: string;
+        categoryName: string;
+        categoryColor: string;
         category: { id: string; name: string; color: string };
         totalCount: number;
         unverifiedCount: number;
+        sampleDescriptions: string[];
+        transactionIds: string[];
         transactions: Array<{
           id: string;
           transactionDate: Date;
@@ -445,14 +451,26 @@ export class CategoryRulesService {
       if (!tx.category) return;
       const catId = tx.category.id;
       const existing = categoryMap.get(catId) || {
+        categoryId: tx.category.id,
+        categoryName: tx.category.name,
+        categoryColor: tx.category.color,
         category: tx.category,
         totalCount: 0,
         unverifiedCount: 0,
+        sampleDescriptions: [],
+        transactionIds: [],
         transactions: [],
       };
 
       existing.totalCount++;
-      if (!tx.userVerified) existing.unverifiedCount++;
+      existing.unverifiedCount++;
+      existing.transactionIds.push(tx.id);
+      if (existing.sampleDescriptions.length < 5) {
+        const sample = tx.merchant || tx.descriptionRaw;
+        if (sample && !existing.sampleDescriptions.includes(sample)) {
+          existing.sampleDescriptions.push(sample);
+        }
+      }
       existing.transactions.push({
         id: tx.id,
         transactionDate: tx.transactionDate,

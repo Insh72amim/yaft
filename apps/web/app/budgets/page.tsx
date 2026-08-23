@@ -177,7 +177,10 @@ function BudgetsContent() {
     }
   }, [inspectedTagId, loadTagAnalytics]);
 
-  const totalUnverifiedCount = unverifiedCategories.reduce((sum, g) => sum + g.unverifiedCount, 0);
+  const totalUnverifiedCount = unverifiedCategories.reduce(
+    (sum, g) => sum + (g.unverifiedCount ?? g.transactions?.length ?? 0),
+    0
+  );
 
   // TAG HANDLERS
   const handleDeleteTag = async (id: string, name: string) => {
