@@ -18,7 +18,7 @@ describe('CategoriesController', () => {
       updateCategory: jest.fn().mockImplementation((userId, id, name, color, type) =>
         Promise.resolve({ id, name: name || 'Updated Name', color: color || '#10b981', type: type || 'EXPENSE', userId })
       ),
-      deleteCategory: jest.fn().mockResolvedValue({ id: 'cat-1', deleted: true }),
+      deleteCategory: jest.fn().mockResolvedValue({ success: true, message: 'Category deleted successfully' }),
     };
 
     controller = new CategoriesController(mockService as CategoryRulesService);
@@ -54,6 +54,6 @@ describe('CategoriesController', () => {
   it('should delete custom category', async () => {
     const result = await controller.deleteCategory(mockUser, 'cat-1');
     expect(mockService.deleteCategory).toHaveBeenCalledWith('user-123', 'cat-1');
-    expect(result.deleted).toBe(true);
+    expect(result.success).toBe(true);
   });
 });
