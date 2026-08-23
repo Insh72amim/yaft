@@ -629,6 +629,8 @@ html[data-theme='dark'] .brand-muted{color:#93a39b}
 html[data-theme='dark'] .sidebar nav a,html[data-theme='dark'] .logout{color:#9caca4}
 html[data-theme='dark'] .sidebar nav a:hover,html[data-theme='dark'] .sidebar nav a.active{background:var(--theme-soft-start);color:var(--green)}
 html[data-theme='dark'] .privacy-note,html[data-theme='dark'] .secondary,html[data-theme='dark'] .mobile-menu,html[data-theme='dark'] .theme-toggle{background:var(--card);border-color:var(--line)}
+html[data-theme='dark'] .secondary.active,html[data-theme='dark'] button.secondary.active,html[data-theme='dark'] a.secondary.active{background:var(--ink)!important;color:var(--paper)!important;border-color:var(--ink)!important;box-shadow:0 2px 10px rgba(0,0,0,0.45)!important}
+html[data-theme='dark'] .secondary.active svg,html[data-theme='dark'] button.secondary.active svg,html[data-theme='dark'] a.secondary.active svg{color:var(--paper)!important}
 html[data-theme='dark'] .privacy-note{color:#8ad9b2}
 html[data-theme='dark'] .logout:hover{color:#ff9a94;background:#321d1d}
 html[data-theme='dark'] .eyebrow{color:#8db7a2}
@@ -638,6 +640,23 @@ html[data-theme='dark'] .donut>div,html[data-theme='dark'] input,html[data-theme
 html[data-theme='dark'] input::placeholder{color:#708078}
 html[data-theme='dark'] input:focus,html[data-theme='dark'] select:focus{border-color:#65b38e;box-shadow:0 0 0 3px rgba(101,179,142,.14)}
 html[data-theme='dark'] .account-row,html[data-theme='dark'] .transaction-list>div,html[data-theme='dark'] .salary-lines header,html[data-theme='dark'] .salary-lines>div,html[data-theme='dark'] .holdings-table td{border-color:var(--line)}
+
+.secondary.active,
+button.secondary.active,
+a.secondary.active {
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+  border-color: var(--ink) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16) !important;
+}
+
+.secondary.active svg,
+button.secondary.active svg,
+a.secondary.active svg {
+  color: var(--paper) !important;
+}
+
 html[data-theme='dark'] .util{background:#293831}
 html[data-theme='dark'] .summary-icon.income,html[data-theme='dark'] .account-icon.savings{background:#193b2a;color:#7ed7aa}
 html[data-theme='dark'] .summary-icon.expense,html[data-theme='dark'] .account-icon.card,html[data-theme='dark'] .account-icon.loan{background:#40271e;color:#ffad77}

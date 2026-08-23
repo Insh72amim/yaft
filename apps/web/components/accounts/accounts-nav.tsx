@@ -17,9 +17,10 @@ export function AccountsNav({ activeTab, onTabChange }: AccountsNavProps) {
         alignItems: "center",
         background: "var(--card)",
         border: "1px solid var(--line)",
-        borderRadius: "12px",
-        padding: "4px",
-        gap: "4px",
+        borderRadius: "14px",
+        padding: "5px",
+        gap: "6px",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
       }}
     >
       <button
@@ -27,11 +28,15 @@ export function AccountsNav({ activeTab, onTabChange }: AccountsNavProps) {
         className={`secondary compact ${activeTab === "ACCOUNTS" ? "active" : ""}`}
         onClick={() => onTabChange("ACCOUNTS")}
         style={{
-          borderRadius: "8px",
-          fontWeight: activeTab === "ACCOUNTS" ? 600 : 500,
+          borderRadius: "9px",
+          padding: "8px 14px",
+          fontSize: "13px",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px",
         }}
       >
-        <Landmark size={14} /> Accounts & Portfolios
+        <Landmark size={15} /> <span>Accounts &amp; Portfolios</span>
       </button>
 
       <button
@@ -39,11 +44,15 @@ export function AccountsNav({ activeTab, onTabChange }: AccountsNavProps) {
         className={`secondary compact ${activeTab === "ASSETS" ? "active" : ""}`}
         onClick={() => onTabChange("ASSETS")}
         style={{
-          borderRadius: "8px",
-          fontWeight: activeTab === "ASSETS" ? 600 : 500,
+          borderRadius: "9px",
+          padding: "8px 14px",
+          fontSize: "13px",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px",
         }}
       >
-        <ChartPie size={14} /> Assets & Net Worth
+        <ChartPie size={15} /> <span>Assets &amp; Net Worth</span>
       </button>
 
       <button
@@ -51,11 +60,15 @@ export function AccountsNav({ activeTab, onTabChange }: AccountsNavProps) {
         className={`secondary compact ${activeTab === "TRANSACTIONS" ? "active" : ""}`}
         onClick={() => onTabChange("TRANSACTIONS")}
         style={{
-          borderRadius: "8px",
-          fontWeight: activeTab === "TRANSACTIONS" ? 600 : 500,
+          borderRadius: "9px",
+          padding: "8px 14px",
+          fontSize: "13px",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px",
         }}
       >
-        <Receipt size={14} /> Transactions Ledger
+        <Receipt size={15} /> <span>Transactions Ledger</span>
       </button>
 
       <button
@@ -63,11 +76,15 @@ export function AccountsNav({ activeTab, onTabChange }: AccountsNavProps) {
         className={`secondary compact ${activeTab === "CREDIT_CARDS" ? "active" : ""}`}
         onClick={() => onTabChange("CREDIT_CARDS")}
         style={{
-          borderRadius: "8px",
-          fontWeight: activeTab === "CREDIT_CARDS" ? 600 : 500,
+          borderRadius: "9px",
+          padding: "8px 14px",
+          fontSize: "13px",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px",
         }}
       >
-        <CreditCard size={14} /> Credit Cards Analytics
+        <CreditCard size={15} /> <span>Credit Cards Analytics</span>
       </button>
     </div>
   );
