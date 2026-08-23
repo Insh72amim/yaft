@@ -133,6 +133,7 @@ export function TagsTab({
   setTagBudget,
   setTagModalOpen,
 }: TagsTabProps) {
+  const [autoApplyModalOpen, setAutoApplyModalOpen] = useState(false);
   const totalSpentAcrossTags = tags.reduce((sum, t) => sum + t.totalSpent, 0);
   const activeTripsCount = tags.filter((t) => t.startDate || t.budgetLimit).length;
 
@@ -147,38 +148,54 @@ export function TagsTab({
     setTagModalOpen(true);
   };
 
+  const onSubmitAutoApply = async (e: React.FormEvent) => {
+    await handleApplyAutoTag(e);
+    setAutoApplyModalOpen(false);
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      {/* Header Banner & Action */}
+      {/* Header Banner & Global Actions */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ background: "rgba(59, 130, 246, 0.15)", color: "#3b82f6", padding: "3px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Tagging & Event Hub
+            <span style={{ background: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", padding: "3px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Tagging &amp; Event Hub
             </span>
           </div>
-          <h3 style={{ margin: "4px 0 0 0", fontSize: "1.25rem", fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em" }}>
-            Custom Tags & Trip Governance
+          <h3 style={{ margin: "4px 0 0 0", fontSize: "1.35rem", fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+            Custom Tags &amp; Trip Governance
           </h3>
           <p style={{ margin: "3px 0 0 0", fontSize: "13px", color: "var(--muted)" }}>
-            Tag transactions manually or define automated date-range & keyword rules to govern trip budgets across all accounts.
+            Tag transactions manually or define automated date-range &amp; keyword rules to govern trip budgets across all accounts.
           </p>
         </div>
 
-        <button
-          type="button"
-          className="primary"
-          onClick={() => openNewTagModal()}
-          style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 18px", borderRadius: "10px", fontWeight: 700, fontSize: "13px" }}>
-          <Plus size={16} />
-          <span>+ Create Custom Tag</span>
-        </button>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setAutoApplyModalOpen(true)}
+            style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "9px 15px", borderRadius: "10px", fontWeight: 700, fontSize: "13px" }}>
+            <Sparkles size={15} color="#3b82f6" />
+            <span>Auto-Apply Rule</span>
+          </button>
+
+          <button
+            type="button"
+            className="primary"
+            onClick={() => openNewTagModal()}
+            style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "9px 18px", borderRadius: "10px", fontWeight: 700, fontSize: "13px", boxShadow: "0 2px 8px rgba(184, 91, 53, 0.25)" }}>
+            <Plus size={16} />
+            <span>Create Custom Tag</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Metrics Row */}
       {tags.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px" }}>
-          <div style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "12px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "14px" }}>
+          <div style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "14px", boxShadow: "0 2px 6px rgba(0,0,0,0.02)" }}>
             <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <TagIcon size={20} />
             </div>
@@ -188,7 +205,7 @@ export function TagsTab({
             </div>
           </div>
 
-          <div style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "12px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "14px" }}>
+          <div style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "14px", boxShadow: "0 2px 6px rgba(0,0,0,0.02)" }}>
             <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "rgba(239, 68, 68, 0.12)", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <TrendingDown size={20} />
             </div>
@@ -198,7 +215,7 @@ export function TagsTab({
             </div>
           </div>
 
-          <div style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "12px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "14px" }}>
+          <div style={{ background: "var(--card)", padding: "16px 20px", borderRadius: "14px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "14px", boxShadow: "0 2px 6px rgba(0,0,0,0.02)" }}>
             <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "rgba(16, 185, 129, 0.12)", color: "#10b981", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Calendar size={20} />
             </div>
@@ -210,196 +227,9 @@ export function TagsTab({
         </div>
       )}
 
-      {/* Main Top Grid: Auto-Apply Automation & Directory Overview */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "20px" }}>
-        {/* Panel 1: Auto-Apply Tag Rules */}
-        <section className="panel" style={{ padding: "22px", borderRadius: "14px", border: "1px solid var(--line)", background: "var(--card)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
-            <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "rgba(59, 130, 246, 0.15)", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Sparkles size={16} />
-            </div>
-            <div>
-              <span style={{ fontSize: "11px", fontWeight: 800, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.05em", display: "block" }}>Automated Tag Rule</span>
-              <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>Auto-Apply Tag to Transactions</h4>
-            </div>
-          </div>
-
-          <form onSubmit={handleApplyAutoTag} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)" }}>Target Tag / Trip</label>
-                {tags.length === 0 && (
-                  <button
-                    type="button"
-                    onClick={() => openNewTagModal()}
-                    style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", fontWeight: 700, cursor: "pointer", padding: 0 }}>
-                    + Create Tag First
-                  </button>
-                )}
-              </div>
-
-              <select
-                value={selectedTagForAuto}
-                onChange={(e) => setSelectedTagForAuto(e.target.value)}
-                required
-                style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
-                <option value="">{tags.length === 0 ? "No tags created yet (Create one first)" : "Select Tag or Trip..."}</option>
-                {tags.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name} {t.startDate ? `(${t.startDate.slice(0, 10)})` : ''}</option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              <div>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Start Date (Time-Based)</label>
-                <input
-                  type="date"
-                  value={autoTagStart}
-                  onChange={(e) => setAutoTagStart(e.target.value)}
-                  style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
-                />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>End Date (Time-Based)</label>
-                <input
-                  type="date"
-                  value={autoTagEnd}
-                  onChange={(e) => setAutoTagEnd(e.target.value)}
-                  style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 8px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Merchant / Description Keywords (Optional)</label>
-              <input
-                type="text"
-                value={autoTagKeywords}
-                onChange={(e) => setAutoTagKeywords(e.target.value)}
-                placeholder="e.g. Zomato, Indigo, Swiggy, Hotel"
-                style={{ width: "100%", height: "38px", fontSize: "13px", padding: "0 12px", borderRadius: "8px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={applyingAutoTag || !selectedTagForAuto}
-              className="primary"
-              style={{
-                alignSelf: "flex-start",
-                marginTop: "6px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "10px 18px",
-                borderRadius: "8px",
-                fontWeight: 700,
-                fontSize: "13px",
-                background: selectedTagForAuto ? "#10b981" : undefined,
-                borderColor: selectedTagForAuto ? "#10b981" : undefined,
-                opacity: selectedTagForAuto ? 1 : 0.5,
-              }}>
-              <Sparkles size={16} />
-              <span>{applyingAutoTag ? "Scanning & Tagging..." : "Auto-Apply Tag to Transactions"}</span>
-            </button>
-          </form>
-        </section>
-
-        {/* Panel 2: Quick Directory & Presets */}
-        <section className="panel" style={{ padding: "22px", borderRadius: "14px", border: "1px solid var(--line)", background: "var(--card)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "rgba(16, 185, 129, 0.15)", color: "#10b981", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Layers size={16} />
-                </div>
-                <div>
-                  <span style={{ fontSize: "11px", fontWeight: 800, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.05em", display: "block" }}>Active Directory</span>
-                  <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>All Active Tags ({tags.length})</h4>
-                </div>
-              </div>
-            </div>
-
-            {tags.length === 0 ? (
-              <div style={{ background: "var(--background-alt)", padding: "16px", borderRadius: "12px", border: "1px solid var(--line)" }}>
-                <strong style={{ fontSize: "13px", color: "var(--ink)", display: "block", marginBottom: "6px" }}>🚀 1-Click Quick Preset Tags</strong>
-                <p style={{ margin: "0 0 12px 0", fontSize: "12px", color: "var(--muted)" }}>No custom tags created yet. Choose a popular preset to get started immediately:</p>
-                
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                  {QUICK_PRESETS.map((preset) => (
-                    <button
-                      key={preset.name}
-                      type="button"
-                      onClick={() => openNewTagModal(preset)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "8px 10px",
-                        borderRadius: "8px",
-                        background: "var(--card)",
-                        border: `1px solid ${preset.color}40`,
-                        color: "var(--ink)",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        textAlign: "left",
-                        transition: "all 0.15s ease",
-                      }}>
-                      <span>{preset.name}</span>
-                      <Plus size={14} style={{ color: preset.color }} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "280px", overflowY: "auto", paddingRight: "4px" }}>
-                {tags.map((tag) => {
-                  const isInspected = inspectedTagId === tag.id;
-                  return (
-                    <div
-                      key={tag.id}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "10px 14px",
-                        borderRadius: "10px",
-                        background: isInspected ? `${tag.color}18` : "var(--background-alt)",
-                        border: isInspected ? `1.5px solid ${tag.color}` : "1px solid var(--line)",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => setInspectedTagId(isInspected ? null : tag.id)}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: tag.color, flexShrink: 0 }} />
-                        <div>
-                          <strong style={{ fontSize: "13px", color: "var(--ink)", display: "block" }}>{tag.name}</strong>
-                          <small style={{ fontSize: "11px", color: "var(--muted)" }}>{tag.transactionCount} transaction(s)</small>
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <strong style={{ fontSize: "13px", color: "#ef4444", fontWeight: 700 }}>{money(tag.totalSpent * 100)}</strong>
-                        <button
-                          type="button"
-                          className="icon-button danger"
-                          onClick={(e) => { e.stopPropagation(); handleDeleteTag(tag.id, tag.name); }}>
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
-
       {/* Quick Presets Bar (Always visible below header if tags exist) */}
       {tags.length > 0 && (
-        <div style={{ background: "var(--card)", padding: "12px 16px", borderRadius: "12px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <div style={{ background: "var(--card)", padding: "12px 16px", borderRadius: "12px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", display: "inline-flex", alignItems: "center", gap: "4px" }}>
             <Sparkles size={14} color="#3b82f6" /> Quick Presets:
           </span>
@@ -409,11 +239,111 @@ export function TagsTab({
               type="button"
               className="secondary compact"
               onClick={() => openNewTagModal(preset)}
-              style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "6px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+              style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "7px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
               <span>{preset.name}</span>
               <Plus size={12} style={{ color: preset.color }} />
             </button>
           ))}
+        </div>
+      )}
+
+      {/* AUTO-APPLY TAG RULE MODAL */}
+      {autoApplyModalOpen && (
+        <div className="modal-wrap" style={{ zIndex: 99999 }}>
+          <button className="backdrop" onClick={() => setAutoApplyModalOpen(false)} aria-label="Close modal" />
+          <section className="modal" style={{ width: "min(480px, 95vw)", padding: "26px", borderRadius: "16px", background: "var(--card)", border: "1px solid var(--line)", boxShadow: "0 20px 40px rgba(0,0,0,0.15)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "rgba(59, 130, 246, 0.12)", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "var(--ink)" }}>
+                    Auto-Apply Tag to Transactions
+                  </h3>
+                  <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
+                    Scan ledger by date-range &amp; keywords
+                  </p>
+                </div>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setAutoApplyModalOpen(false)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={onSubmitAutoApply} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "5px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)" }}>Target Tag / Trip</label>
+                  {tags.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setAutoApplyModalOpen(false); openNewTagModal(); }}
+                      style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "11px", fontWeight: 700, cursor: "pointer", padding: 0 }}>
+                      + Create Tag First
+                    </button>
+                  )}
+                </div>
+
+                <select
+                  value={selectedTagForAuto}
+                  onChange={(e) => setSelectedTagForAuto(e.target.value)}
+                  required
+                  style={{ width: "100%", height: "42px", fontSize: "13px", padding: "0 12px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
+                  <option value="">{tags.length === 0 ? "No tags created yet (Create one first)" : "Select Target Tag..."}</option>
+                  {tags.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} {t.startDate ? `(${t.startDate.slice(0, 10)})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Start Date (Time-Based)</label>
+                  <input
+                    type="date"
+                    value={autoTagStart}
+                    onChange={(e) => setAutoTagStart(e.target.value)}
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 10px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>End Date (Time-Based)</label>
+                  <input
+                    type="date"
+                    value={autoTagEnd}
+                    onChange={(e) => setAutoTagEnd(e.target.value)}
+                    style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 10px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: 600, color: "var(--muted)", marginBottom: "4px" }}>Merchant / Description Keywords (Optional)</label>
+                <input
+                  type="text"
+                  value={autoTagKeywords}
+                  onChange={(e) => setAutoTagKeywords(e.target.value)}
+                  placeholder="e.g. Zomato, Indigo, Swiggy, Hotel, Fuel"
+                  style={{ width: "100%", height: "40px", fontSize: "13px", padding: "0 12px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
+                <button type="button" className="secondary" onClick={() => setAutoApplyModalOpen(false)}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={applyingAutoTag || !selectedTagForAuto}
+                  className="primary"
+                  style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                  <Sparkles size={15} />
+                  <span>{applyingAutoTag ? "Scanning & Tagging..." : "Scan & Apply Tag"}</span>
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
       )}
 
