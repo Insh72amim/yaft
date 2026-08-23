@@ -79,7 +79,7 @@ export class BackupSchedulerService implements OnApplicationBootstrap, OnApplica
   async checkAndRunDailyGmailSync() {
     const emailConfigs = await this.prisma.googleEmailConfig.findMany({
       where: {
-        syncStatus: { not: 'DISCONNECTED' },
+        syncStatus: 'ACTIVE',
       },
     });
 
