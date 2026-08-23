@@ -1,5 +1,5 @@
 'use client';
-import { AlertTriangle, ArrowLeft, ArrowUpRight, BadgeIndianRupee, BriefcaseBusiness, Building2, Calendar, Check, CreditCard, FileSpreadsheet, KeyRound, Landmark,
+import { AlertTriangle, ArrowLeft, ArrowUpRight, BadgeIndianRupee, BriefcaseBusiness, Building2, Calendar, Check, CreditCard, Eye, FileSpreadsheet, KeyRound, Landmark,
   Mail, RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -1046,65 +1046,122 @@ function BankReviewPanel({ item, busy, update, finish }: { item: BankPending; bu
       <span><strong>{money(included.reduce((sum, row) => sum + row.amount, 0))}</strong><small>net movement</small></span>
       {item.review.statementBalance != null && <span><strong>{money(item.review.statementBalance)}</strong><small>predicted closing balance</small></span>}
     </div></section>
-    <section className="review-table panel"><div className="review-head"><span>Include</span><span>Date &amp; description</span><span>Category</span><span>Amount</span></div>
-      {item.review.staged.map((row) => <div className={`review-row ${!row.include ? 'excluded' : ''}`} key={row.id}><label className="check"><input type="checkbox" checked={row.include}
-        disabled={busy || row.isDuplicate} aria-label={`Include ${row.merchant || row.descriptionRaw}`} onChange={(event) => void update(item, row, { include: event.target.checked })}/><span><Check/></span></label>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <strong>{row.merchant || row.descriptionRaw}</strong>
-            {row.emailReference && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedEmailRef({ row, ref: row.emailReference! });
-                }}
-                title="View original source email proof and raw alert text"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  background: 'rgba(59, 130, 246, 0.14)',
-                  color: '#3b82f6',
-                  border: '1px solid rgba(59, 130, 246, 0.35)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <Mail style={{ width: '12px', height: '12px' }} />
-                <span>Mail Proof</span>
-              </button>
-            )}
-          </div>
-          <small>Value {new Date(row.transactionDate).toLocaleDateString('en-IN')}{row.postedDate ? ` · Posted ${new Date(row.postedDate).toLocaleDateString('en-IN')}` : ''} · {row.descriptionRaw}</small>
-          {row.emailReference?.snippet && (
-            <div
-              onClick={() => setSelectedEmailRef({ row, ref: row.emailReference! })}
-              style={{
-                fontSize: '11px',
-                color: 'var(--muted)',
-                marginTop: '2px',
-                fontFamily: 'monospace',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-              title="Click to view full email proof"
-            >
-              <span style={{ color: '#3b82f6' }}>📧 Proof:</span>
-              <span>{row.emailReference.snippet.slice(0, 90)}…</span>
+    <section className="review-table panel"><div className="review-head"><span>Include</span><span>Date &amp; description</span><span>Category</span><span>Amount</span><span style={{ textAlign: 'center' }}>Proof</span></div>
+      {item.review.staged.map((row) => {
+        const hasMailProof = Boolean(row.emailReference && (row.emailReference.snippet || row.emailReference.subject || row.emailReference.messageId));
+        return (
+          <div className={`review-row ${!row.include ? 'excluded' : ''}`} key={row.id}><label className="check"><input type="checkbox" checked={row.include}
+            disabled={busy || row.isDuplicate} aria-label={`Include ${row.merchant || row.descriptionRaw}`} onChange={(event) => void update(item, row, { include: event.target.checked })}/><span><Check/></span></label>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <strong>{row.merchant || row.descriptionRaw}</strong>
+                {hasMailProof && (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      padding: '1px 6px',
+                      borderRadius: '12px',
+                      background: 'rgba(59, 130, 246, 0.12)',
+                      color: '#3b82f6',
+                      border: '1px solid rgba(59, 130, 246, 0.25)',
+                    }}
+                  >
+                    <Mail style={{ width: '10px', height: '10px' }} />
+                    <span>Gmail Ingested</span>
+                  </span>
+                )}
+              </div>
+              <small>Value {new Date(row.transactionDate).toLocaleDateString('en-IN')}{row.postedDate ? ` · Posted ${new Date(row.postedDate).toLocaleDateString('en-IN')}` : ''} · {row.descriptionRaw}</small>
+              {row.emailReference?.snippet && (
+                <div
+                  onClick={() => setSelectedEmailRef({ row, ref: row.emailReference! })}
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--muted)',
+                    marginTop: '2px',
+                    fontFamily: 'monospace',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                  title="Click to view full email proof"
+                >
+                  <span style={{ color: '#3b82f6' }}>📧 Proof:</span>
+                  <span>{row.emailReference.snippet.slice(0, 75)}…</span>
+                </div>
+              )}
+              {row.isDuplicate && <em><AlertTriangle size={12}/>Likely duplicate</em>}
             </div>
-          )}
-          {row.isDuplicate && <em><AlertTriangle size={12}/>Likely duplicate</em>}
-        </div>
-        <select aria-label={`Category for ${row.merchant || row.descriptionRaw}`} value={row.categoryId ?? ''}
-          disabled={busy} onChange={(event) => void update(item, row, { categoryId: event.target.value })}><option value="">Uncategorised</option>{item.review.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
-        <b className={row.amount > 0 ? 'positive' : ''}>{money(row.amount)}</b></div>)}</section>
+            <select aria-label={`Category for ${row.merchant || row.descriptionRaw}`} value={row.categoryId ?? ''}
+              disabled={busy} onChange={(event) => void update(item, row, { categoryId: event.target.value })}><option value="">Uncategorised</option>{item.review.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+            <b className={row.amount > 0 ? 'positive' : ''}>{money(row.amount)}</b>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              {hasMailProof ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedEmailRef({ row, ref: row.emailReference! });
+                  }}
+                  title="View original email proof"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '5px 10px',
+                    borderRadius: '8px',
+                    background: 'rgba(59, 130, 246, 0.12)',
+                    color: '#3b82f6',
+                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    width: '100%',
+                    maxWidth: '95px',
+                  }}
+                >
+                  <Eye size={13} />
+                  <span>View Mail</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  title="No email proof attached to this record"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    padding: '5px 10px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-subtle, rgba(0,0,0,0.03))',
+                    color: 'var(--muted)',
+                    border: '1px solid var(--line)',
+                    cursor: 'not-allowed',
+                    opacity: 0.45,
+                    whiteSpace: 'nowrap',
+                    width: '100%',
+                    maxWidth: '95px',
+                  }}
+                >
+                  <Eye size={13} />
+                  <span>View Mail</span>
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}</section>
     <div className="commit-bar"><div><ShieldCheck/><span><strong>{included.length} transactions ready</strong><small>Duplicates and unchecked rows will be skipped.</small></span></div>
       <div className="review-actions"><button type="button" className="ghost" disabled={busy} onClick={() => void finish(item, 'discard')}>Discard</button>
         <button type="button" className="primary" disabled={busy || !included.length} onClick={() => void finish(item, 'commit')}>{busy ? 'Working…' : 'Approve & import'}</button></div></div>
