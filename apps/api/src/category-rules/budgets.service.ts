@@ -9,6 +9,51 @@ export interface SetCategoryBudgetDto {
   year?: number;  // 0 for default/all, YYYY for specific year
 }
 
+function isNonExpenseTransaction(tx: {
+  amount: bigint;
+  descriptionRaw: string;
+  transferGroupId?: string | null;
+  account?: { type?: string };
+  category?: { name?: string; type?: string; superCategory?: { kind?: string } | null } | null;
+}): boolean {
+  // 1. Internal transfers with transferGroupId
+  if (tx.transferGroupId) return true;
+
+  const desc = (tx.descriptionRaw || '').toLowerCase();
+  const catType = tx.category?.type;
+  const superKind = tx.category?.superCategory?.kind;
+  const catName = (tx.category?.name || '').toLowerCase();
+
+  // 2. Explicit Non-Expense Accounting Natures
+  if (catType === 'INCOME' || superKind === 'INCOME') return true;
+  if (catType === 'INVESTMENT' || superKind === 'INVESTMENT') return true;
+  if (catType === 'TRANSFER' || superKind === 'TRANSFER') return true;
+
+  // 3. Category Name checks
+  if (/transfer|cc transfer|cc payment|internal transfer/i.test(catName)) return true;
+  if (/invest|mutual\s*fund|sip|stock|broker|zerodha|groww|kuvera|indmoney|cams|kfintech|nps|ppf|epfo|sgb|sovereign\s*gold/i.test(catName)) return true;
+  if (/income|salary|dividend|interest|freelance|bonus/i.test(catName)) return true;
+
+  // 4. CC payment / bill payment heuristics
+  if (tx.account?.type === 'CREDIT_CARD') {
+    if (tx.amount > 0n) {
+      const isCcBillPayment = /payment\s*received|autopay|mobile\s*banking|imps|neft|upi\s*pay|bill\s*pay|thank\s*you|credit\s*card\s*payment/i.test(desc);
+      if (isCcBillPayment) return true;
+    }
+  }
+
+  // 5. Bank Account to CC payments or Self-Transfers
+  if (/self\s*tra|tcd\s*no|firdftfr|own\s*acc|self\s*transfer|trf\s*to/i.test(desc)) return true;
+  if (/credit\s*card\s*payment|cc\s*pymt|billdesk.*credit\s*card|cred\b|cred\.club/i.test(desc)) return true;
+
+  // 6. Positive amount that is NOT a refund/reversal
+  if (tx.amount > 0n && !isRefundOrReversal(tx.descriptionRaw)) {
+    return true; // Non-refund credit is income/deposit/inflow, not an expense
+  }
+
+  return false;
+}
+
 @Injectable()
 export class BudgetsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -25,7 +70,13 @@ export class BudgetsService {
     // Fetch user's categories
     const categories = await this.prisma.category.findMany({
       where: { userId },
-      select: { id: true, name: true, type: true, color: true },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        color: true,
+        superCategory: { select: { kind: true } },
+      },
       orderBy: [{ type: 'asc' }, { name: 'asc' }],
     });
 
@@ -64,8 +115,12 @@ export class BudgetsService {
         categoryId: true,
         amount: true,
         descriptionRaw: true,
+        transferGroupId: true,
+        account: {
+          select: { type: true },
+        },
         category: {
-          select: { id: true, name: true, type: true },
+          select: { id: true, name: true, type: true, superCategory: { select: { kind: true } } },
         },
       },
     });
@@ -74,12 +129,14 @@ export class BudgetsService {
     const spentMap = new Map<string, bigint>();
     const txCountMap = new Map<string, number>();
     let totalAllExpensesSpentMinor = 0n;
+    let totalExpenseTxCount = 0;
 
     for (const tx of transactions) {
-      const catId = tx.categoryId || 'uncategorised';
-      const catName = tx.category?.name || '';
-      if (/transfer/i.test(catName)) continue;
+      if (isNonExpenseTransaction(tx)) {
+        continue;
+      }
 
+      const catId = tx.categoryId || 'uncategorised';
       const isRefund = tx.amount > 0n && isRefundOrReversal(tx.descriptionRaw);
       const current = spentMap.get(catId) || 0n;
       const count = txCountMap.get(catId) || 0;
@@ -88,6 +145,7 @@ export class BudgetsService {
         spentMap.set(catId, current + (-tx.amount));
         txCountMap.set(catId, count + 1);
         totalAllExpensesSpentMinor += -tx.amount;
+        totalExpenseTxCount++;
       } else if (isRefund) {
         const net = current - tx.amount;
         spentMap.set(catId, net < 0n ? 0n : net);
@@ -98,8 +156,10 @@ export class BudgetsService {
     let totalBudgetedMinor = 0n;
     let totalBudgetedSpentMinor = 0n;
 
-    // Filter to expense categories
-    const expenseCategories = categories.filter((c) => (c.type || 'EXPENSE') === 'EXPENSE');
+    // Filter to expense categories only
+    const expenseCategories = categories.filter(
+      (c) => (c.type || 'EXPENSE') === 'EXPENSE' && (c.superCategory?.kind || 'EXPENSE') === 'EXPENSE'
+    );
 
     const items = expenseCategories.map((cat) => {
       const b = budgetMap.get(cat.id);
@@ -155,7 +215,7 @@ export class BudgetsService {
         totalSpent: totalSpentNum,
         totalRemaining: totalRemainingNum,
         overallPercentage,
-        totalTransactionsCount: transactions.filter((t) => t.amount < 0n).length,
+        totalTransactionsCount: totalExpenseTxCount,
       },
       budgets: items,
     };
@@ -204,7 +264,15 @@ export class BudgetsService {
       where,
       include: {
         account: { select: { id: true, name: true, type: true, institution: true } },
-        category: { select: { id: true, name: true, color: true } },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+            type: true,
+            superCategory: { select: { kind: true } },
+          },
+        },
         tags: {
           include: {
             tag: { select: { id: true, name: true, color: true } },
@@ -214,10 +282,16 @@ export class BudgetsService {
       orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
     });
 
+    // When viewing 'all', strictly filter out non-expenses (investments, cc transfers, internal transfers, income)
+    const isViewingAll = !categoryId || categoryId === 'all';
+    const relevantTransactions = isViewingAll
+      ? transactions.filter((t) => !isNonExpenseTransaction(t))
+      : transactions;
+
     let totalSpentMinor = 0n;
     let totalRefundsMinor = 0n;
 
-    const formatted = transactions.map((t) => {
+    const formatted = relevantTransactions.map((t) => {
       const isRefund = t.amount > 0n && isRefundOrReversal(t.descriptionRaw);
       if (t.amount < 0n) {
         totalSpentMinor += -t.amount;
