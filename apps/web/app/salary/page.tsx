@@ -445,8 +445,10 @@ export default function SalaryPage() {
                         .filter((li: any) => li.type === "DEDUCTION" && /\bpf\b|provident/i.test(li.description))
                         .reduce((sum: number, li: any) => sum + (Number(li.currentAmount) || 0), 0);
 
-                      const orgColor = statement.organization?.color;
-                      const initial = (statement.employer || "GS").slice(0, 2).toUpperCase();
+                      const stmtOrg = statement.organization || organizations.find((o: any) => o.id === statement.organizationId || (statement.employer && (o.name.toLowerCase().includes(statement.employer.toLowerCase()) || statement.employer.toLowerCase().includes(o.name.toLowerCase()))));
+                      const employerName = stmtOrg?.name || statement.organization?.name || statement.employer;
+                      const orgColor = stmtOrg?.color || statement.organization?.color;
+                      const initial = (stmtOrg?.code || employerName || "GS").slice(0, 2).toUpperCase();
 
                       return (
                         <tr
@@ -509,11 +511,11 @@ export default function SalaryPage() {
                                     display: "block",
                                     lineHeight: 1.3,
                                   }}>
-                                  {statement.employer}
+                                  {employerName}
                                 </strong>
                                 {statement.designation &&
-                                  statement.designation.trim().toLowerCase() !== statement.employer.trim().toLowerCase() &&
-                                  !statement.employer.toLowerCase().includes(statement.designation.toLowerCase()) && (
+                                  statement.designation.trim().toLowerCase() !== employerName.trim().toLowerCase() &&
+                                  !employerName.toLowerCase().includes(statement.designation.toLowerCase()) && (
                                     <small style={{ color: "var(--muted)", fontSize: "11px" }}>
                                       {statement.designation}
                                     </small>
@@ -979,7 +981,7 @@ export default function SalaryPage() {
       {viewingStatement && (
         <PdfViewerModal
           statementId={viewingStatement.id}
-          title={viewingStatement.employer}
+          title={viewingStatement.organization?.name || viewingStatement.employer}
           payPeriod={viewingStatement.payPeriod}
           onClose={() => setViewingStatement(null)}
         />

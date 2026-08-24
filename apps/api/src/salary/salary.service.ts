@@ -123,6 +123,7 @@ export class SalaryService {
   }
 
   async overview(userId: string) {
+    const orgs = (this.prisma as any).organization ? await (this.prisma as any).organization.findMany({ where: { userId } }) : [];
     const statements = await this.prisma.salaryStatement.findMany({
       where: { userId },
       include: {
@@ -131,6 +132,21 @@ export class SalaryService {
       },
       orderBy: { payPeriod: 'desc' },
     });
+
+    for (const statement of statements) {
+      if (!statement.organization && orgs.length > 0) {
+        const matched = this.findMatchingOrganization(orgs, statement.employer);
+        if (matched) {
+          statement.organization = { id: matched.id, name: matched.name, code: matched.code, color: matched.color };
+          statement.organizationId = matched.id;
+          (this.prisma as any).salaryStatement.update({
+            where: { id: statement.id },
+            data: { organizationId: matched.id },
+          }).catch(() => {});
+        }
+      }
+    }
+
     const committed = statements.filter((statement: any) => statement.status === 'COMMITTED');
     const totalGross = committed.reduce((sum: number, statement: any) => sum + Number(statement.grossEarnings), 0);
     const totalDeductions = committed.reduce((sum: number, statement: any) => sum + Number(statement.grossDeductions), 0);
@@ -168,14 +184,26 @@ export class SalaryService {
   }
 
   async get(userId: string, statementId: string) {
-    const statement = await this.prisma.salaryStatement.findFirst({ where: { id: statementId, userId }, include: { lineItems: true } });
+    const statement = await this.prisma.salaryStatement.findFirst({
+      where: { id: statementId, userId },
+      include: {
+        lineItems: true,
+        organization: { select: { id: true, name: true, code: true, color: true } },
+      },
+    });
     if (!statement) throw new NotFoundException('Salary statement not found.');
     return this.serialize(statement);
   }
 
   async pendingAll(userId: string) {
-    const statements = await this.prisma.salaryStatement.findMany({ where: { userId, status: 'REVIEW' },
-      include: { lineItems: true }, orderBy: { createdAt: 'desc' } });
+    const statements = await this.prisma.salaryStatement.findMany({
+      where: { userId, status: 'REVIEW' },
+      include: {
+        lineItems: true,
+        organization: { select: { id: true, name: true, code: true, color: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
     return statements.map((statement: any) => this.serialize(statement));
   }
 
@@ -389,8 +417,11 @@ export class SalaryService {
 
   private serialize(statement: any) {
     const { fileHash: _fileHash, ...safe } = statement;
+    const orgName = statement.organization?.name;
     return {
       ...safe,
+      employer: orgName || statement.employer,
+      rawEmployer: statement.employer,
       grossEarnings: Number(statement.grossEarnings),
       grossDeductions: Number(statement.grossDeductions),
       directPayment: Number(statement.directPayment),

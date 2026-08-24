@@ -130,7 +130,7 @@ export function SalaryBreakdownModal({
               )}
             </div>
             <h2 id="salary-breakdown-title" style={{ margin: 0, fontSize: "20px" }}>
-              {statement.employer} — {formattedPeriod}
+              {statement.organization?.name || statement.employer} — {formattedPeriod}
             </h2>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
