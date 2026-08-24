@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import {
   Lock, Eye, EyeOff, CreditCard, Landmark, PiggyBank, TrendingUp,
   ChartPieIcon as ChartPie, Building2, BadgeIndianRupee, Pencil,
-  Trash2, Save, X, Check, Copy
+  Trash2, Save, X, Check, Copy, Wifi
 } from 'lucide-react';
 import { api, errorMessage, isUnauthorized } from '@/lib/api';
 import { CardScanner, type CardScanResult } from '@/components/card-scanner';
@@ -217,7 +217,14 @@ export function VaultModal({
       </div>
 
       <div className="wallet-card-middle">
-        {isCard && <div className="wallet-card-chip"></div>}
+        {isCard && (
+          <div className="wallet-card-chip-row">
+            <div className="wallet-card-chip">
+              <div className="wallet-card-chip-pattern" />
+            </div>
+            <Wifi size={17} className="wallet-card-contactless" />
+          </div>
+        )}
         {isCard && hasVault && (
           <div className="wallet-card-number">
             <span>{revealed?.cardNumber ? formatCardNumber(revealed.cardNumber) : maskCardNumber(account.vault?.last4 || null)}</span>
@@ -242,26 +249,26 @@ export function VaultModal({
         {isCard && hasVault && (
           <div className="wallet-card-details">
             {account.vault?.cardExpiryMm && account.vault?.cardExpiryYy && (
-              <div className="wallet-card-meta">
+              <div className="wallet-card-meta wallet-card-pill">
                 <small>VALID THRU</small>
                 <span>{String(account.vault.cardExpiryMm).padStart(2, '0')}/{String(account.vault.cardExpiryYy)}</span>
               </div>
             )}
             {account.vault?.hasCvv && (
-              <div className={`wallet-card-cvv-panel ${revealed?.cvv ? 'revealed' : ''}`}>
+              <div className={`wallet-card-meta wallet-card-pill wallet-card-cvv-panel ${revealed?.cvv ? 'revealed' : ''}`}>
                 <small>SECURITY CODE</small>
-                <span className="wallet-card-cvv">
+                <div className="wallet-card-cvv">
                   <b aria-label={revealed?.cvv ? undefined : 'CVV hidden'}>
                     {revealed?.cvv || '•••'}
                   </b>
                   {revealed?.cvv && <CopyButton value={revealed.cvv} />}
-                </span>
+                </div>
               </div>
             )}
           </div>
         )}
         {isBank && hasVault && account.vault?.ifsc && (
-          <div className="wallet-card-meta">
+          <div className="wallet-card-meta wallet-card-pill">
             <small>IFSC</small>
             <span>{account.vault.ifsc}</span>
           </div>
@@ -270,11 +277,11 @@ export function VaultModal({
         <div className="wallet-card-actions">
           {hasVault && (
             <button type="button" className="wallet-btn-icon" onClick={() => reveal()} title={revealed ? 'Hide details' : 'Reveal details'} disabled={revealing}>
-              {revealing ? <span className="wallet-spinner"/> : revealed ? <EyeOff size={15} /> : <Eye size={15} />}
+              {revealing ? <span className="wallet-spinner"/> : revealed ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           )}
           <button type="button" className="wallet-btn-icon" onClick={() => { setRevealed(null); setMode('edit'); }} title="Edit details">
-            <Pencil size={14} />
+            <Pencil size={15} />
           </button>
         </div>
       </div>
@@ -385,7 +392,7 @@ export function VaultModal({
   return (
     <div className="modal-wrap">
       <button className="backdrop" onClick={onClose} aria-label="Close vault modal" />
-      <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '380px', margin: '0 auto' }}>
+      <div style={{ position: 'relative', zIndex: 10, width: '100%', maxWidth: '460px', margin: '0 auto', padding: '0 12px' }}>
         {error && <p className="error" style={{ marginBottom: '16px' }}>{error}</p>}
         <div className={`wallet-card-container ${mode !== 'front' ? 'flipped' : ''} ${mode === 'edit' ? 'edit-mode' : ''}`}>
           <div className="wallet-card-inner">
