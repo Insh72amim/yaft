@@ -5,10 +5,10 @@ module.exports = {
   apps: [
     {
       name: "yaft-api",
-      cwd: path.resolve(__dirname),
-      script: "npm",
-      args: "run start:dev --workspace @yaft/api",
-      interpreter: "none",
+      cwd: path.resolve(__dirname, "apps/api"),
+      script: "../../node_modules/.bin/nest",
+      args: "start --watch",
+      kill_timeout: 4000,
       env: {
         ...process.env,
         DATABASE_URL: process.env.DATABASE_URL || "postgresql://yaft:yaft-development-only@127.0.0.1:5432/yaft_finance?schema=public",
@@ -27,10 +27,10 @@ module.exports = {
     },
     {
       name: "yaft-web",
-      cwd: path.resolve(__dirname),
-      script: "npm",
-      args: "run dev --workspace @yaft/web",
-      interpreter: "none",
+      cwd: path.resolve(__dirname, "apps/web"),
+      script: "../../node_modules/.bin/next",
+      args: "dev -p 3000",
+      kill_timeout: 4000,
       env: {
         ...process.env,
         NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api",
@@ -40,4 +40,5 @@ module.exports = {
     },
   ],
 };
+
 
