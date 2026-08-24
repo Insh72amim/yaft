@@ -641,37 +641,7 @@ export function CreditCardsTab() {
         )}
       </div>
 
-      {/* Monthly Spends vs Payments Cash Flow */}
-      <div className="panel">
-        <div className="panel-title" style={{ marginBottom: "16px" }}>
-          <div>
-            <span className="eyebrow">Cash Flow Analysis</span>
-            <h2>Monthly Credit Card Flow (Spends vs Payments)</h2>
-          </div>
-        </div>
 
-        {data.monthlySpendsAndPayments.length === 0 ? (
-          <p style={{ color: "var(--muted)", fontSize: "13px" }}>No recent credit card transactions logged.</p>
-        ) : (
-          <div style={{ marginTop: "16px" }}>
-            {data.monthlySpendsAndPayments.map((item) => (
-              <div key={item.month} style={{ marginBottom: "14px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "4px" }}>
-                  <span style={{ fontWeight: 600 }}>{item.month}</span>
-                  <span>
-                    <span style={{ color: "#ef4444", marginRight: "12px" }}>Spends: -{money(item.spends)}</span>
-                    <span style={{ color: "var(--green)" }}>Payments: +{money(item.payments)}</span>
-                  </span>
-                </div>
-                <div style={{ display: "flex", height: "8px", gap: "4px", borderRadius: "4px", overflow: "hidden", background: "var(--background-alt)" }}>
-                  <div style={{ height: "100%", width: `${Math.min(100, (item.spends / (item.spends + item.payments || 1)) * 100)}%`, background: "#ef4444", borderRadius: "4px" }} />
-                  <div style={{ height: "100%", width: `${Math.min(100, (item.payments / (item.spends + item.payments || 1)) * 100)}%`, background: "var(--green)", borderRadius: "4px" }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {vaultAccount && (
         <VaultModal
