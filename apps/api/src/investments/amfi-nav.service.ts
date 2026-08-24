@@ -126,9 +126,9 @@ export class AmfiNavService {
   }
 
   /**
-   * Find matching AMFI scheme for a mutual fund asset
+   * Find matching AMFI scheme for a mutual fund asset with precision token matching and price sanity check
    */
-  findMatchingScheme(assetName: string, isin?: string | null): AmfiScheme | null {
+  findMatchingScheme(assetName: string, isin?: string | null, avgCostMinor?: number): AmfiScheme | null {
     // 1. Match by ISIN
     if (isin) {
       const cleanIsin = isin.toUpperCase().trim();
@@ -136,41 +136,73 @@ export class AmfiNavService {
       if (byIsin) return byIsin;
     }
 
-    // 2. Exact normalized name match
-    const norm = this.normalizeName(assetName);
-    const isDirect = norm.includes('direct');
-    const isGrowth = norm.includes('growth');
-    const isDividend = norm.includes('idcw') || norm.includes('dividend');
+    const avgCost = avgCostMinor && avgCostMinor > 0 ? avgCostMinor / 100 : undefined;
 
-    // Filter candidate schemes with matching plan & option
+    // 2. Normalize fund name and compound terms (mid cap -> midcap, etc.)
+    const clean = assetName
+      .toLowerCase()
+      .replace(/mid\s*cap/g, 'midcap')
+      .replace(/small\s*cap/g, 'smallcap')
+      .replace(/large\s*cap/g, 'largecap')
+      .replace(/flexi\s*cap/g, 'flexicap');
+
+    const isDirect = clean.includes('direct');
+    const isGrowth = clean.includes('growth');
+
+    // Extract substantive keywords
+    const rawTokens = clean
+      .replace(/fund|direct|growth|plan|option|equity/g, ' ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .filter((t) => t.length > 2);
+
+    if (!rawTokens.length) return null;
+
+    // Filter candidate schemes
     const candidates = this.cachedSchemes.filter((s) => {
-      const sNorm = s.normalizedName;
-      if (isDirect && !sNorm.includes('direct')) return false;
-      if (!isDirect && sNorm.includes('direct')) return false;
-      if (isGrowth && !sNorm.includes('growth')) return false;
-      if (isDividend && !(sNorm.includes('idcw') || sNorm.includes('dividend'))) return false;
+      const sFull = s.schemeName
+        .toLowerCase()
+        .replace(/mid\s*cap/g, 'midcap')
+        .replace(/small\s*cap/g, 'smallcap')
+        .replace(/large\s*cap/g, 'largecap')
+        .replace(/flexi\s*cap/g, 'flexicap');
+
+      if (isDirect && sFull.includes('regular')) return false;
+      if (isGrowth && (sFull.includes('idcw') || sFull.includes('dividend') || sFull.includes('bonus'))) return false;
       return true;
     });
 
-    // Score candidates by token overlap
-    const tokens = norm.split(' ').filter((t) => t.length > 2 && t !== 'direct' && t !== 'growth' && t !== 'fund' && t !== 'plan');
-    let bestMatch: AmfiScheme | null = null;
-    let highestScore = 0;
+    let best: AmfiScheme | null = null;
+    let minDiff = Infinity;
 
     for (const cand of candidates) {
-      let score = 0;
-      for (const token of tokens) {
-        if (cand.normalizedName.includes(token)) {
-          score += 1;
+      const cFull = cand.schemeName
+        .toLowerCase()
+        .replace(/mid\s*cap/g, 'midcap')
+        .replace(/small\s*cap/g, 'smallcap')
+        .replace(/large\s*cap/g, 'largecap')
+        .replace(/flexi\s*cap/g, 'flexicap');
+
+      const matchesAll = rawTokens.every((t) => cFull.includes(t));
+      if (matchesAll) {
+        if (avgCost && avgCost > 0) {
+          // Price sanity check: NAV must be within reasonable bounds of average buy cost (0.4x - 2.5x)
+          if (cand.nav >= avgCost * 0.4 && cand.nav <= avgCost * 2.5) {
+            const diff = Math.abs(cand.nav - avgCost);
+            if (diff < minDiff) {
+              minDiff = diff;
+              best = cand;
+            }
+          }
+        } else {
+          best = cand;
+          break;
         }
-      }
-      if (score > highestScore && score >= Math.min(tokens.length, 3)) {
-        highestScore = score;
-        bestMatch = cand;
       }
     }
 
-    return bestMatch;
+    return best;
   }
 
   /**
@@ -205,12 +237,11 @@ export class AmfiNavService {
     await this.prisma.$transaction(async (tx) => {
       for (const holding of account.holdings) {
         const assetName = holding.asset.name || holding.asset.symbol;
-        const matched = this.findMatchingScheme(assetName, holding.asset.isin);
-        const qty = Number(holding.quantity);
         const avgPriceMinor = Number(holding.averagePrice || 0);
+        const matched = this.findMatchingScheme(assetName, holding.asset.isin, avgPriceMinor);
+        const qty = Number(holding.quantity);
 
-        let navMinor = Number(holding.previousClosingPrice || 0);
-        let navDate = holding.asOfDate;
+        let navMinor = Number(holding.previousClosingPrice || avgPriceMinor || 0);
 
         if (matched && matched.nav > 0) {
           navMinor = Math.round(matched.nav * 100);
