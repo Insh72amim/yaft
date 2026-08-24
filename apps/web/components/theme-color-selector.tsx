@@ -1,9 +1,17 @@
 'use client';
 
+import { Palette } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const STORAGE_KEY = 'yaft-color-theme';
 type ColorTheme = 'green' | 'blue' | 'yellow' | 'purple';
+
+const THEMES: { name: ColorTheme; bg: string; label: string }[] = [
+  { name: 'green', bg: '#174f3b', label: 'Emerald' },
+  { name: 'blue', bg: '#1e40af', label: 'Royal Blue' },
+  { name: 'yellow', bg: '#b45309', label: 'Terracotta' },
+  { name: 'purple', bg: '#6d28d9', label: 'Amethyst' },
+];
 
 export function ThemeColorSelector() {
   const [activeColor, setActiveColor] = useState<ColorTheme>('green');
@@ -22,25 +30,26 @@ export function ThemeColorSelector() {
     localStorage.setItem(STORAGE_KEY, color);
   };
 
-  const themes: { name: ColorTheme; bg: string; label: string }[] = [
-    { name: 'green', bg: '#174f3b', label: 'Green' },
-    { name: 'blue', bg: '#1e40af', label: 'Blue' },
-    { name: 'yellow', bg: '#b45309', label: 'Yellow' },
-    { name: 'purple', bg: '#6d28d9', label: 'Purple' },
-  ];
+  const currentTheme = THEMES.find((t) => t.name === activeColor) || THEMES[0];
 
   return (
     <div className="color-theme-selector">
-      <span>Theme Color</span>
+      <div className="color-theme-header">
+        <div className="color-theme-title">
+          <Palette size={14} />
+          <span>Theme &amp; Style</span>
+        </div>
+        <small className="color-theme-active-label">{currentTheme.label}</small>
+      </div>
       <div className="color-dots">
-        {themes.map((t) => (
+        {THEMES.map((t) => (
           <button
             key={t.name}
             type="button"
             className={`color-dot ${activeColor === t.name ? 'active' : ''}`}
             style={{ backgroundColor: t.bg }}
             onClick={() => changeColor(t.name)}
-            title={t.label}
+            title={`Switch to ${t.label} theme`}
             aria-label={`Switch to ${t.label} theme`}
           />
         ))}

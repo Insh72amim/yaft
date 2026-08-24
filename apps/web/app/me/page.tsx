@@ -17,7 +17,6 @@ import {
   Key,
   Landmark,
   Lock,
-  Palette,
   RefreshCw,
   RotateCcw,
   ShieldCheck,
@@ -28,7 +27,6 @@ import {
   Zap,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
-import { ThemeColorSelector } from "@/components/theme-color-selector";
 import { api, downloadPostFile, errorMessage, isUnauthorized } from "@/lib/api";
 
 type UserProfile = {
@@ -469,21 +467,7 @@ export default function ProfileMePage() {
             </article>
           </section>
 
-          {/* Section 2: Theme & Appearance Palette */}
-          <section className="panel" style={{ padding: "24px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
-              <Palette size={20} color="var(--accent)" />
-              <div>
-                <h2 style={{ margin: 0, fontSize: "17px", fontWeight: 700 }}>Theme & Visual Style</h2>
-                <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
-                  Customize your personal dashboard accent highlights and glassmorphism interface colors.
-                </p>
-              </div>
-            </div>
-            <ThemeColorSelector />
-          </section>
-
-          {/* Section 3: Google Drive Automated Versioned Cloud Backup & Sync */}
+          {/* Section 2: Google Drive Automated Versioned Cloud Backup & Sync */}
           <section className="panel" style={{ padding: "24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
               <div>
