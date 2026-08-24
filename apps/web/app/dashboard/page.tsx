@@ -97,6 +97,8 @@ type AccountFlow = {
     totalInternalInbound?: number;
     totalExternalOutbound: number;
     totalCreditCardPayments?: number;
+    totalUpiLiteTransfers?: number;
+    totalInterBankTransfers?: number;
     totalInvestments?: number;
     totalCleanOutbound?: number;
     totalInternalTransfers: number;
@@ -918,96 +920,44 @@ function MonthlyFlow({
   accountFlow?: AccountFlow;
   dateRangeText?: string;
 }) {
-  const [flowMode, setFlowMode] = useState<'CLEAN' | 'COMPLETE'>('CLEAN');
-
   if (!accountFlow || accountFlow.accounts.length === 0) {
     if (income <= 0) return <Empty text="No income found for this month to generate flow." />;
     return <LegacyMonthlyFlow income={income} expenses={expenses} savings={savings} />;
   }
 
   const { accounts, internalTransfers, overall } = accountFlow;
-
-  const totalOutflowDisplay = flowMode === 'CLEAN'
-    ? (overall.totalCleanOutbound ?? (overall.totalExternalOutbound + (overall.totalInvestments ?? 0)))
-    : (overall.totalAllOutbound ?? (overall.totalExternalOutbound + overall.totalInternalTransfers + (overall.totalCreditCardPayments ?? 0) + (overall.totalInvestments ?? 0)));
+  const cardAndUpiTotal = (overall.totalCreditCardPayments ?? 0) + (overall.totalUpiLiteTransfers ?? 0);
+  const interBankTotal = overall.totalInterBankTransfers ?? overall.totalInternalTransfers ?? 0;
 
   return (
     <div style={{ display: 'grid', gap: '24px' }}>
-      {/* Overall Flow Summary Pills & View Switcher */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '8px 14px', borderRadius: '10px', fontSize: '13px' }}>
-            <small style={{ color: '#10b981', display: 'block', fontSize: '10px', fontWeight: 600 }}>External Inbound</small>
-            <strong style={{ fontSize: '15px', color: 'var(--ink)' }}>{money(overall.totalExternalInbound)}</strong>
-          </div>
-          {flowMode === 'COMPLETE' && (
-            <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '8px 14px', borderRadius: '10px', fontSize: '13px' }}>
-              <small style={{ color: '#3b82f6', display: 'block', fontSize: '10px', fontWeight: 600 }}>Internal Transfers</small>
-              <strong style={{ fontSize: '15px', color: 'var(--ink)' }}>{money(overall.totalInternalTransfers)}</strong>
-            </div>
-          )}
-          {overall.totalInvestments !== undefined && overall.totalInvestments > 0 && (
-            <div style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '8px 14px', borderRadius: '10px', fontSize: '13px' }}>
-              <small style={{ color: '#8b5cf6', display: 'block', fontSize: '10px', fontWeight: 600 }}>Investments</small>
-              <strong style={{ fontSize: '15px', color: 'var(--ink)' }}>{money(overall.totalInvestments)}</strong>
-            </div>
-          )}
-          <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '8px 14px', borderRadius: '10px', fontSize: '13px' }}>
-            <small style={{ color: '#ef4444', display: 'block', fontSize: '10px', fontWeight: 600 }}>
-              {flowMode === 'CLEAN' ? 'Spends & Obligations' : 'Total All Outflows'}
-            </small>
-            <strong style={{ fontSize: '15px', color: 'var(--ink)' }}>{money(totalOutflowDisplay)}</strong>
-          </div>
+      {/* Overall Flow Summary KPI Pills */}
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
+          <small style={{ color: '#10b981', display: 'block', fontSize: '11px', fontWeight: 600 }}>External Inbound</small>
+          <strong style={{ fontSize: '16px', color: 'var(--ink)' }}>{money(overall.totalExternalInbound)}</strong>
         </div>
-
-        {/* 2-Mode Toggle Switcher */}
-        <div style={{ display: 'inline-flex', background: 'var(--background-alt)', padding: '3px', borderRadius: '10px', border: '1px solid var(--line)', gap: '4px' }}>
-          <button
-            type="button"
-            onClick={() => setFlowMode('CLEAN')}
-            style={{
-              padding: '6px 13px',
-              borderRadius: '8px',
-              border: 'none',
-              background: flowMode === 'CLEAN' ? 'var(--accent)' : 'transparent',
-              color: flowMode === 'CLEAN' ? '#fff' : 'var(--muted)',
-              fontWeight: flowMode === 'CLEAN' ? 700 : 500,
-              fontSize: '11.5px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <span>🌿 Operational Flow</span>
-            <span style={{ fontSize: '9.5px', background: flowMode === 'CLEAN' ? 'rgba(255,255,255,0.25)' : 'var(--line)', color: flowMode === 'CLEAN' ? '#fff' : 'var(--muted)', padding: '1px 5px', borderRadius: '6px', fontWeight: 600 }}>
-              Clean
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFlowMode('COMPLETE')}
-            style={{
-              padding: '6px 13px',
-              borderRadius: '8px',
-              border: 'none',
-              background: flowMode === 'COMPLETE' ? 'var(--accent)' : 'transparent',
-              color: flowMode === 'COMPLETE' ? '#fff' : 'var(--muted)',
-              fontWeight: flowMode === 'COMPLETE' ? 700 : 500,
-              fontSize: '11.5px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <span>🔄 Complete Ledger</span>
-            <span style={{ fontSize: '9.5px', background: flowMode === 'COMPLETE' ? 'rgba(255,255,255,0.25)' : 'var(--line)', color: flowMode === 'COMPLETE' ? '#fff' : 'var(--muted)', padding: '1px 5px', borderRadius: '6px', fontWeight: 600 }}>
-              All Txns
-            </span>
-          </button>
+        {interBankTotal > 0 && (
+          <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
+            <small style={{ color: '#3b82f6', display: 'block', fontSize: '11px', fontWeight: 600 }}>Inter-Bank Moved</small>
+            <strong style={{ fontSize: '16px', color: 'var(--ink)' }}>{money(interBankTotal)}</strong>
+          </div>
+        )}
+        {overall.totalInvestments !== undefined && overall.totalInvestments > 0 && (
+          <div style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
+            <small style={{ color: '#8b5cf6', display: 'block', fontSize: '11px', fontWeight: 600 }}>Investments & SIPs</small>
+            <strong style={{ fontSize: '16px', color: 'var(--ink)' }}>{money(overall.totalInvestments)}</strong>
+          </div>
+        )}
+        {cardAndUpiTotal > 0 && (
+          <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
+            <small style={{ color: '#10b981', display: 'block', fontSize: '11px', fontWeight: 600 }}>Card & UPI Settlements</small>
+            <strong style={{ fontSize: '16px', color: 'var(--ink)' }}>{money(cardAndUpiTotal)}</strong>
+          </div>
+        )}
+        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
+          <small style={{ color: '#ef4444', display: 'block', fontSize: '11px', fontWeight: 600 }}>Living Spends & Loans</small>
+          <strong style={{ fontSize: '16px', color: 'var(--ink)' }}>{money(overall.totalExternalOutbound)}</strong>
         </div>
       </div>
 
@@ -1016,20 +966,18 @@ function MonthlyFlow({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <div>
             <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {flowMode === 'CLEAN' ? 'HIERARCHICAL CASH FLOW SANKEY (SUPERGROUPS → SUBGROUPS)' : 'MULTI-BANK CASH FLOW & ALL MOVEMENTS SANKEY'}
+              MULTI-BANK CASH FLOW & HIERARCHICAL SETTLEMENT SANKEY
             </span>
             <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
-              {flowMode === 'CLEAN'
-                ? 'External Income → Funding Accounts → Supergroup Hubs → Subgroup Categories (Excludes Self-Transfers & CC Repayments)'
-                : 'Complete Ledger Movement including Inter-bank Transfers and Credit Card Settlements'}
+              External Inbound → Funding Banks (with Inter-Bank Transfers) → Supergroups (Expenses, Investments, Loans, CC & UPI Lite) → Subgroups
             </span>
           </div>
         </div>
-        <MultiBankSankeyDiagram accountFlow={accountFlow} income={income} expenses={expenses} savings={savings} flowMode={flowMode} />
+        <MultiBankSankeyDiagram accountFlow={accountFlow} income={income} expenses={expenses} savings={savings} />
       </div>
 
       {/* Per Account Spending & Top Outbound Beneficiaries Section */}
-      <AccountSpendingAndBeneficiariesSection accounts={accounts} dateRangeText={dateRangeText} flowMode={flowMode} />
+      <AccountSpendingAndBeneficiariesSection accounts={accounts} dateRangeText={dateRangeText} />
     </div>
   );
 }
@@ -1037,11 +985,9 @@ function MonthlyFlow({
 function AccountSpendingAndBeneficiariesSection({
   accounts,
   dateRangeText,
-  flowMode = 'CLEAN',
 }: {
   accounts: AccountFlow['accounts'];
   dateRangeText?: string;
-  flowMode?: 'CLEAN' | 'COMPLETE';
 }) {
   const [selectedAccId, setSelectedAccId] = useState<string>(accounts[0]?.id || '');
   const [outboundTab, setOutboundTab] = useState<'EXTERNAL' | 'INTERNAL' | 'ALL'>('EXTERNAL');
@@ -1050,13 +996,8 @@ function AccountSpendingAndBeneficiariesSection({
 
   if (!activeAcc) return null;
 
-  const categories = flowMode === 'CLEAN'
-    ? (activeAcc.cleanCategories || activeAcc.categories || [])
-    : (activeAcc.allCategories || activeAcc.categories || []);
-
-  const totalSpent = flowMode === 'CLEAN'
-    ? (activeAcc.cleanOutbound ?? (activeAcc.expenses ? (activeAcc.expenses + (activeAcc.investments ?? 0) + (activeAcc.other ?? 0)) : activeAcc.externalOutbound))
-    : activeAcc.totalOutbound;
+  const categories = activeAcc.categories || activeAcc.cleanCategories || [];
+  const totalSpent = (activeAcc as any).spendingAndSettlements ?? activeAcc.cleanOutbound ?? (activeAcc.expenses ? (activeAcc.expenses + (activeAcc.investments ?? 0) + (activeAcc.other ?? 0) + (activeAcc.creditCardPayments ?? 0)) : activeAcc.externalOutbound);
 
   let displayRecipients = activeAcc.topExternalRecipients || [];
   let otherBound = activeAcc.otherExternalOutbound;
@@ -1077,7 +1018,7 @@ function AccountSpendingAndBeneficiariesSection({
       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
         {accounts.map((acc) => {
           const isSelected = acc.id === activeAcc.id;
-          const accOutAmt = flowMode === 'CLEAN' ? (acc.cleanOutbound ?? acc.externalOutbound) : acc.totalOutbound;
+          const accSpendAmt = (acc as any).spendingAndSettlements ?? acc.cleanOutbound ?? acc.externalOutbound;
           return (
             <button
               key={acc.id}
@@ -1111,7 +1052,7 @@ function AccountSpendingAndBeneficiariesSection({
                   fontWeight: 600,
                 }}
               >
-                {money(accOutAmt, true)} out
+                {money(accSpendAmt, true)} spent
               </span>
             </button>
           );
@@ -1135,7 +1076,7 @@ function AccountSpendingAndBeneficiariesSection({
         <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', padding: '12px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <small style={{ color: '#ef4444', display: 'block', fontSize: '10px', fontWeight: 600 }}>
-              {flowMode === 'CLEAN' ? 'Clean Outbound' : 'Total Outbound'}
+              Spends & Settlements
             </small>
             <strong style={{ fontSize: '14px', color: '#ef4444' }}>-{money(totalSpent)}</strong>
           </div>
@@ -1164,7 +1105,7 @@ function AccountSpendingAndBeneficiariesSection({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                SPENDING & ALLOCATIONS
+                SPENDING & SETTLEMENTS
               </span>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink)' }}>Where it went</h3>
             </div>
@@ -1404,24 +1345,22 @@ function MultiBankSankeyDiagram({
   income,
   expenses,
   savings,
-  flowMode = 'CLEAN',
 }: {
   accountFlow: AccountFlow;
   income: number;
   expenses: number;
   savings: number;
-  flowMode?: 'CLEAN' | 'COMPLETE';
 }) {
   const { accounts, internalTransfers, overall } = accountFlow;
 
-  // Aggregate bank-to-bank internal transfers
+  // Aggregate bank-to-bank internal transfers strictly between savings/bank accounts
   const aggregatedBankTransfers = useMemo(() => {
     const map = new Map<
       string,
       { fromAccountId: string; toAccountId: string; fromAccountName: string; toAccountName: string; totalAmount: number; count: number }
     >();
     for (const it of internalTransfers) {
-      if (it.toAccountType === 'CREDIT_CARD') continue;
+      if (it.toAccountType === 'CREDIT_CARD' || it.toAccountType === 'UPI_LITE') continue;
       const key = `${it.fromAccountId}_${it.toAccountId}`;
       const ex = map.get(key);
       if (ex) { ex.totalAmount += it.amount; ex.count += 1; }
@@ -1456,10 +1395,10 @@ function MultiBankSankeyDiagram({
   const CAT_X = 1050;
   const ARC_X = MID_X + NODE_W + 48;
 
-  // 1. Determine active supergroups
-  const rawSupergroups: SupergroupData[] = useMemo(() => {
+  // 1. Determine active supergroups (Excluding Bank-to-Bank self-transfers, which are covered directly as interbank arcs)
+  const activeSupergroups: SupergroupData[] = useMemo(() => {
     if (overall.supergroups && overall.supergroups.length > 0) {
-      return overall.supergroups;
+      return overall.supergroups.filter((sg) => sg.id !== 'INTERNAL_TRANSFERS' && sg.amount > 0);
     }
     return [
       {
@@ -1486,34 +1425,15 @@ function MultiBankSankeyDiagram({
         amount: overall.totalCreditCardPayments || 0,
         categories: overall.categoryFlow?.creditCardCategories || [],
       },
-      {
-        id: 'INTERNAL_TRANSFERS',
-        name: 'Internal Transfers',
-        kind: 'TRANSFER',
-        color: '#3b82f6',
-        amount: overall.totalInternalTransfers || 0,
-        categories: [],
-      },
-    ];
+    ].filter((sg) => sg.amount > 0);
   }, [overall]);
 
-  const activeSupergroups = useMemo(() => {
-    if (flowMode === 'CLEAN') {
-      return rawSupergroups.filter((sg) => ['EXPENSES', 'INVESTMENTS', 'OTHER'].includes(sg.id) && sg.amount > 0);
-    }
-    return rawSupergroups.filter((sg) => sg.amount > 0);
-  }, [rawSupergroups, flowMode]);
-
-  // 2. Calculate per-bank volume totals based on flowMode
+  // 2. Calculate per-bank volume totals
   const bankVolumes = accounts.map((a, idx) => {
-    const tIn = flowMode === 'COMPLETE'
-      ? aggregatedBankTransfers.filter((t) => t.toAccountId === a.id).reduce((s, t) => s + t.totalAmount, 0)
-      : 0;
-    const tOut = flowMode === 'COMPLETE'
-      ? aggregatedBankTransfers.filter((t) => t.fromAccountId === a.id).reduce((s, t) => s + t.totalAmount, 0)
-      : 0;
+    const tIn = aggregatedBankTransfers.filter((t) => t.toAccountId === a.id).reduce((s, t) => s + t.totalAmount, 0);
+    const tOut = aggregatedBankTransfers.filter((t) => t.fromAccountId === a.id).reduce((s, t) => s + t.totalAmount, 0);
 
-    const inTotal = a.externalInbound + (flowMode === 'COMPLETE' ? (a.internalInbound || tIn) : 0);
+    const inTotal = a.externalInbound + (a.internalInbound || tIn);
 
     // Compute bank's contributions to active supergroups
     const sgContributions: Record<string, number> = {};
@@ -1524,20 +1444,13 @@ function MultiBankSankeyDiagram({
         }
       });
     } else {
-      if (flowMode === 'CLEAN') {
-        sgContributions['EXPENSES'] = a.expenses ?? a.externalOutbound;
-        if ((a.investments ?? 0) > 0) sgContributions['INVESTMENTS'] = a.investments ?? 0;
-        if ((a.other ?? 0) > 0) sgContributions['OTHER'] = a.other ?? 0;
-      } else {
-        sgContributions['EXPENSES'] = a.expenses ?? a.externalOutbound;
-        if ((a.investments ?? 0) > 0) sgContributions['INVESTMENTS'] = a.investments ?? 0;
-        if ((a.other ?? 0) > 0) sgContributions['OTHER'] = a.other ?? 0;
-        if ((a.creditCardPayments ?? 0) > 0) sgContributions['CC_PAYMENTS'] = a.creditCardPayments ?? 0;
-        if ((a.internalOutbound ?? 0) > 0) sgContributions['INTERNAL_TRANSFERS'] = a.internalOutbound ?? 0;
-      }
+      sgContributions['EXPENSES'] = a.expenses ?? a.externalOutbound;
+      if ((a.investments ?? 0) > 0) sgContributions['INVESTMENTS'] = a.investments ?? 0;
+      if ((a.other ?? 0) > 0) sgContributions['OTHER'] = a.other ?? 0;
+      if ((a.creditCardPayments ?? 0) > 0) sgContributions['CC_PAYMENTS'] = a.creditCardPayments ?? 0;
     }
 
-    const outTotal = Object.values(sgContributions).reduce((s, v) => s + v, 0);
+    const outTotal = Object.values(sgContributions).reduce((s, v) => s + v, 0) + tOut;
 
     return {
       ...a,
@@ -1574,7 +1487,7 @@ function MultiBankSankeyDiagram({
   // 5. Position Stage 2: Bank Nodes
   const bankNodes = bankVolumes.map((b) => {
     const sumInH = flowH(b.inTotal);
-    const sumOutH = Object.values(b.sgContributions).reduce((s, v) => s + flowH(v), 0);
+    const sumOutH = Object.values(b.sgContributions).reduce((s, v) => s + flowH(v), 0) + flowH(b.tOut);
     const nodeHeight = Math.max(MIN_BANK_H, sumInH, sumOutH);
     return {
       ...b,
@@ -1914,64 +1827,63 @@ function MultiBankSankeyDiagram({
           );
         })}
 
-        {/* ── Internal Bank-to-Bank Arcs (Complete Mode only) ───── */}
-        {flowMode === 'COMPLETE' &&
-          aggregatedBankTransfers.map((it, idx) => {
-            const fromNode = bankNodesWithY.find((b) => b.id === it.fromAccountId);
-            const toNode = bankNodesWithY.find((b) => b.id === it.toAccountId);
-            if (!fromNode || !toNode) return null;
+        {/* ── Stage 2 Internal Bank-to-Bank Arcs ─────────────────── */}
+        {aggregatedBankTransfers.map((it, idx) => {
+          const fromNode = bankNodesWithY.find((b) => b.id === it.fromAccountId);
+          const toNode = bankNodesWithY.find((b) => b.id === it.toAccountId);
+          if (!fromNode || !toNode) return null;
 
-            const fromY = fromNode.y + fromNode.height * 0.72;
-            const toY = toNode.y + toNode.height * 0.28;
-            const peakX = ARC_X + idx * 20;
-            const midY = (fromY + toY) / 2;
-            const sw = Math.max(2, Math.min(7, Math.round(flowH(it.totalAmount))));
-            const act = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
-            const arcPath = `M ${MID_X + NODE_W} ${fromY} C ${peakX} ${fromY},${peakX} ${toY},${MID_X + NODE_W} ${toY}`;
-            const fromShort = fromNode.name.split(/[\s–-]/)[0];
-            const toShort = toNode.name.split(/[\s–-]/)[0];
-            const label = `${fromShort} → ${toShort}  ${money(it.totalAmount)}`;
+          const fromY = fromNode.y + fromNode.height * 0.72;
+          const toY = toNode.y + toNode.height * 0.28;
+          const peakX = ARC_X + idx * 20;
+          const midY = (fromY + toY) / 2;
+          const sw = Math.max(2, Math.min(7, Math.round(flowH(it.totalAmount))));
+          const act = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
+          const arcPath = `M ${MID_X + NODE_W} ${fromY} C ${peakX} ${fromY},${peakX} ${toY},${MID_X + NODE_W} ${toY}`;
+          const fromShort = fromNode.name.split(/[\s–-]/)[0];
+          const toShort = toNode.name.split(/[\s–-]/)[0];
+          const label = `${fromShort} → ${toShort}  ${money(it.totalAmount)}`;
 
-            return (
-              <g
-                key={`arc-${idx}`}
-                style={{ opacity: act ? 1 : 0.1, transition: 'opacity .18s', cursor: 'pointer' }}
-                onMouseEnter={() => {
-                  setHoveredBankId(fromNode.id);
-                  setHoveredFlow({
-                    title: `Internal: ${it.fromAccountName} → ${it.toAccountName}`,
-                    amount: money(it.totalAmount),
-                    color: fromNode.color,
-                  });
-                }}
-                onMouseLeave={() => {
-                  setHoveredBankId(null);
-                  setHoveredFlow(null);
-                }}
-              >
-                <path d={arcPath} fill="none" stroke={fromNode.color} strokeWidth={sw} strokeOpacity={0.75} />
-                <polygon
-                  points={`${MID_X + NODE_W},${toY} ${MID_X + NODE_W - 7},${toY - 5} ${MID_X + NODE_W - 7},${toY + 5}`}
-                  fill={fromNode.color}
-                  opacity={0.85}
-                />
-                <g transform={`translate(${peakX + 8}, ${midY - 9})`}>
-                  <rect x="0" y="0" width={label.length * 6.5 + 10} height="18" rx="4" fill="rgba(15, 23, 42, 0.88)" stroke={fromNode.color} strokeWidth="0.8" />
-                  <text x="5" y="13" fill={fromNode.color} fontSize="10.5" fontWeight="700">
-                    {label}
-                  </text>
-                </g>
+          return (
+            <g
+              key={`arc-${idx}`}
+              style={{ opacity: act ? 1 : 0.1, transition: 'opacity .18s', cursor: 'pointer' }}
+              onMouseEnter={() => {
+                setHoveredBankId(fromNode.id);
+                setHoveredFlow({
+                  title: `Inter-Bank: ${it.fromAccountName} → ${it.toAccountName}`,
+                  amount: money(it.totalAmount),
+                  color: fromNode.color,
+                });
+              }}
+              onMouseLeave={() => {
+                setHoveredBankId(null);
+                setHoveredFlow(null);
+              }}
+            >
+              <path d={arcPath} fill="none" stroke={fromNode.color} strokeWidth={sw} strokeOpacity={0.75} />
+              <polygon
+                points={`${MID_X + NODE_W},${toY} ${MID_X + NODE_W - 7},${toY - 5} ${MID_X + NODE_W - 7},${toY + 5}`}
+                fill={fromNode.color}
+                opacity={0.85}
+              />
+              <g transform={`translate(${peakX + 8}, ${midY - 9})`}>
+                <rect x="0" y="0" width={label.length * 6.5 + 10} height="18" rx="4" fill="rgba(15, 23, 42, 0.88)" stroke={fromNode.color} strokeWidth="0.8" />
+                <text x="5" y="13" fill={fromNode.color} fontSize="10.5" fontWeight="700">
+                  {label}
+                </text>
               </g>
-            );
-          })}
+            </g>
+          );
+        })}
 
-        {/* ── Stage 1 Node: Inbound ─────────────────────────────── */}
+        {/* ── Stage 1 Node: External Inbound ────────────────────── */}
         <rect x={LEFT_X} y={inStartY} width={NODE_W} height={inboundH} fill="#10b981" rx="4" />
         <text x={LEFT_X - 12} y={inStartY + inboundH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="end">
-          {flowMode === 'CLEAN' ? 'External Inbound' : 'Total Inbound'}
+          External Inbound
         </text>
         <text x={LEFT_X - 12} y={inStartY + inboundH / 2 + 10} fill="#059669" fontSize="12" fontWeight="700" textAnchor="end">
-          +{money(flowMode === 'CLEAN' ? overall.totalExternalInbound : totalInboundVolume)}
+          +{money(overall.totalExternalInbound)}
         </text>
 
         {/* ── Stage 2 Nodes: Bank Funding Accounts ──────────────── */}
@@ -2015,7 +1927,7 @@ function MultiBankSankeyDiagram({
             <g key={`sg-node-${sgNode.id}`}>
               <rect x={sgNode.x} y={sgNode.y} width={NODE_W} height={sgNode.height} fill={sgNode.color} rx="4" />
               <g transform={`translate(${HUB_X + NODE_W + 10}, ${midY - 17})`}>
-                <rect x="0" y="0" width="148" height="34" rx="6" fill="rgba(15,23,42,0.85)" stroke={sgNode.color} strokeWidth="1" />
+                <rect x="0" y="0" width={148} height={34} rx={6} fill="rgba(15,23,42,0.85)" stroke={sgNode.color} strokeWidth="1" />
                 <text x="8" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">
                   {sgNode.name}
                 </text>
@@ -2047,7 +1959,6 @@ function MultiBankSankeyDiagram({
     </div>
   );
 }
-
 
 function LegacyMonthlyFlow({ income, expenses, savings }: { income: number; expenses: number; savings: number }) {
   const expensePct = Math.min(100, Math.max(0, (expenses / income) * 100));
