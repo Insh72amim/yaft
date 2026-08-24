@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const apiOrigin = (process.env.YAFT_API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/+$/, '');
+const apiOrigin = (process.env.YAFT_API_INTERNAL_URL ?? 'http://127.0.0.1:4000').replace(/\/+$/, '');
 
 async function handleProxy(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
