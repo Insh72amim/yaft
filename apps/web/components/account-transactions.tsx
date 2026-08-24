@@ -658,9 +658,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                 <small>{transaction.details || (transaction.postedDate ? `Posted ${new Date(transaction.postedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}` : 'Ledger transaction')}</small>
               </div>
               <div className="transaction-category-cell">
-                {transaction.isTransfer ? (
-                  <span className="category-pill transfer">Transfer</span>
-                ) : showCategoryEdit ? (
+                {showCategoryEdit ? (
                   <select
                     className="category-pill-select"
                     value={transaction.categoryId ?? ''}
@@ -729,6 +727,23 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                       <span className={`transaction-cat-name ${!transaction.categoryId ? 'uncategorised' : ''}`}>
                         {transaction.category || 'Uncategorised'}
                       </span>
+                      {transaction.isTransfer && (
+                        <span
+                          title="Reconciled Transfer Pair"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "0 4px",
+                            borderRadius: "4px",
+                            background: "rgba(59, 130, 246, 0.1)",
+                            color: "#3b82f6",
+                            fontSize: "9px",
+                            fontWeight: 800,
+                            marginLeft: "2px",
+                          }}>
+                          ⇄
+                        </span>
+                      )}
                     </div>
                     {transaction.superCategory && (
                       <span className="transaction-super-label">

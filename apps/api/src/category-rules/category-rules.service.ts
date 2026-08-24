@@ -4,15 +4,18 @@ import { PrismaService } from '../common/prisma.service';
 import { CreateCategoryRuleDto, UpdateCategoryRuleDto } from './category-rules.dto';
 
 export const BUILTIN_CATEGORY_PATTERNS: Array<[RegExp, string]> = [
+  [/cred|credit\s*card\s*payment|cc\s*payment|card\s*bill|cred\s*club/i, 'CC Transfer'],
+  [/self\s*transfer|transfer\s*to\s*self|internal\s*transfer/i, 'Self Transfer'],
+  [/upi\s*lite|upilite/i, 'UPI Lite'],
   [/swiggy|zomato|instamart|starbucks|chaayos|dominos|mcdonalds|kfc|subway|pizza|rest|cafe|diner|bakery|burger|haldiram|barbeque|eats/i, 'Food & Dining'],
   [/blinkit|zepto|bigbasket|bbdaily|dmart|spar|grocery|supermarket|kirana|natures basket|dunzo|country delight|milk/i, 'Groceries'],
   [/amazon|flipkart|myntra|tatacliq|ajio|nykaa|zara|uniqlo|decathlon|westside|reliance|meesho|max fashion|h&m|lifestyle|croma|vijay sales/i, 'Shopping & Clothing'],
   [/uber|ola|rapido|blusmart|petrol|shell|hpcl|bpcl|iocl|fuel|irctc|indigo|air india|vistara|fastag|metro|toll|makemytrip|mmt|goibibo|cleartrip|easemytrip|yatra|red bus|redbus|parking/i, 'Transport & Fuel'],
-  [/cred|bescom|tata power|msedcl|bses|cesc|airtel|jio|vi |actfibernet|tata play|dish tv|indane|bharat gas|hp gas|electricity|water bill|broadband|billdesk|recharge|paytm postpaid|insurance|lic/i, 'Bills & Utilities'],
+  [/bescom|tata power|msedcl|bses|cesc|airtel|jio|vi |actfibernet|tata play|dish tv|indane|bharat gas|hp gas|electricity|water bill|broadband|billdesk|recharge|paytm postpaid|insurance|lic/i, 'Bills & Utilities'],
   [/netflix|spotify|prime video|hotstar|youtube|apple\.com|bookmyshow|pvr|inox|cinema|playstation|steam|amazon prime/i, 'Entertainment & OTT'],
   [/zerodha|groww|kfintech|cams|coin|mf central|sip|sgb|nps|epfo|ppf|mutual fund|indmoney|kite/i, 'Mutual Fund SIP'],
   [/apollo|netmeds|pharmeasy|1mg|medplus|hospital|clinic|lab|diagnostics|pharmacy|healthkart|cult\.fit|gym/i, 'Medical & Health'],
-  [/rent|cred rent|nobroker|society maintenance|mygate|housing/i, 'Housing & Rent'],
+  [/cred rent|nobroker|society maintenance|mygate|housing/i, 'Housing & Rent'],
   [/salary|payroll|stipend|bonus/i, 'Salary & Wages'],
   [/cashback|interest|reward|refund/i, 'Interest & Cashback'],
 ];

@@ -76,14 +76,31 @@ export class TransfersService {
         const match = scoredCandidates[0].credit;
         const transferGroupId = randomUUID();
 
+        const isCcTransfer =
+          debit.account.type === 'CREDIT_CARD' ||
+          match.account.type === 'CREDIT_CARD' ||
+          /cred|credit\s*card|cc\s*payment|card\s*pmt/i.test(debit.descriptionRaw) ||
+          /cred|credit\s*card|cc\s*payment|card\s*pmt/i.test(match.descriptionRaw);
+
+        const isUpiLite =
+          /upi\s*lite/i.test(debit.descriptionRaw) || /upi\s*lite/i.test(match.descriptionRaw);
+
+        const autoCatId = await this.findTransferCategory(userId, isCcTransfer, isUpiLite);
+
         await this.prisma.$transaction([
           this.prisma.transaction.update({
             where: { id: debit.id },
-            data: { transferGroupId },
+            data: {
+              transferGroupId,
+              ...(autoCatId && !debit.categoryId ? { categoryId: autoCatId } : {}),
+            },
           }),
           this.prisma.transaction.update({
             where: { id: match.id },
-            data: { transferGroupId },
+            data: {
+              transferGroupId,
+              ...(autoCatId && !match.categoryId ? { categoryId: autoCatId } : {}),
+            },
           }),
         ]);
 
@@ -95,12 +112,36 @@ export class TransfersService {
     return { matchedPairsCount };
   }
 
+  async findTransferCategory(userId: string, isCcTransfer: boolean, isUpiLite: boolean): Promise<string | null> {
+    if (!this.prisma?.category?.findMany) return null;
+    const categories = await this.prisma.category.findMany({
+      where: { userId },
+      select: { id: true, name: true, superCategory: { select: { kind: true } } },
+    });
+
+    if (isUpiLite) {
+      const upiLiteCat = categories.find((c) => /upi\s*lite/i.test(c.name));
+      if (upiLiteCat) return upiLiteCat.id;
+    }
+    if (isCcTransfer) {
+      const ccCat = categories.find((c) => /cc\s*transfer|credit\s*card/i.test(c.name));
+      if (ccCat) return ccCat.id;
+    }
+    const selfCat = categories.find((c) => /self\s*transfer|internal\s*transfer/i.test(c.name));
+    if (selfCat) return selfCat.id;
+
+    const transferCat = categories.find((c) => c.superCategory?.kind === 'TRANSFER');
+    return transferCat ? transferCat.id : null;
+  }
+
   async manualLink(userId: string, txId1: string, txId2: string) {
     const tx1 = await this.prisma.transaction.findFirst({
       where: { id: txId1, account: { userId } },
+      include: { account: { select: { type: true } } },
     });
     const tx2 = await this.prisma.transaction.findFirst({
       where: { id: txId2, account: { userId } },
+      include: { account: { select: { type: true } } },
     });
 
     if (!tx1 || !tx2) {
@@ -113,15 +154,32 @@ export class TransfersService {
       throw new BadRequestException('Transfer legs must have opposite and equal amounts.');
     }
 
+    const isCcTransfer =
+      tx1.account?.type === 'CREDIT_CARD' ||
+      tx2.account?.type === 'CREDIT_CARD' ||
+      /cred|credit\s*card|cc\s*payment|card\s*pmt/i.test(tx1.descriptionRaw) ||
+      /cred|credit\s*card|cc\s*payment|card\s*pmt/i.test(tx2.descriptionRaw);
+
+    const isUpiLite =
+      /upi\s*lite/i.test(tx1.descriptionRaw) || /upi\s*lite/i.test(tx2.descriptionRaw);
+
+    const autoCatId = await this.findTransferCategory(userId, isCcTransfer, isUpiLite);
+
     const transferGroupId = randomUUID();
     await this.prisma.$transaction([
       this.prisma.transaction.update({
         where: { id: tx1.id },
-        data: { transferGroupId },
+        data: {
+          transferGroupId,
+          ...(autoCatId && !tx1.categoryId ? { categoryId: autoCatId } : {}),
+        },
       }),
       this.prisma.transaction.update({
         where: { id: tx2.id },
-        data: { transferGroupId },
+        data: {
+          transferGroupId,
+          ...(autoCatId && !tx2.categoryId ? { categoryId: autoCatId } : {}),
+        },
       }),
     ]);
 

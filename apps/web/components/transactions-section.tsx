@@ -1919,9 +1919,7 @@ export function TransactionsSection({
                     </div>
 
                     <div className="transaction-category-cell">
-                      {tx.isTransfer ? (
-                        <span className="category-pill transfer">Transfer</span>
-                      ) : showCategoryEdit || editingTxCatId === tx.id ? (
+                      {showCategoryEdit || editingTxCatId === tx.id ? (
                         <select
                           autoFocus
                           className="category-pill-select"
@@ -2014,6 +2012,23 @@ export function TransactionsSection({
                               }`}>
                               {tx.category || "Uncategorised"}
                             </span>
+                            {tx.isTransfer && (
+                              <span
+                                title="Reconciled Transfer Pair"
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  padding: "0 4px",
+                                  borderRadius: "4px",
+                                  background: "rgba(59, 130, 246, 0.1)",
+                                  color: "#3b82f6",
+                                  fontSize: "9px",
+                                  fontWeight: 800,
+                                  marginLeft: "2px",
+                                }}>
+                                ⇄
+                              </span>
+                            )}
                           </div>
                           {tx.superCategory && (
                             <span className="transaction-super-label">
