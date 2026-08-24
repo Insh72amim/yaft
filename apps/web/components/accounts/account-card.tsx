@@ -76,10 +76,10 @@ export const accountSections: AccountSection[] = [
   {
     label: "Investments & Wealth",
     subsections: [
+      { label: "Mutual Funds", types: ["INVESTMENT", "MUTUAL_FUNDS"] },
+      { label: "Stocks", types: ["STOCKS", "DEMAT"] },
       { label: "Fixed & recurring deposits", types: ["FIXED_DEPOSIT"] },
-      { label: "Stock market & Demat", types: ["STOCKS"] },
       { label: "EPFO Retirement", types: ["EPFO"] },
-      { label: "Mutual Funds & Other investments", types: ["INVESTMENT"] },
     ],
   },
   {

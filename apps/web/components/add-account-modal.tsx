@@ -4,9 +4,9 @@ import { api, errorMessage } from '@/lib/api';
 
 export const accountChoices = [
   { group: 'BANK', type: 'SAVINGS', label: 'Savings account', detail: 'Salary or everyday banking', icon: PiggyBank },
+  { group: 'INVESTMENTS', type: 'INVESTMENT', label: 'Mutual Funds', detail: 'Groww, Zerodha Coin, AMC or folio holdings', icon: ChartPie },
+  { group: 'INVESTMENTS', type: 'STOCKS', label: 'Stocks', detail: 'Groww, Zerodha Kite, Angel One broker account', icon: TrendingUp },
   { group: 'INVESTMENTS', type: 'FIXED_DEPOSIT', label: 'Fixed & recurring deposit', detail: 'Bank FD, RD and term deposits', icon: Landmark },
-  { group: 'INVESTMENTS', type: 'STOCKS', label: 'Stock account', detail: 'Broker and demat portfolio', icon: TrendingUp },
-  { group: 'INVESTMENTS', type: 'INVESTMENT', label: 'Mutual funds', detail: 'AMC, platform or folio holdings', icon: ChartPie },
   { group: 'OTHER', type: 'CREDIT_CARD', label: 'Credit card', detail: 'Limit, outstanding and due day', icon: CreditCard },
   { group: 'OTHER', type: 'LOAN', label: 'Loan account', detail: 'Home, vehicle or personal loan', icon: BadgeIndianRupee },
   { group: 'INVESTMENTS', type: 'EPFO', label: 'EPFO account', detail: 'Provident-fund balance', icon: Building2 },
@@ -19,8 +19,47 @@ export const accountChoiceGroups = [
   { label: 'Debt Accounts', group: 'OTHER' },
 ] as const;
 
-export const savingsInstitutions = ['Axis Bank', 'Punjab National Bank', 'State Bank of India'];
-export const stockBrokers = ['Zerodha', 'Groww'];
+export const savingsInstitutions = ['Axis Bank', 'Punjab National Bank', 'State Bank of India', 'HDFC Bank', 'ICICI Bank', 'Kotak Mahindra Bank', 'Bank of Baroda', 'Canara Bank', 'Federal Bank', 'IndusInd Bank', 'IDFC First Bank', 'Union Bank of India'];
+export const stockBrokers = [
+  'Groww',
+  'Zerodha',
+  'Angel One',
+  'Upstox',
+  'INDmoney',
+  'HDFC Sky',
+  'ICICI Direct',
+  'Kotak Securities',
+  'Paytm Money',
+  'Dhan',
+  '5paisa',
+  'Motilal Oswal',
+  'Sharekhan'
+];
+export const mutualFundPlatforms = [
+  'Groww',
+  'Zerodha',
+  'Angel One',
+  'Upstox',
+  'INDmoney',
+  'Kuvera',
+  'CAMS / KFintech',
+  'Paytm Money',
+  'MF Central',
+  'ET Money',
+  'HDFC Mutual Fund',
+  'SBI Mutual Fund',
+  'ICICI Prudential Mutual Fund',
+  'Nippon India Mutual Fund',
+  'Axis Mutual Fund',
+  'Parag Parikh Mutual Fund',
+  'Mirae Asset Mutual Fund',
+  'UTI Mutual Fund',
+  'Tata Mutual Fund',
+  'Bandhan Mutual Fund',
+  'DSP Mutual Fund',
+  'Motilal Oswal Mutual Fund',
+  'Quant Mutual Fund'
+];
 export const creditCardInstitutions = [
   'American Express',
   'Axis Bank',
@@ -40,7 +79,7 @@ export const creditCardInstitutions = [
 ];
 
 export const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savings account', FIXED_DEPOSIT: 'Fixed & recurring deposit',
-  CREDIT_CARD: 'Credit card', LOAN: 'Loan account', STOCKS: 'Stock account', INVESTMENT: 'Mutual fund account', EPFO: 'EPFO account', CASH: 'Cash' };
+  CREDIT_CARD: 'Credit card', LOAN: 'Loan account', STOCKS: 'Stocks account', INVESTMENT: 'Mutual Funds account', EPFO: 'EPFO account', CASH: 'Cash' };
 
 export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [adding, setAdding] = useState(false); 
@@ -139,10 +178,12 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
             <label>Institution<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported bank</option>{savingsInstitutions.map((bank) => <option value={bank} key={bank}>{bank}</option>)}</select></label>
           ) : newType === 'STOCKS' ? (
             <label>Broker<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported broker</option>{stockBrokers.map((broker) => <option value={broker} key={broker}>{broker}</option>)}</select></label>
+          ) : newType === 'INVESTMENT' ? (
+            <label>Platform / Broker / AMC<select name="institution" required defaultValue=""><option value="" disabled>Choose platform, broker or AMC</option>{mutualFundPlatforms.map((platform) => <option value={platform} key={platform}>{platform}</option>)}</select></label>
           ) : newType === 'CREDIT_CARD' ? (
             <label>Institution<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported bank</option>{creditCardInstitutions.map((bank) => <option value={bank} key={bank}>{bank}</option>)}</select></label>
           ) : (
-            <label>{newType === 'INVESTMENT' ? 'Platform / AMC' : newType === 'EPFO' ? 'Organisation / employer' : 'Institution'}<input name="institution" placeholder={institutionPlaceholder(newType)} /></label>
+            <label>{newType === 'EPFO' ? 'Organisation / employer' : 'Institution'}<input name="institution" placeholder={institutionPlaceholder(newType)} /></label>
           )}
 
           {newType === 'CREDIT_CARD' && existingCards.length > 0 && (

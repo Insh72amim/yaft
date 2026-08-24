@@ -447,10 +447,10 @@ export function AccountsPortfolioTab({
                   title={`Savings: ${savingsPct}%`}
                 />
               )}
-              {depositsPct > 0 && (
+              {mutualFundsPct > 0 && (
                 <div
-                  style={{ width: `${depositsPct}%`, background: "#f59e0b" }}
-                  title={`Fixed Deposits: ${depositsPct}%`}
+                  style={{ width: `${mutualFundsPct}%`, background: "#8b5cf6" }}
+                  title={`Mutual Funds: ${mutualFundsPct}%`}
                 />
               )}
               {stocksPct > 0 && (
@@ -459,10 +459,10 @@ export function AccountsPortfolioTab({
                   title={`Stocks: ${stocksPct}%`}
                 />
               )}
-              {mutualFundsPct > 0 && (
+              {depositsPct > 0 && (
                 <div
-                  style={{ width: `${mutualFundsPct}%`, background: "#8b5cf6" }}
-                  title={`Mutual Funds: ${mutualFundsPct}%`}
+                  style={{ width: `${depositsPct}%`, background: "#f59e0b" }}
+                  title={`Fixed Deposits: ${depositsPct}%`}
                 />
               )}
               {epfoPct > 0 && (
@@ -543,12 +543,12 @@ export function AccountsPortfolioTab({
                 </span>
               </button>
 
-              {/* Fixed Deposits */}
+              {/* Mutual Funds */}
               <button
                 type="button"
                 onClick={() =>
                   setSelectedCategory(
-                    selectedCategory === "DEPOSITS" ? "ALL" : "DEPOSITS"
+                    selectedCategory === "MUTUAL_FUNDS" ? "ALL" : "MUTUAL_FUNDS"
                   )
                 }
                 style={{
@@ -557,11 +557,11 @@ export function AccountsPortfolioTab({
                   justifyContent: "space-between",
                   padding: "7px 10px",
                   background:
-                    selectedCategory === "DEPOSITS"
-                      ? "rgba(245, 158, 11, 0.15)"
+                    selectedCategory === "MUTUAL_FUNDS"
+                      ? "rgba(139, 92, 246, 0.15)"
                       : "var(--background-alt)",
                   border: `1px solid ${
-                    selectedCategory === "DEPOSITS" ? "#f59e0b" : "var(--line)"
+                    selectedCategory === "MUTUAL_FUNDS" ? "#8b5cf6" : "var(--line)"
                   }`,
                   borderRadius: "8px",
                   cursor: "pointer",
@@ -575,7 +575,7 @@ export function AccountsPortfolioTab({
                       width: "8px",
                       height: "8px",
                       borderRadius: "50%",
-                      background: "#f59e0b",
+                      background: "#8b5cf6",
                       flexShrink: 0,
                     }}
                   />
@@ -588,20 +588,20 @@ export function AccountsPortfolioTab({
                         fontWeight: 600,
                       }}
                     >
-                      FD / RD ({depositAccounts.length})
+                      Mutual Funds ({mutualFundAccounts.length})
                     </span>
                     <strong style={{ fontSize: "11.5px", color: "var(--ink)" }}>
                       <AccountAmount
-                        value={calcDepositsTotal}
+                        value={calcMutualFundsTotal}
                         visible={amountsVisible}
                       />
                     </strong>
                   </div>
                 </div>
                 <span
-                  style={{ fontSize: "10.5px", fontWeight: 700, color: "#f59e0b" }}
+                  style={{ fontSize: "10.5px", fontWeight: 700, color: "#8b5cf6" }}
                 >
-                  {depositsPct}%
+                  {mutualFundsPct}%
                 </span>
               </button>
 
@@ -667,12 +667,12 @@ export function AccountsPortfolioTab({
                 </span>
               </button>
 
-              {/* Mutual Funds */}
+              {/* Fixed Deposits */}
               <button
                 type="button"
                 onClick={() =>
                   setSelectedCategory(
-                    selectedCategory === "MUTUAL_FUNDS" ? "ALL" : "MUTUAL_FUNDS"
+                    selectedCategory === "DEPOSITS" ? "ALL" : "DEPOSITS"
                   )
                 }
                 style={{
@@ -681,11 +681,11 @@ export function AccountsPortfolioTab({
                   justifyContent: "space-between",
                   padding: "7px 10px",
                   background:
-                    selectedCategory === "MUTUAL_FUNDS"
-                      ? "rgba(139, 92, 246, 0.15)"
+                    selectedCategory === "DEPOSITS"
+                      ? "rgba(245, 158, 11, 0.15)"
                       : "var(--background-alt)",
                   border: `1px solid ${
-                    selectedCategory === "MUTUAL_FUNDS" ? "#8b5cf6" : "var(--line)"
+                    selectedCategory === "DEPOSITS" ? "#f59e0b" : "var(--line)"
                   }`,
                   borderRadius: "8px",
                   cursor: "pointer",
@@ -699,7 +699,7 @@ export function AccountsPortfolioTab({
                       width: "8px",
                       height: "8px",
                       borderRadius: "50%",
-                      background: "#8b5cf6",
+                      background: "#f59e0b",
                       flexShrink: 0,
                     }}
                   />
@@ -712,20 +712,20 @@ export function AccountsPortfolioTab({
                         fontWeight: 600,
                       }}
                     >
-                      Mutual Funds ({mutualFundAccounts.length})
+                      FD / RD ({depositAccounts.length})
                     </span>
                     <strong style={{ fontSize: "11.5px", color: "var(--ink)" }}>
                       <AccountAmount
-                        value={calcMutualFundsTotal}
+                        value={calcDepositsTotal}
                         visible={amountsVisible}
                       />
                     </strong>
                   </div>
                 </div>
                 <span
-                  style={{ fontSize: "10.5px", fontWeight: 700, color: "#8b5cf6" }}
+                  style={{ fontSize: "10.5px", fontWeight: 700, color: "#f59e0b" }}
                 >
-                  {mutualFundsPct}%
+                  {depositsPct}%
                 </span>
               </button>
 
