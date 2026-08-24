@@ -89,11 +89,12 @@ export function ThemeToggle({ className = '', showColors = true }: { className?:
             key={t.name}
             type="button"
             className={`sidebar-color-dot ${activeColor === t.name ? 'active' : ''}`}
-            style={{ backgroundColor: t.bg }}
             onClick={() => changeColor(t.name)}
             title={`${t.label} accent`}
             aria-label={`Switch to ${t.label} accent`}
-          />
+          >
+            <span style={{ backgroundColor: t.bg }} />
+          </button>
         ))}
       </div>
     </div>
