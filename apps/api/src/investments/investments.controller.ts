@@ -6,6 +6,7 @@ import { InvestmentsService } from './investments.service';
 import { ZerodhaSyncService, SyncZerodhaDto } from './zerodha-sync.service';
 import { GrowwSyncService, SyncGrowwDto } from './groww-sync.service';
 import { MarketDataService } from './market-data.service';
+import { AmfiNavService } from './amfi-nav.service';
 
 @Controller('investments')
 @UseGuards(JwtAuthGuard)
@@ -15,6 +16,7 @@ export class InvestmentsController {
     private readonly zerodhaSync: ZerodhaSyncService,
     private readonly growwSync: GrowwSyncService,
     private readonly marketData: MarketDataService,
+    private readonly amfiNav: AmfiNavService,
   ) {}
 
   @Get('portfolio')
@@ -46,6 +48,14 @@ export class InvestmentsController {
     @Param('accountId') accountId: string,
   ) {
     return this.marketData.refreshAccountMarketPrices(user.id, accountId);
+  }
+
+  @Post(':accountId/refresh-navs')
+  async refreshNavs(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+  ) {
+    return this.amfiNav.refreshAccountNavs(user.id, accountId);
   }
 
   @Post(':accountId/zerodha-holdings')

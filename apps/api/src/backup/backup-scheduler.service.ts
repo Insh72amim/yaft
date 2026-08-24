@@ -2,21 +2,24 @@ import { forwardRef, Inject, Injectable, Logger, OnApplicationBootstrap, OnAppli
 import { PrismaService } from '../common/prisma.service';
 import { GoogleDriveService } from './google-drive.service';
 import { GoogleGmailService } from '../email-ingestion/google-gmail.service';
+import { AmfiNavService } from '../investments/amfi-nav.service';
 
 @Injectable()
 export class BackupSchedulerService implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(BackupSchedulerService.name);
   private timer: NodeJS.Timeout | null = null;
+  private lastNavSyncDateStr: string | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly googleDriveService: GoogleDriveService,
     @Inject(forwardRef(() => GoogleGmailService))
     private readonly googleGmailService: GoogleGmailService,
+    private readonly amfiNavService: AmfiNavService,
   ) {}
 
   onApplicationBootstrap() {
-    this.logger.log('Initializing automated daily scheduler (Google Drive Backup & Gmail Transaction Sync)...');
+    this.logger.log('Initializing automated daily scheduler (Google Drive Backup, Gmail Sync & AMFI NAV Sync)...');
     // Run an initial check after 1 minute, then check hourly
     setTimeout(() => {
       this.runScheduledTasks().catch((err) =>
@@ -41,6 +44,7 @@ export class BackupSchedulerService implements OnApplicationBootstrap, OnApplica
   async runScheduledTasks() {
     await this.checkAndRunDailyBackups();
     await this.checkAndRunDailyGmailSync();
+    await this.checkAndRunDailyMutualFundNavSync();
   }
 
   async checkAndRunDailyBackups() {
@@ -108,6 +112,25 @@ export class BackupSchedulerService implements OnApplicationBootstrap, OnApplica
       } catch (err: any) {
         this.logger.error(`Automated daily Gmail sync failed for user ${cfg.userId}: ${err.message}`);
       }
+    }
+  }
+
+  async checkAndRunDailyMutualFundNavSync() {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    // Run once per day
+    if (this.lastNavSyncDateStr === todayStr) {
+      return;
+    }
+
+    this.logger.log('Executing automated daily AMFI Mutual Fund NAV valuation refresh...');
+    try {
+      const result = await this.amfiNavService.refreshAllMutualFunds();
+      this.lastNavSyncDateStr = todayStr;
+      this.logger.log(`Automated daily AMFI NAV sync succeeded. Updated ${result.totalUpdated} holdings across ${result.totalAccounts} accounts.`);
+    } catch (err: any) {
+      this.logger.error(`Automated daily AMFI NAV sync failed: ${err.message}`);
     }
   }
 }

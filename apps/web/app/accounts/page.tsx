@@ -101,6 +101,21 @@ function PortfolioContent() {
     }
   };
 
+  const handleRefreshNavs = async (accId: string) => {
+    try {
+      setRefreshingQuotes(true);
+      setQuoteNotice(null);
+      const res = await api<any>(`/investments/${accId}/refresh-navs`, { method: "POST" });
+      setQuoteNotice(res.message || "Updated AMFI NAVs!");
+      await load();
+      setTimeout(() => setQuoteNotice(null), 5000);
+    } catch (err: any) {
+      alert(errorMessage(err, "Failed to refresh AMFI NAVs."));
+    } finally {
+      setRefreshingQuotes(false);
+    }
+  };
+
   const load = useCallback(async () => {
     try {
       const [portfolioRes, accountsRes, assetsHistoryRes] = await Promise.all([
@@ -295,6 +310,32 @@ function PortfolioContent() {
                     >
                       <RefreshCw size={13} className={refreshingQuotes ? "spin" : ""} />
                       {refreshingQuotes ? "Updating quotes…" : "Live Quotes"}
+                    </button>
+                  )}
+
+                {/* AMFI Daily NAVs - ONLY for Mutual Fund Accounts */}
+                {selectedAccount &&
+                  (selectedAccount.type === "MUTUAL_FUND" || (selectedAccount.type as any) === "INVESTMENT") &&
+                  portfolioData &&
+                  portfolioData.holdings.length > 0 && (
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      onClick={() => handleRefreshNavs(selectedAccountId)}
+                      disabled={refreshingQuotes}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        background: "rgba(16, 185, 129, 0.08)",
+                        color: "var(--green)",
+                        borderColor: "rgba(16, 185, 129, 0.3)",
+                        fontWeight: 600,
+                      }}
+                      title="Update live mutual fund valuations with official AMFI Daily NAVs"
+                    >
+                      <RefreshCw size={13} className={refreshingQuotes ? "spin" : ""} />
+                      {refreshingQuotes ? "Updating NAVs…" : "Live AMFI NAVs"}
                     </button>
                   )}
 
