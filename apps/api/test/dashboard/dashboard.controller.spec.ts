@@ -5,7 +5,7 @@ import { DashboardService } from '../../src/dashboard/dashboard.service';
 describe('DashboardController & DashboardService', () => {
   it('uses fully valued holdings for an investment account in assets-history', async () => {
     const accountFindMany = jest.fn().mockResolvedValue([{
-      id: 'fund-account', name: 'Synthetic mutual funds', type: 'INVESTMENT', openingBalance: 1_000n,
+      id: 'fund-account', name: 'Synthetic mutual funds', type: 'MUTUAL_FUND', openingBalance: 1_000n,
       creditLimit: null, dueDay: null, transactions: [{ amount: 250n, transactionDate: new Date() }],
       holdings: [{ currentValue: 2_000n, asset: { symbol: 'AAPL', name: 'Apple', type: 'STOCKS' } }, { currentValue: 3_500n, asset: { symbol: 'GOOGL', name: 'Alphabet', type: 'STOCKS' } }],
     }]);
@@ -17,13 +17,13 @@ describe('DashboardController & DashboardService', () => {
 
     const result = await controller.getAssetsHistory({ id: 'owner-a' });
 
-    expect(result.accounts[0]).toMatchObject({ id: 'fund-account', type: 'INVESTMENT', balance: 5_500 });
+    expect(result.accounts[0]).toMatchObject({ id: 'fund-account', type: 'MUTUAL_FUND', balance: 5_500 });
     expect(result.netWorth).toBe(5_500);
   });
 
   it('falls back to the ledger balance when any holding is unvalued', async () => {
     const accountFindMany = jest.fn().mockResolvedValue([{
-      id: 'fund-account', name: 'Synthetic mutual funds', type: 'INVESTMENT', openingBalance: 4_000n,
+      id: 'fund-account', name: 'Synthetic mutual funds', type: 'MUTUAL_FUND', openingBalance: 4_000n,
       creditLimit: null, dueDay: null, transactions: [{ amount: 500n, transactionDate: new Date() }],
       holdings: [{ currentValue: 6_000n, asset: { symbol: 'AAPL', name: 'Apple', type: 'STOCKS' } }, { currentValue: null, asset: { symbol: 'GOOGL', name: 'Alphabet', type: 'STOCKS' } }],
     }]);

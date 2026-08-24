@@ -216,7 +216,7 @@ export class AccountsService {
         };
       }
 
-      const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
+      const isPortfolio = account.type === 'MUTUAL_FUND' || account.type === 'STOCKS';
       const hasCompleteValuation = holdings.length > 0 && holdings.every((holding: any) => holding.currentValue !== null);
       
       let balance = Number(account.openingBalance) + transactions.reduce((sum: number, item: any) => sum + Number(item.amount), 0);

@@ -164,7 +164,7 @@ export const INSTITUTIONS: InstitutionDefinition[] = [
     domain: 'groww.in',
     aliases: ['groww'],
     localLogo: '/logos/groww.jpeg',
-    defaultType: AccountType.INVESTMENT,
+    defaultType: AccountType.MUTUAL_FUND,
     senderDomains: ['groww.in'],
   },
   {
@@ -188,7 +188,7 @@ export const INSTITUTIONS: InstitutionDefinition[] = [
     name: 'INDmoney',
     domain: 'indmoney.com',
     aliases: ['indmoney', 'ind money'],
-    defaultType: AccountType.INVESTMENT,
+    defaultType: AccountType.MUTUAL_FUND,
     senderDomains: ['indmoney.com'],
   },
   {
@@ -196,7 +196,7 @@ export const INSTITUTIONS: InstitutionDefinition[] = [
     name: 'Kuvera',
     domain: 'kuvera.in',
     aliases: ['kuvera'],
-    defaultType: AccountType.INVESTMENT,
+    defaultType: AccountType.MUTUAL_FUND,
     senderDomains: ['kuvera.in'],
   },
   {
@@ -212,7 +212,7 @@ export const INSTITUTIONS: InstitutionDefinition[] = [
     name: 'Paytm Money',
     domain: 'paytmmoney.com',
     aliases: ['paytm money', 'paytmmoney'],
-    defaultType: AccountType.INVESTMENT,
+    defaultType: AccountType.MUTUAL_FUND,
     senderDomains: ['paytmmoney.com'],
   },
   {

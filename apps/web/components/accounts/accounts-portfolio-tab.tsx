@@ -107,7 +107,7 @@ export function AccountsPortfolioTab({
     ["STOCKS", "DEMAT"].includes(a.type)
   );
   const mutualFundAccounts = wealthAccounts.filter((a) =>
-    ["INVESTMENT", "MUTUAL_FUNDS"].includes(a.type)
+    ["MUTUAL_FUND", "INVESTMENT", "MUTUAL_FUNDS"].includes(a.type)
   );
   const epfoAccounts = wealthAccounts.filter((a) => a.type === "EPFO");
   const loanAccounts = wealthAccounts.filter((a) => a.type === "LOAN");
@@ -190,7 +190,7 @@ export function AccountsPortfolioTab({
       return true;
     if (
       selectedCategory === "MUTUAL_FUNDS" &&
-      ["INVESTMENT", "MUTUAL_FUNDS"].includes(account.type)
+      ["MUTUAL_FUND", "INVESTMENT", "MUTUAL_FUNDS"].includes(account.type)
     )
       return true;
     if (selectedCategory === "EPFO" && account.type === "EPFO") return true;

@@ -76,7 +76,7 @@ export const accountSections: AccountSection[] = [
   {
     label: "Investments & Wealth",
     subsections: [
-      { label: "Mutual Funds", types: ["INVESTMENT", "MUTUAL_FUNDS"] },
+      { label: "Mutual Funds", types: ["MUTUAL_FUND", "INVESTMENT"] },
       { label: "Stocks", types: ["STOCKS", "DEMAT"] },
       { label: "Fixed & recurring deposits", types: ["FIXED_DEPOSIT"] },
       { label: "EPFO Retirement", types: ["EPFO"] },
@@ -92,7 +92,7 @@ export const accountSections: AccountSection[] = [
 
 export function getIcon(type: string) {
   if (type === "CREDIT_CARD") return <CreditCard size={16} />;
-  if (type === "INVESTMENT") return <ChartPie size={16} />;
+  if (type === "MUTUAL_FUND" || type === "INVESTMENT") return <ChartPie size={16} />;
   if (type === "STOCKS") return <TrendingUp size={16} />;
   if (type === "EPFO") return <Building2 size={16} />;
   if (type === "LOAN") return <BadgeIndianRupee size={16} />;

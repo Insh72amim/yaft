@@ -114,7 +114,7 @@ function PortfolioContent() {
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
   const isInvestment =
-    selectedAccount && ["STOCKS", "INVESTMENT"].includes(selectedAccount.type);
+    selectedAccount && ["STOCKS", "MUTUAL_FUND", "INVESTMENT"].includes(selectedAccount.type);
   const portfolioData = isInvestment
     ? portfolio.find((p) => p.accountId === selectedAccountId)
     : null;

@@ -4,7 +4,7 @@ import { api, errorMessage } from '@/lib/api';
 
 export const accountChoices = [
   { group: 'BANK', type: 'SAVINGS', label: 'Savings account', detail: 'Salary or everyday banking', icon: PiggyBank },
-  { group: 'INVESTMENTS', type: 'INVESTMENT', label: 'Mutual Funds', detail: 'Groww, Zerodha Coin, AMC or folio holdings', icon: ChartPie },
+  { group: 'INVESTMENTS', type: 'MUTUAL_FUND', label: 'Mutual Funds', detail: 'Groww, Zerodha Coin, AMC or folio holdings', icon: ChartPie },
   { group: 'INVESTMENTS', type: 'STOCKS', label: 'Stocks', detail: 'Groww, Zerodha Kite, Angel One broker account', icon: TrendingUp },
   { group: 'INVESTMENTS', type: 'FIXED_DEPOSIT', label: 'Fixed & recurring deposit', detail: 'Bank FD, RD and term deposits', icon: Landmark },
   { group: 'OTHER', type: 'CREDIT_CARD', label: 'Credit card', detail: 'Limit, outstanding and due day', icon: CreditCard },
@@ -79,7 +79,7 @@ export const creditCardInstitutions = [
 ];
 
 export const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savings account', FIXED_DEPOSIT: 'Fixed & recurring deposit',
-  CREDIT_CARD: 'Credit card', LOAN: 'Loan account', STOCKS: 'Stocks account', INVESTMENT: 'Mutual Funds account', EPFO: 'EPFO account', CASH: 'Cash' };
+  CREDIT_CARD: 'Credit card', LOAN: 'Loan account', STOCKS: 'Stocks account', MUTUAL_FUND: 'Mutual Funds account', INVESTMENT: 'Mutual Funds account', EPFO: 'EPFO account', CASH: 'Cash' };
 
 export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [adding, setAdding] = useState(false); 
@@ -99,44 +99,50 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
       .catch(() => {});
   });
 
-  async function addAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); 
-    const form = new FormData(event.currentTarget); 
-    const type = String(form.get('type'));
-    
-    setAdding(true); setAccountError('');
-    try {
-      const payload: any = {
-        name: form.get('name'),
-        type,
-        institution: form.get('institution') || undefined,
-      };
+  async function handleCreate(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setAdding(true);
+    setAccountError('');
+    const form = new FormData(e.currentTarget);
+    const body: Record<string, any> = {
+      name: form.get('name'),
+      type: newType,
+      institution: form.get('institution') || null,
+      openingBalance: Number(form.get('openingBalance') || 0),
+    };
+    if (newType === 'CREDIT_CARD') {
+      const limit = form.get('creditLimit');
+      body.creditLimit = limit ? Number(limit) : null;
+      const stmtDay = form.get('statementDay');
+      body.statementDay = stmtDay ? Number(stmtDay) : null;
+      const due = form.get('dueDay');
+      body.dueDay = due ? Number(due) : null;
 
-      if (type === 'LOAN') {
-        payload.loanStartDate = form.get('loanStartDate');
-        payload.loanPrincipal = Math.round(Number(form.get('loanPrincipal')) * 100);
-        payload.loanInterestRate = Number(form.get('loanInterestRate'));
-        payload.loanEmiAmount = Math.round(Number(form.get('loanEmiAmount')) * 100);
-        payload.loanEmiDay = Number(form.get('loanEmiDay'));
-        payload.loanTermMonths = Number(form.get('loanTermMonths'));
-      } else if (type === 'CREDIT_CARD') {
-        if (isSharedLimit && selectedParentId) {
-          payload.parentAccountId = selectedParentId;
-        } else {
-          payload.creditLimit = form.get('creditLimit') ? Math.round(Number(form.get('creditLimit')) * 100) : undefined;
-          payload.dueDay = form.get('dueDay') ? Number(form.get('dueDay')) : undefined;
-        }
-      } else {
-        payload.openingBalance = form.get('openingBalance') ? Math.round(Number(form.get('openingBalance')) * 100) : 0;
-        payload.creditLimit = form.get('creditLimit') ? Math.round(Number(form.get('creditLimit')) * 100) : undefined;
-        payload.dueDay = form.get('dueDay') ? Number(form.get('dueDay')) : undefined;
+      if (isSharedLimit && selectedParentId) {
+        body.parentAccountId = selectedParentId;
       }
-
-      await api('/accounts', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    if (newType === 'LOAN') {
+      const principal = form.get('loanPrincipal');
+      body.loanPrincipal = principal ? Number(principal) : undefined;
+      const rate = form.get('loanInterestRate');
+      body.loanInterestRate = rate ? Number(rate) : undefined;
+      const emi = form.get('loanEmiAmount');
+      body.loanEmiAmount = emi ? Number(emi) : undefined;
+      const emiDay = form.get('loanEmiDay');
+      body.loanEmiDay = emiDay ? Number(emiDay) : undefined;
+      const term = form.get('loanTermMonths');
+      body.loanTermMonths = term ? Number(term) : undefined;
+      const startDate = form.get('loanStartDate');
+      body.loanStartDate = startDate ? String(startDate) : undefined;
+    }
+    try {
+      await api('/accounts', { method: 'POST', body: JSON.stringify(body) });
       onSuccess();
       onClose();
-    } catch (reason) {
-      setAccountError(errorMessage(reason, 'Could not add account.'));
+    } catch (err: unknown) {
+      setAccountError(errorMessage(err));
+    } finally {
       setAdding(false);
     }
   }
@@ -156,17 +162,21 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
 
   return (
     <div className="modal-wrap">
-      <button className="backdrop" onClick={onClose} aria-label="Close"/>
-      <form className="modal account-modal" onSubmit={addAccount}>
-        <div><span className="eyebrow">New account</span><h2>What kind of account?</h2><p>Choose a clear financial category. You’ll only see fields relevant to it.</p></div>
-        <input type="hidden" name="type" value={newType}/>
+      <button className="backdrop" onClick={onClose} aria-label="Close" />
+      <form className="modal account-modal" onSubmit={handleCreate}>
+        <div>
+          <span className="eyebrow">New account</span>
+          <h2>What kind of account?</h2>
+          <p>Choose a clear financial category. You’ll only see fields relevant to it.</p>
+        </div>
+        <input type="hidden" name="type" value={newType} />
         <div className="account-choice-groups">
-          {accountChoiceGroups.map((choiceGroup) => (
-            <div className="account-choice-section" key={choiceGroup.group}>
-              <span>{choiceGroup.label}</span>
+          {accountChoiceGroups.map((grp) => (
+            <div key={grp.group} className="account-choice-section">
+              <span>{grp.label}</span>
               <div className="account-choice-grid">
-                {accountChoices.filter((choice) => choice.group === choiceGroup.group).map((choice) => (
-                  <AccountChoice key={choice.type} choice={choice} selected={newType === choice.type} onSelect={setNewType}/>
+                {accountChoices.filter((c) => c.group === grp.group).map((choice) => (
+                  <AccountChoice key={choice.type} choice={choice} selected={newType === choice.type} onSelect={setNewType} />
                 ))}
               </div>
             </div>
@@ -178,7 +188,7 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
             <label>Institution<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported bank</option>{savingsInstitutions.map((bank) => <option value={bank} key={bank}>{bank}</option>)}</select></label>
           ) : newType === 'STOCKS' ? (
             <label>Broker<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported broker</option>{stockBrokers.map((broker) => <option value={broker} key={broker}>{broker}</option>)}</select></label>
-          ) : newType === 'INVESTMENT' ? (
+          ) : newType === 'MUTUAL_FUND' || newType === 'INVESTMENT' ? (
             <label>Platform / Broker / AMC<select name="institution" required defaultValue=""><option value="" disabled>Choose platform, broker or AMC</option>{mutualFundPlatforms.map((platform) => <option value={platform} key={platform}>{platform}</option>)}</select></label>
           ) : newType === 'CREDIT_CARD' ? (
             <label>Institution<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported bank</option>{creditCardInstitutions.map((bank) => <option value={bank} key={bank}>{bank}</option>)}</select></label>

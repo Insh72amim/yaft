@@ -284,7 +284,7 @@ export default function DashboardPage() {
   const assetCategories = [
     { name: 'Savings Accounts', types: ['BANK', 'SAVINGS'], color: '#3b82f6' },
     { name: 'Fixed Deposits', types: ['FIXED_DEPOSIT'], color: '#0ea5e9' },
-    { name: 'Investments', types: ['STOCKS', 'INVESTMENT'], color: '#10b981' },
+    { name: 'Investments', types: ['STOCKS', 'MUTUAL_FUND', 'INVESTMENT'], color: '#10b981' },
     { name: 'EPFO', types: ['EPFO'], color: '#f59e0b' },
   ];
 

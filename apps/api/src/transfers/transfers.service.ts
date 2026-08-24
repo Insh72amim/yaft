@@ -57,7 +57,7 @@ export class TransfersService {
           const isCrossAccountType =
             (debit.account.type === 'CREDIT_CARD' && credit.account.type !== 'CREDIT_CARD') ||
             (credit.account.type === 'CREDIT_CARD' && debit.account.type !== 'CREDIT_CARD') ||
-            (debit.account.type === 'INVESTMENT' || credit.account.type === 'INVESTMENT');
+            (debit.account.type === 'MUTUAL_FUND' || credit.account.type === 'MUTUAL_FUND' || debit.account.type === 'STOCKS' || credit.account.type === 'STOCKS');
 
           const maxAllowedDays = targetAccountId ? 2 : isCrossAccountType ? 2 : 1;
           if (dayDiff > maxAllowedDays) return false;

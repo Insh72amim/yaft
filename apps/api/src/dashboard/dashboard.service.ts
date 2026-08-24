@@ -501,7 +501,7 @@ export class DashboardService {
     const savingsRate = totalExternalInbound > 0 ? Math.round((savings / totalExternalInbound) * 100) : 0;
 
     const mappedAccounts = accounts.map(({ transactions, holdings = [], ...account }) => {
-      const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
+      const isPortfolio = account.type === 'MUTUAL_FUND' || account.type === 'STOCKS';
       const hasCompleteValuation = holdings.length > 0 && holdings.every((holding) => holding.currentValue !== null);
       let balance = Number(account.openingBalance) + transactions.reduce((sum, item) => sum + Number(item.amount), 0);
       if (isPortfolio && hasCompleteValuation) {
@@ -599,7 +599,7 @@ export class DashboardService {
             AccountType.BANK,
             AccountType.FIXED_DEPOSIT,
             AccountType.CASH,
-            AccountType.INVESTMENT,
+            AccountType.MUTUAL_FUND,
             AccountType.STOCKS,
             AccountType.EPFO,
             AccountType.LOAN,
@@ -647,7 +647,7 @@ export class DashboardService {
     const accountBreakdown = accounts.map((account: any) => {
       let balance = 0;
       const isLoan = account.type === 'LOAN';
-      const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
+      const isPortfolio = account.type === 'MUTUAL_FUND' || account.type === 'STOCKS';
       const holdingsList = account.holdings || [];
 
       if (isLoan) {
@@ -685,17 +685,12 @@ export class DashboardService {
       } else if (account.type === 'EPFO' || nameLower.includes('epfo') || nameLower.includes('provident')) {
         category = 'EPFO';
         if (balance > 0) epfoTotal += balance;
-      } else if (account.type === 'STOCKS' || nameLower.includes('zerodha') || nameLower.includes('demat') || nameLower.includes('stocks')) {
-        if (nameLower.includes('mf') || nameLower.includes('mutual fund') || nameLower.includes('groww')) {
-          category = 'MUTUAL_FUNDS';
-          if (balance > 0) mutualFundsTotal += balance;
-        } else {
-          category = 'STOCKS';
-          if (balance > 0) stocksTotal += balance;
-        }
-      } else if (account.type === 'INVESTMENT' || nameLower.includes('mutual') || nameLower.includes('fund') || nameLower.includes('sip')) {
+      } else if (account.type === 'MUTUAL_FUND' || nameLower.includes('mutual') || nameLower.includes('fund') || nameLower.includes('sip') || nameLower.includes('groww')) {
         category = 'MUTUAL_FUNDS';
         if (balance > 0) mutualFundsTotal += balance;
+      } else if (account.type === 'STOCKS' || nameLower.includes('zerodha') || nameLower.includes('demat') || nameLower.includes('stocks')) {
+        category = 'STOCKS';
+        if (balance > 0) stocksTotal += balance;
       } else {
         category = 'SAVINGS';
         if (balance > 0) savingsTotal += balance;
@@ -708,27 +703,25 @@ export class DashboardService {
         return sum;
       }, 0);
 
+      const currentValue = holdingsList.reduce((sum: number, h: any) => {
+        if (h.currentValue !== null) {
+          return sum + Number(h.currentValue);
+        }
+        return sum;
+      }, 0);
+
+      const unrealizedPnl = currentValue - investedValue;
+
       return {
         id: account.id,
         name: account.name,
         type: account.type,
-        category,
         institution: account.institution,
+        category,
         balance,
-        investedValue: investedValue > 0 ? Math.round(investedValue) : null,
-        unrealizedPnl: investedValue > 0 ? balance - Math.round(investedValue) : null,
-        holdingCount: holdingsList.length,
-        holdings: holdingsList.map((h: any) => ({
-          id: h.id,
-          symbol: h.asset.symbol,
-          name: h.asset.name,
-          category: h.asset.type,
-          quantity: Number(h.quantity),
-          averagePrice: h.averagePrice ? Number(h.averagePrice) : null,
-          currentValue: h.currentValue ? Number(h.currentValue) : null,
-          unrealizedPnl: h.unrealizedPnl ? Number(h.unrealizedPnl) : null,
-          asOfDate: h.asOfDate,
-        })),
+        investedValue: isPortfolio ? investedValue : undefined,
+        currentValue: isPortfolio ? currentValue : undefined,
+        unrealizedPnl: isPortfolio ? unrealizedPnl : undefined,
       };
     });
 
@@ -744,18 +737,18 @@ export class DashboardService {
       let debt = 0;
 
       accounts.forEach((account: any) => {
-        if (account.type === 'LOAN') {
+        const isLoan = account.type === 'LOAN';
+        if (isLoan) {
           const loan = (account.loans || [])[0];
           if (loan) {
-            const paidUpToMonth = (loan.installments || []).filter(
-              (i: any) => i.status === 'PAID' && ((i.confirmedAt && new Date(i.confirmedAt) < m.end) || new Date(i.dueDate) < m.end)
-            );
-            let out = Number(loan.principal);
+            const instsUpToMonth = (loan.installments || []).filter((i: any) => new Date(i.dueDate) <= m.end);
+            const paidUpToMonth = instsUpToMonth.filter((i: any) => i.status === 'PAID');
             if (paidUpToMonth.length > 0) {
               const lastPaid = paidUpToMonth[paidUpToMonth.length - 1];
-              out = Number(lastPaid.balance);
+              debt += Math.abs(Number(lastPaid.balance));
+            } else if (new Date(loan.startDate) <= m.end) {
+              debt += Math.abs(Number(loan.principal));
             }
-            debt += out;
           } else {
             const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
             const cumLedger = Number(account.openingBalance) + txsUpToMonth.reduce((sum: number, row: any) => sum + Number(row.amount), 0);
@@ -766,7 +759,7 @@ export class DashboardService {
 
         const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
         const cumLedger = Number(account.openingBalance) + txsUpToMonth.reduce((sum: number, row: any) => sum + Number(row.amount), 0);
-        const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
+        const isPortfolio = account.type === 'MUTUAL_FUND' || account.type === 'STOCKS';
         const holdingsList = account.holdings || [];
         const hasCompleteValuation = holdingsList.length > 0 && holdingsList.every((holding: any) => holding.currentValue !== null);
         const bal = isPortfolio && hasCompleteValuation
@@ -780,14 +773,10 @@ export class DashboardService {
           deposits += bal;
         } else if (account.type === 'EPFO' || nameLower.includes('epfo') || nameLower.includes('provident')) {
           epfo += bal;
-        } else if (account.type === 'STOCKS' || nameLower.includes('zerodha') || nameLower.includes('demat') || nameLower.includes('stocks')) {
-          if (nameLower.includes('mf') || nameLower.includes('mutual fund') || nameLower.includes('groww')) {
-            mutualFunds += bal;
-          } else {
-            stocks += bal;
-          }
-        } else if (account.type === 'INVESTMENT' || nameLower.includes('mutual') || nameLower.includes('fund') || nameLower.includes('sip')) {
+        } else if (account.type === 'MUTUAL_FUND' || nameLower.includes('mutual') || nameLower.includes('fund') || nameLower.includes('sip') || nameLower.includes('groww')) {
           mutualFunds += bal;
+        } else if (account.type === 'STOCKS' || nameLower.includes('zerodha') || nameLower.includes('demat') || nameLower.includes('stocks')) {
+          stocks += bal;
         } else {
           savings += bal;
         }

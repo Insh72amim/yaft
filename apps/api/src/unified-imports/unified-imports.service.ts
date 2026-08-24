@@ -290,9 +290,9 @@ export class UnifiedImportsService {
       const matchInstitution = (account.institution ?? '');
       const matchName = (account.name ?? '');
       if (spec.source === 'GROWW') {
-        return ['INVESTMENT', 'STOCKS'].includes(account.type) && (/\bgroww\b/i.test(matchInstitution) || /\bgroww\b/i.test(matchName));
+        return ['MUTUAL_FUND', 'STOCKS'].includes(account.type) && (/\bgroww\b/i.test(matchInstitution) || /\bgroww\b/i.test(matchName));
       }
-      return ['INVESTMENT', 'STOCKS'].includes(account.type) && (/\b(?:zerodha|kite)\b/i.test(matchInstitution) || /\b(?:zerodha|kite)\b/i.test(matchName));
+      return ['MUTUAL_FUND', 'STOCKS'].includes(account.type) && (/\b(?:zerodha|kite)\b/i.test(matchInstitution) || /\b(?:zerodha|kite)\b/i.test(matchName));
     }
     return false;
   }

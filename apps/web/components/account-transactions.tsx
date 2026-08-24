@@ -72,7 +72,7 @@ const typeLabel: Record<string, string> = {
   [AccountType.CREDIT_CARD]: 'Credit card',
   [AccountType.LOAN]: 'Loan account',
   [AccountType.STOCKS]: 'Stock account',
-  [AccountType.INVESTMENT]: 'Investment account',
+  [AccountType.MUTUAL_FUND]: 'Mutual Funds account',
   [AccountType.EPFO]: 'EPFO account',
   [AccountType.CASH]: 'Cash',
 };

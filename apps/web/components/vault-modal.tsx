@@ -44,7 +44,7 @@ function isCardAccount(type: string) { return CARD_TYPES.includes(type as Accoun
 
 function getIcon(type: string) {
   if (type === AccountType.CREDIT_CARD) return <CreditCard size={18} />;
-  if (type === AccountType.INVESTMENT) return <ChartPie size={18} />;
+  if (type === AccountType.MUTUAL_FUND || (type as any) === 'INVESTMENT') return <ChartPie size={18} />;
   if (type === AccountType.STOCKS) return <TrendingUp size={18} />;
   if (type === AccountType.EPFO) return <Building2 size={18} />;
   if (type === AccountType.LOAN) return <BadgeIndianRupee size={18} />;

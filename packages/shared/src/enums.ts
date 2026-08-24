@@ -7,7 +7,7 @@ export enum AccountType {
   SAVINGS = 'SAVINGS',
   CREDIT_CARD = 'CREDIT_CARD',
   CASH = 'CASH',
-  INVESTMENT = 'INVESTMENT',
+  MUTUAL_FUND = 'MUTUAL_FUND',
   STOCKS = 'STOCKS',
   EPFO = 'EPFO',
   LOAN = 'LOAN',

@@ -17,7 +17,7 @@ export class InvestmentsService {
 
   async getPortfolio(userId: string) {
     const accounts = await this.prisma.account.findMany({
-      where: { userId, type: { in: ['INVESTMENT', 'STOCKS'] } },
+      where: { userId, type: { in: ['MUTUAL_FUND', 'STOCKS'] } },
       orderBy: { createdAt: 'desc' },
       include: { holdings: { include: { asset: true }, orderBy: { asset: { symbol: 'asc' } } } },
     });
@@ -27,8 +27,8 @@ export class InvestmentsService {
   async importZerodhaHoldings(userId: string, accountId: string, file: Express.Multer.File) {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId, archived: false } });
     if (!account) throw new ForbiddenException('Investment account not found.');
-    if (!['INVESTMENT', 'STOCKS'].includes(account.type)) {
-      throw new BadRequestException('Zerodha holdings can only be imported into a stock or investment account.');
+    if (!['MUTUAL_FUND', 'STOCKS'].includes(account.type)) {
+      throw new BadRequestException('Zerodha holdings can only be imported into a stock or mutual fund account.');
     }
     const institution = account.institution?.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     if (institution && !institution.includes('zerodha') && !institution.includes('kite')) {
@@ -80,8 +80,8 @@ export class InvestmentsService {
   async importGrowwHoldings(userId: string, accountId: string, file: Express.Multer.File) {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId, archived: false } });
     if (!account) throw new ForbiddenException('Investment account not found.');
-    if (!['INVESTMENT', 'STOCKS'].includes(account.type)) {
-      throw new BadRequestException('Groww holdings can only be imported into a stock or investment account.');
+    if (!['MUTUAL_FUND', 'STOCKS'].includes(account.type)) {
+      throw new BadRequestException('Groww holdings can only be imported into a stock or mutual fund account.');
     }
     const institution = account.institution?.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     if (institution && !institution.includes('groww')) {
