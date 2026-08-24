@@ -83,18 +83,17 @@ export class ZerodhaSyncService {
     if (!enctoken && (!apiKey || !accessToken)) {
       if (account.statementCredential) {
         try {
-          const decrypted = this.credentialsService.decrypt(
-            accountId,
-            account.statementCredential as any,
-          );
-          if (decrypted.startsWith('enctoken:')) {
-            enctoken = decrypted.replace('enctoken:', '').trim();
-          } else if (decrypted.startsWith('kite:')) {
-            const parts = decrypted.replace('kite:', '').split(':');
-            apiKey = parts[0];
-            accessToken = parts[1];
-          } else {
-            enctoken = decrypted.trim();
+          const decrypted = await this.credentialsService.getPassword(userId, accountId);
+          if (decrypted) {
+            if (decrypted.startsWith('enctoken:')) {
+              enctoken = decrypted.replace('enctoken:', '').trim();
+            } else if (decrypted.startsWith('kite:')) {
+              const parts = decrypted.replace('kite:', '').split(':');
+              apiKey = parts[0];
+              accessToken = parts[1];
+            } else {
+              enctoken = decrypted.trim();
+            }
           }
         } catch (err) {
           this.logger.error(`Failed to decrypt Zerodha credential for account ${accountId}`, err);
@@ -123,15 +122,15 @@ export class ZerodhaSyncService {
         where: { accountId },
         create: {
           accountId,
-          ciphertext: encrypted.ciphertext,
-          iv: encrypted.iv,
-          authTag: encrypted.authTag,
+          ciphertext: encrypted.ciphertext as any,
+          iv: encrypted.iv as any,
+          authTag: encrypted.authTag as any,
           keyVersion: encrypted.keyVersion,
         },
         update: {
-          ciphertext: encrypted.ciphertext,
-          iv: encrypted.iv,
-          authTag: encrypted.authTag,
+          ciphertext: encrypted.ciphertext as any,
+          iv: encrypted.iv as any,
+          authTag: encrypted.authTag as any,
           keyVersion: encrypted.keyVersion,
         },
       });
