@@ -70,11 +70,33 @@ export function ZerodhaSyncModal({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose} style={{ zIndex: 1100 }}>
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.75)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1200,
+        padding: "16px",
+      }}
+    >
       <div
-        className="modal"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: "520px", width: "95%" }}
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--line)",
+          borderRadius: "16px",
+          maxWidth: "520px",
+          width: "100%",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
         <header
           style={{
@@ -83,6 +105,7 @@ export function ZerodhaSyncModal({
             alignItems: "center",
             borderBottom: "1px solid var(--line)",
             padding: "16px 20px",
+            background: "var(--background-alt)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>

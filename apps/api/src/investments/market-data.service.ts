@@ -17,59 +17,82 @@ export class MarketDataService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Fetch live stock quotes from Yahoo Finance (free, supports .NS and .BO tickers)
+   * Fetch single ticker quote using Yahoo Finance v8 Chart API (which does not require crumb/auth)
    */
-  async fetchQuotes(symbols: string[]): Promise<Map<string, StockQuote>> {
-    const quotes = new Map<string, StockQuote>();
-    if (!symbols.length) return quotes;
+  private async fetchSingleQuote(rawSymbol: string): Promise<StockQuote | null> {
+    const symbol = rawSymbol.toUpperCase().trim();
+    if (!symbol) return null;
 
-    // Filter unique clean uppercase symbols
-    const uniqueSymbols = Array.from(new Set(symbols.map((s) => s.toUpperCase().trim())));
-    
-    // Chunk requests into batches of 20
-    const chunkSize = 20;
-    for (let i = 0; i < uniqueSymbols.length; i += chunkSize) {
-      const chunk = uniqueSymbols.slice(i, i + chunkSize);
-      
-      // Try NSE ticker (.NS)
-      const yahooSymbols = chunk.map((s) => (s.includes('.') ? s : `${s}.NS`)).join(',');
-      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(yahooSymbols)}`;
+    // Try NSE (.NS) first, then BSE (.BO)
+    const candidates = symbol.includes('.') ? [symbol] : [`${symbol}.NS`, `${symbol}.BO`];
 
+    for (const ticker of candidates) {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d`;
       try {
         const res = await fetch(url, {
           headers: {
             'User-Agent':
               'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            Accept: 'application/json',
           },
         });
 
         if (res.ok) {
           const json = await res.json();
-          const result = json?.quoteResponse?.result;
-          if (Array.isArray(result)) {
-            for (const item of result) {
-              const baseSymbol = item.symbol.replace('.NS', '').replace('.BO', '');
-              const price = item.regularMarketPrice ?? item.currentPrice ?? 0;
-              const prevClose = item.regularMarketPreviousClose ?? item.previousClose ?? price;
-              const change = item.regularMarketChange ?? (price - prevClose);
-              const changePercent = item.regularMarketChangePercent ?? 0;
+          const meta = json?.chart?.result?.[0]?.meta;
+          if (meta) {
+            const price = meta.regularMarketPrice ?? meta.chartPreviousClose ?? 0;
+            const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? price;
+            const change = price - prevClose;
+            const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
 
-              if (price > 0) {
-                quotes.set(baseSymbol, {
-                  symbol: baseSymbol,
-                  price,
-                  previousClose: prevClose,
-                  change,
-                  changePercent,
-                });
-              }
+            if (price > 0) {
+              return {
+                symbol,
+                price,
+                previousClose: prevClose,
+                change,
+                changePercent,
+              };
             }
           }
         }
       } catch (err) {
-        this.logger.warn(`Failed to fetch Yahoo Finance quotes for batch: ${chunk.join(', ')}`, err);
+        // Try next candidate or continue
       }
     }
+
+    return null;
+  }
+
+  /**
+   * Fetch live stock quotes for a list of symbols with concurrency control
+   */
+  async fetchQuotes(symbols: string[]): Promise<Map<string, StockQuote>> {
+    const quotes = new Map<string, StockQuote>();
+    if (!symbols.length) return quotes;
+
+    const uniqueSymbols = Array.from(new Set(symbols.map((s) => s.toUpperCase().trim())));
+    const concurrency = 6;
+    let index = 0;
+
+    const worker = async () => {
+      while (index < uniqueSymbols.length) {
+        const currentIndex = index++;
+        const symbol = uniqueSymbols[currentIndex];
+        try {
+          const quote = await this.fetchSingleQuote(symbol);
+          if (quote) {
+            quotes.set(symbol, quote);
+          }
+        } catch (err) {
+          this.logger.warn(`Failed to fetch quote for ${symbol}`, err);
+        }
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(concurrency, uniqueSymbols.length) }, () => worker());
+    await Promise.all(workers);
 
     return quotes;
   }
