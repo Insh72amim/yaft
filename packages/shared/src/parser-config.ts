@@ -81,14 +81,24 @@ export const BRAND_CANONICAL_RULES: BrandCanonicalRule[] = [
   { pattern: /youtube/i, canonical: 'YouTube Google' },
   { pattern: /urbancompany|urban\s*company/i, canonical: 'Urban Company' },
   { pattern: /zomato/i, canonical: 'Zomato' },
+  { pattern: /swiggy\s*instamart|instamart/i, canonical: 'Swiggy Instamart' },
   { pattern: /swiggy/i, canonical: 'Swiggy' },
   { pattern: /makemytrip|make\s*my\s*trip|\bmmt\b|mmtrip/i, canonical: 'MakeMyTrip' },
   { pattern: /amazon/i, canonical: 'Amazon' },
   { pattern: /zepto|ze\s*pto/i, canonical: 'Zepto' },
   { pattern: /blinkit/i, canonical: 'Blinkit' },
+  { pattern: /bigbasket|big\s*basket|\bbb\s*now\b/i, canonical: 'BigBasket' },
+  { pattern: /myntra/i, canonical: 'Myntra' },
+  { pattern: /nykaa/i, canonical: 'Nykaa' },
+  { pattern: /ajio/i, canonical: 'Ajio' },
+  { pattern: /meesho/i, canonical: 'Meesho' },
+  { pattern: /dunzo/i, canonical: 'Dunzo' },
+  { pattern: /rapido/i, canonical: 'Rapido' },
+  { pattern: /lenskart/i, canonical: 'Lenskart' },
+  { pattern: /ola\b|olacabs/i, canonical: 'Ola' },
+  { pattern: /uber/i, canonical: 'Uber' },
   { pattern: /airtel/i, canonical: 'Airtel' },
   { pattern: /flipkart/i, canonical: 'Flipkart' },
-  { pattern: /uber/i, canonical: 'Uber' },
   { pattern: /\bop(?:en)?ai\b|chatgpt/i, canonical: 'OpenAI' },
   { pattern: /starbucks/i, canonical: 'Starbucks' },
   { pattern: /netflix/i, canonical: 'Netflix' },
@@ -99,6 +109,9 @@ export const BRAND_CANONICAL_RULES: BrandCanonicalRule[] = [
   { pattern: /godaddy/i, canonical: 'GoDaddy' },
   { pattern: /jiomart|jio\b/i, canonical: 'Jio' },
   { pattern: /paytm/i, canonical: 'Paytm' },
+  { pattern: /phonepe|phone\s*pe/i, canonical: 'PhonePe' },
+  { pattern: /\bgpay\b|google\s*pay|googlepay/i, canonical: 'Google Pay' },
+  { pattern: /razorpay/i, canonical: 'Razorpay' },
   { pattern: /\bcred\b/i, canonical: 'CRED' },
 ];
 
@@ -165,23 +178,24 @@ export function canonicalizeMerchantName(raw: string): string {
 }
 
 export const EMAIL_ALERT_PATTERNS = {
-  BOILERPLATE_WARNINGS_REGEX: /(?:If (?:this )?transaction was not (?:done|initiated) by you|To block UPI|Please SMS BLOCK|We care about your security|Call us at:|Always open to help you|Warm Regards)[\s\S]*/i,
+  BOILERPLATE_WARNINGS_REGEX: /(?:If (?:this )?transaction was not (?:done|initiated) by you|To block UPI|Please SMS BLOCK|We care about your security|Call us at:|Always open to help you|Warm Regards|This is an auto-generated (?:email|message)|Please do not reply to this (?:email|message)|For any queries,?\s*(?:please\s*)?contact|RBI Disclaimer|DICGC)[\s\S]*/i,
 
-  EXPLICIT_CREDIT_CARD_REGEX: /credit\s*card|creditcard|pixel\s*play|card\s*ending|card\s*no\.?\s*(?:xx|\d)|card\s*xx\d|amazon\s*pay|card\s+4[xX]+/i,
+  EXPLICIT_CREDIT_CARD_REGEX: /credit\s*card|creditcard|pixel\s*play|card\s*ending|card\s*no\.?\s*(?:xx|\d)|card\s*xx\d|amazon\s*pay|card\s+4[xX]+|sbi\s*card/i,
   EXPLICIT_BANK_ACCOUNT_REGEX: /(?:debited\s+from\s+your\s+A\/c|debited\s+from\s+A\/c|Account\s*Number:\s*XX|from\s+account\s*[\*xX\d]+|savings\s*a\/c|bank\s*a\/c)/i,
 
   CREDIT_TXN_REGEX: /credited|received|deposited|refund/i,
-  DEBIT_TXN_REGEX: /debited|spent|used|charged|purchase/i,
+  DEBIT_TXN_REGEX: /debited|spent|used|charged|purchase|auto\s*debit/i,
 
-  LIMITS_NOISE_REGEX: /(?:available\s*(?:credit)?\s*limit|total\s*(?:credit)?\s*limit|credit\s*limit|total\s*due|total\s*outstanding|available\s*balance|bal\s*limit)\*?\s*(?:is|:)?\s*(?:rs\.?|inr|₹|&#8377;)?\s*[\d,]+(?:\.\d{1,2})?/gi,
+  LIMITS_NOISE_REGEX: /(?:available\s*(?:credit)?\s*limit|total\s*(?:credit)?\s*limit|credit\s*limit|total\s*due|total\s*outstanding|available\s*balance|bal\s*limit|available\s*a\/c\s*bal|clear\s*bal)\*?\s*(?:is|:)?\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*[\d,]+(?:\.\d{1,2})?/gi,
 
-  LABEL_AMOUNT_REGEX: /(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount)\s*[:=]\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+  LABEL_AMOUNT_REGEX: /(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount)\s*[:=]\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   VERB_AMOUNT_REGEXES: [
-    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of|noticed\s+a\s+transaction\s+of)\s*(?:rs\.?|inr|₹)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited)/i,
-    /^(?:.*?\b)?(?:inr|rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited)/i,
+    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited|transferred|processed)/i,
+    /^(?:.*?\b)?(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited|credited|processed)/i,
+    /(?:NEFT|IMPS|RTGS|UPI)\s*(?:CR|DR)?\s*[:\s-]+\s*(?:inr|rs\.?|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   ],
-  FALLBACK_AMOUNT_REGEX: /(?:rs\.?|inr|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+  FALLBACK_AMOUNT_REGEX: /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
 
   ACCOUNT_LAST4_REGEXES: [
     /(?:credit\s*card|account\s*number|a\/c\s*no\.?|a\/c|account|card)\s*(?:ending\s*(?:with|in)?|no\.?|is|:)?\s*(?:XX|\*+|4[xX]+)?(\d{4,8})\b/i,
@@ -191,14 +205,15 @@ export const EMAIL_ALERT_PATTERNS = {
   ],
 
   REFERENCE_NUMBER_REGEXES: [
-    /(?:ref\s*(?:no\.?|id)?|txn\s*(?:id|no\.?)?|utr|auth\s*code|reference\s*number)[:\s]*([a-zA-Z0-9]{6,22})/i,
+    /(?:ref\s*(?:no\.?|id)?|txn\s*(?:id|no\.?)?|utr|auth\s*code|reference\s*number|neft\s*ref(?:erence)?|imps\s*ref(?:erence)?)[:\s]*([a-zA-Z0-9]{6,22})/i,
     /UPI\/(?:P2A|P2M|P2P)\/(\d{8,18})\//i,
   ],
 
-  MERCHANT_NAME_LABEL_REGEX: /(?:merchant\s*name|info)[:\s]+([a-zA-Z0-9\s._\-&@]{2,50}?)(?=\s+(?:Axis|Date|Available|Total|The|Ref|Avail|Auth|\*|\.|$))/i,
+  MERCHANT_NAME_LABEL_REGEX: /(?:merchant\s*name|info|payee\s*name|beneficiary\s*name)[:\s]+([a-zA-Z0-9\s._\-&@]{2,50}?)(?=\s+(?:Axis|Date|Available|Total|The|Ref|Avail|Auth|\*|\.|$))/i,
   MERCHANT_TXN_INFO_REGEX: /transaction\s*info[:\s]+([a-zA-Z0-9\s._\-&@\/]{3,60}?)(?=\s+(?:If|To|Please|Available|Date|\.|$))/i,
   MERCHANT_TO_VPA_REGEX: /to\s+(?:VPA\s+)?([a-zA-Z0-9._\-@&]{3,50})(?=\s+(?:on\s+\d|at\s+\d|\.|\bref\b|$))/i,
   MERCHANT_TOWARDS_REGEX: /towards\s+([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s+(?:at\s+\d|on\s+\d|\.|Bal|Total|Ref|via|$))/i,
+  MERCHANT_FROM_REGEX: /from\s+([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s+(?:\.|\bNEFT|\bIMPS|\bRef|\bUPI|\bon\s+\d|\bat\s+\d|$))/i,
   MERCHANT_AT_REGEX: /\bat\s+(?!\d{1,2}:\d{2})(?!\d{1,2}[-/]\d{1,2})([a-zA-Z0-9\s._\-&@\/]{2,45}?)(?=\s+(?:on\s+\d|at\s+\d|\.|\binfo\b|\bavail|\btotal|\bref|\bcard|\ba\/c|$))/i,
 
   DATE_REGEX: /\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{2,4}|\d{1,2}[-\s](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-\s,]?\s*\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{2}-\d{2})\b/i,
@@ -279,6 +294,11 @@ export function extractAlertRawMerchant(text: string): string {
 
   const atMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_AT_REGEX);
   if (atMatch) return atMatch[1].replace(/[.,\s\-_]+$/, '').trim();
+
+  const fromMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_FROM_REGEX);
+  if (fromMatch && !/^(account|a\/c|your\s+a\/c|your\s+account|bank|credit\s*card)$/i.test(fromMatch[1].trim())) {
+    return fromMatch[1].replace(/[.,\s\-_]+$/, '').trim();
+  }
 
   return 'General Merchant';
 }

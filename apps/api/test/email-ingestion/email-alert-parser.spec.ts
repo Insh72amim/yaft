@@ -294,5 +294,140 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     // 6. Discount & promotional marketing offer emails (e.g. Google Pixel ₹10,000 off)
     const promoDiscount = 'Up to &#8377;10,000 off on Google Pixel 11 with ICICI Bank Credit Card EMI & non-EMI transactions Avail Now Bring home Google Pixel 11 with an exciting offer on ICICI Bank Credit Card EMI & non-EMI transactions.';
     expect(parseEmailAlertSnippet(promoDiscount, 'ICICI Bank <services@customer.icici.bank.in>')).toBeNull();
+
+    // 7. Balance enquiry
+    const balEnquiry = 'Dear Customer, Your A/C XX1234 balance is Rs. 45,231.50 as on 20-Aug-2026. Thank you for banking with State Bank of India.';
+    expect(parseEmailAlertSnippet(balEnquiry, 'alerts@sbi.co.in')).toBeNull();
+
+    // 8. Mini-statement
+    const miniStatement = 'Dear Customer, Mini statement for your A/C XX9876: Last 5 transactions details...';
+    expect(parseEmailAlertSnippet(miniStatement, 'alerts@hdfcbank.net')).toBeNull();
+
+    // 9. Card activation
+    const cardActivated = 'Congratulations! Your HDFC Bank Credit Card ending 9876 has been activated successfully. Enjoy exclusive benefits.';
+    expect(parseEmailAlertSnippet(cardActivated, 'alerts@hdfcbank.net')).toBeNull();
+
+    // 10. Reward points summary
+    const rewardPoints = 'Dear Customer, You have earned 500 reward points on your recent transaction. Total reward points earned: 2,450.';
+    expect(parseEmailAlertSnippet(rewardPoints, 'alerts@icicibank.com')).toBeNull();
+  });
+
+  it('should parse SBI Credit Card spend alert', () => {
+    const text = 'Your SBI Card ending 5678 has been used for a transaction of Rs. 1,299.00 at MYNTRA on 20-Aug-2026. Ref: TXN98765432. Available Credit Limit: Rs. 85,000.00.';
+    const result = parseEmailAlertSnippet(text, 'alerts@sbicard.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('State Bank of India');
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('5678');
+    expect(result?.type).toBe('DEBIT');
+    expect(result?.amountDisplay).toBe(1299);
+    expect(result?.amountMinor).toBe(-129900n);
+    expect(result?.merchant).toBe('MYNTRA');
+    expect(result?.referenceNumber).toBe('TXN98765432');
+  });
+
+  it('should parse Kotak Mahindra Bank debit alert', () => {
+    const text = 'Dear Customer, INR 850.00 debited from your Kotak Bank A/c XX4567 on 20/08/26 towards SWIGGY. Available Bal: INR 24,500.00. Ref: 100000000105.';
+    const result = parseEmailAlertSnippet(text, 'alerts@kotak.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('Kotak Mahindra Bank');
+    expect(result?.accountType).toBe('BANK');
+    expect(result?.accountLast4).toBe('4567');
+    expect(result?.type).toBe('DEBIT');
+    expect(result?.amountDisplay).toBe(850);
+    expect(result?.amountMinor).toBe(-85000n);
+    expect(result?.merchant).toBe('SWIGGY');
+    expect(result?.referenceNumber).toBe('100000000105');
+  });
+
+  it('should parse IDFC First Bank transaction alert with BigBasket merchant', () => {
+    const text = 'Transaction alert: INR 2,100.00 debited from IDFC First Bank A/C ending 3456 at BIGBASKET on 18-08-2026. Ref: 100000000106.';
+    const result = parseEmailAlertSnippet(text, 'alerts@idfcfirstbank.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('IDFC First Bank');
+    expect(result?.accountType).toBe('BANK');
+    expect(result?.accountLast4).toBe('3456');
+    expect(result?.type).toBe('DEBIT');
+    expect(result?.amountDisplay).toBe(2100);
+    expect(result?.amountMinor).toBe(-210000n);
+    expect(result?.merchant).toBe('BIGBASKET');
+    expect(result?.referenceNumber).toBe('100000000106');
+  });
+
+  it('should parse Punjab National Bank debit alert', () => {
+    const text = 'Dear Customer, Rs. 500.00 has been debited from your PNB A/C XX2345 to VPA paytm-urbancompany@ptybl on 19-08-2026. Ref: 100000000107.';
+    const result = parseEmailAlertSnippet(text, 'alerts@pnb.co.in');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('Punjab National Bank');
+    expect(result?.accountType).toBe('BANK');
+    expect(result?.accountLast4).toBe('2345');
+    expect(result?.type).toBe('DEBIT');
+    expect(result?.amountDisplay).toBe(500);
+    expect(result?.amountMinor).toBe(-50000n);
+    expect(result?.merchant).toBe('URBAN COMPANY');
+    expect(result?.referenceNumber).toBe('100000000107');
+  });
+
+  it('should parse NEFT/IMPS credit transaction with sender name', () => {
+    const text = 'NEFT CR: INR 50,000.00 credited to your HDFC Bank A/c **1234 from JOHN DOE. NEFT Ref: HDFC123456789 on 19-08-2026.';
+    const result = parseEmailAlertSnippet(text, 'alerts@hdfcbank.net');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('HDFC Bank');
+    expect(result?.accountType).toBe('BANK');
+    expect(result?.accountLast4).toBe('1234');
+    expect(result?.type).toBe('CREDIT');
+    expect(result?.amountDisplay).toBe(50000);
+    expect(result?.amountMinor).toBe(5000000n);
+    expect(result?.merchant).toBe('JOHN DOE');
+    expect(result?.referenceNumber).toBe('HDFC123456789');
+  });
+
+  it('should parse recurring auto-debit / mandate alert', () => {
+    const text = 'Auto debit of INR 499.00 processed on your ICICI Bank Credit Card XX0001 towards NETFLIX on 20-Aug-2026. Available Limit: INR 90,000.00.';
+    const result = parseEmailAlertSnippet(text, 'credit_cards@icicibank.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('ICICI Bank');
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('0001');
+    expect(result?.type).toBe('DEBIT');
+    expect(result?.amountDisplay).toBe(499);
+    expect(result?.amountMinor).toBe(-49900n);
+    expect(result?.merchant).toBe('NETFLIX');
+  });
+
+  it('should parse HTML entity &#8377; in amount string gracefully', () => {
+    const text = 'Dear Customer, &#8377;1,500.00 has been debited from your HDFC Bank account **1234 to VPA paytm-swiggy@ptybl on 18-08-2026. Ref: 100000000108.';
+    const result = parseEmailAlertSnippet(text, 'alerts@hdfcbank.net');
+
+    expect(result).not.toBeNull();
+    expect(result?.amountDisplay).toBe(1500);
+    expect(result?.amountMinor).toBe(-150000n);
+    expect(result?.merchant).toBe('SWIGGY');
+  });
+
+  it('should canonicalize extended merchant brands correctly', () => {
+    const brands = [
+      { raw: 'at OLA CABS BANGALORE on 15-08-2026', expected: 'OLA' },
+      { raw: 'at RAPIDO TRANSPORT on 15-08-2026', expected: 'RAPIDO' },
+      { raw: 'towards DUNZO SERVICES on 15-08-2026', expected: 'DUNZO' },
+      { raw: 'at LENSKART PLUS on 15-08-2026', expected: 'LENSKART' },
+      { raw: 'at AJIO FASHIONS on 15-08-2026', expected: 'AJIO' },
+      { raw: 'at MEESHO ONLINE on 15-08-2026', expected: 'MEESHO' },
+      { raw: 'at SWIGGY INSTAMART on 15-08-2026', expected: 'SWIGGY INSTAMART' },
+      { raw: 'to VPA phonepe@icici on 15-08-2026', expected: 'PHONEPE' },
+      { raw: 'to VPA googlepay@axis on 15-08-2026', expected: 'GOOGLE PAY' },
+    ];
+
+    for (const b of brands) {
+      const text = `Dear Customer, INR 250.00 debited from A/c XX1234 ${b.raw}. Ref: 1234567890.`;
+      const parsed = parseEmailAlertSnippet(text);
+      expect(parsed?.merchant).toBe(b.expected);
+    }
   });
 });

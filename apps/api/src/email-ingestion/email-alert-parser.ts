@@ -50,6 +50,11 @@ export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
   '(?:unlock.*(?:voucher|reward|cashback|exciting)|gift card, with|enjoy.*cashback on your next|special offer|pre-approved|apply now|upgrade your card|file your taxes|guide to smart credit card|switch to faster|complimentary voucher|rewards? on your.*credit card)',
   '(?:up\\s+to\\s*(?:rs\\.?|inr|₹|&#8377;)?\\s*[\\d,]+\\s*(?:off|cashback|discount|voucher|rewards?)|\\b\\d+%\\s*off|\\bflat\\s+(?:rs\\.?|inr|₹|&#8377;)?\\s*[\\d,]+\\s*off|\\boff\\s+on\\b)',
   '(?:avail\\s*(?:now|offer|discount|cashback)|exciting\\s*offer|exclusive\\s*offer|great\\s*offer|limited\\s*period\\s*offer|save\\s+up\\s+to|get\\s+up\\s+to|instant\\s+discount|discount\\s+on|discounts\\s+on|cashback\\s+offer)',
+  '(?:earned\\s+\\d+\\s+reward\\s+points|reward\\s+points\\s+summary|total\\s+reward\\s+points\\s+earned|reward\\s+points\\s+credited)',
+  // Card activations & PIN generation
+  '(?:card\\s+(?:has\s+been\s+)?activated|congratulations.*card.*activated|welcome\\s+to.*credit\\s*card|pin\\s+generated|generate\\s+(?:green\\s*)?pin)',
+  // Balance enquiry & mini-statements
+  '(?:your\\s+(?:a\\/c|account|card)\\s+balance\\s+is|available\\s+balance\\s+is|a\\/c\\s+bal\\s+is|balance\\s+enquiry|mini\\s*statement|last\\s+\\d+\\s+transactions)',
   // OTPs & Authentication emails
   '(?:one time password|\\botp\\b|authentication code|secret code)',
   // Statement notifications & monthly summary bills
@@ -58,7 +63,7 @@ export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
   '(?:declined|transaction declined|payment failed|unsuccessful transaction)'
 ].join('|'), 'i');
 
-export const EXPLICIT_TRANSACTION_INDICATOR_REGEX = /\b(?:debited|credited|spent|charged|used\s+for|used\s+at|purchase\s+of|payment\s+of|withdrawn|received|deposited|refund\s+of|transfer\s+of|amount\s+debited|amount\s+credited|transaction\s*(?:on|amount|of|for|info|details|summary)?|processed\s+for|successful\s+transaction|paid\s+to|paid\s+for|txn\s*(?:of|on|amount)?)\b/i;
+export const EXPLICIT_TRANSACTION_INDICATOR_REGEX = /\b(?:debited|credited|spent|charged|used\s+for|used\s+at|purchase\s+of|payment\s+of|withdrawn|received|deposited|refund\s+of|transfer\s+of|amount\s+debited|amount\s+credited|transaction\s*(?:on|amount|of|for|info|details|summary)?|processed\s+for|successful\s+transaction|paid\s+to|paid\s+for|txn\s*(?:of|on|amount)?|auto\s*debit(?:ed)?|mandate|standing\s*instruction|si\s*debit)\b/i;
 
 export const PROMOTIONAL_SENDER_REGEX = /offers@|deals@|marketing@|promo@|newsletter@|campaign@|digital\.axisbankmail|statements?@/i;
 

@@ -505,6 +505,9 @@ export class GoogleGmailService {
       .replace(/&#39;/gi, "'")
       .replace(/&lt;/gi, '<')
       .replace(/&gt;/gi, '>')
+      .replace(/&#8377;?/gi, '₹')
+      .replace(/&#x20B9;?/gi, '₹')
+      .replace(/&inr;?/gi, '₹')
       .replace(/\s+/g, ' ')
       .trim();
   }
