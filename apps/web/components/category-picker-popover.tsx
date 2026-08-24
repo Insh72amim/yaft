@@ -77,18 +77,19 @@ export function CategoryPickerPopover({
   return (
     <div
       ref={popoverRef}
+      className="category-picker-popover"
       style={{
         position: "absolute",
         top: "calc(100% + 4px)",
         ...(align === "right" ? { right: 0 } : { left: 0 }),
-        zIndex: 200,
+        zIndex: 1000,
         width: "250px",
         maxHeight: "340px",
         overflowY: "auto",
-        background: "var(--card)",
+        backgroundColor: "var(--card, #ffffff)",
         border: "1px solid var(--line)",
         borderRadius: "12px",
-        boxShadow: "0 12px 32px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.15)",
+        boxShadow: "0 16px 40px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.15)",
         padding: "8px",
         display: "flex",
         flexDirection: "column",
@@ -99,9 +100,9 @@ export function CategoryPickerPopover({
         style={{
           position: "sticky",
           top: 0,
-          background: "var(--card)",
+          backgroundColor: "var(--card, #ffffff)",
           paddingBottom: "6px",
-          zIndex: 2,
+          zIndex: 10,
         }}>
         <div
           style={{

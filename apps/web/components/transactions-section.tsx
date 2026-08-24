@@ -1720,8 +1720,12 @@ export function TransactionsSection({
 
               {data.transactions.map((tx) => {
                 const isDebit = tx.amount < 0;
+                const isPopoverOpen = editingTxCatId === tx.id;
                 return (
-                  <article key={tx.id} className="transaction-row">
+                  <article
+                    key={tx.id}
+                    className={`transaction-row ${isPopoverOpen ? "has-popover-open" : ""}`}
+                    style={{ position: "relative", zIndex: isPopoverOpen ? 100 : 1 }}>
                     {showCategoryEdit && (
                       <div
                         style={{
@@ -1908,7 +1912,7 @@ export function TransactionsSection({
                       {tx.details && <small>{tx.details}</small>}
                     </div>
 
-                    <div className="transaction-category-cell" style={{ position: "relative" }}>
+                    <div className="transaction-category-cell" style={{ position: "relative", zIndex: isPopoverOpen ? 100 : 1 }}>
                       <button
                         type="button"
                         className="transaction-cat-btn"

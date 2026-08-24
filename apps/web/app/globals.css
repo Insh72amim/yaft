@@ -287,12 +287,12 @@ html[data-theme='dark'] .account-transaction-table > header {
 .account-transaction-table > article {
   padding: 16px 25px;
   border-top: 1px solid var(--line);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   background: var(--card);
+  position: relative;
 }
 .account-transaction-table > article:hover {
   background: rgba(23, 79, 59, 0.02) !important;
-  transform: translateX(4px);
   border-color: rgba(23, 79, 59, 0.12);
   box-shadow: inset 3px 0 0 var(--green);
 }
@@ -300,6 +300,10 @@ html[data-theme='dark'] .account-transaction-table > article:hover {
   background: rgba(118, 207, 165, 0.03) !important;
   border-color: rgba(118, 207, 165, 0.15);
   box-shadow: inset 3px 0 0 var(--green);
+}
+.account-transaction-table > article.has-popover-open,
+.account-transaction-table > article:has(.category-picker-popover) {
+  z-index: 100 !important;
 }
 .transaction-time-cell {
   display: flex;

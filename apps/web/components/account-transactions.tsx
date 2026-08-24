@@ -663,17 +663,22 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
             <span style={{ textAlign: 'right' }}>Amount</span>
             {account.type === 'EPFO' && <span style={{ textAlign: 'center' }}>Action</span>}
           </header>
-          {transactions.map((transaction) => (
-            <article key={transaction.id} className="transaction-row">
-              <time className="transaction-time-cell">
-                <span className="date-text">{new Date(transaction.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
-                <span className="time-text">{new Date(transaction.transactionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })}</span>
-              </time>
-              <div className="transaction-description-cell">
-                <strong>{transaction.description}</strong>
-                <small>{transaction.details || (transaction.postedDate ? `Posted ${new Date(transaction.postedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}` : 'Ledger transaction')}</small>
-              </div>
-              <div className="transaction-category-cell" style={{ position: 'relative' }}>
+          {transactions.map((transaction) => {
+            const isPopoverOpen = editingTxCatId === transaction.id;
+            return (
+              <article
+                key={transaction.id}
+                className={`transaction-row ${isPopoverOpen ? "has-popover-open" : ""}`}
+                style={{ position: "relative", zIndex: isPopoverOpen ? 100 : 1 }}>
+                <time className="transaction-time-cell">
+                  <span className="date-text">{new Date(transaction.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
+                  <span className="time-text">{new Date(transaction.transactionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })}</span>
+                </time>
+                <div className="transaction-description-cell">
+                  <strong>{transaction.description}</strong>
+                  <small>{transaction.details || (transaction.postedDate ? `Posted ${new Date(transaction.postedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}` : 'Ledger transaction')}</small>
+                </div>
+                <div className="transaction-category-cell" style={{ position: 'relative', zIndex: isPopoverOpen ? 100 : 1 }}>
                 <button
                   type="button"
                   className="transaction-cat-btn"
@@ -738,7 +743,8 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                 </button>
               )}
             </article>
-          ))}
+            );
+          })}
         </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>{account.type === 'EPFO' ? 'Add a manual transaction to populate the ledger.' : 'No transactions recorded for this account.'}</p></div>}
         {pagination.pages > 1 && <footer className="ledger-pagination"><button className="secondary" disabled={pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}><ArrowLeft/>Previous</button><span>Page {pagination.page} of {pagination.pages}</span><button className="secondary" disabled={pagination.page >= pagination.pages} onClick={() => goToPage(pagination.page + 1)}>Next<ArrowRight/></button></footer>}
       </section>
