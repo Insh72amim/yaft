@@ -247,7 +247,7 @@ export function EnvelopesTab({
 
   // Expense categories list
   const expenseCategories = useMemo(
-    () => categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE"),
+    () => (categories || []).filter((c) => (c?.type || "EXPENSE") === "EXPENSE"),
     [categories],
   );
 
@@ -258,8 +258,9 @@ export function EnvelopesTab({
     let ok = 0;
     let noLimit = 0;
 
-    for (const cat of expenseCategories) {
-      const budget = budgets.find((b) => b.categoryId === cat.id);
+    for (const cat of expenseCategories || []) {
+      if (!cat) continue;
+      const budget = (budgets || []).find((b) => b?.categoryId === cat.id);
       if (!budget || !budget.hasBudget) {
         noLimit++;
       } else if (budget.status === "EXCEEDED") {
@@ -270,13 +271,14 @@ export function EnvelopesTab({
         ok++;
       }
     }
-    return { exceeded, warning, ok, noLimit, total: expenseCategories.length };
+    return { exceeded, warning, ok, noLimit, total: (expenseCategories || []).length };
   }, [expenseCategories, budgets]);
 
   // Filtered expense categories based on search query and status pill
   const filteredExpenseCategories = useMemo(() => {
-    return expenseCategories.filter((cat) => {
-      const budget = budgets.find((b) => b.categoryId === cat.id);
+    return (expenseCategories || []).filter((cat) => {
+      if (!cat) return false;
+      const budget = (budgets || []).find((b) => b?.categoryId === cat.id);
       const status = budget ? budget.status : "NO_LIMIT";
 
       if (categoryStatusFilter !== "ALL") {
@@ -286,9 +288,9 @@ export function EnvelopesTab({
         if (categoryStatusFilter === "NO_LIMIT" && budget?.hasBudget) return false;
       }
 
-      if (categorySearch.trim()) {
+      if (categorySearch && categorySearch.trim()) {
         const q = categorySearch.toLowerCase().trim();
-        return cat.name.toLowerCase().includes(q);
+        return (cat.name || "").toLowerCase().includes(q);
       }
 
       return true;
@@ -298,21 +300,21 @@ export function EnvelopesTab({
   // Inspected category details
   const inspectedCategory = useMemo(() => {
     if (inspectedCategoryId === "all") return null;
-    return categories.find((c) => c.id === inspectedCategoryId) || null;
+    return (categories || []).find((c) => c?.id === inspectedCategoryId) || null;
   }, [categories, inspectedCategoryId]);
 
   const inspectedBudget = useMemo(() => {
     if (inspectedCategoryId === "all") return null;
-    return budgets.find((b) => b.categoryId === inspectedCategoryId) || null;
+    return (budgets || []).find((b) => b?.categoryId === inspectedCategoryId) || null;
   }, [budgets, inspectedCategoryId]);
 
   // Filtered transactions based on local search
   const filteredTransactions = useMemo(() => {
-    if (!txSearch.trim()) return transactions;
+    if (!txSearch || !txSearch.trim()) return transactions || [];
     const q = txSearch.toLowerCase().trim();
-    return transactions.filter(
+    return (transactions || []).filter(
       (t) =>
-        t.description.toLowerCase().includes(q) ||
+        (t.description || "").toLowerCase().includes(q) ||
         (t.merchant && t.merchant.toLowerCase().includes(q)) ||
         (t.accountName && t.accountName.toLowerCase().includes(q)),
     );
@@ -752,7 +754,7 @@ export function EnvelopesTab({
                 padding: "6px 14px",
                 borderRadius: "8px",
               }}>
-              View All Expenses ({summary.totalSpent ? money(summary.totalSpent * 100) : "₹0"})
+              View All Expenses ({summary?.totalSpent ? money(summary.totalSpent * 100) : "₹0"})
             </button>
           </div>
         </div>
@@ -913,14 +915,17 @@ export function EnvelopesTab({
             gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
             gap: "12px",
           }}>
-          {filteredExpenseCategories.map((cat) => {
-            const budget = budgets.find((b) => b.categoryId === cat.id);
-            const spent = budget ? budget.spentAmount : 0;
-            const limit = budget ? budget.monthlyLimit : 0;
-            const pct = budget ? budget.percentage : 0;
-            const status = budget ? budget.status : "NO_LIMIT";
-            const txCount = budget ? budget.transactionCount : 0;
+          {(filteredExpenseCategories || []).map((cat) => {
+            if (!cat) return null;
+            const budget = (budgets || []).find((b) => b?.categoryId === cat.id);
+            const spent = budget?.spentAmount ?? 0;
+            const limit = budget?.monthlyLimit ?? 0;
+            const pct = budget?.percentage ?? 0;
+            const status = budget?.status ?? "NO_LIMIT";
+            const txCount = budget?.transactionCount ?? 0;
             const isSelected = inspectedCategoryId === cat.id;
+            const catColor = cat.color || "#3b82f6";
+            const catName = cat.name || "Unnamed Category";
 
             return (
               <div
@@ -977,10 +982,10 @@ export function EnvelopesTab({
                         width: "10px",
                         height: "10px",
                         borderRadius: "50%",
-                        background: cat.color,
+                        background: catColor,
                         display: "inline-block",
                         flexShrink: 0,
-                        boxShadow: `0 0 6px ${cat.color}55`,
+                        boxShadow: `0 0 6px ${catColor}55`,
                       }}
                     />
                     <strong
@@ -992,7 +997,7 @@ export function EnvelopesTab({
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                       }}>
-                      {cat.name}
+                      {catName}
                     </strong>
                     <span
                       style={{
@@ -1016,12 +1021,12 @@ export function EnvelopesTab({
                       title={budget && budget.hasBudget ? "Edit Target Limit" : "Set Target Limit"}
                       onClick={() => {
                         setEditingCategory(cat);
-                        setEditCatName(cat.name);
+                        setEditCatName(cat.name || "");
                         setEditCatType((cat.type as any) || "EXPENSE");
                         setEditCatColor(cat.color || "#3b82f6");
                         setEditCatBudgetLimit(
                           budget && budget.hasBudget
-                            ? String(budget.monthlyLimit)
+                            ? String(budget.monthlyLimit || "")
                             : "",
                         );
                       }}
@@ -1111,7 +1116,7 @@ export function EnvelopesTab({
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingCategory(cat);
-                          setEditCatName(cat.name);
+                          setEditCatName(cat.name || "");
                           setEditCatType((cat.type as any) || "EXPENSE");
                           setEditCatColor(cat.color || "#3b82f6");
                           setEditCatBudgetLimit("");
@@ -1144,7 +1149,7 @@ export function EnvelopesTab({
                       <div
                         style={{
                           height: "100%",
-                          width: `${Math.min(100, pct)}%`,
+                          width: `${Math.min(100, Math.max(0, pct))}%`,
                           background:
                             status === "EXCEEDED"
                               ? "#ef4444"
@@ -1180,10 +1185,10 @@ export function EnvelopesTab({
                         fontWeight: 600,
                       }}>
                       {status === "EXCEEDED"
-                        ? `Over budget by ${money((spent - limit) * 100)}`
+                        ? `Over budget by ${money(((spent || 0) - (limit || 0)) * 100)}`
                         : status === "WARNING"
-                        ? `Near ceiling (${money((limit - spent) * 100)} left)`
-                        : `${money((limit - spent) * 100)} remaining`}
+                        ? `Near ceiling (${money(((limit || 0) - (spent || 0)) * 100)} left)`
+                        : `${money(((limit || 0) - (spent || 0)) * 100)} remaining`}
                     </span>
                   ) : (
                     <span style={{ color: "var(--muted)", fontSize: "11px" }}>
