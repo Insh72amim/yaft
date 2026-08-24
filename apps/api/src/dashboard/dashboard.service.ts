@@ -40,7 +40,11 @@ export class DashboardService {
         transactionDate: { gte: start, lt: end },
       },
       include: {
-        category: true,
+        category: {
+          include: {
+            superCategory: true,
+          },
+        },
         account: { select: { id: true, name: true, type: true, institution: true } },
       },
       orderBy: { transactionDate: 'desc' },
@@ -48,7 +52,8 @@ export class DashboardService {
 
     const isInternalTransfer = (tx: (typeof monthTransactions)[0]) => {
       if (tx.transferGroupId) return true;
-      if (tx.category?.type === 'TRANSFER' || (tx.category?.name && /transfer|cc transfer/i.test(tx.category.name))) return true;
+      if (tx.category?.type === 'TRANSFER' || tx.category?.superCategory?.kind === 'TRANSFER') return true;
+      if (tx.category?.name && /^\s*(?:self\s*transfer|internal\s*transfer|transfer|trf)\s*$/i.test(tx.category.name)) return true;
 
       const desc = tx.descriptionRaw.toLowerCase();
       if (/self\s*tra|tcd\s*no|firdftfr|own\s*acc|self\s*transfer|trf\s*to/i.test(desc)) {
@@ -60,6 +65,38 @@ export class DashboardService {
           return true;
         }
       }
+      return false;
+    };
+
+    const isCCPayment = (tx: (typeof monthTransactions)[0], destAcc?: { type?: string }) => {
+      if (destAcc?.type === 'CREDIT_CARD') return true;
+      if (tx.category?.name && /^\s*(?:cc\s*transfer|credit\s*card\s*payment|cc\s*payment)\s*$/i.test(tx.category.name)) return true;
+      const desc = tx.descriptionRaw.toLowerCase();
+      return /cred\.club|cred\s+rent|cred\s+pay|credit\s*card\s*payment|cc\s*bill|billdesk.*card|payment\s*to\s*card/i.test(desc);
+    };
+
+    const isInvestment = (tx: (typeof monthTransactions)[0]) => {
+      if (tx.category?.type === 'INVESTMENT' || tx.category?.superCategory?.kind === 'INVESTMENT') return true;
+      if (tx.category?.name && /invest|mutual|sip|stock|broker|equity|zerodha|groww|etmoney/i.test(tx.category.name)) return true;
+      const matchesSip = activeSips.some((sip: any) => {
+        const accountMatch = !sip.sourceAccountId || sip.sourceAccountId === tx.accountId;
+        const descLower = tx.descriptionRaw.toLowerCase();
+        const merchantLower = (tx.merchant || '').toLowerCase();
+        const keywordMatch =
+          (sip.billerKeyword && descLower.includes(sip.billerKeyword.toLowerCase())) ||
+          (sip.name && descLower.includes(sip.name.toLowerCase())) ||
+          (sip.destinationAccount && descLower.includes(sip.destinationAccount.toLowerCase())) ||
+          (sip.name && merchantLower.includes(sip.name.toLowerCase()));
+        return accountMatch && keywordMatch;
+      });
+      if (matchesSip) return true;
+      const desc = tx.descriptionRaw.toLowerCase();
+      return /mutual|fund|zerodha|groww|bse|nse|sgb|nps|indiabulls|icici\s*prudential|mf\s*central|razorpay\s*mf|cams|kfintech/i.test(desc);
+    };
+
+    const isOtherObligation = (tx: (typeof monthTransactions)[0]) => {
+      if (tx.category?.type === 'OTHER' || tx.category?.superCategory?.kind === 'OTHER') return true;
+      if (tx.category?.name && /loan|emi|tax|penalty|bank\s*charge|annual\s*fee/i.test(tx.category.name)) return true;
       return false;
     };
 
@@ -77,20 +114,6 @@ export class DashboardService {
       return isRefundOrReversal(tx.descriptionRaw);
     };
 
-    // Savings Accounts Cash Flow
-    const savingsTransactions = monthTransactions.filter((t) => ['SAVINGS', 'BANK'].includes(t.account.type));
-    const savingsNonTransfers = savingsTransactions.filter((t) => !isInternalTransfer(t));
-
-    const savingsNetInbound = savingsNonTransfers
-      .filter((t) => t.amount > 0 && !isRefund(t))
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-
-    const savingsNetOutbound = Math.abs(
-      savingsNonTransfers
-        .filter((t) => t.amount < 0)
-        .reduce((sum, t) => sum + Number(t.amount), 0),
-    );
-
     const savingsAccountsList = accounts.filter((a) => ['SAVINGS', 'BANK'].includes(a.type));
     const savingsMap = new Map<
       string,
@@ -100,11 +123,17 @@ export class DashboardService {
         type: string;
         institution: string | null;
         externalInbound: number;
-        externalOutbound: number;
-        creditCardPayments: number;
-        investments: number;
         internalInbound: number;
+        expenses: number;
+        investments: number;
+        other: number;
+        creditCardPayments: number;
         internalOutbound: number;
+        expenseCategories: Map<string, { name: string; color: string; amount: number }>;
+        investmentCategories: Map<string, { name: string; color: string; amount: number }>;
+        otherCategories: Map<string, { name: string; color: string; amount: number }>;
+        ccCategories: Map<string, { name: string; color: string; amount: number }>;
+        internalCategories: Map<string, { name: string; color: string; amount: number }>;
       }
     >();
 
@@ -115,13 +144,25 @@ export class DashboardService {
         type: acc.type,
         institution: acc.institution,
         externalInbound: 0,
-        externalOutbound: 0,
-        creditCardPayments: 0,
-        investments: 0,
         internalInbound: 0,
+        expenses: 0,
+        investments: 0,
+        other: 0,
+        creditCardPayments: 0,
         internalOutbound: 0,
+        expenseCategories: new Map(),
+        investmentCategories: new Map(),
+        otherCategories: new Map(),
+        ccCategories: new Map(),
+        internalCategories: new Map(),
       });
     });
+
+    const overallExpenseCategories = new Map<string, { name: string; color: string; amount: number }>();
+    const overallInvestmentCategories = new Map<string, { name: string; color: string; amount: number }>();
+    const overallOtherCategories = new Map<string, { name: string; color: string; amount: number }>();
+    const overallCcCategories = new Map<string, { name: string; color: string; amount: number }>();
+    const overallInternalCategories = new Map<string, { name: string; color: string; amount: number }>();
 
     const internalTransfersList: Array<{
       fromAccountId: string;
@@ -131,6 +172,11 @@ export class DashboardService {
       toAccountType?: string;
       amount: number;
     }> = [];
+
+    const addCatAmt = (map: Map<string, { name: string; color: string; amount: number }>, name: string, color: string, amt: number) => {
+      const existing = map.get(name) || { name, color, amount: 0 };
+      map.set(name, { name, color, amount: existing.amount + amt });
+    };
 
     monthTransactions.forEach((tx) => {
       const accFlow = savingsMap.get(tx.accountId);
@@ -162,10 +208,13 @@ export class DashboardService {
         }
 
         const destAcc = destAccountId ? accounts.find((a) => a.id === destAccountId) : undefined;
-        const isCCCategory = Boolean(tx.category?.name && /^\s*cc transfer\s*$/i.test(tx.category.name));
+        const catName = tx.category?.name ?? 'Uncategorised';
+        const catColor = tx.category?.color ?? '#94a3b8';
 
-        if (isCCCategory) {
+        if (isCCPayment(tx, destAcc)) {
           accFlow.creditCardPayments += amt;
+          addCatAmt(accFlow.ccCategories, catName, catColor, amt);
+          addCatAmt(overallCcCategories, catName, catColor, amt);
           if (destAcc) {
             internalTransfersList.push({
               fromAccountId: tx.accountId,
@@ -178,6 +227,8 @@ export class DashboardService {
           }
         } else if (internal) {
           accFlow.internalOutbound += amt;
+          addCatAmt(accFlow.internalCategories, catName, catColor, amt);
+          addCatAmt(overallInternalCategories, catName, catColor, amt);
           if (destAcc) {
             internalTransfersList.push({
               fromAccountId: tx.accountId,
@@ -188,54 +239,146 @@ export class DashboardService {
               amount: amt,
             });
           }
+        } else if (isInvestment(tx)) {
+          accFlow.investments += amt;
+          addCatAmt(accFlow.investmentCategories, catName, catColor, amt);
+          addCatAmt(overallInvestmentCategories, catName, catColor, amt);
+        } else if (isOtherObligation(tx)) {
+          accFlow.other += amt;
+          addCatAmt(accFlow.otherCategories, catName, catColor, amt);
+          addCatAmt(overallOtherCategories, catName, catColor, amt);
         } else {
-          const matchesSip = activeSips.some((sip: any) => {
-            const accountMatch = !sip.sourceAccountId || sip.sourceAccountId === tx.accountId;
-            const descLower = tx.descriptionRaw.toLowerCase();
-            const merchantLower = (tx.merchant || '').toLowerCase();
-            const keywordMatch =
-              (sip.billerKeyword && descLower.includes(sip.billerKeyword.toLowerCase())) ||
-              (sip.name && descLower.includes(sip.name.toLowerCase())) ||
-              (sip.destinationAccount && descLower.includes(sip.destinationAccount.toLowerCase())) ||
-              (sip.name && merchantLower.includes(sip.name.toLowerCase()));
-            return accountMatch && keywordMatch;
-          });
-
-          const isInvestmentCategory = tx.category?.name && /INVEST|MUTUAL|SIP|STOCK|BROKER/i.test(tx.category.name);
-          const isInvestmentKeyword = /MUTUAL|FUND|ZERODHA|GROWW|BSE|NSE|SGB|NPS|INDIABULLS|ICICI PRUDENTIAL|MF CENTRAL|RAZORPAY MF|SIP/i.test(tx.descriptionRaw);
-
-          if (matchesSip || isInvestmentCategory || isInvestmentKeyword) {
-            accFlow.investments += amt;
-          } else {
-            accFlow.externalOutbound += amt;
-          }
+          accFlow.expenses += amt;
+          addCatAmt(accFlow.expenseCategories, catName, catColor, amt);
+          addCatAmt(overallExpenseCategories, catName, catColor, amt);
         }
       }
     });
 
-    const totalCreditCardPayments = [...savingsMap.values()].reduce((sum, acc) => sum + acc.creditCardPayments, 0);
+    const totalExternalInbound = [...savingsMap.values()].reduce((sum, acc) => sum + acc.externalInbound, 0);
+    const totalInternalInbound = [...savingsMap.values()].reduce((sum, acc) => sum + acc.internalInbound, 0);
+    const totalExpenses = [...savingsMap.values()].reduce((sum, acc) => sum + acc.expenses, 0);
     const totalInvestments = [...savingsMap.values()].reduce((sum, acc) => sum + acc.investments, 0);
+    const totalOther = [...savingsMap.values()].reduce((sum, acc) => sum + acc.other, 0);
+    const totalCreditCardPayments = [...savingsMap.values()].reduce((sum, acc) => sum + acc.creditCardPayments, 0);
+    const totalInternalTransfers = [...savingsMap.values()].reduce((sum, acc) => sum + acc.internalOutbound, 0);
+
+    const totalCleanOutbound = totalExpenses + totalInvestments + totalOther;
+    const totalAllOutbound = totalCleanOutbound + totalCreditCardPayments + totalInternalTransfers;
+
+    const overallSupergroups = [
+      {
+        id: 'EXPENSES',
+        name: 'Living Expenses',
+        kind: 'EXPENSE',
+        color: '#ef4444',
+        amount: totalExpenses,
+        categories: [...overallExpenseCategories.values()].sort((a, b) => b.amount - a.amount),
+      },
+      {
+        id: 'INVESTMENTS',
+        name: 'Investments',
+        kind: 'INVESTMENT',
+        color: '#8b5cf6',
+        amount: totalInvestments,
+        categories: [...overallInvestmentCategories.values()].sort((a, b) => b.amount - a.amount),
+      },
+      {
+        id: 'OTHER',
+        name: 'Loans & Obligations',
+        kind: 'OTHER',
+        color: '#f59e0b',
+        amount: totalOther,
+        categories: [...overallOtherCategories.values()].sort((a, b) => b.amount - a.amount),
+      },
+      {
+        id: 'CC_PAYMENTS',
+        name: 'Credit Card Payments',
+        kind: 'TRANSFER',
+        color: '#10b981',
+        amount: totalCreditCardPayments,
+        categories: [...overallCcCategories.values()].sort((a, b) => b.amount - a.amount),
+      },
+      {
+        id: 'INTERNAL_TRANSFERS',
+        name: 'Internal Transfers',
+        kind: 'TRANSFER',
+        color: '#3b82f6',
+        amount: totalInternalTransfers,
+        categories: [...overallInternalCategories.values()].sort((a, b) => b.amount - a.amount),
+      },
+    ];
 
     const accountDetailedFlows = [...savingsMap.values()].map((acc) => {
-      const accountTxs = monthTransactions.filter((t) => t.accountId === acc.id && t.amount < 0);
-      const totalOutboundAmt = acc.externalOutbound + acc.creditCardPayments + acc.investments + acc.internalOutbound;
+      const cleanOutbound = acc.expenses + acc.investments + acc.other;
+      const totalOutboundAmt = cleanOutbound + acc.creditCardPayments + acc.internalOutbound;
 
-      const categoryMapAcc = new Map<string, { name: string; color: string; amount: number }>();
-      accountTxs.forEach((t) => {
-        const name = t.category?.name ?? 'Uncategorised';
-        const color = t.category?.color ?? '#94a3b8';
-        const amt = Math.abs(Number(t.amount));
-        const current = categoryMapAcc.get(name) || { name, color, amount: 0 };
-        categoryMapAcc.set(name, { name, color, amount: current.amount + amt });
-      });
+      const accountSupergroups = [
+        {
+          id: 'EXPENSES',
+          name: 'Living Expenses',
+          kind: 'EXPENSE',
+          color: '#ef4444',
+          amount: acc.expenses,
+          categories: [...acc.expenseCategories.values()].sort((a, b) => b.amount - a.amount),
+        },
+        {
+          id: 'INVESTMENTS',
+          name: 'Investments',
+          kind: 'INVESTMENT',
+          color: '#8b5cf6',
+          amount: acc.investments,
+          categories: [...acc.investmentCategories.values()].sort((a, b) => b.amount - a.amount),
+        },
+        {
+          id: 'OTHER',
+          name: 'Loans & Obligations',
+          kind: 'OTHER',
+          color: '#f59e0b',
+          amount: acc.other,
+          categories: [...acc.otherCategories.values()].sort((a, b) => b.amount - a.amount),
+        },
+        {
+          id: 'CC_PAYMENTS',
+          name: 'Credit Card Payments',
+          kind: 'TRANSFER',
+          color: '#10b981',
+          amount: acc.creditCardPayments,
+          categories: [...acc.ccCategories.values()].sort((a, b) => b.amount - a.amount),
+        },
+        {
+          id: 'INTERNAL_TRANSFERS',
+          name: 'Internal Transfers',
+          kind: 'TRANSFER',
+          color: '#3b82f6',
+          amount: acc.internalOutbound,
+          categories: [...acc.internalCategories.values()].sort((a, b) => b.amount - a.amount),
+        },
+      ];
 
-      const categories = [...categoryMapAcc.values()]
+      const cleanCategories = [
+        ...acc.expenseCategories.values(),
+        ...acc.investmentCategories.values(),
+        ...acc.otherCategories.values(),
+      ]
+        .map((c) => ({
+          ...c,
+          percentage: cleanOutbound > 0 ? Math.round((c.amount / cleanOutbound) * 100) : 0,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+
+      const allCategories = [
+        ...cleanCategories,
+        ...acc.ccCategories.values(),
+        ...acc.internalCategories.values(),
+      ]
         .map((c) => ({
           ...c,
           percentage: totalOutboundAmt > 0 ? Math.round((c.amount / totalOutboundAmt) * 100) : 0,
         }))
         .sort((a, b) => b.amount - a.amount);
 
+      const accountTxs = monthTransactions.filter((t) => t.accountId === acc.id && t.amount < 0);
       const externalRecipientsMap = new Map<string, { name: string; amount: number; count: number; isInternal: false }>();
       const internalRecipientsMap = new Map<string, { name: string; amount: number; count: number; isInternal: true }>();
       const allRecipientsMap = new Map<string, { name: string; amount: number; count: number; isInternal: boolean }>();
@@ -259,9 +402,7 @@ export class DashboardService {
 
         const destAcc = destAccountId ? accounts.find((a) => a.id === destAccountId) : undefined;
         const isCCCategory = Boolean(t.category?.name && /^\s*cc transfer\s*$/i.test(t.category.name));
-        const internal = isInternalTransfer(t);
-
-        const isInternalFlow = destAcc !== undefined || isCCCategory || internal;
+        const internalFlow = isInternalTransfer(t) || destAcc !== undefined || isCCCategory;
 
         let name = '';
         if (destAcc) {
@@ -272,15 +413,15 @@ export class DashboardService {
           name = extractBeneficiaryName(t.descriptionRaw) || t.merchant || t.descriptionRaw;
         }
 
-        const allCurr = allRecipientsMap.get(name) || { name, amount: 0, count: 0, isInternal: isInternalFlow };
+        const allCurr = allRecipientsMap.get(name) || { name, amount: 0, count: 0, isInternal: internalFlow };
         allRecipientsMap.set(name, {
           name,
           amount: allCurr.amount + amt,
           count: allCurr.count + 1,
-          isInternal: isInternalFlow,
+          isInternal: internalFlow,
         });
 
-        if (isInternalFlow) {
+        if (internalFlow) {
           const currInt = internalRecipientsMap.get(name) || { name, amount: 0, count: 0, isInternal: true };
           internalRecipientsMap.set(name, { name, amount: currInt.amount + amt, count: currInt.count + 1, isInternal: true });
         } else {
@@ -296,22 +437,27 @@ export class DashboardService {
       const topExtSum = topExternalRecipients.reduce((s, r) => s + r.amount, 0);
       const topExtCount = topExternalRecipients.reduce((s, r) => s + r.count, 0);
       const otherExternalOutbound = {
-        amount: Math.max(0, acc.externalOutbound - topExtSum),
+        amount: Math.max(0, cleanOutbound - topExtSum),
         count: Math.max(0, accountTxs.length - topExtCount),
       };
 
       const topIntSum = topInternalRecipients.reduce((s, r) => s + r.amount, 0);
       const topIntCount = topInternalRecipients.reduce((s, r) => s + r.count, 0);
       const otherInternalOutbound = {
-        amount: Math.max(0, (acc.creditCardPayments + acc.investments + acc.internalOutbound) - topIntSum),
+        amount: Math.max(0, (acc.creditCardPayments + acc.internalOutbound) - topIntSum),
         count: Math.max(0, accountTxs.length - topIntCount),
       };
 
       return {
         ...acc,
+        externalOutbound: acc.expenses + acc.other,
+        cleanOutbound,
         totalInbound: acc.externalInbound + acc.internalInbound,
         totalOutbound: totalOutboundAmt,
-        categories,
+        supergroups: accountSupergroups,
+        categories: cleanCategories,
+        cleanCategories,
+        allCategories,
         topRecipients,
         topExternalRecipients,
         otherExternalOutbound,
@@ -320,34 +466,8 @@ export class DashboardService {
       };
     });
 
-    const categoryMapOverall = new Map<
-      string,
-      { name: string; color: string; amount: number }
-    >();
-    monthTransactions.forEach((t) => {
-      if (t.amount >= 0) return;
-      const name = t.category?.name ?? 'Uncategorised';
-      const color = t.category?.color ?? '#94a3b8';
-      const amt = Math.abs(Number(t.amount));
-      const current = categoryMapOverall.get(name) || { name, color, amount: 0 };
-      categoryMapOverall.set(name, { name, color, amount: current.amount + amt });
-    });
-
-    const overallCategories = [...categoryMapOverall.values()].sort((a, b) => b.amount - a.amount);
-    const outboundCategories = overallCategories.filter(
-      (c) => !/cc transfer|invest|mutual|sip|stock|broker/i.test(c.name),
-    );
-    const creditCardCategories = overallCategories.filter((c) => /cc transfer/i.test(c.name));
-    const investmentCategories = overallCategories.filter((c) =>
-      /invest|mutual|sip|stock|broker/i.test(c.name),
-    );
-
-    const totalExternalInbound = [...savingsMap.values()].reduce((sum, acc) => sum + acc.externalInbound, 0);
-    const totalExternalOutbound = [...savingsMap.values()].reduce((sum, acc) => sum + acc.externalOutbound, 0);
-    const totalInternalTransfers = [...savingsMap.values()].reduce((sum, acc) => sum + acc.internalInbound, 0);
-
-    const savings = savingsNetInbound - savingsNetOutbound;
-    const savingsRate = savingsNetInbound > 0 ? Math.round((savings / savingsNetInbound) * 100) : 0;
+    const savings = totalExternalInbound - totalCleanOutbound;
+    const savingsRate = totalExternalInbound > 0 ? Math.round((savings / totalExternalInbound) * 100) : 0;
 
     const mappedAccounts = accounts.map(({ transactions, holdings = [], ...account }) => {
       const isPortfolio = account.type === 'INVESTMENT' || account.type === 'STOCKS';
@@ -375,14 +495,9 @@ export class DashboardService {
       return sum + a.balance;
     }, 0);
 
-    const categoriesMap = new Map<string, { name: string; color: string; amount: number }>();
-    monthTransactions.forEach((t) => {
-      if (t.amount >= 0) return;
-      const name = t.category?.name ?? 'Uncategorised';
-      const color = t.category?.color ?? '#94a3b8';
-      const absAmt = Math.abs(Number(t.amount));
-      const curr = categoriesMap.get(name) || { name, color, amount: 0 };
-      categoriesMap.set(name, { name, color, amount: curr.amount + absAmt });
+    const categoriesMap = new Map<string, { name: string; color: string; amount: number; superGroup?: string }>();
+    [...overallExpenseCategories.values(), ...overallInvestmentCategories.values(), ...overallOtherCategories.values()].forEach((c) => {
+      categoriesMap.set(c.name, c);
     });
     const categories = [...categoriesMap.values()].sort((a, b) => b.amount - a.amount);
 
@@ -400,10 +515,10 @@ export class DashboardService {
       month: labelMonth,
       startDate: start.toISOString().split('T')[0],
       endDate: end.toISOString().split('T')[0],
-      income: savingsNetInbound,
-      expenses: savingsNetOutbound,
-      savingsNetInbound,
-      savingsNetOutbound,
+      income: totalExternalInbound,
+      expenses: totalExpenses + totalOther,
+      savingsNetInbound: totalExternalInbound,
+      savingsNetOutbound: totalCleanOutbound,
       savings,
       savingsRate,
       netWorth,
@@ -415,15 +530,25 @@ export class DashboardService {
         internalTransfers: internalTransfersList,
         overall: {
           totalExternalInbound,
-          totalExternalOutbound,
-          totalCreditCardPayments,
+          totalInternalInbound,
+          totalExternalOutbound: totalExpenses + totalOther,
           totalInvestments,
+          totalCleanOutbound,
+          totalCreditCardPayments,
           totalInternalTransfers,
+          totalAllOutbound,
+          supergroups: overallSupergroups,
           categoryFlow: {
-            outboundCategories,
-            creditCardCategories,
-            investmentCategories,
-            overallCategories,
+            outboundCategories: [...overallExpenseCategories.values(), ...overallOtherCategories.values()].sort((a, b) => b.amount - a.amount),
+            creditCardCategories: [...overallCcCategories.values()].sort((a, b) => b.amount - a.amount),
+            investmentCategories: [...overallInvestmentCategories.values()].sort((a, b) => b.amount - a.amount),
+            overallCategories: [
+              ...overallExpenseCategories.values(),
+              ...overallInvestmentCategories.values(),
+              ...overallOtherCategories.values(),
+              ...overallCcCategories.values(),
+              ...overallInternalCategories.values(),
+            ].sort((a, b) => b.amount - a.amount),
           },
         },
       },

@@ -48,6 +48,15 @@ type TransferSuggestion = {
   credit: { id: string; account: string; amount: number; date: string; description: string };
 };
 
+type SupergroupData = {
+  id: string;
+  name: string;
+  kind: string;
+  color: string;
+  amount: number;
+  categories: Array<{ name: string; color: string; amount: number; percentage?: number }>;
+};
+
 type AccountFlow = {
   accounts: Array<{
     id: string;
@@ -55,13 +64,19 @@ type AccountFlow = {
     type: string;
     institution: string | null;
     externalInbound: number;
+    internalInbound: number;
     externalOutbound: number;
+    cleanOutbound?: number;
+    expenses?: number;
+    other?: number;
     creditCardPayments?: number;
     investments?: number;
-    internalInbound: number;
     internalOutbound: number;
     totalInbound: number;
     totalOutbound: number;
+    supergroups?: SupergroupData[];
+    cleanCategories?: Array<{ name: string; color: string; amount: number; percentage: number }>;
+    allCategories?: Array<{ name: string; color: string; amount: number; percentage: number }>;
     categories?: Array<{ name: string; color: string; amount: number; percentage: number }>;
     topRecipients?: Array<{ name: string; amount: number; count: number; isInternal?: boolean }>;
     topExternalRecipients?: Array<{ name: string; amount: number; count: number; isInternal?: boolean }>;
@@ -79,10 +94,14 @@ type AccountFlow = {
   }>;
   overall: {
     totalExternalInbound: number;
+    totalInternalInbound?: number;
     totalExternalOutbound: number;
     totalCreditCardPayments?: number;
     totalInvestments?: number;
+    totalCleanOutbound?: number;
     totalInternalTransfers: number;
+    totalAllOutbound?: number;
+    supergroups?: SupergroupData[];
     categoryFlow?: {
       outboundCategories: Array<{ name: string; color: string; amount: number }>;
       creditCardCategories: Array<{ name: string; color: string; amount: number }>;
@@ -899,6 +918,8 @@ function MonthlyFlow({
   accountFlow?: AccountFlow;
   dateRangeText?: string;
 }) {
+  const [flowMode, setFlowMode] = useState<'CLEAN' | 'COMPLETE'>('CLEAN');
+
   if (!accountFlow || accountFlow.accounts.length === 0) {
     if (income <= 0) return <Empty text="No income found for this month to generate flow." />;
     return <LegacyMonthlyFlow income={income} expenses={expenses} savings={savings} />;
@@ -906,40 +927,109 @@ function MonthlyFlow({
 
   const { accounts, internalTransfers, overall } = accountFlow;
 
+  const totalOutflowDisplay = flowMode === 'CLEAN'
+    ? (overall.totalCleanOutbound ?? (overall.totalExternalOutbound + (overall.totalInvestments ?? 0)))
+    : (overall.totalAllOutbound ?? (overall.totalExternalOutbound + overall.totalInternalTransfers + (overall.totalCreditCardPayments ?? 0) + (overall.totalInvestments ?? 0)));
+
   return (
     <div style={{ display: 'grid', gap: '24px' }}>
-      {/* Overall Flow Summary Pills */}
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
-          <small style={{ color: '#10b981', display: 'block', fontSize: '11px', fontWeight: 600 }}>Overall External Inbound</small>
-          <strong style={{ fontSize: '16px' }}>{money(overall.totalExternalInbound)}</strong>
-        </div>
-        <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
-          <small style={{ color: '#3b82f6', display: 'block', fontSize: '11px', fontWeight: 600 }}>Internal Transfers Moved</small>
-          <strong style={{ fontSize: '16px' }}>{money(overall.totalInternalTransfers)}</strong>
-        </div>
-        {overall.totalInvestments !== undefined && overall.totalInvestments > 0 && (
-          <div style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
-            <small style={{ color: '#8b5cf6', display: 'block', fontSize: '11px', fontWeight: 600 }}>Investments</small>
-            <strong style={{ fontSize: '16px' }}>{money(overall.totalInvestments)}</strong>
+      {/* Overall Flow Summary Pills & View Switcher */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '8px 14px', borderRadius: '10px', fontSize: '13px' }}>
+            <small style={{ color: '#10b981', display: 'block', fontSize: '10px', fontWeight: 600 }}>External Inbound</small>
+            <strong style={{ fontSize: '15px', color: 'var(--ink)' }}>{money(overall.totalExternalInbound)}</strong>
           </div>
-        )}
-        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px 16px', borderRadius: '10px', fontSize: '13px' }}>
-          <small style={{ color: '#ef4444', display: 'block', fontSize: '11px', fontWeight: 600 }}>Overall External Outbound</small>
-          <strong style={{ fontSize: '16px' }}>{money(overall.totalExternalOutbound)}</strong>
+          {flowMode === 'COMPLETE' && (
+            <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '8px 14px', borderRadius: '10px', fontSize: '13px' }}>
+              <small style={{ color: '#3b82f6', display: 'block', fontSize: '10px', fontWeight: 600 }}>Internal Transfers</small>
+              <strong style={{ fontSize: '15px', color: 'var(--ink)' }}>{money(overall.totalInternalTransfers)}</strong>
+            </div>
+          )}
+          {overall.totalInvestments !== undefined && overall.totalInvestments > 0 && (
+            <div style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.2)', padding: '8px 14px', borderRadius: '10px', fontSize: '13px' }}>
+              <small style={{ color: '#8b5cf6', display: 'block', fontSize: '10px', fontWeight: 600 }}>Investments</small>
+              <strong style={{ fontSize: '15px', color: 'var(--ink)' }}>{money(overall.totalInvestments)}</strong>
+            </div>
+          )}
+          <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '8px 14px', borderRadius: '10px', fontSize: '13px' }}>
+            <small style={{ color: '#ef4444', display: 'block', fontSize: '10px', fontWeight: 600 }}>
+              {flowMode === 'CLEAN' ? 'Spends & Obligations' : 'Total All Outflows'}
+            </small>
+            <strong style={{ fontSize: '15px', color: 'var(--ink)' }}>{money(totalOutflowDisplay)}</strong>
+          </div>
+        </div>
+
+        {/* 2-Mode Toggle Switcher */}
+        <div style={{ display: 'inline-flex', background: 'var(--background-alt)', padding: '3px', borderRadius: '10px', border: '1px solid var(--line)', gap: '4px' }}>
+          <button
+            type="button"
+            onClick={() => setFlowMode('CLEAN')}
+            style={{
+              padding: '6px 13px',
+              borderRadius: '8px',
+              border: 'none',
+              background: flowMode === 'CLEAN' ? 'var(--accent)' : 'transparent',
+              color: flowMode === 'CLEAN' ? '#fff' : 'var(--muted)',
+              fontWeight: flowMode === 'CLEAN' ? 700 : 500,
+              fontSize: '11.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span>🌿 Operational Flow</span>
+            <span style={{ fontSize: '9.5px', background: flowMode === 'CLEAN' ? 'rgba(255,255,255,0.25)' : 'var(--line)', color: flowMode === 'CLEAN' ? '#fff' : 'var(--muted)', padding: '1px 5px', borderRadius: '6px', fontWeight: 600 }}>
+              Clean
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFlowMode('COMPLETE')}
+            style={{
+              padding: '6px 13px',
+              borderRadius: '8px',
+              border: 'none',
+              background: flowMode === 'COMPLETE' ? 'var(--accent)' : 'transparent',
+              color: flowMode === 'COMPLETE' ? '#fff' : 'var(--muted)',
+              fontWeight: flowMode === 'COMPLETE' ? 700 : 500,
+              fontSize: '11.5px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span>🔄 Complete Ledger</span>
+            <span style={{ fontSize: '9.5px', background: flowMode === 'COMPLETE' ? 'rgba(255,255,255,0.25)' : 'var(--line)', color: flowMode === 'COMPLETE' ? '#fff' : 'var(--muted)', padding: '1px 5px', borderRadius: '6px', fontWeight: 600 }}>
+              All Txns
+            </span>
+          </button>
         </div>
       </div>
 
       {/* Multi-Bank Visual Sankey Diagram */}
       <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px', width: '100%', overflowX: 'auto' }}>
-        <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '12px' }}>
-          Multi-Bank Cash Flow & Internal Transfer Sankey Diagram
-        </span>
-        <MultiBankSankeyDiagram accountFlow={accountFlow} income={income} expenses={expenses} savings={savings} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+          <div>
+            <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {flowMode === 'CLEAN' ? 'HIERARCHICAL CASH FLOW SANKEY (SUPERGROUPS → SUBGROUPS)' : 'MULTI-BANK CASH FLOW & ALL MOVEMENTS SANKEY'}
+            </span>
+            <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
+              {flowMode === 'CLEAN'
+                ? 'External Income → Funding Accounts → Supergroup Hubs → Subgroup Categories (Excludes Self-Transfers & CC Repayments)'
+                : 'Complete Ledger Movement including Inter-bank Transfers and Credit Card Settlements'}
+            </span>
+          </div>
+        </div>
+        <MultiBankSankeyDiagram accountFlow={accountFlow} income={income} expenses={expenses} savings={savings} flowMode={flowMode} />
       </div>
 
       {/* Per Account Spending & Top Outbound Beneficiaries Section */}
-      <AccountSpendingAndBeneficiariesSection accounts={accounts} dateRangeText={dateRangeText} />
+      <AccountSpendingAndBeneficiariesSection accounts={accounts} dateRangeText={dateRangeText} flowMode={flowMode} />
     </div>
   );
 }
@@ -947,9 +1037,11 @@ function MonthlyFlow({
 function AccountSpendingAndBeneficiariesSection({
   accounts,
   dateRangeText,
+  flowMode = 'CLEAN',
 }: {
   accounts: AccountFlow['accounts'];
   dateRangeText?: string;
+  flowMode?: 'CLEAN' | 'COMPLETE';
 }) {
   const [selectedAccId, setSelectedAccId] = useState<string>(accounts[0]?.id || '');
   const [outboundTab, setOutboundTab] = useState<'EXTERNAL' | 'INTERNAL' | 'ALL'>('EXTERNAL');
@@ -958,8 +1050,13 @@ function AccountSpendingAndBeneficiariesSection({
 
   if (!activeAcc) return null;
 
-  const categories = activeAcc.categories || [];
-  const totalSpent = activeAcc.totalOutbound || 0;
+  const categories = flowMode === 'CLEAN'
+    ? (activeAcc.cleanCategories || activeAcc.categories || [])
+    : (activeAcc.allCategories || activeAcc.categories || []);
+
+  const totalSpent = flowMode === 'CLEAN'
+    ? (activeAcc.cleanOutbound ?? (activeAcc.expenses ? (activeAcc.expenses + (activeAcc.investments ?? 0) + (activeAcc.other ?? 0)) : activeAcc.externalOutbound))
+    : activeAcc.totalOutbound;
 
   let displayRecipients = activeAcc.topExternalRecipients || [];
   let otherBound = activeAcc.otherExternalOutbound;
@@ -980,6 +1077,7 @@ function AccountSpendingAndBeneficiariesSection({
       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
         {accounts.map((acc) => {
           const isSelected = acc.id === activeAcc.id;
+          const accOutAmt = flowMode === 'CLEAN' ? (acc.cleanOutbound ?? acc.externalOutbound) : acc.totalOutbound;
           return (
             <button
               key={acc.id}
@@ -1013,7 +1111,7 @@ function AccountSpendingAndBeneficiariesSection({
                   fontWeight: 600,
                 }}
               >
-                {money(acc.totalOutbound, true)} out
+                {money(accOutAmt, true)} out
               </span>
             </button>
           );
@@ -1036,8 +1134,10 @@ function AccountSpendingAndBeneficiariesSection({
 
         <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', padding: '12px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <small style={{ color: '#ef4444', display: 'block', fontSize: '10px', fontWeight: 600 }}>Total Outbound</small>
-            <strong style={{ fontSize: '14px', color: '#ef4444' }}>-{money(activeAcc.totalOutbound)}</strong>
+            <small style={{ color: '#ef4444', display: 'block', fontSize: '10px', fontWeight: 600 }}>
+              {flowMode === 'CLEAN' ? 'Clean Outbound' : 'Total Outbound'}
+            </small>
+            <strong style={{ fontSize: '14px', color: '#ef4444' }}>-{money(totalSpent)}</strong>
           </div>
           {activeAcc.internalOutbound > 0 && (
             <span style={{ fontSize: '10px', color: '#3b82f6', background: 'rgba(59,130,246,0.1)', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>
@@ -1064,7 +1164,7 @@ function AccountSpendingAndBeneficiariesSection({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                SPENDING
+                SPENDING & ALLOCATIONS
               </span>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink)' }}>Where it went</h3>
             </div>
@@ -1304,15 +1404,17 @@ function MultiBankSankeyDiagram({
   income,
   expenses,
   savings,
+  flowMode = 'CLEAN',
 }: {
   accountFlow: AccountFlow;
   income: number;
   expenses: number;
   savings: number;
+  flowMode?: 'CLEAN' | 'COMPLETE';
 }) {
   const { accounts, internalTransfers, overall } = accountFlow;
 
-  // Aggregate bank-to-bank internal transfers (exclude credit-card payments)
+  // Aggregate bank-to-bank internal transfers
   const aggregatedBankTransfers = useMemo(() => {
     const map = new Map<
       string,
@@ -1342,230 +1444,249 @@ function MultiBankSankeyDiagram({
     return p[index % p.length];
   };
 
-  // ── Layout & Exact Flow Conservation Scale ─────────────────────────────
-  const SVG_W = 1280;
+  // ── Layout Dimensions ───────────────────────────────────────────────────
+  const SVG_W = 1320;
   const PAD_V = 48;
   const NODE_W = 16;
-  const NODE_GAP = 32;
+  const NODE_GAP = 28;
   const MIN_BANK_H = 46;
   const LEFT_X = 160;
-  const MID_X = 410;
-  const RIGHT_X = 720;
-  const CAT_X = 1030;
+  const MID_X = 420;
+  const HUB_X = 740;
+  const CAT_X = 1050;
   const ARC_X = MID_X + NODE_W + 48;
 
-  // 1. Calculate per-bank volume totals
-  const bankVolumes = accounts.map((a) => {
-    const tIn = aggregatedBankTransfers
-      .filter((t) => t.toAccountId === a.id)
-      .reduce((s: number, t: { totalAmount: number }) => s + t.totalAmount, 0);
-    const tOut = aggregatedBankTransfers
-      .filter((t) => t.fromAccountId === a.id)
-      .reduce((s: number, t: { totalAmount: number }) => s + t.totalAmount, 0);
-    const inTotal = a.externalInbound + tIn;
-    const outTotal = a.externalOutbound + (a.creditCardPayments ?? 0) + (a.investments ?? 0) + tOut;
+  // 1. Determine active supergroups
+  const rawSupergroups: SupergroupData[] = useMemo(() => {
+    if (overall.supergroups && overall.supergroups.length > 0) {
+      return overall.supergroups;
+    }
+    return [
+      {
+        id: 'EXPENSES',
+        name: 'Living Expenses',
+        kind: 'EXPENSE',
+        color: '#ef4444',
+        amount: overall.totalExternalOutbound,
+        categories: overall.categoryFlow?.outboundCategories || [],
+      },
+      {
+        id: 'INVESTMENTS',
+        name: 'Investments',
+        kind: 'INVESTMENT',
+        color: '#8b5cf6',
+        amount: overall.totalInvestments || 0,
+        categories: overall.categoryFlow?.investmentCategories || [],
+      },
+      {
+        id: 'CC_PAYMENTS',
+        name: 'Credit Card Payments',
+        kind: 'TRANSFER',
+        color: '#10b981',
+        amount: overall.totalCreditCardPayments || 0,
+        categories: overall.categoryFlow?.creditCardCategories || [],
+      },
+      {
+        id: 'INTERNAL_TRANSFERS',
+        name: 'Internal Transfers',
+        kind: 'TRANSFER',
+        color: '#3b82f6',
+        amount: overall.totalInternalTransfers || 0,
+        categories: [],
+      },
+    ];
+  }, [overall]);
+
+  const activeSupergroups = useMemo(() => {
+    if (flowMode === 'CLEAN') {
+      return rawSupergroups.filter((sg) => ['EXPENSES', 'INVESTMENTS', 'OTHER'].includes(sg.id) && sg.amount > 0);
+    }
+    return rawSupergroups.filter((sg) => sg.amount > 0);
+  }, [rawSupergroups, flowMode]);
+
+  // 2. Calculate per-bank volume totals based on flowMode
+  const bankVolumes = accounts.map((a, idx) => {
+    const tIn = flowMode === 'COMPLETE'
+      ? aggregatedBankTransfers.filter((t) => t.toAccountId === a.id).reduce((s, t) => s + t.totalAmount, 0)
+      : 0;
+    const tOut = flowMode === 'COMPLETE'
+      ? aggregatedBankTransfers.filter((t) => t.fromAccountId === a.id).reduce((s, t) => s + t.totalAmount, 0)
+      : 0;
+
+    const inTotal = a.externalInbound + (flowMode === 'COMPLETE' ? (a.internalInbound || tIn) : 0);
+
+    // Compute bank's contributions to active supergroups
+    const sgContributions: Record<string, number> = {};
+    if (a.supergroups) {
+      a.supergroups.forEach((sg) => {
+        if (activeSupergroups.some((asg) => asg.id === sg.id)) {
+          sgContributions[sg.id] = sg.amount;
+        }
+      });
+    } else {
+      if (flowMode === 'CLEAN') {
+        sgContributions['EXPENSES'] = a.expenses ?? a.externalOutbound;
+        if ((a.investments ?? 0) > 0) sgContributions['INVESTMENTS'] = a.investments ?? 0;
+        if ((a.other ?? 0) > 0) sgContributions['OTHER'] = a.other ?? 0;
+      } else {
+        sgContributions['EXPENSES'] = a.expenses ?? a.externalOutbound;
+        if ((a.investments ?? 0) > 0) sgContributions['INVESTMENTS'] = a.investments ?? 0;
+        if ((a.other ?? 0) > 0) sgContributions['OTHER'] = a.other ?? 0;
+        if ((a.creditCardPayments ?? 0) > 0) sgContributions['CC_PAYMENTS'] = a.creditCardPayments ?? 0;
+        if ((a.internalOutbound ?? 0) > 0) sgContributions['INTERNAL_TRANSFERS'] = a.internalOutbound ?? 0;
+      }
+    }
+
+    const outTotal = Object.values(sgContributions).reduce((s, v) => s + v, 0);
+
     return {
       ...a,
+      color: getBankColor(idx, a.name),
       tIn,
       tOut,
       inTotal,
       outTotal,
+      sgContributions,
       maxVolume: Math.max(inTotal, outTotal, 1),
     };
   });
 
-  // 2. System volume totals
-  const totalInboundVolume = bankVolumes.reduce((s: number, b: { externalInbound: number }) => s + b.externalInbound, 0);
-  const totalExtOutboundVolume = bankVolumes.reduce((s: number, b: { externalOutbound: number }) => s + b.externalOutbound, 0);
-  const totalCcVolume = bankVolumes.reduce((s: number, b: { creditCardPayments?: number }) => s + (b.creditCardPayments ?? 0), 0);
-  const totalInvVolume = bankVolumes.reduce((s: number, b: { investments?: number }) => s + (b.investments ?? 0), 0);
-  const totalRightVolume = totalExtOutboundVolume + totalCcVolume + totalInvVolume;
+  // 3. System volume totals & scaling
+  const totalInboundVolume = bankVolumes.reduce((s, b) => s + b.inTotal, 0);
+  const totalOutboundVolume = bankVolumes.reduce((s, b) => s + b.outTotal, 0);
+  const maxSystemVolume = Math.max(totalInboundVolume, totalOutboundVolume, 1);
 
-  const totalBankVolume = bankVolumes.reduce((s: number, b: { maxVolume: number }) => s + b.maxVolume, 0);
-  const maxSystemVolume = Math.max(totalInboundVolume, totalRightVolume, totalBankVolume, 1);
+  const minHeightNeeded = Math.max(
+    accounts.length * MIN_BANK_H + (accounts.length - 1) * NODE_GAP,
+    activeSupergroups.length * 56 + (activeSupergroups.length - 1) * NODE_GAP,
+    380,
+  );
+  const usableH = Math.max(460, minHeightNeeded);
 
-  const minHeightNeeded = accounts.length * MIN_BANK_H + (accounts.length - 1) * NODE_GAP;
-  const usableH = Math.max(420, minHeightNeeded);
+  const scale = (usableH * 0.74) / maxSystemVolume;
+  const flowH = (amt: number) => (amt > 0 ? Math.max(3, Math.round(amt * scale)) : 0);
 
-  // Unified Scale factor: pixels per rupee
-  const scale = (usableH * 0.72) / maxSystemVolume;
-  const flowH = (amt: number) => (amt > 0 ? Math.max(4, Math.round(amt * scale)) : 0);
-
-  // 3. Compute Inbound Slices & External Inbound Bar Height
-  const inSlicesData = bankVolumes
-    .filter((b) => b.externalInbound > 0)
-    .map((b) => flowH(b.externalInbound));
-
+  // 4. Position Stage 1: Inbound Node
+  const inSlicesData = bankVolumes.filter((b) => b.inTotal > 0).map((b) => flowH(b.inTotal));
   const inboundH = Math.max(40, inSlicesData.reduce((s, h) => s + h, 0));
   const inStartY = PAD_V + (usableH - inboundH) / 2;
 
-  // 4. Compute Stage 3 Hub Node Heights & Y Positions
-  const hasCc = totalCcVolume > 0;
-  const hasInv = totalInvVolume > 0;
-
-  const outSlicesData = bankVolumes.filter((b) => b.externalOutbound > 0).map((b) => flowH(b.externalOutbound));
-  const outboundH = Math.max(40, outSlicesData.reduce((s, h) => s + h, 0));
-
-  const ccSlicesData = bankVolumes.filter((b) => (b.creditCardPayments ?? 0) > 0).map((b) => flowH(b.creditCardPayments ?? 0));
-  const ccH = hasCc ? Math.max(32, ccSlicesData.reduce((s, h) => s + h, 0)) : 0;
-
-  const invSlicesData = bankVolumes.filter((b) => (b.investments ?? 0) > 0).map((b) => flowH(b.investments ?? 0));
-  const invH = hasInv ? Math.max(32, invSlicesData.reduce((s, h) => s + h, 0)) : 0;
-
-  const dGap = 36;
-  const totalRightBlockH = outboundH + (hasCc ? ccH + dGap : 0) + (hasInv ? invH + dGap : 0);
-
-  const outY = PAD_V + (usableH - totalRightBlockH) / 2;
-  const ccY = outY + outboundH + (hasCc ? dGap : 0);
-  const invY = ccY + (hasCc ? ccH : 0) + (hasInv ? dGap : 0);
-
-  // 5. Position Bank Nodes (Stage 2 - Middle)
-  const bankNodes = bankVolumes.map((acc, idx) => {
-    const extInH = flowH(acc.externalInbound);
-    const bankTransInH = aggregatedBankTransfers
-      .filter((t) => t.toAccountId === acc.id)
-      .reduce((s, t) => s + flowH(t.totalAmount), 0);
-    const sumInH = extInH + bankTransInH;
-
-    const extOutH = flowH(acc.externalOutbound);
-    const ccH_slice = flowH(acc.creditCardPayments ?? 0);
-    const invH_slice = flowH(acc.investments ?? 0);
-    const bankTransOutH = aggregatedBankTransfers
-      .filter((t) => t.fromAccountId === acc.id)
-      .reduce((s, t) => s + flowH(t.totalAmount), 0);
-    const sumOutH = extOutH + ccH_slice + invH_slice + bankTransOutH;
-
+  // 5. Position Stage 2: Bank Nodes
+  const bankNodes = bankVolumes.map((b) => {
+    const sumInH = flowH(b.inTotal);
+    const sumOutH = Object.values(b.sgContributions).reduce((s, v) => s + flowH(v), 0);
     const nodeHeight = Math.max(MIN_BANK_H, sumInH, sumOutH);
     return {
-      ...acc,
-      color: getBankColor(idx, acc.name),
+      ...b,
       sumInH,
       sumOutH,
       height: nodeHeight,
     };
   });
 
-  let curY = PAD_V;
+  let bankCurY = PAD_V;
   const bankNodesWithY = bankNodes.map((node) => {
-    const n = { ...node, x: MID_X, y: curY };
-    curY += node.height + NODE_GAP;
+    const n = { ...node, x: MID_X, y: bankCurY };
+    bankCurY += node.height + NODE_GAP;
     return n;
   });
 
-  // 6. Stage 4 Category Nodes Positioning & Intelligent Ordering to minimize ribbon crossings
-  const rawCategories = overall.categoryFlow?.overallCategories ?? [];
-  const invCatNames = new Set(
-    (overall.categoryFlow?.investmentCategories ?? []).map((c) => c.name)
-  );
+  // 6. Position Stage 3: Supergroup Hub Nodes
+  const supergroupNodesData = activeSupergroups.map((sg) => {
+    const bankIncomingH = bankNodesWithY.reduce((sum, b) => {
+      const amt = b.sgContributions[sg.id] || 0;
+      return sum + flowH(amt);
+    }, 0);
 
-  const generalCats = rawCategories.filter((c) => !invCatNames.has(c.name) && !/invest|mutual|sip|stock|broker/i.test(c.name));
-  let invCatsList = rawCategories.filter((c) => invCatNames.has(c.name) || /invest|mutual|sip|stock|broker/i.test(c.name));
-
-  if (invCatsList.length === 0 && (overall.totalInvestments ?? 0) > 0) {
-    invCatsList = [{ name: 'Investment', color: '#8b5cf6', amount: overall.totalInvestments ?? 0 }];
-  }
-
-  const sortedGeneral = generalCats.sort((a, b) => b.amount - a.amount);
-  const topGeneral = sortedGeneral.slice(0, 5);
-  const remainingGeneral = sortedGeneral.slice(5);
-  const otherGeneralTotal = remainingGeneral.reduce((sum, c) => sum + c.amount, 0);
-
-  const displayCategories = [
-    ...topGeneral,
-    ...(otherGeneralTotal > 0 ? [{ name: 'Other Categories', color: '#94a3b8', amount: otherGeneralTotal }] : []),
-    ...invCatsList.sort((a, b) => b.amount - a.amount),
-  ];
-
-  // Helper to match category to display node name
-  const getDisplayNodeName = (catName: string) => {
-    const directMatch = displayCategories.find((d) => d.name.toLowerCase() === catName.toLowerCase());
-    if (directMatch) return directMatch.name;
-    const invMatch = /invest|mutual|sip|stock|broker/i.test(catName) ? displayCategories.find((d) => /invest|mutual|sip|stock|broker/i.test(d.name)) : null;
-    if (invMatch) return invMatch.name;
-    const otherMatch = displayCategories.find((d) => d.name === 'Other Categories');
-    if (otherMatch) return otherMatch.name;
-    return displayCategories[0]?.name ?? catName;
-  };
-
-  const outboundCats = overall.categoryFlow?.outboundCategories ?? [];
-  const ccCats = overall.categoryFlow?.creditCardCategories ?? [];
-  const rawInvCats = overall.categoryFlow?.investmentCategories ?? [];
-  const invCats = rawInvCats.length > 0
-    ? rawInvCats
-    : ((overall.totalInvestments ?? 0) > 0 ? [{ name: 'Investment', color: '#8b5cf6', amount: overall.totalInvestments ?? 0 }] : []);
-
-  // Pre-calculate exact incoming ribbon height & total amount per display node
-  const categoryIncomingHeightMap = new Map<string, number>();
-  const categoryIncomingAmountMap = new Map<string, number>();
-  displayCategories.forEach((c) => {
-    categoryIncomingHeightMap.set(c.name, 0);
-    categoryIncomingAmountMap.set(c.name, 0);
-  });
-
-  outboundCats.forEach((cat) => {
-    if (cat.amount <= 0) return;
-    const targetName = getDisplayNodeName(cat.name);
-    const sliceH = flowH(cat.amount);
-    categoryIncomingHeightMap.set(targetName, (categoryIncomingHeightMap.get(targetName) || 0) + sliceH);
-    categoryIncomingAmountMap.set(targetName, (categoryIncomingAmountMap.get(targetName) || 0) + cat.amount);
-  });
-
-  ccCats.forEach((cat) => {
-    if (cat.amount <= 0) return;
-    const targetName = getDisplayNodeName(cat.name);
-    const sliceH = flowH(cat.amount);
-    categoryIncomingHeightMap.set(targetName, (categoryIncomingHeightMap.get(targetName) || 0) + sliceH);
-    categoryIncomingAmountMap.set(targetName, (categoryIncomingAmountMap.get(targetName) || 0) + cat.amount);
-  });
-
-  invCats.forEach((cat) => {
-    if (cat.amount <= 0) return;
-    const targetName = getDisplayNodeName(cat.name);
-    const sliceH = flowH(cat.amount);
-    categoryIncomingHeightMap.set(targetName, (categoryIncomingHeightMap.get(targetName) || 0) + sliceH);
-    categoryIncomingAmountMap.set(targetName, (categoryIncomingAmountMap.get(targetName) || 0) + cat.amount);
-  });
-
-  const catNodesData = displayCategories.map((cat) => {
-    const incH = categoryIncomingHeightMap.get(cat.name) || 0;
-    const incAmt = categoryIncomingAmountMap.get(cat.name) || cat.amount;
+    const baseH = Math.max(36, bankIncomingH > 0 ? bankIncomingH : flowH(sg.amount));
     return {
-      ...cat,
-      amount: incAmt,
-      height: Math.max(20, incH > 0 ? incH : flowH(cat.amount)),
+      ...sg,
+      height: baseH,
     };
   });
 
-  const catGap = 16;
-  const totalCatBlockH = catNodesData.reduce((sum, c) => sum + c.height, 0) + (catNodesData.length - 1) * catGap;
-  const catStartY = PAD_V + (usableH - Math.max(usableH, totalCatBlockH)) / 2;
+  const sgGap = 28;
+  const totalSgBlockH = supergroupNodesData.reduce((s, sg) => s + sg.height, 0) + (supergroupNodesData.length - 1) * sgGap;
+  const sgStartY = PAD_V + Math.max(0, (usableH - totalSgBlockH) / 2);
 
-  let catCurY = Math.max(PAD_V, catStartY);
-  const categoryNodesWithY = catNodesData.map((node) => {
-    const n = { ...node, x: CAT_X, y: catCurY };
-    catCurY += node.height + catGap;
+  let sgCurY = Math.max(PAD_V, sgStartY);
+  const supergroupNodesWithY = supergroupNodesData.map((node) => {
+    const n = { ...node, x: HUB_X, y: sgCurY };
+    sgCurY += node.height + sgGap;
     return n;
   });
 
-  const finalSvgH = Math.max(usableH + PAD_V * 2, curY + PAD_V, catCurY + PAD_V);
-
-  // 7. Ribbon path helper
-  const ribbon = (x1: number, yT1: number, yB1: number, x2: number, yT2: number, yB2: number) => {
-    const cp = (x2 - x1) * 0.42;
-    return `M ${x1} ${yT1} C ${x1+cp} ${yT1},${x2-cp} ${yT2},${x2} ${yT2} L ${x2} ${yB2} C ${x2-cp} ${yB2},${x1+cp} ${yB1},${x1} ${yB1} Z`;
+  // 7. Position Stage 4: Subgroup Category Nodes (Grouped & Ordered strictly under each parent Supergroup)
+  type DisplayCategory = {
+    superGroupId: string;
+    superGroupName: string;
+    superGroupColor: string;
+    name: string;
+    color: string;
+    amount: number;
+    height: number;
+    x: number;
+    y: number;
   };
 
-  // 8. Build Inbound Ribbons
+  const categoryNodesWithY: DisplayCategory[] = [];
+  const catGap = 10;
+  let catCurY = PAD_V;
+
+  supergroupNodesWithY.forEach((sgNode) => {
+    const cats = (sgNode.categories || []).filter((c) => c.amount > 0);
+    const sorted = [...cats].sort((a, b) => b.amount - a.amount);
+    const topCats = sorted.slice(0, 5);
+    const rest = sorted.slice(5);
+    const restAmount = rest.reduce((s, c) => s + c.amount, 0);
+
+    const displayList = [
+      ...topCats,
+      ...(restAmount > 0 ? [{ name: `Other ${sgNode.name.split(' ')[0]}`, color: '#94a3b8', amount: restAmount }] : []),
+    ];
+
+    if (displayList.length === 0 && sgNode.amount > 0) {
+      displayList.push({ name: sgNode.name, color: sgNode.color, amount: sgNode.amount });
+    }
+
+    displayList.forEach((c) => {
+      const sliceH = Math.max(18, flowH(c.amount));
+      categoryNodesWithY.push({
+        superGroupId: sgNode.id,
+        superGroupName: sgNode.name,
+        superGroupColor: sgNode.color,
+        name: c.name,
+        color: c.color || sgNode.color,
+        amount: c.amount,
+        height: sliceH,
+        x: CAT_X,
+        y: catCurY,
+      });
+      catCurY += sliceH + catGap;
+    });
+
+    catCurY += 12; // Visual spacing between supergroup clusters
+  });
+
+  const finalSvgH = Math.max(usableH + PAD_V * 2, bankCurY + PAD_V, sgCurY + PAD_V, catCurY + PAD_V);
+
+  // 8. Ribbon Path Helper
+  const ribbon = (x1: number, yT1: number, yB1: number, x2: number, yT2: number, yB2: number) => {
+    const cp = (x2 - x1) * 0.42;
+    return `M ${x1} ${yT1} C ${x1 + cp} ${yT1},${x2 - cp} ${yT2},${x2} ${yT2} L ${x2} ${yB2} C ${x2 - cp} ${yB2},${x1 + cp} ${yB1},${x1} ${yB1} Z`;
+  };
+
+  // 9. Build Stage 1 -> Stage 2 Ribbons (Inbound -> Banks)
   let currInSrcY = inStartY;
   const bankInboundOffset = new Map<string, number>();
   bankNodesWithY.forEach((b) => bankInboundOffset.set(b.id, 0));
 
-  type Slice = { bank: (typeof bankNodesWithY)[0]; srcT: number; srcB: number; dstT: number; dstB: number };
-  const inSlices: Slice[] = [];
+  type InSlice = { bank: (typeof bankNodesWithY)[0]; srcT: number; srcB: number; dstT: number; dstB: number };
+  const inSlices: InSlice[] = [];
 
   for (const bank of bankNodesWithY) {
-    if (bank.externalInbound <= 0) continue;
-    const srcH = flowH(bank.externalInbound);
+    if (bank.inTotal <= 0) continue;
+    const srcH = flowH(bank.inTotal);
     const dstH = srcH;
     const dstOff = bankInboundOffset.get(bank.id)!;
 
@@ -1581,180 +1702,109 @@ function MultiBankSankeyDiagram({
     bankInboundOffset.set(bank.id, dstOff + dstH);
   }
 
-  // 9. Build Outbound Ribbons (Bank -> Stage 3 Hubs)
-  let currOutDstY = outY;
-  let currCcDstY = ccY;
-  let currInvDstY = invY;
-
-  const bankOutboundOffset = new Map<string, number>();
-  bankNodesWithY.forEach((b) => bankOutboundOffset.set(b.id, 0));
-
-  const outSlices: Slice[] = [];
-  const ccSlices: Slice[] = [];
-  const invSlices: Slice[] = [];
-
-  for (const bank of bankNodesWithY) {
-    if (bank.externalOutbound > 0) {
-      const srcH = flowH(bank.externalOutbound);
-      const dstH = srcH;
-      const srcOff = bankOutboundOffset.get(bank.id)!;
-
-      outSlices.push({
-        bank,
-        srcT: bank.y + srcOff,
-        srcB: bank.y + srcOff + srcH,
-        dstT: currOutDstY,
-        dstB: currOutDstY + dstH,
-      });
-
-      bankOutboundOffset.set(bank.id, srcOff + srcH);
-      currOutDstY += dstH;
-    }
-
-    const ccAmt = bank.creditCardPayments ?? 0;
-    if (hasCc && ccAmt > 0) {
-      const srcH = flowH(ccAmt);
-      const dstH = srcH;
-      const srcOff = bankOutboundOffset.get(bank.id)!;
-
-      ccSlices.push({
-        bank,
-        srcT: bank.y + srcOff,
-        srcB: bank.y + srcOff + srcH,
-        dstT: currCcDstY,
-        dstB: currCcDstY + dstH,
-      });
-
-      bankOutboundOffset.set(bank.id, srcOff + srcH);
-      currCcDstY += dstH;
-    }
-
-    const invAmt = bank.investments ?? 0;
-    if (hasInv && invAmt > 0) {
-      const srcH = flowH(invAmt);
-      const dstH = srcH;
-      const srcOff = bankOutboundOffset.get(bank.id)!;
-
-      invSlices.push({
-        bank,
-        srcT: bank.y + srcOff,
-        srcB: bank.y + srcOff + srcH,
-        dstT: currInvDstY,
-        dstB: currInvDstY + dstH,
-      });
-
-      bankOutboundOffset.set(bank.id, srcOff + srcH);
-      currInvDstY += dstH;
-    }
-  }
-
-  // 10. Build Stage 3 Hubs -> Stage 4 Category Ribbons
-  type CatSlice = {
-    categoryName: string;
-    categoryColor: string;
+  // 10. Build Stage 2 -> Stage 3 Ribbons (Banks -> Supergroups)
+  type SgRibbon = {
+    bank: (typeof bankNodesWithY)[0];
+    sg: (typeof supergroupNodesWithY)[0];
     amount: number;
     srcT: number;
     srcB: number;
     dstT: number;
     dstB: number;
-    channel: 'outbound' | 'creditCard' | 'investment';
   };
-  const categoryRibbons: CatSlice[] = [];
+  const bankToSgRibbons: SgRibbon[] = [];
 
-  let hubOutSrcY = outY;
-  let hubCcSrcY = ccY;
-  let hubInvSrcY = invY;
+  const bankOutOffset = new Map<string, number>();
+  bankNodesWithY.forEach((b) => bankOutOffset.set(b.id, 0));
 
-  const catTargetOffset = new Map<string, number>();
-  categoryNodesWithY.forEach((c) => catTargetOffset.set(c.name, 0));
+  const sgInOffset = new Map<string, number>();
+  supergroupNodesWithY.forEach((sg) => sgInOffset.set(sg.id, 0));
 
-  // Connect External Outbound -> Categories
-  for (const cat of outboundCats) {
-    if (cat.amount <= 0) continue;
-    const targetName = getDisplayNodeName(cat.name);
-    const matchedNode = categoryNodesWithY.find((n) => n.name === targetName);
-    if (!matchedNode) continue;
+  for (const bank of bankNodesWithY) {
+    for (const sg of supergroupNodesWithY) {
+      const amt = bank.sgContributions[sg.id] || 0;
+      if (amt <= 0) continue;
 
-    const sliceH = flowH(cat.amount);
-    const currDstOff = catTargetOffset.get(matchedNode.name)!;
+      const sliceH = flowH(amt);
+      const bOff = bankOutOffset.get(bank.id)!;
+      const sgOff = sgInOffset.get(sg.id)!;
 
-    categoryRibbons.push({
-      categoryName: matchedNode.name,
-      categoryColor: matchedNode.color,
-      amount: cat.amount,
-      srcT: hubOutSrcY,
-      srcB: hubOutSrcY + sliceH,
-      dstT: matchedNode.y + currDstOff,
-      dstB: matchedNode.y + currDstOff + sliceH,
-      channel: 'outbound',
-    });
+      bankToSgRibbons.push({
+        bank,
+        sg,
+        amount: amt,
+        srcT: bank.y + bOff,
+        srcB: bank.y + bOff + sliceH,
+        dstT: sg.y + sgOff,
+        dstB: sg.y + sgOff + sliceH,
+      });
 
-    hubOutSrcY += sliceH;
-    catTargetOffset.set(matchedNode.name, currDstOff + sliceH);
+      bankOutOffset.set(bank.id, bOff + sliceH);
+      sgInOffset.set(sg.id, sgOff + sliceH);
+    }
   }
 
-  // Connect Credit Card Payments -> Categories
-  for (const cat of ccCats) {
-    if (cat.amount <= 0) continue;
-    const targetName = getDisplayNodeName(cat.name);
-    const matchedNode = categoryNodesWithY.find((n) => n.name === targetName);
-    if (!matchedNode) continue;
+  // 11. Build Stage 3 -> Stage 4 Ribbons (Supergroups -> Subgroup Categories)
+  type CatRibbon = {
+    sg: (typeof supergroupNodesWithY)[0];
+    cat: DisplayCategory;
+    amount: number;
+    srcT: number;
+    srcB: number;
+    dstT: number;
+    dstB: number;
+  };
+  const sgToCatRibbons: CatRibbon[] = [];
+
+  const sgOutOffset = new Map<string, number>();
+  supergroupNodesWithY.forEach((sg) => sgOutOffset.set(sg.id, 0));
+
+  for (const cat of categoryNodesWithY) {
+    const sg = supergroupNodesWithY.find((s) => s.id === cat.superGroupId);
+    if (!sg || cat.amount <= 0) continue;
 
     const sliceH = flowH(cat.amount);
-    const currDstOff = catTargetOffset.get(matchedNode.name)!;
+    const sgOff = sgOutOffset.get(sg.id)!;
 
-    categoryRibbons.push({
-      categoryName: matchedNode.name,
-      categoryColor: matchedNode.color,
+    sgToCatRibbons.push({
+      sg,
+      cat,
       amount: cat.amount,
-      srcT: hubCcSrcY,
-      srcB: hubCcSrcY + sliceH,
-      dstT: matchedNode.y + currDstOff,
-      dstB: matchedNode.y + currDstOff + sliceH,
-      channel: 'creditCard',
+      srcT: sg.y + sgOff,
+      srcB: sg.y + sgOff + sliceH,
+      dstT: cat.y,
+      dstB: cat.y + sliceH,
     });
 
-    hubCcSrcY += sliceH;
-    catTargetOffset.set(matchedNode.name, currDstOff + sliceH);
-  }
-
-  // Connect Investments & SIPs -> Categories
-  for (const cat of invCats) {
-    if (cat.amount <= 0) continue;
-    const targetName = getDisplayNodeName(cat.name);
-    const matchedNode = categoryNodesWithY.find((n) => n.name === targetName);
-    if (!matchedNode) continue;
-
-    const sliceH = flowH(cat.amount);
-    const currDstOff = catTargetOffset.get(matchedNode.name)!;
-
-    categoryRibbons.push({
-      categoryName: matchedNode.name,
-      categoryColor: matchedNode.color,
-      amount: cat.amount,
-      srcT: hubInvSrcY,
-      srcB: hubInvSrcY + sliceH,
-      dstT: matchedNode.y + currDstOff,
-      dstB: matchedNode.y + currDstOff + sliceH,
-      channel: 'investment',
-    });
-
-    hubInvSrcY += sliceH;
-    catTargetOffset.set(matchedNode.name, currDstOff + sliceH);
+    sgOutOffset.set(sg.id, sgOff + sliceH);
   }
 
   return (
     <div style={{ padding: 0, width: '100%', overflow: 'hidden', position: 'relative' }}>
-      {/* HTML tooltip — floats above the SVG */}
+      {/* Floating Hover Tooltip */}
       {hoveredFlow && (
-        <div style={{
-          position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)',
-          background: 'var(--card)', border: `1.5px solid ${hoveredFlow.color}`,
-          borderRadius: 10, padding: '5px 16px', fontSize: 12, fontWeight: 700,
-          color: 'var(--ink)', boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
-          pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 10,
-          display: 'flex', gap: 10, alignItems: 'center',
-        }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: 6,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--card)',
+            border: `1.5px solid ${hoveredFlow.color}`,
+            borderRadius: 10,
+            padding: '5px 16px',
+            fontSize: 12,
+            fontWeight: 700,
+            color: 'var(--ink)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            zIndex: 10,
+            display: 'flex',
+            gap: 10,
+            alignItems: 'center',
+          }}
+        >
           <span>{hoveredFlow.title}</span>
           <span style={{ color: hoveredFlow.color }}>{hoveredFlow.amount}</span>
         </div>
@@ -1762,187 +1812,193 @@ function MultiBankSankeyDiagram({
 
       <svg viewBox={`0 0 ${SVG_W} ${finalSvgH}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
         <defs>
-          {bankNodesWithY.map(b => (
+          {/* Bank Inbound Gradients */}
+          {bankNodesWithY.map((b) => (
             <linearGradient key={`gi-${b.id}`} id={`gi-${b.id}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#10b981" /><stop offset="100%" stopColor={b.color} />
+              <stop offset="0%" stopColor="#10b981" />
+              <stop offset="100%" stopColor={b.color} />
             </linearGradient>
           ))}
-          {bankNodesWithY.map(b => (
-            <linearGradient key={`go-${b.id}`} id={`go-${b.id}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={b.color} /><stop offset="100%" stopColor="#ef4444" />
-            </linearGradient>
-          ))}
-          {bankNodesWithY.map(b => (
-            <linearGradient key={`gc-${b.id}`} id={`gc-${b.id}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={b.color} /><stop offset="100%" stopColor="#f59e0b" />
-            </linearGradient>
-          ))}
-          {bankNodesWithY.map(b => (
-            <linearGradient key={`gv-${b.id}`} id={`gv-${b.id}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={b.color} /><stop offset="100%" stopColor="#8b5cf6" />
-            </linearGradient>
-          ))}
-          {categoryNodesWithY.map(c => (
-            <linearGradient key={`gcat-out-${c.name.replace(/\s+/g, '-')}`} id={`gcat-out-${c.name.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#ef4444" /><stop offset="100%" stopColor={c.color} />
-            </linearGradient>
-          ))}
-          {categoryNodesWithY.map(c => (
-            <linearGradient key={`gcat-cc-${c.name.replace(/\s+/g, '-')}`} id={`gcat-cc-${c.name.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#f59e0b" /><stop offset="100%" stopColor={c.color} />
-            </linearGradient>
-          ))}
-          {categoryNodesWithY.map(c => (
-            <linearGradient key={`gcat-inv-${c.name.replace(/\s+/g, '-')}`} id={`gcat-inv-${c.name.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#8b5cf6" /><stop offset="100%" stopColor={c.color} />
+
+          {/* Bank to Supergroup Gradients */}
+          {bankNodesWithY.flatMap((b) =>
+            supergroupNodesWithY.map((sg) => (
+              <linearGradient key={`g-bs-${b.id}-${sg.id}`} id={`g-bs-${b.id}-${sg.id}`} x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor={b.color} />
+                <stop offset="100%" stopColor={sg.color} />
+              </linearGradient>
+            )),
+          )}
+
+          {/* Supergroup to Category Gradients */}
+          {categoryNodesWithY.map((c, idx) => (
+            <linearGradient key={`g-sc-${idx}`} id={`g-sc-${idx}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={c.superGroupColor} />
+              <stop offset="100%" stopColor={c.color} />
             </linearGradient>
           ))}
         </defs>
 
-        {/* ── Stage 1 -> Stage 2: Inbound ribbons ─────────────────── */}
+        {/* ── Stage 1 -> Stage 2: Inbound Ribbons ─────────────────── */}
         {inSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
           const act = !hoveredBankId || hoveredBankId === bank.id;
           return (
-            <path key={`in-${bank.id}`}
+            <path
+              key={`in-${bank.id}`}
               d={ribbon(LEFT_X + NODE_W, srcT, srcB, MID_X, dstT, dstB)}
-              fill={`url(#gi-${bank.id})`} opacity={act ? 0.52 : 0.06}
+              fill={`url(#gi-${bank.id})`}
+              opacity={act ? 0.52 : 0.06}
               style={{ transition: 'opacity .18s', cursor: 'pointer' }}
-              onMouseEnter={() => { setHoveredBankId(bank.id); setHoveredFlow({ title: `External Inbound → ${bank.name}`, amount: `+${money(bank.externalInbound)}`, color: '#10b981' }); }}
-              onMouseLeave={() => { setHoveredBankId(null); setHoveredFlow(null); }}
+              onMouseEnter={() => {
+                setHoveredBankId(bank.id);
+                setHoveredFlow({
+                  title: `Inbound → ${bank.name}`,
+                  amount: `+${money(bank.inTotal)}`,
+                  color: '#10b981',
+                });
+              }}
+              onMouseLeave={() => {
+                setHoveredBankId(null);
+                setHoveredFlow(null);
+              }}
             />
           );
         })}
 
-        {/* ── Stage 2 -> Stage 3: External Outbound ribbons ───────── */}
-        {outSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
-          const act = !hoveredBankId || hoveredBankId === bank.id;
+        {/* ── Stage 2 -> Stage 3: Bank to Supergroup Ribbons ─────── */}
+        {bankToSgRibbons.map((r, idx) => {
+          const act = !hoveredBankId || hoveredBankId === r.bank.id;
           return (
-            <path key={`out-${bank.id}`}
-              d={ribbon(MID_X + NODE_W, srcT, srcB, RIGHT_X, dstT, dstB)}
-              fill={`url(#go-${bank.id})`} opacity={act ? 0.52 : 0.06}
+            <path
+              key={`bs-ribbon-${idx}`}
+              d={ribbon(MID_X + NODE_W, r.srcT, r.srcB, HUB_X, r.dstT, r.dstB)}
+              fill={`url(#g-bs-${r.bank.id}-${r.sg.id})`}
+              opacity={act ? 0.52 : 0.06}
               style={{ transition: 'opacity .18s', cursor: 'pointer' }}
-              onMouseEnter={() => { setHoveredBankId(bank.id); setHoveredFlow({ title: `${bank.name} → External Outbound`, amount: `-${money(bank.externalOutbound)}`, color: '#ef4444' }); }}
-              onMouseLeave={() => { setHoveredBankId(null); setHoveredFlow(null); }}
+              onMouseEnter={() => {
+                setHoveredBankId(r.bank.id);
+                setHoveredFlow({
+                  title: `${r.bank.name} → ${r.sg.name}`,
+                  amount: `-${money(r.amount)}`,
+                  color: r.sg.color,
+                });
+              }}
+              onMouseLeave={() => {
+                setHoveredBankId(null);
+                setHoveredFlow(null);
+              }}
             />
           );
         })}
 
-        {/* ── Stage 2 -> Stage 3: Credit Card Payment ribbons ─────── */}
-        {hasCc && ccSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
-          const act = !hoveredBankId || hoveredBankId === bank.id;
+        {/* ── Stage 3 -> Stage 4: Supergroup to Category Ribbons ── */}
+        {sgToCatRibbons.map((r, idx) => {
           return (
-            <path key={`cc-${bank.id}`}
-              d={ribbon(MID_X + NODE_W, srcT, srcB, RIGHT_X, dstT, dstB)}
-              fill={`url(#gc-${bank.id})`} opacity={act ? 0.55 : 0.06}
+            <path
+              key={`sc-ribbon-${idx}`}
+              d={ribbon(HUB_X + NODE_W, r.srcT, r.srcB, CAT_X, r.dstT, r.dstB)}
+              fill={`url(#g-sc-${idx})`}
+              opacity={0.52}
               style={{ transition: 'opacity .18s', cursor: 'pointer' }}
-              onMouseEnter={() => { setHoveredBankId(bank.id); setHoveredFlow({ title: `${bank.name} → Credit Card Payments`, amount: `-${money(bank.creditCardPayments ?? 0)}`, color: '#f59e0b' }); }}
-              onMouseLeave={() => { setHoveredBankId(null); setHoveredFlow(null); }}
+              onMouseEnter={() => {
+                setHoveredFlow({
+                  title: `${r.sg.name} → ${r.cat.name}`,
+                  amount: money(r.amount),
+                  color: r.cat.color,
+                });
+              }}
+              onMouseLeave={() => {
+                setHoveredFlow(null);
+              }}
             />
           );
         })}
 
-        {/* ── Stage 2 -> Stage 3: Investment ribbons ──────────────── */}
-        {hasInv && invSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
-          const act = !hoveredBankId || hoveredBankId === bank.id;
-          return (
-            <path key={`inv-${bank.id}`}
-              d={ribbon(MID_X + NODE_W, srcT, srcB, RIGHT_X, dstT, dstB)}
-              fill={`url(#gv-${bank.id})`} opacity={act ? 0.55 : 0.06}
-              style={{ transition: 'opacity .18s', cursor: 'pointer' }}
-              onMouseEnter={() => { setHoveredBankId(bank.id); setHoveredFlow({ title: `${bank.name} → Mutual Funds & Investments`, amount: `+${money(bank.investments ?? 0)}`, color: '#8b5cf6' }); }}
-              onMouseLeave={() => { setHoveredBankId(null); setHoveredFlow(null); }}
-            />
-          );
-        })}
+        {/* ── Internal Bank-to-Bank Arcs (Complete Mode only) ───── */}
+        {flowMode === 'COMPLETE' &&
+          aggregatedBankTransfers.map((it, idx) => {
+            const fromNode = bankNodesWithY.find((b) => b.id === it.fromAccountId);
+            const toNode = bankNodesWithY.find((b) => b.id === it.toAccountId);
+            if (!fromNode || !toNode) return null;
 
-        {/* ── Stage 3 -> Stage 4: Outflow Hubs to Category Ribbons ── */}
-        {categoryRibbons.map((cr, idx) => {
-          const gradId = cr.channel === 'outbound'
-            ? `gcat-out-${cr.categoryName.replace(/\s+/g, '-')}`
-            : cr.channel === 'creditCard'
-            ? `gcat-cc-${cr.categoryName.replace(/\s+/g, '-')}`
-            : `gcat-inv-${cr.categoryName.replace(/\s+/g, '-')}`;
-          const channelName = cr.channel === 'outbound'
-            ? 'External Outbound'
-            : cr.channel === 'creditCard'
-            ? 'Credit Card Payments'
-            : 'Investments & SIPs';
-          return (
-            <path key={`cat-ribbon-${idx}`}
-              d={ribbon(RIGHT_X + NODE_W, cr.srcT, cr.srcB, CAT_X, cr.dstT, cr.dstB)}
-              fill={`url(#${gradId})`} opacity={0.55}
-              style={{ transition: 'opacity .18s', cursor: 'pointer' }}
-              onMouseEnter={() => { setHoveredFlow({ title: `${channelName} → ${cr.categoryName}`, amount: money(cr.amount), color: cr.categoryColor }); }}
-              onMouseLeave={() => { setHoveredFlow(null); }}
-            />
-          );
-        })}
+            const fromY = fromNode.y + fromNode.height * 0.72;
+            const toY = toNode.y + toNode.height * 0.28;
+            const peakX = ARC_X + idx * 20;
+            const midY = (fromY + toY) / 2;
+            const sw = Math.max(2, Math.min(7, Math.round(flowH(it.totalAmount))));
+            const act = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
+            const arcPath = `M ${MID_X + NODE_W} ${fromY} C ${peakX} ${fromY},${peakX} ${toY},${MID_X + NODE_W} ${toY}`;
+            const fromShort = fromNode.name.split(/[\s–-]/)[0];
+            const toShort = toNode.name.split(/[\s–-]/)[0];
+            const label = `${fromShort} → ${toShort}  ${money(it.totalAmount)}`;
 
-        {/* ── Internal bank-to-bank arcs ───────────────────────── */}
-        {aggregatedBankTransfers.map((it, idx) => {
-          const fromNode = bankNodesWithY.find(b => b.id === it.fromAccountId);
-          const toNode   = bankNodesWithY.find(b => b.id === it.toAccountId);
-          if (!fromNode || !toNode) return null;
-
-          const fromY   = fromNode.y + fromNode.height * 0.72;
-          const toY     = toNode.y   + toNode.height   * 0.28;
-          const peakX   = ARC_X + idx * 20;
-          const midY    = (fromY + toY) / 2;
-          const sw      = Math.max(2, Math.min(7, Math.round(flowH(it.totalAmount))));
-          const act     = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
-          const arcPath = `M ${MID_X + NODE_W} ${fromY} C ${peakX} ${fromY},${peakX} ${toY},${MID_X + NODE_W} ${toY}`;
-          const fromShort = fromNode.name.split(/[\s–-]/)[0];
-          const toShort   = toNode.name.split(/[\s–-]/)[0];
-          const label   = `${fromShort} → ${toShort}  ${money(it.totalAmount)}`;
-
-          return (
-            <g key={`arc-${idx}`}
-              style={{ opacity: act ? 1 : 0.1, transition: 'opacity .18s', cursor: 'pointer' }}
-              onMouseEnter={() => { setHoveredBankId(fromNode.id); setHoveredFlow({ title: `Internal: ${it.fromAccountName} → ${it.toAccountName}`, amount: money(it.totalAmount), color: fromNode.color }); }}
-              onMouseLeave={() => { setHoveredBankId(null); setHoveredFlow(null); }}
-            >
-              <path d={arcPath} fill="none" stroke={fromNode.color} strokeWidth={sw} strokeOpacity={0.75} />
-              {/* arrowhead */}
-              <polygon
-                points={`${MID_X + NODE_W},${toY} ${MID_X + NODE_W - 7},${toY - 5} ${MID_X + NODE_W - 7},${toY + 5}`}
-                fill={fromNode.color} opacity={0.85}
-              />
-              {/* label at arc peak inside a glassmorphic pill */}
-              <g transform={`translate(${peakX + 8}, ${midY - 9})`}>
-                <rect x="0" y="0" width={label.length * 6.5 + 10} height="18" rx="4" fill="rgba(15, 23, 42, 0.88)" stroke={fromNode.color} strokeWidth="0.8" />
-                <text x="5" y="13" fill={fromNode.color} fontSize="10.5" fontWeight="700">
-                  {label}
-                </text>
+            return (
+              <g
+                key={`arc-${idx}`}
+                style={{ opacity: act ? 1 : 0.1, transition: 'opacity .18s', cursor: 'pointer' }}
+                onMouseEnter={() => {
+                  setHoveredBankId(fromNode.id);
+                  setHoveredFlow({
+                    title: `Internal: ${it.fromAccountName} → ${it.toAccountName}`,
+                    amount: money(it.totalAmount),
+                    color: fromNode.color,
+                  });
+                }}
+                onMouseLeave={() => {
+                  setHoveredBankId(null);
+                  setHoveredFlow(null);
+                }}
+              >
+                <path d={arcPath} fill="none" stroke={fromNode.color} strokeWidth={sw} strokeOpacity={0.75} />
+                <polygon
+                  points={`${MID_X + NODE_W},${toY} ${MID_X + NODE_W - 7},${toY - 5} ${MID_X + NODE_W - 7},${toY + 5}`}
+                  fill={fromNode.color}
+                  opacity={0.85}
+                />
+                <g transform={`translate(${peakX + 8}, ${midY - 9})`}>
+                  <rect x="0" y="0" width={label.length * 6.5 + 10} height="18" rx="4" fill="rgba(15, 23, 42, 0.88)" stroke={fromNode.color} strokeWidth="0.8" />
+                  <text x="5" y="13" fill={fromNode.color} fontSize="10.5" fontWeight="700">
+                    {label}
+                  </text>
+                </g>
               </g>
-            </g>
-          );
-        })}
+            );
+          })}
 
-        {/* ── Stage 1 Node: External Inbound ─────────────────── */}
+        {/* ── Stage 1 Node: Inbound ─────────────────────────────── */}
         <rect x={LEFT_X} y={inStartY} width={NODE_W} height={inboundH} fill="#10b981" rx="4" />
         <text x={LEFT_X - 12} y={inStartY + inboundH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="end">
-          External Inbound
+          {flowMode === 'CLEAN' ? 'External Inbound' : 'Total Inbound'}
         </text>
         <text x={LEFT_X - 12} y={inStartY + inboundH / 2 + 10} fill="#059669" fontSize="12" fontWeight="700" textAnchor="end">
-          +{money(overall.totalExternalInbound)}
+          +{money(flowMode === 'CLEAN' ? overall.totalExternalInbound : totalInboundVolume)}
         </text>
 
-        {/* ── Stage 2 Nodes: Bank Bars ───────────────────────── */}
+        {/* ── Stage 2 Nodes: Bank Funding Accounts ──────────────── */}
         {bankNodesWithY.map((bank) => {
-          const act  = !hoveredBankId || hoveredBankId === bank.id;
-          const lx   = MID_X + NODE_W + 10;
+          const act = !hoveredBankId || hoveredBankId === bank.id;
+          const lx = MID_X + NODE_W + 10;
           const midY = bank.y + bank.height / 2;
           return (
-            <g key={`node-${bank.id}`}
+            <g
+              key={`node-${bank.id}`}
               style={{ opacity: act ? 1 : 0.28, transition: 'opacity .18s', cursor: 'pointer' }}
               onMouseEnter={() => setHoveredBankId(bank.id)}
               onMouseLeave={() => setHoveredBankId(null)}
             >
-              <rect x={bank.x} y={bank.y} width={NODE_W} height={bank.height} fill={bank.color} rx="4"
-                style={{ filter: hoveredBankId === bank.id ? `drop-shadow(0 0 7px ${bank.color})` : 'none' }} />
-              {/* colour pip + name */}
+              <rect
+                x={bank.x}
+                y={bank.y}
+                width={NODE_W}
+                height={bank.height}
+                fill={bank.color}
+                rx="4"
+                style={{ filter: hoveredBankId === bank.id ? `drop-shadow(0 0 7px ${bank.color})` : 'none' }}
+              />
               <rect x={lx} y={midY - 7} width={6} height={6} rx="3" fill={bank.color} />
-              <text x={lx + 9} y={midY - 1} fill="var(--ink)" fontSize="13" fontWeight="700">{bank.name}</text>
+              <text x={lx + 9} y={midY - 1} fill="var(--ink)" fontSize="13" fontWeight="700">
+                {bank.name}
+              </text>
               <text x={lx + 9} y={midY + 14} fontSize="11">
                 <tspan fill="#059669" fontWeight="700">+{money(bank.inTotal)}</tspan>
                 <tspan fill="var(--muted)"> / </tspan>
@@ -1952,41 +2008,30 @@ function MultiBankSankeyDiagram({
           );
         })}
 
-        {/* ── Stage 3 Nodes: Outflow Hubs ───────────────────── */}
-        <rect x={RIGHT_X} y={outY} width={NODE_W} height={outboundH} fill="#ef4444" rx="4" />
-        <g transform={`translate(${RIGHT_X + NODE_W + 10}, ${outY + Math.max(0, outboundH / 2 - 17)})`}>
-          <rect x="0" y="0" width="144" height="34" rx="6" fill="rgba(15,23,42,0.85)" stroke="#ef4444" strokeWidth="1" />
-          <text x="8" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">External Outbound</text>
-          <text x="8" y="27" fill="#ef4444" fontSize="10.5" fontWeight="700">-{money(overall.totalExternalOutbound)}</text>
-        </g>
-
-        {hasCc && (
-          <g>
-            <rect x={RIGHT_X} y={ccY} width={NODE_W} height={ccH} fill="#f59e0b" rx="4" />
-            <g transform={`translate(${RIGHT_X + NODE_W + 10}, ${ccY + Math.max(0, ccH / 2 - 17)})`}>
-              <rect x="0" y="0" width="144" height="34" rx="6" fill="rgba(15,23,42,0.85)" stroke="#f59e0b" strokeWidth="1" />
-              <text x="8" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">Credit Card Payments</text>
-              <text x="8" y="27" fill="#f59e0b" fontSize="10.5" fontWeight="700">-{money(overall.totalCreditCardPayments ?? 0)}</text>
+        {/* ── Stage 3 Nodes: Supergroup Hubs ───────────────────── */}
+        {supergroupNodesWithY.map((sgNode) => {
+          const midY = sgNode.y + sgNode.height / 2;
+          return (
+            <g key={`sg-node-${sgNode.id}`}>
+              <rect x={sgNode.x} y={sgNode.y} width={NODE_W} height={sgNode.height} fill={sgNode.color} rx="4" />
+              <g transform={`translate(${HUB_X + NODE_W + 10}, ${midY - 17})`}>
+                <rect x="0" y="0" width="148" height="34" rx="6" fill="rgba(15,23,42,0.85)" stroke={sgNode.color} strokeWidth="1" />
+                <text x="8" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">
+                  {sgNode.name}
+                </text>
+                <text x="8" y="27" fill={sgNode.color} fontSize="10.5" fontWeight="700">
+                  {money(sgNode.amount)}
+                </text>
+              </g>
             </g>
-          </g>
-        )}
+          );
+        })}
 
-        {hasInv && (
-          <g>
-            <rect x={RIGHT_X} y={invY} width={NODE_W} height={invH} fill="#8b5cf6" rx="4" />
-            <g transform={`translate(${RIGHT_X + NODE_W + 10}, ${invY + Math.max(0, invH / 2 - 17)})`}>
-              <rect x="0" y="0" width="144" height="34" rx="6" fill="rgba(15,23,42,0.85)" stroke="#8b5cf6" strokeWidth="1" />
-              <text x="8" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">Investments & SIPs</text>
-              <text x="8" y="27" fill="#8b5cf6" fontSize="10.5" fontWeight="700">+{money(overall.totalInvestments ?? 0)}</text>
-            </g>
-          </g>
-        )}
-
-        {/* ── Stage 4 Nodes: Spending Categories ────────────── */}
-        {categoryNodesWithY.map((catNode) => {
+        {/* ── Stage 4 Nodes: Subgroup Categories ──────────────── */}
+        {categoryNodesWithY.map((catNode, idx) => {
           const midY = catNode.y + catNode.height / 2;
           return (
-            <g key={`cat-node-${catNode.name}`}>
+            <g key={`cat-node-${idx}-${catNode.name}`}>
               <rect x={catNode.x} y={catNode.y} width={NODE_W} height={catNode.height} fill={catNode.color} rx="4" />
               <rect x={CAT_X + NODE_W + 8} y={midY - 5} width={6} height={6} rx="3" fill={catNode.color} />
               <text x={CAT_X + NODE_W + 18} y={midY - 1} fill="var(--ink)" fontSize="12" fontWeight="700">
