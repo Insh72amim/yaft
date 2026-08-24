@@ -11,12 +11,15 @@ import {
   ChevronLeft,
   Lock,
   Files,
+  Zap,
+  RefreshCw,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
 import { AccountTransactions, ActiveSipsPanel } from "@/components/account-transactions";
 import { AddAccountModal } from "@/components/add-account-modal";
 import { VaultModal } from "@/components/vault-modal";
+import { ZerodhaSyncModal } from "@/components/accounts/zerodha-sync-modal";
 import { AccountDocuments } from "@/components/account-documents";
 import { LoanSchedule } from "@/components/loan-schedule";
 import { TransactionsSection } from "@/components/transactions-section";
@@ -63,6 +66,9 @@ function PortfolioContent() {
   const [amountsVisible, setAmountsVisible] = useState(false);
 
   const [showVaultForInvestment, setShowVaultForInvestment] = useState<string | null>(null);
+  const [showZerodhaSync, setShowZerodhaSync] = useState<string | null>(null);
+  const [refreshingQuotes, setRefreshingQuotes] = useState(false);
+  const [quoteNotice, setQuoteNotice] = useState<string | null>(null);
   const [investmentTab, setInvestmentTab] = useState<"HOLDINGS" | "DOCUMENTS" | "SIPS">("HOLDINGS");
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     Investments: true,
@@ -77,6 +83,21 @@ function PortfolioContent() {
   };
 
   const selectedAccountId = searchParams.get("account");
+
+  const handleRefreshQuotes = async (accId: string) => {
+    try {
+      setRefreshingQuotes(true);
+      setQuoteNotice(null);
+      const res = await api<any>(`/investments/${accId}/refresh-quotes`, { method: "POST" });
+      setQuoteNotice(res.message || "Updated market prices!");
+      await load();
+      setTimeout(() => setQuoteNotice(null), 4000);
+    } catch (err: any) {
+      alert(errorMessage(err, "Failed to refresh market prices."));
+    } finally {
+      setRefreshingQuotes(false);
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -199,7 +220,46 @@ function PortfolioContent() {
                   <TrendingUp size={14} color="#8b5cf6" /> Active SIPs
                 </button>
               </div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {quoteNotice && (
+                  <span style={{ fontSize: "11px", color: "var(--green)", fontWeight: 600 }}>
+                    ✓ {quoteNotice}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="secondary compact"
+                  onClick={() => setShowZerodhaSync(selectedAccountId)}
+                  style={{
+                    background: "rgba(249, 115, 22, 0.08)",
+                    color: "#f97316",
+                    borderColor: "rgba(249, 115, 22, 0.3)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    fontWeight: 600,
+                  }}
+                  title="Automated 1-Click Sync from Zerodha Kite"
+                >
+                  <Zap size={14} /> Sync Zerodha
+                </button>
+                {portfolioData && portfolioData.holdings.length > 0 && (
+                  <button
+                    type="button"
+                    className="secondary compact"
+                    onClick={() => handleRefreshQuotes(selectedAccountId)}
+                    disabled={refreshingQuotes}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                    }}
+                    title="Refresh live stock market prices (LTP) from NSE"
+                  >
+                    <RefreshCw size={13} className={refreshingQuotes ? "spin" : ""} />
+                    {refreshingQuotes ? "Updating quotes…" : "Live Quotes"}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="secondary compact"
@@ -325,6 +385,14 @@ function PortfolioContent() {
               <VaultModal
                 accountId={showVaultForInvestment}
                 onClose={() => setShowVaultForInvestment(null)}
+              />
+            )}
+            {showZerodhaSync && (
+              <ZerodhaSyncModal
+                accountId={showZerodhaSync}
+                accountName={selectedAccount.name}
+                onClose={() => setShowZerodhaSync(null)}
+                onSuccess={() => load()}
               />
             )}
           </>
