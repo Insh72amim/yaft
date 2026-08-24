@@ -213,7 +213,7 @@ export const EMAIL_ALERT_PATTERNS = {
   MERCHANT_TXN_INFO_REGEX: /transaction\s*info[:\s]+([a-zA-Z0-9\s._\-&@\/]{3,60}?)(?=\s+(?:If|To|Please|Available|Date|\.|$))/i,
   MERCHANT_TO_VPA_REGEX: /to\s+(?:VPA\s+)?([a-zA-Z0-9._\-@&]{3,50})(?=\s+(?:on\s+\d|at\s+\d|\.|\bref\b|$))/i,
   MERCHANT_TOWARDS_REGEX: /towards\s+([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s+(?:at\s+\d|on\s+\d|\.|Bal|Total|Ref|via|$))/i,
-  MERCHANT_FROM_REGEX: /from\s+([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s+(?:\.|\bNEFT|\bIMPS|\bRef|\bUPI|\bon\s+\d|\bat\s+\d|$))/i,
+  MERCHANT_FROM_REGEX: /from\s+([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s*[.]|\s+(?:\bNEFT|\bIMPS|\bRef|\bUPI|\bon\s+\d|\bat\s+\d|$))/i,
   MERCHANT_AT_REGEX: /\bat\s+(?!\d{1,2}:\d{2})(?!\d{1,2}[-/]\d{1,2})([a-zA-Z0-9\s._\-&@\/]{2,45}?)(?=\s+(?:on\s+\d|at\s+\d|\.|\binfo\b|\bavail|\btotal|\bref|\bcard|\ba\/c|$))/i,
 
   DATE_REGEX: /\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{2,4}|\d{1,2}[-\s](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-\s,]?\s*\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{2}-\d{2})\b/i,
@@ -226,7 +226,14 @@ export const EMAIL_ALERT_PATTERNS = {
 
 export function cleanEmailAlertText(bodyText: string): string {
   if (!bodyText) return '';
-  let text = bodyText.replace(/\s+/g, ' ').trim();
+  let text = bodyText
+    .replace(/&#8377;|&amp;#8377;|&#x20b9;/gi, '₹')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
   return text.replace(EMAIL_ALERT_PATTERNS.BOILERPLATE_WARNINGS_REGEX, '');
 }
 
