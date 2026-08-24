@@ -72,7 +72,7 @@ export type AccountSection =
   | { label: string; subsections: { label: string; types: string[] }[] };
 
 export const accountSections: AccountSection[] = [
-  { label: "Savings accounts", types: ["SAVINGS", "BANK"] },
+  { label: "Savings accounts", types: ["SAVINGS", "BANK", "WALLET", "CASH"] },
   {
     label: "Investments",
     subsections: [
@@ -81,6 +81,10 @@ export const accountSections: AccountSection[] = [
       { label: "EPFO", types: ["EPFO"] },
       { label: "Other investments", types: ["INVESTMENT"] },
     ],
+  },
+  {
+    label: "Credit Cards",
+    types: ["CREDIT_CARD"],
   },
   {
     label: "Debt Accounts",

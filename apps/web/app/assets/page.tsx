@@ -7,7 +7,7 @@ export default function AssetsRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/accounts?tab=assets");
+    router.replace("/accounts");
   }, [router]);
 
   return (

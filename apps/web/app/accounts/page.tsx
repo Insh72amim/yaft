@@ -23,8 +23,7 @@ import { TransactionsSection } from "@/components/transactions-section";
 
 import { AccountsNav, AccountsTabType } from "@/components/accounts/accounts-nav";
 import { Account, PortfolioAccount } from "@/components/accounts/account-card";
-import { AccountsPortfolioTab } from "@/components/accounts/accounts-portfolio-tab";
-import { AssetsNetWorthTab } from "@/components/accounts/assets-net-worth-tab";
+import { AccountsPortfolioTab, AssetsHistoryData } from "@/components/accounts/accounts-portfolio-tab";
 import { CreditCardsTab } from "@/components/accounts/credit-cards-tab";
 
 const quantity = (value: string) =>
@@ -51,14 +50,13 @@ function PortfolioContent() {
       ? "TRANSACTIONS"
       : tabParam === "CREDIT_CARDS"
       ? "CREDIT_CARDS"
-      : tabParam === "ASSETS"
-      ? "ASSETS"
       : "ACCOUNTS";
 
   const [activeTab, setActiveTab] = useState<AccountsTabType>(initialTab);
 
   const [portfolio, setPortfolio] = useState<PortfolioAccount[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [assetsHistory, setAssetsHistory] = useState<AssetsHistoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [addingAccount, setAddingAccount] = useState(false);
@@ -82,12 +80,16 @@ function PortfolioContent() {
 
   const load = useCallback(async () => {
     try {
-      const [portfolioRes, accountsRes] = await Promise.all([
+      const [portfolioRes, accountsRes, assetsHistoryRes] = await Promise.all([
         api<PortfolioAccount[]>("/investments/portfolio"),
         api<Account[]>("/accounts"),
+        api<AssetsHistoryData>("/dashboard/assets-history").catch(() => null),
       ]);
       setPortfolio(portfolioRes);
       setAccounts(accountsRes);
+      if (assetsHistoryRes) {
+        setAssetsHistory(assetsHistoryRes);
+      }
     } catch (reason) {
       if (isUnauthorized(reason)) router.replace("/login");
       else setError(errorMessage(reason, "Could not load your accounts."));
@@ -345,17 +347,19 @@ function PortfolioContent() {
         <TransactionsSection embedded={true} />
       ) : activeTab === "CREDIT_CARDS" ? (
         <CreditCardsTab />
-      ) : activeTab === "ASSETS" ? (
-        <AssetsNetWorthTab />
       ) : (
         <AccountsPortfolioTab
           accounts={accounts}
           portfolio={portfolio}
+          assetsHistory={assetsHistory}
           amountsVisible={amountsVisible}
           setAmountsVisible={setAmountsVisible}
           collapsedSections={collapsedSections}
           toggleSection={toggleSection}
           setAddingAccount={setAddingAccount}
+          onRefresh={() => {
+            void load();
+          }}
           error={error}
         />
       )}

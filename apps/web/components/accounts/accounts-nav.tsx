@@ -2,7 +2,7 @@
 
 import { Landmark, ChartPie, CreditCard, Receipt } from "lucide-react";
 
-export type AccountsTabType = "ACCOUNTS" | "ASSETS" | "TRANSACTIONS" | "CREDIT_CARDS";
+export type AccountsTabType = "ACCOUNTS" | "TRANSACTIONS" | "CREDIT_CARDS";
 
 interface AccountsNavProps {
   activeTab: AccountsTabType;
@@ -36,23 +36,7 @@ export function AccountsNav({ activeTab, onTabChange }: AccountsNavProps) {
           gap: "8px",
         }}
       >
-        <Landmark size={15} /> <span>Accounts &amp; Portfolios</span>
-      </button>
-
-      <button
-        type="button"
-        className={`secondary compact ${activeTab === "ASSETS" ? "active" : ""}`}
-        onClick={() => onTabChange("ASSETS")}
-        style={{
-          borderRadius: "9px",
-          padding: "8px 14px",
-          fontSize: "13px",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
-      >
-        <ChartPie size={15} /> <span>Assets &amp; Net Worth</span>
+        <Landmark size={15} /> <span>Accounts &amp; Wealth</span>
       </button>
 
       <button
