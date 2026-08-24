@@ -720,17 +720,22 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                     })()}
                   </select>
                 ) : (
-                  <span
-                    className={`category-pill ${!transaction.categoryId ? 'uncategorised' : ''}`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                  >
+                  <div className="transaction-cat-btn" style={{ cursor: 'default' }}>
+                    <div className="transaction-cat-primary">
+                      <span
+                        className="transaction-cat-dot"
+                        style={{ background: transaction.categoryColor || (transaction.categoryId ? "#3b82f6" : "#94a3b8") }}
+                      />
+                      <span className={`transaction-cat-name ${!transaction.categoryId ? 'uncategorised' : ''}`}>
+                        {transaction.category || 'Uncategorised'}
+                      </span>
+                    </div>
                     {transaction.superCategory && (
-                      <span style={{ fontSize: '10px', opacity: 0.72, fontWeight: 700 }}>
-                        {transaction.superCategory} &rsaquo;
+                      <span className="transaction-super-label">
+                        {transaction.superCategory}
                       </span>
                     )}
-                    <span>{transaction.category || 'Uncategorised'}</span>
-                  </span>
+                  </div>
                 )}
               </div>
               <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>

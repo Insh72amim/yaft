@@ -205,29 +205,29 @@ html[data-theme='dark'] .sidebar-color-dot.active {
 .account-transaction-table > header,
 .account-transaction-table > article {
   display: grid;
-  grid-template-columns: 120px minmax(240px, 1fr) 140px 125px;
-  gap: 18px;
+  grid-template-columns: 115px minmax(220px, 1fr) minmax(140px, 170px) 120px;
+  gap: 16px;
   align-items: center;
 }
 .account-transaction-table.has-checkboxes > header,
 .account-transaction-table.has-checkboxes > article {
-  grid-template-columns: 36px 120px minmax(200px, 1fr) 140px 125px;
+  grid-template-columns: 36px 115px minmax(190px, 1fr) minmax(140px, 170px) 120px;
 }
 .account-transaction-table.has-actions > header,
 .account-transaction-table.has-actions > article {
-  grid-template-columns: 120px minmax(240px, 1fr) 140px 100px 45px;
+  grid-template-columns: 115px minmax(220px, 1fr) minmax(140px, 170px) 100px 45px;
 }
 .account-transaction-table.has-checkboxes.has-actions > header,
 .account-transaction-table.has-checkboxes.has-actions > article {
-  grid-template-columns: 36px 120px minmax(200px, 1fr) 140px 100px 45px;
+  grid-template-columns: 36px 115px minmax(190px, 1fr) minmax(140px, 170px) 100px 45px;
 }
 .account-transaction-table.has-account > header,
 .account-transaction-table.has-account > article {
-  grid-template-columns: 110px 160px minmax(200px, 1fr) 140px 120px;
+  grid-template-columns: 105px 150px minmax(190px, 1fr) minmax(140px, 170px) 115px;
 }
 .account-transaction-table.has-account.has-checkboxes > header,
 .account-transaction-table.has-account.has-checkboxes > article {
-  grid-template-columns: 36px 110px 160px minmax(200px, 1fr) 140px 120px;
+  grid-template-columns: 36px 105px 150px minmax(190px, 1fr) minmax(140px, 170px) 115px;
 }
 .account-transaction-table.system-ids-table > header,
 .account-transaction-table.system-ids-table > article {
@@ -318,6 +318,76 @@ html[data-theme='dark'] .transaction-amount-cell.positive {
 html[data-theme='dark'] .transaction-amount-cell.negative {
   color: var(--red) !important;
 }
+.transaction-cat-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.5px;
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+  min-width: 0;
+  max-width: 100%;
+}
+.transaction-cat-btn:hover {
+  background: var(--background-alt);
+}
+.transaction-cat-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.transaction-cat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.transaction-cat-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+.transaction-cat-name.uncategorised {
+  color: var(--muted);
+  font-weight: 500;
+  font-style: italic;
+}
+.transaction-super-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-left: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+  opacity: 0.85;
+}
+.category-transfer-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
 .category-pill {
   display: inline-flex;
   align-items: center;
@@ -326,15 +396,13 @@ html[data-theme='dark'] .transaction-amount-cell.negative {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  border-radius: 12px;
-  padding: 4px 10px;
+  border-radius: 8px;
+  padding: 3px 8px;
   background: var(--theme-soft-start);
   color: var(--green);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.2px;
   border: 1px solid var(--theme-border-soft, var(--line));
-  transition: all 0.15s ease;
 }
 .category-pill.uncategorised {
   background: transparent;
@@ -346,21 +414,6 @@ html[data-theme='dark'] .transaction-amount-cell.negative {
   background: rgba(59, 130, 246, 0.1);
   color: #3b82f6;
   border: 1px solid rgba(59, 130, 246, 0.2);
-}
-html[data-theme='dark'] .category-pill {
-  background: var(--theme-soft-start);
-  color: var(--green);
-  border-color: var(--theme-border-soft, var(--line));
-}
-html[data-theme='dark'] .category-pill.uncategorised {
-  background: transparent;
-  color: var(--muted);
-  border-color: var(--line);
-}
-html[data-theme='dark'] .category-pill.transfer {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-  border-color: rgba(96, 165, 250, 0.25);
 }
 .account-transaction-table > article:hover .category-pill {
   transform: scale(1.03);

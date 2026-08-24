@@ -1996,49 +1996,30 @@ export function TransactionsSection({
                       ) : (
                         <button
                           type="button"
+                          className="transaction-cat-btn"
                           onClick={() => setEditingTxCatId(tx.id)}
-                          title="Click to change category"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "5px",
-                            padding: "3px 10px",
-                            borderRadius: "8px",
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            background: tx.categoryId
-                              ? "rgba(34, 197, 94, 0.1)"
-                              : "var(--card-hover)",
-                            color: tx.categoryId
-                              ? "var(--green)"
-                              : "var(--muted)",
-                            border: "1px solid var(--line)",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                          }}>
-                          {tx.categoryColor && (
+                          title="Click to change category">
+                          <div className="transaction-cat-primary">
                             <span
+                              className="transaction-cat-dot"
                               style={{
-                                width: "6px",
-                                height: "6px",
-                                borderRadius: "50%",
-                                background: tx.categoryColor,
-                                flexShrink: 0,
+                                background:
+                                  tx.categoryColor ||
+                                  (tx.categoryId ? "#3b82f6" : "#94a3b8"),
                               }}
                             />
-                          )}
-                          {tx.superCategory && (
                             <span
-                              style={{
-                                fontSize: "10px",
-                                opacity: 0.72,
-                                fontWeight: 700,
-                                marginRight: "1px",
-                              }}>
-                              {tx.superCategory} &rsaquo;
+                              className={`transaction-cat-name ${
+                                !tx.categoryId ? "uncategorised" : ""
+                              }`}>
+                              {tx.category || "Uncategorised"}
+                            </span>
+                          </div>
+                          {tx.superCategory && (
+                            <span className="transaction-super-label">
+                              {tx.superCategory}
                             </span>
                           )}
-                          <span>{tx.category}</span>
                         </button>
                       )}
                     </div>
