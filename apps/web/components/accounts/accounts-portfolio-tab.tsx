@@ -497,7 +497,7 @@ export function AccountsPortfolioTab({
                   background:
                     selectedCategory === "SAVINGS"
                       ? "rgba(14, 165, 233, 0.15)"
-                      : "var(--background)",
+                      : "var(--background-alt)",
                   border: `1px solid ${
                     selectedCategory === "SAVINGS" ? "#0ea5e9" : "var(--line)"
                   }`,
@@ -559,7 +559,7 @@ export function AccountsPortfolioTab({
                   background:
                     selectedCategory === "DEPOSITS"
                       ? "rgba(245, 158, 11, 0.15)"
-                      : "var(--background)",
+                      : "var(--background-alt)",
                   border: `1px solid ${
                     selectedCategory === "DEPOSITS" ? "#f59e0b" : "var(--line)"
                   }`,
@@ -621,7 +621,7 @@ export function AccountsPortfolioTab({
                   background:
                     selectedCategory === "STOCKS"
                       ? "rgba(16, 185, 129, 0.15)"
-                      : "var(--background)",
+                      : "var(--background-alt)",
                   border: `1px solid ${
                     selectedCategory === "STOCKS" ? "#10b981" : "var(--line)"
                   }`,
@@ -683,7 +683,7 @@ export function AccountsPortfolioTab({
                   background:
                     selectedCategory === "MUTUAL_FUNDS"
                       ? "rgba(139, 92, 246, 0.15)"
-                      : "var(--background)",
+                      : "var(--background-alt)",
                   border: `1px solid ${
                     selectedCategory === "MUTUAL_FUNDS" ? "#8b5cf6" : "var(--line)"
                   }`,
@@ -745,7 +745,7 @@ export function AccountsPortfolioTab({
                   background:
                     selectedCategory === "EPFO"
                       ? "rgba(249, 115, 22, 0.15)"
-                      : "var(--background)",
+                      : "var(--background-alt)",
                   border: `1px solid ${
                     selectedCategory === "EPFO" ? "#f97316" : "var(--line)"
                   }`,

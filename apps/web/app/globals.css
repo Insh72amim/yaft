@@ -25,6 +25,7 @@
   --theme-shadow-color: rgba(23, 79, 59, 0.16);
   --sidebar-bg: #f4f6f4;
   --background-alt: #edf3ef;
+  --background: var(--paper);
 }
 
 /* Color Theme Overrides (Light Mode) */
