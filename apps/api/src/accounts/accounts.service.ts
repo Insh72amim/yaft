@@ -407,6 +407,8 @@ export class AccountsService {
     startDate?: string,
     endDate?: string,
     categoryId?: string,
+    categoryGroup?: string,
+    tagId?: string,
     mode?: string,
   ) {
     const page = Math.max(1, requestedPage);
@@ -425,18 +427,33 @@ export class AccountsService {
       startDate,
       endDate,
       categoryId,
-      undefined,
-      undefined,
+      categoryGroup,
+      tagId,
       mode,
     );
 
-    const [total, amountSum, transactions, userCategories] = await Promise.all([
+    const [total, amountSum, debitsSum, creditsSum, transactions, userCategories, userAccounts, userTags] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),
       this.prisma.transaction.aggregate({ where: transactionWhere, _sum: { amount: true } }),
+      this.prisma.transaction.aggregate({ where: { ...transactionWhere, amount: { lt: 0n } }, _sum: { amount: true } }),
+      this.prisma.transaction.aggregate({ where: { ...transactionWhere, amount: { gt: 0n } }, _sum: { amount: true } }),
       this.prisma.transaction.findMany({
         where: transactionWhere,
         include: {
-          account: { select: { id: true, name: true, type: true, institution: true } },
+          account: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              institution: true,
+              vaultEntry: { select: { last4: true } },
+            },
+          },
+          tags: {
+            include: {
+              tag: { select: { id: true, name: true, color: true } },
+            },
+          },
           category: {
             select: {
               id: true,
@@ -456,15 +473,42 @@ export class AccountsService {
         include: { superCategory: { select: { id: true, name: true, color: true, kind: true } } },
         orderBy: { name: 'asc' },
       }),
+      this.prisma.account.findMany({
+        where: { userId, archived: false },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          institution: true,
+          vaultEntry: { select: { last4: true } },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.tag.findMany({
+        where: { userId },
+        select: { id: true, name: true, color: true },
+        orderBy: { name: 'asc' },
+      }),
     ]);
 
+    const totalSpent = Number(debitsSum._sum.amount ?? 0n);
+    const totalReceived = Number(creditsSum._sum.amount ?? 0n);
+    const netTotal = Number(amountSum._sum.amount ?? 0n);
+
     return {
+      summary: {
+        totalSpent: Math.abs(totalSpent),
+        totalReceived,
+        netTotal,
+        totalCount: total,
+      },
       transactions: transactions.map((item) => ({
         id: item.id,
         accountId: item.accountId,
         accountName: item.account.name,
         accountType: item.account.type,
         institution: item.account.institution,
+        cardLast4: item.account.vaultEntry?.last4 ?? null,
         transactionDate: item.transactionDate,
         postedDate: item.postedDate,
         description: item.merchant || item.descriptionRaw,
@@ -477,6 +521,7 @@ export class AccountsService {
         superCategoryColor: item.category?.superCategory?.color ?? null,
         superCategoryKind: item.category?.superCategory?.kind ?? (item.category?.type as any ?? null),
         isTransfer: Boolean(item.transferGroupId),
+        tags: item.tags?.map((t) => ({ id: t.tag.id, name: t.tag.name, color: t.tag.color })) ?? [],
         emailReference: (item.emailSnippet || item.emailMessageId || item.emailSubject) ? {
           messageId: item.emailMessageId,
           subject: item.emailSubject,
@@ -494,7 +539,19 @@ export class AccountsService {
         superCategoryColor: c.superCategory?.color ?? null,
         superCategoryKind: c.superCategory?.kind ?? (c.type as any ?? null),
       })),
-      totalAmount: Number(amountSum._sum.amount ?? 0n),
+      accounts: userAccounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        institution: a.institution,
+        cardLast4: a.vaultEntry?.last4 ?? null,
+      })),
+      tags: userTags.map((t) => ({
+        id: t.id,
+        name: t.name,
+        color: t.color,
+      })),
+      totalAmount: netTotal,
       pagination: { page, pageSize, total, pages: Math.ceil(total / pageSize) },
     };
   }

@@ -157,7 +157,12 @@ describe('AccountsController & AccountsService transaction history', () => {
       account: { id: 'acc-1', name: 'HDFC', type: 'SAVINGS', institution: 'HDFC' },
       category: { name: 'Groceries' },
     }]);
-    const prisma = { transaction: { count, aggregate, findMany }, category: { findMany: jest.fn().mockResolvedValue([]) } } as unknown as PrismaService;
+    const prisma = {
+      transaction: { count, aggregate, findMany },
+      category: { findMany: jest.fn().mockResolvedValue([]) },
+      account: { findMany: jest.fn().mockResolvedValue([{ id: 'acc-1', name: 'HDFC', type: 'SAVINGS', institution: 'HDFC' }]) },
+      tag: { findMany: jest.fn().mockResolvedValue([]) },
+    } as unknown as PrismaService;
     const service = new AccountsService(prisma, credentials, accountDocuments());
     const controller = new AccountsController(service);
 
