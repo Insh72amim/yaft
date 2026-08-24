@@ -912,8 +912,8 @@ export function EnvelopesTab({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            gap: "12px",
+            gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
+            gap: "10px",
           }}>
           {(filteredExpenseCategories || []).map((cat) => {
             if (!cat) return null;
@@ -938,15 +938,15 @@ export function EnvelopesTab({
                   border: isSelected
                     ? "1.5px solid var(--green)"
                     : "1px solid var(--line)",
-                  borderRadius: "12px",
-                  padding: "14px 16px",
+                  borderRadius: "10px",
+                  padding: "10px 13px",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
-                  gap: "10px",
+                  gap: "7px",
                   cursor: "pointer",
                   boxShadow: isSelected
-                    ? "0 2px 10px rgba(0,0,0,0.06)"
+                    ? "0 2px 8px rgba(0,0,0,0.06)"
                     : "none",
                   transition: "all 0.15s ease",
                   position: "relative",
@@ -974,23 +974,23 @@ export function EnvelopesTab({
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: "8px",
+                      gap: "7px",
                       minWidth: 0,
                     }}>
                     <span
                       style={{
-                        width: "10px",
-                        height: "10px",
+                        width: "8px",
+                        height: "8px",
                         borderRadius: "50%",
                         background: catColor,
                         display: "inline-block",
                         flexShrink: 0,
-                        boxShadow: `0 0 6px ${catColor}55`,
+                        boxShadow: `0 0 5px ${catColor}55`,
                       }}
                     />
                     <strong
                       style={{
-                        fontSize: "13.5px",
+                        fontSize: "12.5px",
                         color: "var(--ink)",
                         fontWeight: 700,
                         whiteSpace: "nowrap",
@@ -1001,12 +1001,12 @@ export function EnvelopesTab({
                     </strong>
                     <span
                       style={{
-                        fontSize: "10.5px",
+                        fontSize: "10px",
                         color: "var(--muted)",
                         fontWeight: 600,
                         background: "var(--background-alt)",
-                        padding: "1px 6px",
-                        borderRadius: "10px",
+                        padding: "1px 5px",
+                        borderRadius: "8px",
                         flexShrink: 0,
                       }}>
                       {txCount}
@@ -1014,7 +1014,7 @@ export function EnvelopesTab({
                   </div>
 
                   <div
-                    style={{ display: "flex", gap: "4px", alignItems: "center" }}
+                    style={{ display: "flex", gap: "2px", alignItems: "center" }}
                     onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
@@ -1033,7 +1033,7 @@ export function EnvelopesTab({
                       style={{
                         background: "transparent",
                         border: "none",
-                        padding: "4px",
+                        padding: "3px",
                         cursor: "pointer",
                         color: "var(--muted)",
                         display: "inline-flex",
@@ -1042,7 +1042,7 @@ export function EnvelopesTab({
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}>
-                      <Edit2 size={12} />
+                      <Edit2 size={11} />
                     </button>
 
                     {budget && budget.hasBudget && budget.budgetId && (
@@ -1054,7 +1054,7 @@ export function EnvelopesTab({
                         style={{
                           background: "transparent",
                           border: "none",
-                          padding: "4px",
+                          padding: "3px",
                           cursor: "pointer",
                           color: "var(--muted)",
                           display: "inline-flex",
@@ -1064,9 +1064,9 @@ export function EnvelopesTab({
                         onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
                         onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}>
                         {deletingBudgetId === budget.budgetId ? (
-                          <Loader2 size={12} className="spin" />
+                          <Loader2 size={11} className="spin" />
                         ) : (
-                          <Trash2 size={12} />
+                          <Trash2 size={11} />
                         )}
                       </button>
                     )}
@@ -1082,15 +1082,15 @@ export function EnvelopesTab({
                       alignItems: "baseline",
                     }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
-                      <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+                      <span style={{ fontSize: "1.02rem", fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em" }}>
                         {money(spent * 100)}
                       </span>
                       {budget && budget.hasBudget ? (
-                        <span style={{ fontSize: "11.5px", color: "var(--muted)", fontWeight: 600 }}>
+                        <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>
                           / {money(limit * 100)}
                         </span>
                       ) : (
-                        <span style={{ fontSize: "11px", color: "var(--muted)" }}>
+                        <span style={{ fontSize: "10.5px", color: "var(--muted)" }}>
                           spent
                         </span>
                       )}
@@ -1099,7 +1099,7 @@ export function EnvelopesTab({
                     {budget && budget.hasBudget ? (
                       <span
                         style={{
-                          fontSize: "11.5px",
+                          fontSize: "11px",
                           fontWeight: 800,
                           color:
                             status === "EXCEEDED"
@@ -1122,7 +1122,7 @@ export function EnvelopesTab({
                           setEditCatBudgetLimit("");
                         }}
                         style={{
-                          fontSize: "11px",
+                          fontSize: "10.5px",
                           color: "var(--green)",
                           fontWeight: 600,
                           background: "transparent",
@@ -1139,11 +1139,11 @@ export function EnvelopesTab({
                   <div
                     style={{
                       width: "100%",
-                      height: "4px",
+                      height: "3.5px",
                       background: "var(--background-alt)",
                       borderRadius: "2px",
                       overflow: "hidden",
-                      margin: "7px 0 6px 0",
+                      margin: "5px 0 4px 0",
                     }}>
                     {budget && budget.hasBudget ? (
                       <div
@@ -1171,7 +1171,7 @@ export function EnvelopesTab({
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    fontSize: "11px",
+                    fontSize: "10.5px",
                   }}>
                   {budget && budget.hasBudget ? (
                     <span
@@ -1185,21 +1185,21 @@ export function EnvelopesTab({
                         fontWeight: 600,
                       }}>
                       {status === "EXCEEDED"
-                        ? `Over budget by ${money(((spent || 0) - (limit || 0)) * 100)}`
+                        ? `Over by ${money(((spent || 0) - (limit || 0)) * 100)}`
                         : status === "WARNING"
                         ? `Near ceiling (${money(((limit || 0) - (spent || 0)) * 100)} left)`
-                        : `${money(((limit || 0) - (spent || 0)) * 100)} remaining`}
+                        : `${money(((limit || 0) - (spent || 0)) * 100)} left`}
                     </span>
                   ) : (
-                    <span style={{ color: "var(--muted)", fontSize: "11px" }}>
-                      No envelope target set
+                    <span style={{ color: "var(--muted)", fontSize: "10.5px" }}>
+                      No target set
                     </span>
                   )}
 
                   {isSelected && (
                     <span
                       style={{
-                        fontSize: "10.5px",
+                        fontSize: "10px",
                         fontWeight: 700,
                         color: "var(--green)",
                       }}>
