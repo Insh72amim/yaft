@@ -28,14 +28,14 @@ export type CategoryRuleItem = {
   categoryId: string;
   categoryName?: string;
   categoryColor?: string;
-  category?: { id: string; name: string; color: string };
+  category?: { id: string; name: string; color: string; superCategory?: { name: string; color: string; kind: string } | null };
 };
 
 export type UnverifiedCategoryGroup = {
   categoryId?: string;
   categoryName?: string;
   categoryColor?: string;
-  category?: { id: string; name: string; color: string };
+  category?: { id: string; name: string; color: string; superCategory?: { name: string; color: string; kind: string } | null };
   unverifiedCount?: number;
   totalCount?: number;
   sampleDescriptions?: string[];
@@ -442,6 +442,11 @@ export function CategoryRulesTab({
                           border: `1px solid ${catColor}30`,
                         }}>
                           <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: catColor }} />
+                          {rule.category?.superCategory?.name && (
+                            <span style={{ opacity: 0.72, fontSize: "11px", fontWeight: 700 }}>
+                              {rule.category.superCategory.name} &rsaquo;
+                            </span>
+                          )}
                           {catName}
                         </span>
                       </td>
@@ -540,9 +545,41 @@ export function CategoryRulesTab({
                   required
                   style={{ width: "100%", height: "42px", fontSize: "13px", padding: "0 12px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
                   <option value="">Select Target Category...</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.type || "EXPENSE"})</option>
-                  ))}
+                  {(() => {
+                    const groups: { [key: string]: typeof categories } = {};
+                    const unassigned: typeof categories = [];
+                    categories.forEach((c) => {
+                      const groupName = c.superCategory?.name || (c.type ? `${c.type.charAt(0) + c.type.slice(1).toLowerCase()}` : "");
+                      if (groupName) {
+                        if (!groups[groupName]) groups[groupName] = [];
+                        groups[groupName].push(c);
+                      } else {
+                        unassigned.push(c);
+                      }
+                    });
+                    return (
+                      <>
+                        {Object.entries(groups).map(([grp, items]) => (
+                          <optgroup key={grp} label={grp}>
+                            {items.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                        {unassigned.length > 0 && (
+                          <optgroup label="General">
+                            {unassigned.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </>
+                    );
+                  })()}
                 </select>
               </div>
 

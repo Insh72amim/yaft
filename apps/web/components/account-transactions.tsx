@@ -43,6 +43,9 @@ type AccountLedger = {
     categoryId?: string | null;
     category: string;
     categoryColor?: string;
+    superCategory?: string | null;
+    superCategoryColor?: string | null;
+    superCategoryKind?: string | null;
     isTransfer: boolean;
     emailReference?: {
       messageId?: string | null;
@@ -52,7 +55,12 @@ type AccountLedger = {
       snippet?: string | null;
     } | null;
   }[];
-  categories?: CategoryOption[];
+  categories?: (CategoryOption & {
+    superCategoryId?: string | null;
+    superCategoryName?: string | null;
+    superCategoryColor?: string | null;
+    superCategoryKind?: string | null;
+  })[];
   pagination: { page: number; pageSize: number; total: number; pages: number };
 };
 
@@ -661,7 +669,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                     style={{
                       display: 'inline-block',
                       width: 'auto',
-                      maxWidth: '160px',
+                      maxWidth: '180px',
                       background: transaction.categoryId ? 'var(--theme-soft-start)' : 'var(--background-alt)',
                       border: '1px solid var(--line)',
                       borderRadius: '8px',
@@ -674,15 +682,54 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                     }}
                   >
                     <option value="">Uncategorised</option>
-                    {(data.categories || []).map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
+                    {(() => {
+                      const cats = data.categories || [];
+                      const groups: { [key: string]: typeof cats } = {};
+                      const unassigned: typeof cats = [];
+                      cats.forEach((c: any) => {
+                        const groupName = c.superCategoryName || (c.type ? `${c.type.charAt(0) + c.type.slice(1).toLowerCase()}` : "");
+                        if (groupName) {
+                          if (!groups[groupName]) groups[groupName] = [];
+                          groups[groupName].push(c);
+                        } else {
+                          unassigned.push(c);
+                        }
+                      });
+                      return (
+                        <>
+                          {Object.entries(groups).map(([grp, items]) => (
+                            <optgroup key={grp} label={grp}>
+                              {items.map((cat) => (
+                                <option key={cat.id} value={cat.id}>
+                                  {cat.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                          {unassigned.length > 0 && (
+                            <optgroup label="General">
+                              {unassigned.map((cat) => (
+                                <option key={cat.id} value={cat.id}>
+                                  {cat.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </>
+                      );
+                    })()}
                   </select>
                 ) : (
-                  <span className={`category-pill ${!transaction.categoryId ? 'uncategorised' : ''}`}>
-                    {transaction.category || 'Uncategorised'}
+                  <span
+                    className={`category-pill ${!transaction.categoryId ? 'uncategorised' : ''}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    {transaction.superCategory && (
+                      <span style={{ fontSize: '10px', opacity: 0.72, fontWeight: 700 }}>
+                        {transaction.superCategory} &rsaquo;
+                      </span>
+                    )}
+                    <span>{transaction.category || 'Uncategorised'}</span>
                   </span>
                 )}
               </div>

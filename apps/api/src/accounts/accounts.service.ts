@@ -437,13 +437,24 @@ export class AccountsService {
         where: transactionWhere,
         include: {
           account: { select: { id: true, name: true, type: true, institution: true } },
-          category: { select: { id: true, name: true, color: true } },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              color: true,
+              superCategory: { select: { id: true, name: true, color: true, kind: true } },
+            },
+          },
         },
         orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.category.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
+      this.prisma.category.findMany({
+        where: { userId },
+        include: { superCategory: { select: { id: true, name: true, color: true, kind: true } } },
+        orderBy: { name: 'asc' },
+      }),
     ]);
 
     return {
@@ -461,6 +472,9 @@ export class AccountsService {
         categoryId: item.categoryId,
         category: item.category?.name ?? 'Uncategorised',
         categoryColor: item.category?.color ?? '#94a3b8',
+        superCategory: item.category?.superCategory?.name ?? null,
+        superCategoryColor: item.category?.superCategory?.color ?? null,
+        superCategoryKind: item.category?.superCategory?.kind ?? null,
         isTransfer: Boolean(item.transferGroupId),
         emailReference: (item.emailSnippet || item.emailMessageId || item.emailSubject) ? {
           messageId: item.emailMessageId,
@@ -470,7 +484,15 @@ export class AccountsService {
           snippet: item.emailSnippet,
         } : null,
       })),
-      categories: userCategories.map((c) => ({ id: c.id, name: c.name, color: c.color })),
+      categories: userCategories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        superCategoryId: c.superCategoryId,
+        superCategoryName: c.superCategory?.name ?? null,
+        superCategoryColor: c.superCategory?.color ?? null,
+        superCategoryKind: c.superCategory?.kind ?? null,
+      })),
       totalAmount: Number(amountSum._sum.amount ?? 0n),
       pagination: { page, pageSize, total, pages: Math.ceil(total / pageSize) },
     };
@@ -511,9 +533,27 @@ export class AccountsService {
     const [total, amount, transactions, userCategories] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),
       this.prisma.transaction.aggregate({ where: { accountId, account: { userId } }, _sum: { amount: true } }),
-      this.prisma.transaction.findMany({ where: transactionWhere, include: { category: { select: { id: true, name: true, color: true } } },
-        orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }], skip: (page - 1) * pageSize, take: pageSize }),
-      this.prisma.category.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
+      this.prisma.transaction.findMany({
+        where: transactionWhere,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              color: true,
+              superCategory: { select: { id: true, name: true, color: true, kind: true } },
+            },
+          },
+        },
+        orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.category.findMany({
+        where: { userId },
+        include: { superCategory: { select: { id: true, name: true, color: true, kind: true } } },
+        orderBy: { name: 'asc' },
+      }),
     ]);
 
     const effectiveCreditLimit = account.creditLimit !== null
@@ -544,6 +584,9 @@ export class AccountsService {
         categoryId: item.categoryId,
         category: item.category?.name ?? 'Uncategorised',
         categoryColor: item.category?.color ?? '#94a3b8',
+        superCategory: item.category?.superCategory?.name ?? null,
+        superCategoryColor: item.category?.superCategory?.color ?? null,
+        superCategoryKind: item.category?.superCategory?.kind ?? null,
         isTransfer: Boolean(item.transferGroupId),
         emailReference: (item.emailSnippet || item.emailMessageId || item.emailSubject) ? {
           messageId: item.emailMessageId,
@@ -553,7 +596,15 @@ export class AccountsService {
           snippet: item.emailSnippet,
         } : null,
       })),
-      categories: userCategories.map((c) => ({ id: c.id, name: c.name, color: c.color })),
+      categories: userCategories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        superCategoryId: c.superCategoryId,
+        superCategoryName: c.superCategory?.name ?? null,
+        superCategoryColor: c.superCategory?.color ?? null,
+        superCategoryKind: c.superCategory?.kind ?? null,
+      })),
       pagination: { page, pageSize, total, pages: Math.ceil(total / pageSize) },
     };
   }
@@ -1091,7 +1142,16 @@ export class AccountsService {
     const updated = await this.prisma.transaction.update({
       where: { id: transaction.id },
       data: { categoryId: newCategoryId },
-      include: { category: { select: { id: true, name: true, color: true } } },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+            superCategory: { select: { id: true, name: true, color: true, kind: true } },
+          },
+        },
+      },
     });
 
     return {
@@ -1099,6 +1159,9 @@ export class AccountsService {
       categoryId: updated.categoryId,
       category: updated.category?.name ?? 'Uncategorised',
       categoryColor: updated.category?.color ?? '#94a3b8',
+      superCategory: updated.category?.superCategory?.name ?? null,
+      superCategoryColor: updated.category?.superCategory?.color ?? null,
+      superCategoryKind: updated.category?.superCategory?.kind ?? null,
     };
   }
 

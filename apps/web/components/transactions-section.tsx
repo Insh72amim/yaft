@@ -55,6 +55,9 @@ type Transaction = {
   categoryId?: string | null;
   category: string;
   categoryColor?: string;
+  superCategory?: string | null;
+  superCategoryColor?: string | null;
+  superCategoryKind?: string | null;
   isTransfer: boolean;
   tags?: Array<{ id: string; name: string; color: string }>;
   emailReference?: {
@@ -77,6 +80,10 @@ type Category = {
   name: string;
   color: string;
   type?: "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER";
+  superCategoryId?: string | null;
+  superCategoryName?: string | null;
+  superCategoryColor?: string | null;
+  superCategoryKind?: string | null;
 };
 
 type AccountOption = {
@@ -1933,7 +1940,7 @@ export function TransactionsSection({
                           style={{
                             display: "inline-block",
                             width: "auto",
-                            maxWidth: "160px",
+                            maxWidth: "180px",
                             background: tx.categoryId
                               ? "var(--theme-soft-start)"
                               : "var(--background-alt)",
@@ -1949,11 +1956,42 @@ export function TransactionsSection({
                             outline: "none",
                           }}>
                           <option value="">Uncategorised</option>
-                          {(data.categories || []).map((cat) => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </option>
-                          ))}
+                          {(() => {
+                            const cats = data.categories || [];
+                            const groups: { [key: string]: typeof cats } = {};
+                            const unassigned: typeof cats = [];
+                            cats.forEach((c) => {
+                              const groupName = c.superCategoryName || (c.type ? `${c.type.charAt(0) + c.type.slice(1).toLowerCase()}` : "");
+                              if (groupName) {
+                                if (!groups[groupName]) groups[groupName] = [];
+                                groups[groupName].push(c);
+                              } else {
+                                unassigned.push(c);
+                              }
+                            });
+                            return (
+                              <>
+                                {Object.entries(groups).map(([grp, items]) => (
+                                  <optgroup key={grp} label={grp}>
+                                    {items.map((cat) => (
+                                      <option key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                ))}
+                                {unassigned.length > 0 && (
+                                  <optgroup label="General">
+                                    {unassigned.map((cat) => (
+                                      <option key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                              </>
+                            );
+                          })()}
                         </select>
                       ) : (
                         <button
@@ -1988,6 +2026,17 @@ export function TransactionsSection({
                                 flexShrink: 0,
                               }}
                             />
+                          )}
+                          {tx.superCategory && (
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                opacity: 0.72,
+                                fontWeight: 700,
+                                marginRight: "1px",
+                              }}>
+                              {tx.superCategory} &rsaquo;
+                            </span>
                           )}
                           <span>{tx.category}</span>
                         </button>
@@ -2056,11 +2105,42 @@ export function TransactionsSection({
                       Set category for all selected…
                     </option>
                     <option value="">Uncategorised</option>
-                    {(data.categories || []).map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
+                    {(() => {
+                      const cats = data.categories || [];
+                      const groups: { [key: string]: typeof cats } = {};
+                      const unassigned: typeof cats = [];
+                      cats.forEach((c) => {
+                        const groupName = c.superCategoryName || (c.type ? `${c.type.charAt(0) + c.type.slice(1).toLowerCase()}` : "");
+                        if (groupName) {
+                          if (!groups[groupName]) groups[groupName] = [];
+                          groups[groupName].push(c);
+                        } else {
+                          unassigned.push(c);
+                        }
+                      });
+                      return (
+                        <>
+                          {Object.entries(groups).map(([grp, items]) => (
+                            <optgroup key={grp} label={grp}>
+                              {items.map((cat) => (
+                                <option key={cat.id} value={cat.id}>
+                                  {cat.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                          {unassigned.length > 0 && (
+                            <optgroup label="General">
+                              {unassigned.map((cat) => (
+                                <option key={cat.id} value={cat.id}>
+                                  {cat.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </>
+                      );
+                    })()}
                   </select>
 
                   <button

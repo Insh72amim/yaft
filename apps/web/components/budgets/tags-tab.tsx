@@ -64,6 +64,7 @@ export type TagAnalytics = {
     amount: number;
     category: string;
     categoryColor: string;
+    superCategory?: string | null;
     accountName: string;
     accountType: string;
   }>;
@@ -544,8 +545,9 @@ export function TagsTab({
                         <td style={{ padding: "10px 8px", color: "var(--muted)" }}>{new Date(tx.transactionDate).toLocaleDateString("en-IN")}</td>
                         <td style={{ padding: "10px 8px", fontWeight: 600 }}>{tx.merchant || tx.description}</td>
                         <td style={{ padding: "10px 8px" }}>
-                          <span style={{ padding: "3px 8px", borderRadius: "6px", background: `${tx.categoryColor}20`, color: tx.categoryColor, fontWeight: 700, fontSize: "11px" }}>
-                            {tx.category}
+                          <span style={{ padding: "3px 8px", borderRadius: "6px", background: `${tx.categoryColor}20`, color: tx.categoryColor, fontWeight: 700, fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                            {tx.superCategory && <span style={{ opacity: 0.72 }}>{tx.superCategory} &rsaquo;</span>}
+                            <span>{tx.category}</span>
                           </span>
                         </td>
                         <td style={{ padding: "10px 8px", color: "var(--muted)" }}>{tx.accountName}</td>

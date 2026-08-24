@@ -210,7 +210,14 @@ export class TagsService {
         transaction: {
           include: {
             account: { select: { id: true, name: true, type: true, institution: true } },
-            category: { select: { id: true, name: true, color: true } },
+            category: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+                superCategory: { select: { id: true, name: true, color: true, kind: true } },
+              },
+            },
           },
         },
       },
@@ -238,6 +245,7 @@ export class TagsService {
       const catId = t.categoryId || 'uncategorised';
       const catName = t.category?.name || 'Uncategorised';
       const catColor = t.category?.color || '#94a3b8';
+      const superCatName = t.category?.superCategory?.name || null;
       const existingCat = categoryMap.get(catId) || { id: catId, name: catName, color: catColor, amount: 0n };
       existingCat.amount += amt < 0n ? -amt : 0n;
       categoryMap.set(catId, existingCat);
@@ -267,6 +275,7 @@ export class TagsService {
         amount: Number(amt) / 100,
         category: catName,
         categoryColor: catColor,
+        superCategory: superCatName,
         accountName: accName,
         accountType: accType,
       };
