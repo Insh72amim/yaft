@@ -236,6 +236,9 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
     }
   };
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTypeFilter, setActiveTypeFilter] = useState<string>("ALL");
+
   const getKindBadge = (kind: string) => {
     switch (kind) {
       case "EXPENSE":
@@ -253,64 +256,139 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
     }
   };
 
-  const filteredCategories = categories.filter((c) => {
-    if (selectedSuperFilterId === "ALL") return true;
-    const parentId = c.superCategoryId || c.superCategory?.id;
-    return parentId === selectedSuperFilterId;
+  const openCreateCatForSuperModal = (superId: string) => {
+    setEditingCategory(null);
+    setCatName("");
+    setCatSuperId(superId);
+    setCatColor("#3b82f6");
+    setError("");
+    setCatModalOpen(true);
+  };
+
+  // Group categories under their super category
+  const filteredSuperCategories = superCategories
+    .filter((s) => {
+      if (activeTypeFilter !== "ALL" && s.kind !== activeTypeFilter) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase().trim();
+      const superMatches = s.name.toLowerCase().includes(q);
+      const childMatches = categories.some(
+        (c) => (c.superCategoryId || c.superCategory?.id) === s.id && c.name.toLowerCase().includes(q)
+      );
+      return superMatches || childMatches;
+    })
+    .map((s) => {
+      let childCats = categories.filter((c) => (c.superCategoryId || c.superCategory?.id) === s.id);
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        // If super matches, show all, otherwise filter children
+        if (!s.name.toLowerCase().includes(q)) {
+          childCats = childCats.filter((c) => c.name.toLowerCase().includes(q));
+        }
+      }
+      return {
+        ...s,
+        childCategories: childCats,
+      };
+    });
+
+  const unassignedCategories = categories.filter((c) => {
+    const isUnassigned = !c.superCategoryId && !c.superCategory?.id;
+    if (!isUnassigned) return false;
+    if (!searchQuery.trim()) return true;
+    return c.name.toLowerCase().includes(searchQuery.toLowerCase().trim());
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "32px", paddingBottom: "24px" }}>
-      {/* Header & Global Actions */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px", paddingBottom: "24px" }}>
+      {/* Top Header & Actions */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "14px" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <h3 style={{ margin: "0", fontSize: "1.35rem", fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em" }}>
-              Financial Taxonomy &amp; Categories
+            <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+              Financial Taxonomy
             </h3>
-            <span style={{ padding: "3px 9px", borderRadius: "100px", background: "var(--background-alt)", border: "1px solid var(--line)", fontSize: "11px", fontWeight: 700, color: "var(--muted)" }}>
-              {superCategories.length} Super &bull; {categories.length} Sub-Categories
+            <span style={{ padding: "2px 8px", borderRadius: "100px", background: "var(--background-alt)", border: "1px solid var(--line)", fontSize: "11px", fontWeight: 700, color: "var(--muted)" }}>
+              {superCategories.length} Super &bull; {categories.length} Categories
             </span>
           </div>
-          <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "var(--muted)" }}>
-            Structure and organize custom Super Categories and nest granular transaction categories under them.
+          <p style={{ margin: "3px 0 0 0", fontSize: "12.5px", color: "var(--muted)" }}>
+            Parent super-groups and granular transaction categories.
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+          {/* Quick Search */}
+          <div style={{ position: "relative", minWidth: "180px" }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter categories..."
+              style={{
+                height: "34px",
+                padding: "0 28px 0 10px",
+                fontSize: "12px",
+                borderRadius: "8px",
+                border: "1px solid var(--line)",
+                background: "var(--background-alt)",
+                color: "var(--ink)",
+                width: "100%",
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                style={{
+                  position: "absolute",
+                  right: "6px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--muted)",
+                  cursor: "pointer",
+                  padding: 0,
+                  display: "grid",
+                  placeItems: "center",
+                }}>
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
           <button
             type="button"
-            className="secondary"
+            className="secondary compact"
             onClick={openCreateSuperModal}
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: "8px",
-              padding: "9px 15px",
-              borderRadius: "10px",
+              gap: "6px",
+              padding: "7px 12px",
+              borderRadius: "8px",
               fontWeight: 700,
-              fontSize: "13px",
-              transition: "all 0.15s ease",
+              fontSize: "12px",
             }}>
-            <FolderTree size={15} color="var(--green)" />
-            <span>+ Add Super Category</span>
+            <FolderTree size={13} color="var(--green)" />
+            <span>+ Super Group</span>
           </button>
 
           <button
             type="button"
-            className="primary"
+            className="primary compact"
             onClick={openCreateCatModal}
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: "8px",
-              padding: "9px 18px",
-              borderRadius: "10px",
+              gap: "6px",
+              padding: "7px 14px",
+              borderRadius: "8px",
               fontWeight: 700,
-              fontSize: "13px",
-              boxShadow: "0 2px 8px rgba(184, 91, 53, 0.25)",
+              fontSize: "12px",
             }}>
-            <Plus size={16} />
+            <Plus size={14} />
             <span>Add Category</span>
           </button>
         </div>
@@ -318,263 +396,198 @@ export function CategoriesTab({ categories, onReload }: CategoriesTabProps) {
 
       {/* Notifications */}
       {error && (
-        <div style={{ background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.25)", color: "#ef4444", padding: "12px 16px", borderRadius: "12px", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.25)", color: "#ef4444", padding: "10px 14px", borderRadius: "10px", fontSize: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
           <span>⚠️</span> {error}
         </div>
       )}
       {successMsg && (
-        <div style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.25)", color: "#10b981", padding: "12px 16px", borderRadius: "12px", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
-          <Check size={16} /> {successMsg}
+        <div style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.25)", color: "#10b981", padding: "10px 14px", borderRadius: "10px", fontSize: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <Check size={14} /> {successMsg}
         </div>
       )}
 
-      {/* SECTION 1: SUPER CATEGORIES */}
-      <section style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Layers size={18} color="var(--green)" />
-            <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)" }}>
-              Super Categories
-            </h4>
-            <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
-              ({superCategories.length})
-            </span>
-          </div>
-          <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-            High-level parent groups
-          </span>
-        </div>
+      {/* Type Filter Tabs */}
+      <div style={{ display: "flex", gap: "5px", background: "var(--background-alt)", padding: "3px", borderRadius: "10px", border: "1px solid var(--line)", width: "fit-content", flexWrap: "wrap" }}>
+        {[
+          { key: "ALL", label: `All (${categories.length})` },
+          { key: "EXPENSE", label: "Expense" },
+          { key: "INCOME", label: "Income" },
+          { key: "INVESTMENT", label: "Investment" },
+          { key: "TRANSFER", label: "Transfer" },
+          { key: "OTHER", label: "Others" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`secondary compact ${activeTypeFilter === tab.key ? "active" : ""}`}
+            onClick={() => setActiveTypeFilter(tab.key)}
+            style={{ fontSize: "11px", fontWeight: 700, padding: "4px 10px", borderRadius: "6px" }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "14px" }}>
-          {superCategories.map((s) => {
-            const kindBadge = getKindBadge(s.kind);
-            const count = s._count?.categories ?? s.categories?.length ?? 0;
-            const themeColor = s.color || "#3b82f6";
+      {/* Grouped Taxonomy Cards Grid */}
+      <div className="taxonomy-grid">
+        {filteredSuperCategories.map((s) => {
+          const kindBadge = getKindBadge(s.kind);
+          const themeColor = s.color || "#3b82f6";
+          const count = s.childCategories.length;
 
-            return (
-              <div
-                key={s.id}
-                style={{
-                  padding: "16px 18px",
-                  borderRadius: "14px",
-                  border: "1px solid var(--line)",
-                  borderLeft: `4px solid ${themeColor}`,
-                  background: "var(--card)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
-                  transition: "transform 0.15s ease, box-shadow 0.15s ease",
-                }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {s.name}
-                      </h4>
-                    </div>
-                    <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "6px" }}>
-                      <span style={{ padding: "2px 7px", borderRadius: "6px", background: kindBadge.bg, color: kindBadge.color, fontSize: "10px", fontWeight: 800 }}>
-                        {kindBadge.label}
-                      </span>
-                      <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>
-                        &bull; {count} {count === 1 ? "category" : "categories"}
-                      </span>
-                    </div>
-                  </div>
+          return (
+            <div key={s.id} className="taxonomy-card" style={{ borderLeft: `3px solid ${themeColor}` }}>
+              {/* Header */}
+              <div className="taxonomy-card-header">
+                <div className="taxonomy-card-title-wrap">
+                  <h4 className="taxonomy-card-title">{s.name}</h4>
+                  <span style={{ padding: "1px 6px", borderRadius: "5px", background: kindBadge.bg, color: kindBadge.color, fontSize: "10px", fontWeight: 800 }}>
+                    {kindBadge.label}
+                  </span>
+                  <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>
+                    ({count})
+                  </span>
                 </div>
 
-                <div style={{ display: "flex", gap: "4px", flexShrink: 0, marginLeft: "8px" }}>
+                <div className="taxonomy-card-actions">
                   <button
                     type="button"
-                    title="Edit Super Category"
+                    title="Edit super group"
                     onClick={() => openEditSuperModal(s)}
                     style={{
-                      width: "30px",
-                      height: "30px",
-                      borderRadius: "8px",
+                      width: "24px",
+                      height: "24px",
+                      borderRadius: "6px",
                       border: "1px solid var(--line)",
                       background: "var(--background-alt)",
                       color: "var(--ink)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
+                      display: "grid",
+                      placeItems: "center",
                       cursor: "pointer",
-                      transition: "all 0.15s ease",
                     }}>
-                    <Pencil size={13} />
+                    <Pencil size={11} />
                   </button>
                   <button
                     type="button"
-                    title="Delete Super Category"
+                    title="Delete super group"
                     onClick={() => handleDeleteSuperCategory(s.id, s.name)}
                     style={{
-                      width: "30px",
-                      height: "30px",
-                      borderRadius: "8px",
-                      border: "1px solid rgba(239, 68, 68, 0.2)",
-                      background: "rgba(239, 68, 68, 0.06)",
-                      color: "#ef4444",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                    }}>
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* SECTION 2: SUB-CATEGORIES */}
-      <section style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "14px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Tag size={18} color="var(--green)" />
-            <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--ink)" }}>
-              Sub-Categories
-            </h4>
-            <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600 }}>
-              ({filteredCategories.length})
-            </span>
-          </div>
-
-          {/* Filter Pills by Super Category */}
-          <div style={{ display: "flex", gap: "5px", background: "var(--background-alt)", padding: "4px", borderRadius: "12px", border: "1px solid var(--line)", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className={`secondary compact ${selectedSuperFilterId === "ALL" ? "active" : ""}`}
-              onClick={() => setSelectedSuperFilterId("ALL")}
-              style={{ fontSize: "11px", fontWeight: 700, padding: "5px 12px", borderRadius: "8px" }}>
-              All ({categories.length})
-            </button>
-            {superCategories.map((s) => {
-              const catCount = categories.filter((c) => (c.superCategoryId || c.superCategory?.id) === s.id).length;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={`secondary compact ${selectedSuperFilterId === s.id ? "active" : ""}`}
-                  onClick={() => setSelectedSuperFilterId(s.id)}
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    padding: "5px 12px",
-                    borderRadius: "8px",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                  }}>
-                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: s.color || "#3b82f6" }} />
-                  <span>{s.name} ({catCount})</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Categories Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: "14px" }}>
-          {filteredCategories.map((cat) => {
-            const parentSuper = superCategories.find((s) => s.id === (cat.superCategoryId || cat.superCategory?.id));
-            const parentName = parentSuper ? parentSuper.name : cat.superCategory?.name || cat.type || "General";
-            const parentColor = parentSuper ? parentSuper.color : cat.superCategory?.color || "#64748b";
-            const dotColor = cat.color || "#3b82f6";
-
-            return (
-              <div
-                key={cat.id}
-                style={{
-                  padding: "16px 18px",
-                  borderRadius: "14px",
-                  border: "1px solid var(--line)",
-                  background: "var(--card)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
-                  transition: "all 0.15s ease",
-                }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
-                  <span style={{
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "50%",
-                    background: dotColor,
-                    flexShrink: 0,
-                    boxShadow: `0 0 0 3px ${dotColor}25`,
-                  }} />
-                  <div style={{ minWidth: 0 }}>
-                    <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {cat.name}
-                    </h4>
-                    <span style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      marginTop: "5px",
-                      padding: "2px 8px",
+                      width: "24px",
+                      height: "24px",
                       borderRadius: "6px",
-                      background: `${parentColor}15`,
-                      color: parentColor,
-                      fontSize: "10px",
-                      fontWeight: 800,
-                      letterSpacing: "0.01em",
-                    }}>
-                      📁 {parentName}
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", gap: "4px", flexShrink: 0, marginLeft: "8px" }}>
-                  <button
-                    type="button"
-                    title="Edit Category"
-                    onClick={() => openEditCatModal(cat)}
-                    style={{
-                      width: "30px",
-                      height: "30px",
-                      borderRadius: "8px",
-                      border: "1px solid var(--line)",
-                      background: "var(--background-alt)",
-                      color: "var(--ink)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                    }}>
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    title="Delete Category"
-                    onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                    style={{
-                      width: "30px",
-                      height: "30px",
-                      borderRadius: "8px",
                       border: "1px solid rgba(239, 68, 68, 0.2)",
                       background: "rgba(239, 68, 68, 0.06)",
                       color: "#ef4444",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
+                      display: "grid",
+                      placeItems: "center",
                       cursor: "pointer",
-                      transition: "all 0.15s ease",
                     }}>
-                    <Trash2 size={13} />
+                    <Trash2 size={11} />
                   </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </section>
+
+              {/* Child Sub-Categories as Clean Chips */}
+              <div className="taxonomy-chip-list">
+                {s.childCategories.map((cat) => {
+                  const dotColor = cat.color || "#3b82f6";
+                  return (
+                    <div
+                      key={cat.id}
+                      className="cat-pill"
+                      onClick={() => openEditCatModal(cat)}
+                      title={`Click to edit ${cat.name}`}>
+                      <span className="cat-pill-dot" style={{ background: dotColor }} />
+                      <span>{cat.name}</span>
+                      <div className="cat-pill-actions">
+                        <button
+                          type="button"
+                          className="cat-pill-btn"
+                          title="Edit"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditCatModal(cat);
+                          }}>
+                          <Pencil size={9} />
+                        </button>
+                        <button
+                          type="button"
+                          className="cat-pill-btn delete"
+                          title="Delete"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCategory(cat.id, cat.name);
+                          }}>
+                          <X size={10} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  className="cat-pill-add"
+                  onClick={() => openCreateCatForSuperModal(s.id)}>
+                  <Plus size={11} />
+                  <span>Sub-category</span>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Unassigned / General Categories if any exist */}
+        {unassignedCategories.length > 0 && (
+          <div className="taxonomy-card" style={{ borderLeft: "3px solid var(--muted)" }}>
+            <div className="taxonomy-card-header">
+              <div className="taxonomy-card-title-wrap">
+                <h4 className="taxonomy-card-title">General / Unassigned</h4>
+                <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>
+                  ({unassignedCategories.length})
+                </span>
+              </div>
+            </div>
+
+            <div className="taxonomy-chip-list">
+              {unassignedCategories.map((cat) => {
+                const dotColor = cat.color || "#3b82f6";
+                return (
+                  <div
+                    key={cat.id}
+                    className="cat-pill"
+                    onClick={() => openEditCatModal(cat)}
+                    title={`Click to edit ${cat.name}`}>
+                    <span className="cat-pill-dot" style={{ background: dotColor }} />
+                    <span>{cat.name}</span>
+                    <div className="cat-pill-actions">
+                      <button
+                        type="button"
+                        className="cat-pill-btn"
+                        title="Edit"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditCatModal(cat);
+                        }}>
+                        <Pencil size={9} />
+                      </button>
+                      <button
+                        type="button"
+                        className="cat-pill-btn delete"
+                        title="Delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCategory(cat.id, cat.name);
+                        }}>
+                        <X size={10} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* MODAL 1: CREATE / EDIT SUPER CATEGORY */}
       {superModalOpen && (
