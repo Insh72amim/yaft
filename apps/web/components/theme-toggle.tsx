@@ -7,13 +7,15 @@ const THEME_STORAGE_KEY = 'yaft-theme';
 const COLOR_STORAGE_KEY = 'yaft-color-theme';
 
 type ThemeMode = 'light' | 'dark';
-type ColorTheme = 'green' | 'blue' | 'yellow' | 'purple';
+type ColorTheme = 'green' | 'teal' | 'blue' | 'purple' | 'rose' | 'yellow';
 
 const THEMES: { name: ColorTheme; bg: string; label: string }[] = [
   { name: 'green', bg: '#174f3b', label: 'Emerald' },
+  { name: 'teal', bg: '#0f766e', label: 'Ocean Teal' },
   { name: 'blue', bg: '#1e40af', label: 'Royal Blue' },
-  { name: 'yellow', bg: '#b45309', label: 'Terracotta' },
   { name: 'purple', bg: '#6d28d9', label: 'Amethyst' },
+  { name: 'rose', bg: '#be123c', label: 'Crimson Rose' },
+  { name: 'yellow', bg: '#b45309', label: 'Terracotta' },
 ];
 
 function applyThemeMode(theme: ThemeMode) {
