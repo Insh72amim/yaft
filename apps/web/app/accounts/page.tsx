@@ -20,6 +20,7 @@ import { AccountTransactions, ActiveSipsPanel } from "@/components/account-trans
 import { AddAccountModal } from "@/components/add-account-modal";
 import { VaultModal } from "@/components/vault-modal";
 import { ZerodhaSyncModal } from "@/components/accounts/zerodha-sync-modal";
+import { GrowwSyncModal } from "@/components/accounts/groww-sync-modal";
 import { AccountDocuments } from "@/components/account-documents";
 import { LoanSchedule } from "@/components/loan-schedule";
 import { TransactionsSection } from "@/components/transactions-section";
@@ -67,6 +68,7 @@ function PortfolioContent() {
 
   const [showVaultForInvestment, setShowVaultForInvestment] = useState<string | null>(null);
   const [showZerodhaSync, setShowZerodhaSync] = useState<string | null>(null);
+  const [showGrowwSync, setShowGrowwSync] = useState<string | null>(null);
   const [refreshingQuotes, setRefreshingQuotes] = useState(false);
   const [quoteNotice, setQuoteNotice] = useState<string | null>(null);
   const [investmentTab, setInvestmentTab] = useState<"HOLDINGS" | "DOCUMENTS" | "SIPS">("HOLDINGS");
@@ -226,6 +228,29 @@ function PortfolioContent() {
                     ✓ {quoteNotice}
                   </span>
                 )}
+                {/* Groww Sync - ONLY for Groww Accounts */}
+                {selectedAccount &&
+                  (selectedAccount.institution?.toLowerCase().includes("groww") ||
+                    selectedAccount.name?.toLowerCase().includes("groww")) && (
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      onClick={() => setShowGrowwSync(selectedAccountId)}
+                      style={{
+                        background: "rgba(0, 208, 156, 0.08)",
+                        color: "#00d09c",
+                        borderColor: "rgba(0, 208, 156, 0.3)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        fontWeight: 600,
+                      }}
+                      title="Automated 1-Click Sync from Groww"
+                    >
+                      <Zap size={14} /> Sync Groww
+                    </button>
+                  )}
+
                 {/* Zerodha Sync - ONLY for Zerodha Stock / Demat Accounts */}
                 {selectedAccount &&
                   (selectedAccount.type === "STOCKS" || selectedAccount.type === "DEMAT") &&
@@ -405,6 +430,14 @@ function PortfolioContent() {
                 accountId={showZerodhaSync}
                 accountName={selectedAccount.name}
                 onClose={() => setShowZerodhaSync(null)}
+                onSuccess={() => load()}
+              />
+            )}
+            {showGrowwSync && (
+              <GrowwSyncModal
+                accountId={showGrowwSync}
+                accountName={selectedAccount.name}
+                onClose={() => setShowGrowwSync(null)}
                 onSuccess={() => load()}
               />
             )}

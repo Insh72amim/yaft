@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { InvestmentsService } from './investments.service';
 import { ZerodhaSyncService, SyncZerodhaDto } from './zerodha-sync.service';
+import { GrowwSyncService, SyncGrowwDto } from './groww-sync.service';
 import { MarketDataService } from './market-data.service';
 
 @Controller('investments')
@@ -12,6 +13,7 @@ export class InvestmentsController {
   constructor(
     private readonly investmentsService: InvestmentsService,
     private readonly zerodhaSync: ZerodhaSyncService,
+    private readonly growwSync: GrowwSyncService,
     private readonly marketData: MarketDataService,
   ) {}
 
@@ -27,6 +29,15 @@ export class InvestmentsController {
     @Body() body: SyncZerodhaDto,
   ) {
     return this.zerodhaSync.syncHoldings(user.id, accountId, body);
+  }
+
+  @Post(':accountId/sync-groww')
+  async syncGroww(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Body() body: SyncGrowwDto,
+  ) {
+    return this.growwSync.syncHoldings(user.id, accountId, body);
   }
 
   @Post(':accountId/refresh-quotes')
