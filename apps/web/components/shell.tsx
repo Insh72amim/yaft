@@ -20,7 +20,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { ThemeColorSelector } from "@/components/theme-color-selector";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const links = [
@@ -104,7 +103,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <strong>Private by design</strong>
           </div>
         </div>
-        <ThemeColorSelector />
         <ThemeToggle />
         <Link
           className={path === "/me" ? "active" : ""}
