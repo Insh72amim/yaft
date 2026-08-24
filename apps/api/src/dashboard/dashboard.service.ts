@@ -264,6 +264,10 @@ export class DashboardService {
               toAccountType: destAcc.type,
               amount: amt,
             });
+            const targetFlow = savingsMap.get(destAcc.id);
+            if (targetFlow && !tx.transferGroupId) {
+              targetFlow.internalInbound += amt;
+            }
           }
         } else if (isInvestment(tx)) {
           accFlow.investments += amt;

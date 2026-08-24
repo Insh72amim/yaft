@@ -1019,6 +1019,7 @@ function AccountSpendingAndBeneficiariesSection({
         {accounts.map((acc) => {
           const isSelected = acc.id === activeAcc.id;
           const accSpendAmt = (acc as any).spendingAndSettlements ?? acc.cleanOutbound ?? acc.externalOutbound;
+          const pillLabel = accSpendAmt > 0 ? `${money(accSpendAmt, true)} spent` : acc.totalInbound > 0 ? `+${money(acc.totalInbound, true)} in` : '₹0 spent';
           return (
             <button
               key={acc.id}
@@ -1052,7 +1053,7 @@ function AccountSpendingAndBeneficiariesSection({
                   fontWeight: 600,
                 }}
               >
-                {money(accSpendAmt, true)} spent
+                {pillLabel}
               </span>
             </button>
           );
@@ -1119,7 +1120,14 @@ function AccountSpendingAndBeneficiariesSection({
             {/* Category Breakdown List */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center', minWidth: '160px' }}>
               {categories.length === 0 ? (
-                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>No category data available</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '12.5px', color: 'var(--ink)', fontWeight: 600 }}>
+                    {activeAcc.totalInbound > 0 ? `Received ${money(activeAcc.totalInbound)} in transfers` : 'No transactions recorded'}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                    {activeAcc.totalInbound > 0 ? 'No expenditures or outflows recorded for this account.' : 'Import a statement for this account to see spending breakdowns.'}
+                  </span>
+                </div>
               ) : (
                 categories.slice(0, 7).map((cat, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', gap: '8px' }}>
@@ -1867,9 +1875,28 @@ function MultiBankSankeyDiagram({
                 fill={fromNode.color}
                 opacity={0.85}
               />
-              <g transform={`translate(${peakX + 8}, ${midY - 9})`}>
-                <rect x="0" y="0" width={label.length * 6.5 + 10} height="18" rx="4" fill="rgba(15, 23, 42, 0.88)" stroke={fromNode.color} strokeWidth="0.8" />
-                <text x="5" y="13" fill={fromNode.color} fontSize="10.5" fontWeight="700">
+              <g transform={`translate(${peakX + 8}, ${midY - 10})`}>
+                <rect
+                  x="0"
+                  y="0"
+                  width={label.length * 6.5 + 12}
+                  height="20"
+                  rx="5"
+                  fill="var(--card)"
+                  stroke={fromNode.color}
+                  strokeWidth="1"
+                  style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.08))' }}
+                />
+                <rect
+                  x="0"
+                  y="0"
+                  width={label.length * 6.5 + 12}
+                  height="20"
+                  rx="5"
+                  fill={fromNode.color}
+                  fillOpacity={0.08}
+                />
+                <text x="6" y="14" fill={fromNode.color} fontSize="10.5" fontWeight="700">
                   {label}
                 </text>
               </g>
@@ -1927,11 +1954,30 @@ function MultiBankSankeyDiagram({
             <g key={`sg-node-${sgNode.id}`}>
               <rect x={sgNode.x} y={sgNode.y} width={NODE_W} height={sgNode.height} fill={sgNode.color} rx="4" />
               <g transform={`translate(${HUB_X + NODE_W + 10}, ${midY - 17})`}>
-                <rect x="0" y="0" width={148} height={34} rx={6} fill="rgba(15,23,42,0.85)" stroke={sgNode.color} strokeWidth="1" />
-                <text x="8" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">
+                <rect
+                  x="0"
+                  y="0"
+                  width={154}
+                  height={34}
+                  rx={6}
+                  fill="var(--card)"
+                  stroke={sgNode.color}
+                  strokeWidth="1.2"
+                  style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.07))' }}
+                />
+                <rect
+                  x="0"
+                  y="0"
+                  width={154}
+                  height={34}
+                  rx={6}
+                  fill={sgNode.color}
+                  fillOpacity={0.09}
+                />
+                <text x="10" y="14" fill="var(--ink)" fontSize="11.5" fontWeight="700">
                   {sgNode.name}
                 </text>
-                <text x="8" y="27" fill={sgNode.color} fontSize="10.5" fontWeight="700">
+                <text x="10" y="27" fill={sgNode.color} fontSize="11" fontWeight="800">
                   {money(sgNode.amount)}
                 </text>
               </g>
