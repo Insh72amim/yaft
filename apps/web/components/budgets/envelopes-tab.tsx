@@ -158,6 +158,8 @@ export function EnvelopesTab({
   const [txError, setTxError] = useState("");
   const [txSearch, setTxSearch] = useState("");
   const [updatingCatTxId, setUpdatingCatTxId] = useState<string | null>(null);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [categoryStatusFilter, setCategoryStatusFilter] = useState<"ALL" | "EXCEEDED" | "WARNING" | "OK" | "NO_LIMIT">("ALL");
 
   // Month navigation helpers
   const handlePrevMonth = () => {
@@ -248,6 +250,50 @@ export function EnvelopesTab({
     () => categories.filter((c) => (c.type || "EXPENSE") === "EXPENSE"),
     [categories],
   );
+
+  // Category counts by status for quick filter pills
+  const categoryCounts = useMemo(() => {
+    let exceeded = 0;
+    let warning = 0;
+    let ok = 0;
+    let noLimit = 0;
+
+    for (const cat of expenseCategories) {
+      const budget = budgets.find((b) => b.categoryId === cat.id);
+      if (!budget || !budget.hasBudget) {
+        noLimit++;
+      } else if (budget.status === "EXCEEDED") {
+        exceeded++;
+      } else if (budget.status === "WARNING") {
+        warning++;
+      } else {
+        ok++;
+      }
+    }
+    return { exceeded, warning, ok, noLimit, total: expenseCategories.length };
+  }, [expenseCategories, budgets]);
+
+  // Filtered expense categories based on search query and status pill
+  const filteredExpenseCategories = useMemo(() => {
+    return expenseCategories.filter((cat) => {
+      const budget = budgets.find((b) => b.categoryId === cat.id);
+      const status = budget ? budget.status : "NO_LIMIT";
+
+      if (categoryStatusFilter !== "ALL") {
+        if (categoryStatusFilter === "EXCEEDED" && status !== "EXCEEDED") return false;
+        if (categoryStatusFilter === "WARNING" && status !== "WARNING") return false;
+        if (categoryStatusFilter === "OK" && status !== "OK") return false;
+        if (categoryStatusFilter === "NO_LIMIT" && budget?.hasBudget) return false;
+      }
+
+      if (categorySearch.trim()) {
+        const q = categorySearch.toLowerCase().trim();
+        return cat.name.toLowerCase().includes(q);
+      }
+
+      return true;
+    });
+  }, [expenseCategories, budgets, categoryStatusFilter, categorySearch]);
 
   // Inspected category details
   const inspectedCategory = useMemo(() => {
@@ -679,7 +725,7 @@ export function EnvelopesTab({
         <div
           className="panel-title"
           style={{
-            marginBottom: "16px",
+            marginBottom: "14px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -695,7 +741,7 @@ export function EnvelopesTab({
             </h2>
           </div>
 
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
             <button
               type="button"
               className={`secondary compact ${inspectedCategoryId === "all" ? "active" : ""}`}
@@ -711,13 +757,163 @@ export function EnvelopesTab({
           </div>
         </div>
 
+        {/* Quick Status Filter Pills & Search Bar */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "10px",
+            marginBottom: "16px",
+          }}>
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={() => setCategoryStatusFilter("ALL")}
+              style={{
+                fontSize: "11.5px",
+                fontWeight: categoryStatusFilter === "ALL" ? 700 : 500,
+                padding: "4px 10px",
+                borderRadius: "20px",
+                border: "1px solid var(--line)",
+                background: categoryStatusFilter === "ALL" ? "var(--ink)" : "var(--background-alt)",
+                color: categoryStatusFilter === "ALL" ? "var(--card)" : "var(--muted)",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}>
+              All ({categoryCounts.total})
+            </button>
+            {categoryCounts.exceeded > 0 && (
+              <button
+                type="button"
+                onClick={() => setCategoryStatusFilter("EXCEEDED")}
+                style={{
+                  fontSize: "11.5px",
+                  fontWeight: categoryStatusFilter === "EXCEEDED" ? 700 : 500,
+                  padding: "4px 10px",
+                  borderRadius: "20px",
+                  border: "1px solid #ef444433",
+                  background: categoryStatusFilter === "EXCEEDED" ? "#ef4444" : "rgba(239, 68, 68, 0.08)",
+                  color: categoryStatusFilter === "EXCEEDED" ? "#ffffff" : "#ef4444",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}>
+                Over Budget ({categoryCounts.exceeded})
+              </button>
+            )}
+            {categoryCounts.warning > 0 && (
+              <button
+                type="button"
+                onClick={() => setCategoryStatusFilter("WARNING")}
+                style={{
+                  fontSize: "11.5px",
+                  fontWeight: categoryStatusFilter === "WARNING" ? 700 : 500,
+                  padding: "4px 10px",
+                  borderRadius: "20px",
+                  border: "1px solid #f59e0b33",
+                  background: categoryStatusFilter === "WARNING" ? "#f59e0b" : "rgba(245, 158, 11, 0.08)",
+                  color: categoryStatusFilter === "WARNING" ? "#ffffff" : "#f59e0b",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}>
+                Near Limit ({categoryCounts.warning})
+              </button>
+            )}
+            {categoryCounts.ok > 0 && (
+              <button
+                type="button"
+                onClick={() => setCategoryStatusFilter("OK")}
+                style={{
+                  fontSize: "11.5px",
+                  fontWeight: categoryStatusFilter === "OK" ? 700 : 500,
+                  padding: "4px 10px",
+                  borderRadius: "20px",
+                  border: "1px solid var(--line)",
+                  background: categoryStatusFilter === "OK" ? "var(--green)" : "var(--background-alt)",
+                  color: categoryStatusFilter === "OK" ? "#ffffff" : "var(--muted)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}>
+                On Track ({categoryCounts.ok})
+              </button>
+            )}
+            {categoryCounts.noLimit > 0 && (
+              <button
+                type="button"
+                onClick={() => setCategoryStatusFilter("NO_LIMIT")}
+                style={{
+                  fontSize: "11.5px",
+                  fontWeight: categoryStatusFilter === "NO_LIMIT" ? 700 : 500,
+                  padding: "4px 10px",
+                  borderRadius: "20px",
+                  border: "1px solid var(--line)",
+                  background: categoryStatusFilter === "NO_LIMIT" ? "var(--ink)" : "var(--background-alt)",
+                  color: categoryStatusFilter === "NO_LIMIT" ? "var(--card)" : "var(--muted)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}>
+                No Target ({categoryCounts.noLimit})
+              </button>
+            )}
+          </div>
+
+          <div style={{ position: "relative", minWidth: "180px", maxWidth: "240px", flex: "1" }}>
+            <Search
+              size={13}
+              style={{
+                position: "absolute",
+                left: "10px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "var(--muted)",
+                pointerEvents: "none",
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Search categories..."
+              value={categorySearch}
+              onChange={(e) => setCategorySearch(e.target.value)}
+              style={{
+                width: "100%",
+                height: "32px",
+                fontSize: "12px",
+                padding: "0 10px 0 30px",
+                borderRadius: "8px",
+                border: "1px solid var(--line)",
+                background: "var(--background-alt)",
+                color: "var(--ink)",
+              }}
+            />
+            {categorySearch && (
+              <button
+                type="button"
+                onClick={() => setCategorySearch("")}
+                style={{
+                  position: "absolute",
+                  right: "8px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--muted)",
+                  padding: 0,
+                }}>
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))",
-            gap: "16px",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: "12px",
           }}>
-          {expenseCategories.map((cat) => {
+          {filteredExpenseCategories.map((cat) => {
             const budget = budgets.find((b) => b.categoryId === cat.id);
             const spent = budget ? budget.spentAmount : 0;
             const limit = budget ? budget.monthlyLimit : 0;
@@ -729,30 +925,40 @@ export function EnvelopesTab({
             return (
               <div
                 key={cat.id}
+                onClick={() => setInspectedCategoryId(cat.id)}
                 style={{
                   background: isSelected
-                    ? "rgba(29, 117, 79, 0.04)"
-                    : "var(--background-alt)",
+                    ? "rgba(29, 117, 79, 0.05)"
+                    : "var(--card)",
                   border: isSelected
-                    ? "2px solid var(--green)"
-                    : budget && budget.hasBudget
-                    ? status === "EXCEEDED"
-                      ? "1px solid #ef4444"
-                      : status === "WARNING"
-                      ? "1px solid #f59e0b"
-                      : "1px solid var(--line)"
-                    : "1px dashed var(--line)",
-                  borderRadius: "14px",
-                  padding: "18px",
+                    ? "1.5px solid var(--green)"
+                    : "1px solid var(--line)",
+                  borderRadius: "12px",
+                  padding: "14px 16px",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
-                  gap: "14px",
+                  gap: "10px",
+                  cursor: "pointer",
                   boxShadow: isSelected
-                    ? "0 4px 16px rgba(0,0,0,0.06)"
+                    ? "0 2px 10px rgba(0,0,0,0.06)"
                     : "none",
                   transition: "all 0.15s ease",
+                  position: "relative",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = "var(--ink)";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = "var(--line)";
+                    e.currentTarget.style.transform = "none";
+                  }
                 }}>
+                {/* Header: Dot + Name + Count + Action Icons */}
                 <div
                   style={{
                     display: "flex",
@@ -763,45 +969,52 @@ export function EnvelopesTab({
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: "10px",
+                      gap: "8px",
+                      minWidth: 0,
                     }}>
                     <span
                       style={{
-                        width: "14px",
-                        height: "14px",
+                        width: "10px",
+                        height: "10px",
                         borderRadius: "50%",
                         background: cat.color,
                         display: "inline-block",
                         flexShrink: 0,
+                        boxShadow: `0 0 6px ${cat.color}55`,
                       }}
                     />
-                    <div>
-                      <strong
-                        style={{
-                          fontSize: "14px",
-                          color: "var(--ink)",
-                          display: "block",
-                        }}>
-                        {cat.name}
-                      </strong>
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          color: "var(--muted)",
-                          fontWeight: 600,
-                        }}>
-                        {txCount} transaction{txCount === 1 ? "" : "s"}
-                      </span>
-                    </div>
+                    <strong
+                      style={{
+                        fontSize: "13.5px",
+                        color: "var(--ink)",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}>
+                      {cat.name}
+                    </strong>
+                    <span
+                      style={{
+                        fontSize: "10.5px",
+                        color: "var(--muted)",
+                        fontWeight: 600,
+                        background: "var(--background-alt)",
+                        padding: "1px 6px",
+                        borderRadius: "10px",
+                        flexShrink: 0,
+                      }}>
+                      {txCount}
+                    </span>
                   </div>
 
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  <div
+                    style={{ display: "flex", gap: "4px", alignItems: "center" }}
+                    onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
-                      className="icon-button"
-                      title="Edit Category & Monthly Envelope Limit"
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      title={budget && budget.hasBudget ? "Edit Target Limit" : "Set Target Limit"}
+                      onClick={() => {
                         setEditingCategory(cat);
                         setEditCatName(cat.name);
                         setEditCatType((cat.type as any) || "EXPENSE");
@@ -814,179 +1027,191 @@ export function EnvelopesTab({
                       }}
                       style={{
                         background: "transparent",
-                        border: "1px solid var(--line)",
-                        borderRadius: "6px",
-                        padding: "4px 8px",
+                        border: "none",
+                        padding: "4px",
                         cursor: "pointer",
-                        fontSize: "11px",
+                        color: "var(--muted)",
                         display: "inline-flex",
                         alignItems: "center",
-                        gap: "4px",
-                        color: "var(--ink)",
-                      }}>
+                        borderRadius: "4px",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}>
                       <Edit2 size={12} />
-                      <span>{budget && budget.hasBudget ? "Edit" : "Set Target"}</span>
                     </button>
 
                     {budget && budget.hasBudget && budget.budgetId && (
                       <button
                         type="button"
-                        className="icon-button danger"
                         title="Remove Envelope Target"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteBudget(budget.budgetId!);
-                        }}
+                        onClick={() => handleDeleteBudget(budget.budgetId!)}
                         disabled={deletingBudgetId === budget.budgetId}
                         style={{
                           background: "transparent",
-                          border: "1px solid var(--line)",
-                          borderRadius: "6px",
-                          padding: "6px",
+                          border: "none",
+                          padding: "4px",
                           cursor: "pointer",
-                          color: "#ef4444",
-                        }}>
+                          color: "var(--muted)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          borderRadius: "4px",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}>
                         {deletingBudgetId === budget.budgetId ? (
-                          <Loader2 size={13} className="spin" />
+                          <Loader2 size={12} className="spin" />
                         ) : (
-                          <Trash2 size={13} />
+                          <Trash2 size={12} />
                         )}
                       </button>
                     )}
                   </div>
                 </div>
 
-                {budget && budget.hasBudget ? (
-                  <>
-                    <div>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "12px",
-                          marginBottom: "6px",
-                        }}>
-                        <span style={{ color: "var(--muted)", fontWeight: 600 }}>
-                          Spent vs Target
+                {/* Amounts & Percentage Row */}
+                <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                    }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
+                      <span style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+                        {money(spent * 100)}
+                      </span>
+                      {budget && budget.hasBudget ? (
+                        <span style={{ fontSize: "11.5px", color: "var(--muted)", fontWeight: 600 }}>
+                          / {money(limit * 100)}
                         </span>
-                        <span style={{ fontWeight: 800, color: "var(--ink)" }}>
-                          {money(spent * 100)} / {money(limit * 100)}
+                      ) : (
+                        <span style={{ fontSize: "11px", color: "var(--muted)" }}>
+                          spent
                         </span>
-                      </div>
-
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "7px",
-                          background: "var(--line)",
-                          borderRadius: "4px",
-                          overflow: "hidden",
-                        }}>
-                        <div
-                          style={{
-                            height: "100%",
-                            width: `${Math.min(100, pct)}%`,
-                            background:
-                              status === "EXCEEDED"
-                                ? "#ef4444"
-                                : status === "WARNING"
-                                ? "#f59e0b"
-                                : "var(--green)",
-                            borderRadius: "4px",
-                          }}
-                        />
-                      </div>
+                      )}
                     </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        fontSize: "11px",
-                      }}>
+                    {budget && budget.hasBudget ? (
                       <span
                         style={{
+                          fontSize: "11.5px",
+                          fontWeight: 800,
                           color:
                             status === "EXCEEDED"
                               ? "#ef4444"
                               : status === "WARNING"
                               ? "#f59e0b"
-                              : "var(--muted)",
-                          fontWeight: 700,
+                              : "var(--green)",
                         }}>
-                        {status === "EXCEEDED"
-                          ? `Over budget by ${money((spent - limit) * 100)}`
-                          : status === "WARNING"
-                          ? `Near ceiling (${pct}%)`
-                          : `${money((limit - spent) * 100)} remaining`}
-                      </span>
-                      <span style={{ fontWeight: 800, color: "var(--ink)" }}>
                         {pct}%
                       </span>
-                    </div>
-                  </>
-                ) : (
-                  <div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: "6px",
-                      }}>
-                      <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-                        Current Outflow:
-                      </span>
-                      <strong style={{ fontSize: "14px", color: "var(--ink)", fontWeight: 700 }}>
-                        {money(spent * 100)}
-                      </strong>
-                    </div>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: "11px",
-                        color: "var(--muted)",
-                      }}>
-                      No target spending envelope assigned.
-                    </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingCategory(cat);
+                          setEditCatName(cat.name);
+                          setEditCatType((cat.type as any) || "EXPENSE");
+                          setEditCatColor(cat.color || "#3b82f6");
+                          setEditCatBudgetLimit("");
+                        }}
+                        style={{
+                          fontSize: "11px",
+                          color: "var(--green)",
+                          fontWeight: 600,
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: 0,
+                        }}>
+                        + Set Target
+                      </button>
+                    )}
                   </div>
-                )}
 
+                  {/* Slim Progress Track */}
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "4px",
+                      background: "var(--background-alt)",
+                      borderRadius: "2px",
+                      overflow: "hidden",
+                      margin: "7px 0 6px 0",
+                    }}>
+                    {budget && budget.hasBudget ? (
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${Math.min(100, pct)}%`,
+                          background:
+                            status === "EXCEEDED"
+                              ? "#ef4444"
+                              : status === "WARNING"
+                              ? "#f59e0b"
+                              : "var(--green)",
+                          borderRadius: "2px",
+                        }}
+                      />
+                    ) : (
+                      <div style={{ height: "100%", width: "0%" }} />
+                    )}
+                  </div>
+                </div>
+
+                {/* Status Footer Row */}
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    paddingTop: "6px",
-                    borderTop: "1px solid var(--line)",
+                    fontSize: "11px",
                   }}>
-                  <button
-                    type="button"
-                    onClick={() => setInspectedCategoryId(cat.id)}
-                    className={`secondary compact ${isSelected ? "active" : ""}`}
-                    style={{
-                      width: "100%",
-                      justifyContent: "center",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      padding: "6px 12px",
-                      borderRadius: "8px",
-                    }}>
-                    <span>
-                      {isSelected
-                        ? `Viewing ${cat.name} (${txCount})`
-                        : `View Transactions (${txCount})`}
+                  {budget && budget.hasBudget ? (
+                    <span
+                      style={{
+                        color:
+                          status === "EXCEEDED"
+                            ? "#ef4444"
+                            : status === "WARNING"
+                            ? "#f59e0b"
+                            : "var(--muted)",
+                        fontWeight: 600,
+                      }}>
+                      {status === "EXCEEDED"
+                        ? `Over budget by ${money((spent - limit) * 100)}`
+                        : status === "WARNING"
+                        ? `Near ceiling (${money((limit - spent) * 100)} left)`
+                        : `${money((limit - spent) * 100)} remaining`}
                     </span>
-                  </button>
+                  ) : (
+                    <span style={{ color: "var(--muted)", fontSize: "11px" }}>
+                      No envelope target set
+                    </span>
+                  )}
+
+                  {isSelected && (
+                    <span
+                      style={{
+                        fontSize: "10.5px",
+                        fontWeight: 700,
+                        color: "var(--green)",
+                      }}>
+                      Viewing ledger &darr;
+                    </span>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
+
+        {filteredExpenseCategories.length === 0 && (
+          <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--muted)", fontSize: "13px" }}>
+            No categories match your search or filter.
+          </div>
+        )}
       </section>
 
       {/* Interactive Category Expense Transactions Ledger Explorer */}
