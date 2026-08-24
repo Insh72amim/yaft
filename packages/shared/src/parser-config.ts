@@ -291,8 +291,13 @@ export function extractAlertRawMerchant(text: string): string {
   const txnInfoMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_TXN_INFO_REGEX);
   if (txnInfoMatch) return txnInfoMatch[1].replace(/[.,\s\-_]+$/, '').trim();
 
+  const fromMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_FROM_REGEX);
+  if (fromMatch && !/^(account|a\/c|your\s+a\/c|your\s+account|bank|credit\s*card|savings)$/i.test(fromMatch[1].trim())) {
+    return fromMatch[1].replace(/[.,\s\-_]+$/, '').trim();
+  }
+
   const toVpaMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_TO_VPA_REGEX);
-  if (toVpaMatch && !/^(vpa|account|a\/c|debited|credited|ref|bank)$/i.test(toVpaMatch[1].trim())) {
+  if (toVpaMatch && !/^(vpa|account|a\/c|your|debited|credited|ref|bank|savings|primary)$/i.test(toVpaMatch[1].trim())) {
     return toVpaMatch[1].replace(/[.,\s\-_]+$/, '').trim();
   }
 
@@ -301,11 +306,6 @@ export function extractAlertRawMerchant(text: string): string {
 
   const atMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_AT_REGEX);
   if (atMatch) return atMatch[1].replace(/[.,\s\-_]+$/, '').trim();
-
-  const fromMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_FROM_REGEX);
-  if (fromMatch && !/^(account|a\/c|your\s+a\/c|your\s+account|bank|credit\s*card)$/i.test(fromMatch[1].trim())) {
-    return fromMatch[1].replace(/[.,\s\-_]+$/, '').trim();
-  }
 
   return 'General Merchant';
 }
