@@ -9,6 +9,7 @@ import { VaultModal } from '@/components/vault-modal';
 import { AccountDocuments } from '@/components/account-documents';
 import { SipModal, type Sip } from '@/components/sip-modal';
 import { SpendRulesModal } from '@/components/spend-rules-modal';
+import { CategoryPickerPopover } from '@/components/category-picker-popover';
 
 import { AccountType } from '@/lib/constants';
 
@@ -117,6 +118,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [showFilters, setShowFilters] = useState(false);
   const [showCategoryEdit, setShowCategoryEdit] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [editingTxCatId, setEditingTxCatId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError('');
@@ -468,12 +470,26 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                         >
                           <option value="all">All Categories</option>
                           <option value="uncategorised">Uncategorised</option>
-                          <option value="transfers">Internal Transfers</option>
-                          {(data?.categories || []).map((cat: any) => (
-                            <option key={cat.id} value={cat.id}>
-                              {cat.name}
-                            </option>
-                          ))}
+                          {(() => {
+                            const rawCats = data?.categories || [];
+                            const groups: { [key: string]: typeof rawCats } = {};
+                            rawCats.forEach((c: any) => {
+                              const grp =
+                                c.superCategoryName ||
+                                (c.type ? `${c.type.charAt(0) + c.type.slice(1).toLowerCase()}` : "General");
+                              if (!groups[grp]) groups[grp] = [];
+                              groups[grp].push(c);
+                            });
+                            return Object.entries(groups).map(([grp, items]) => (
+                              <optgroup key={grp} label={grp}>
+                                {items.map((cat) => (
+                                  <option key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ));
+                          })()}
                         </select>
                       </div>
 
@@ -657,100 +673,55 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                 <strong>{transaction.description}</strong>
                 <small>{transaction.details || (transaction.postedDate ? `Posted ${new Date(transaction.postedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}` : 'Ledger transaction')}</small>
               </div>
-              <div className="transaction-category-cell">
-                {showCategoryEdit ? (
-                  <select
-                    className="category-pill-select"
-                    value={transaction.categoryId ?? ''}
-                    onChange={(e) => void handleUpdateCategory(transaction.id, e.target.value)}
-                    title="Click to change category"
-                    style={{
-                      display: 'inline-block',
-                      width: 'auto',
-                      maxWidth: '180px',
-                      background: transaction.categoryId ? 'var(--theme-soft-start)' : 'var(--background-alt)',
-                      border: '1px solid var(--line)',
-                      borderRadius: '8px',
-                      padding: '3px 8px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: transaction.categoryId ? 'var(--green)' : 'var(--muted)',
-                      cursor: 'pointer',
-                      outline: 'none',
-                    }}
-                  >
-                    <option value="">Uncategorised</option>
-                    {(() => {
-                      const cats = data.categories || [];
-                      const groups: { [key: string]: typeof cats } = {};
-                      const unassigned: typeof cats = [];
-                      cats.forEach((c: any) => {
-                        const groupName = c.superCategoryName || (c.type ? `${c.type.charAt(0) + c.type.slice(1).toLowerCase()}` : "");
-                        if (groupName) {
-                          if (!groups[groupName]) groups[groupName] = [];
-                          groups[groupName].push(c);
-                        } else {
-                          unassigned.push(c);
-                        }
-                      });
-                      return (
-                        <>
-                          {Object.entries(groups).map(([grp, items]) => (
-                            <optgroup key={grp} label={grp}>
-                              {items.map((cat) => (
-                                <option key={cat.id} value={cat.id}>
-                                  {cat.name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                          {unassigned.length > 0 && (
-                            <optgroup label="General">
-                              {unassigned.map((cat) => (
-                                <option key={cat.id} value={cat.id}>
-                                  {cat.name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </select>
-                ) : (
-                  <div className="transaction-cat-btn" style={{ cursor: 'default' }}>
-                    <div className="transaction-cat-primary">
+              <div className="transaction-category-cell" style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="transaction-cat-btn"
+                  onClick={() => setEditingTxCatId(editingTxCatId === transaction.id ? null : transaction.id)}
+                  title="Click to change category">
+                  <div className="transaction-cat-primary">
+                    <span
+                      className="transaction-cat-dot"
+                      style={{ background: transaction.categoryColor || (transaction.categoryId ? "#3b82f6" : "#94a3b8") }}
+                    />
+                    <span className={`transaction-cat-name ${!transaction.categoryId ? 'uncategorised' : ''}`}>
+                      {transaction.category || 'Uncategorised'}
+                    </span>
+                    {transaction.isTransfer && (
                       <span
-                        className="transaction-cat-dot"
-                        style={{ background: transaction.categoryColor || (transaction.categoryId ? "#3b82f6" : "#94a3b8") }}
-                      />
-                      <span className={`transaction-cat-name ${!transaction.categoryId ? 'uncategorised' : ''}`}>
-                        {transaction.category || 'Uncategorised'}
-                      </span>
-                      {transaction.isTransfer && (
-                        <span
-                          title="Reconciled Transfer Pair"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            padding: "0 4px",
-                            borderRadius: "4px",
-                            background: "rgba(59, 130, 246, 0.1)",
-                            color: "#3b82f6",
-                            fontSize: "9px",
-                            fontWeight: 800,
-                            marginLeft: "2px",
-                          }}>
-                          ⇄
-                        </span>
-                      )}
-                    </div>
-                    {transaction.superCategory && (
-                      <span className="transaction-super-label">
-                        {transaction.superCategory}
+                        title="Reconciled Transfer Pair"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          padding: "0 4px",
+                          borderRadius: "4px",
+                          background: "rgba(59, 130, 246, 0.1)",
+                          color: "#3b82f6",
+                          fontSize: "9px",
+                          fontWeight: 800,
+                          marginLeft: "2px",
+                        }}>
+                        ⇄
                       </span>
                     )}
                   </div>
+                  {transaction.superCategory && (
+                    <span className="transaction-super-label">
+                      {transaction.superCategory}
+                    </span>
+                  )}
+                </button>
+
+                {editingTxCatId === transaction.id && (
+                  <CategoryPickerPopover
+                    categories={data.categories || []}
+                    currentCategoryId={transaction.categoryId ?? null}
+                    onSelect={(newCatId) => {
+                      void handleUpdateCategory(transaction.id, newCatId);
+                      setEditingTxCatId(null);
+                    }}
+                    onClose={() => setEditingTxCatId(null)}
+                  />
                 )}
               </div>
               <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
