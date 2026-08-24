@@ -226,40 +226,53 @@ function PortfolioContent() {
                     ✓ {quoteNotice}
                   </span>
                 )}
-                <button
-                  type="button"
-                  className="secondary compact"
-                  onClick={() => setShowZerodhaSync(selectedAccountId)}
-                  style={{
-                    background: "rgba(249, 115, 22, 0.08)",
-                    color: "#f97316",
-                    borderColor: "rgba(249, 115, 22, 0.3)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "5px",
-                    fontWeight: 600,
-                  }}
-                  title="Automated 1-Click Sync from Zerodha Kite"
-                >
-                  <Zap size={14} /> Sync Zerodha
-                </button>
-                {portfolioData && portfolioData.holdings.length > 0 && (
-                  <button
-                    type="button"
-                    className="secondary compact"
-                    onClick={() => handleRefreshQuotes(selectedAccountId)}
-                    disabled={refreshingQuotes}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                    }}
-                    title="Refresh live stock market prices (LTP) from NSE"
-                  >
-                    <RefreshCw size={13} className={refreshingQuotes ? "spin" : ""} />
-                    {refreshingQuotes ? "Updating quotes…" : "Live Quotes"}
-                  </button>
-                )}
+                {/* Zerodha Sync - ONLY for Zerodha Stock / Demat Accounts */}
+                {selectedAccount &&
+                  (selectedAccount.type === "STOCKS" || selectedAccount.type === "DEMAT") &&
+                  (selectedAccount.institution?.toLowerCase().includes("zerodha") ||
+                    selectedAccount.name?.toLowerCase().includes("zerodha") ||
+                    selectedAccount.institution?.toLowerCase().includes("kite")) && (
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      onClick={() => setShowZerodhaSync(selectedAccountId)}
+                      style={{
+                        background: "rgba(249, 115, 22, 0.08)",
+                        color: "#f97316",
+                        borderColor: "rgba(249, 115, 22, 0.3)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        fontWeight: 600,
+                      }}
+                      title="Automated 1-Click Sync from Zerodha Kite"
+                    >
+                      <Zap size={14} /> Sync Zerodha
+                    </button>
+                  )}
+
+                {/* Live Stock Quotes - ONLY for Stock / Equity Accounts */}
+                {selectedAccount &&
+                  (selectedAccount.type === "STOCKS" || selectedAccount.type === "DEMAT") &&
+                  portfolioData &&
+                  portfolioData.holdings.length > 0 && (
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      onClick={() => handleRefreshQuotes(selectedAccountId)}
+                      disabled={refreshingQuotes}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                      }}
+                      title="Refresh live stock market prices (LTP) from NSE"
+                    >
+                      <RefreshCw size={13} className={refreshingQuotes ? "spin" : ""} />
+                      {refreshingQuotes ? "Updating quotes…" : "Live Quotes"}
+                    </button>
+                  )}
+
                 <button
                   type="button"
                   className="secondary compact"
