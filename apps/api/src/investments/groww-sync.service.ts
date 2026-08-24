@@ -67,11 +67,27 @@ export class GrowwSyncService {
       );
     }
 
-    // Normalize Bearer prefix if user included it or omitted it
-    const cleanToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    // Support pasting full cURL command or raw headers
+    let cleanToken = token;
+    let checksum = 'NDJ6enEjIyM5S0JvZ2RqNzlSZzQrd1dPOGRvcnpmQnJzVXpmNkxDS2Naayt1U1BKYnYwenBmRXRGVjl5NUhhdmhaTkJGeVlUVXlGRU9Rdk1kTjgzOGtsUXEvS2xKQmJGNmEzRFNUMENqaVprUVZqN0lmcz0=';
+
+    if (token.includes('curl ') || token.includes('x-user-campaign:') || token.includes('x-user-campaign:')) {
+      const matchToken = token.match(/x-user-campaign[:\s'"]+(Bearer\s+[A-Za-z0-9-_.]+)/i) ||
+        token.match(/Authorization[:\s'"]+(Bearer\s+[A-Za-z0-9-_.]+)/i) ||
+        token.match(/(eyJ[A-Za-z0-9-_.]+)/);
+      if (matchToken) {
+        cleanToken = matchToken[1].startsWith('Bearer ') ? matchToken[1] : `Bearer ${matchToken[1]}`;
+      }
+      const matchChecksum = token.match(/x-request-checksum[:\s'"]+([A-Za-z0-9+/=]+)/i);
+      if (matchChecksum) {
+        checksum = matchChecksum[1];
+      }
+    } else {
+      cleanToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    }
 
     // Fetch holdings report buffer from Groww API
-    const excelBuffer = await this.fetchReportFromGroww(cleanToken);
+    const excelBuffer = await this.fetchReportFromGroww(cleanToken, checksum);
 
     // Parse Excel sheet
     const holdings = await parseGrowwHoldingsXlsx(excelBuffer);
@@ -188,7 +204,7 @@ export class GrowwSyncService {
   /**
    * Internal helper to make authenticated HTTP call to Groww API and get the Excel report buffer
    */
-  private async fetchReportFromGroww(token: string): Promise<Buffer> {
+  private async fetchReportFromGroww(token: string, checksum?: string): Promise<Buffer> {
     const today = new Date().toISOString().split('T')[0];
     const url = `https://groww.in/v1/api/portfolio/v3/transaction/report/holdings_report?as_on_date=${today}`;
 
@@ -200,6 +216,17 @@ export class GrowwSyncService {
       'x-app-id': 'growwWeb',
       'x-platform': 'web',
       'x-device-type': 'desktop',
+      'x-device-id': '9a20fb09-d150-5e7a-b31a-e23544b8cdc8',
+      'x-device-id-v2': '9a20fb09-d150-5e7a-b31a-e23544b8cdc8',
+      'x-request-id': 'e9785ca5-9c22-4867-b8ed-5b8540c9d02b',
+      'x-request-checksum':
+        checksum ||
+        'NDJ6enEjIyM5S0JvZ2RqNzlSZzQrd1dPOGRvcnpmQnJzVXpmNkxDS2Naayt1U1BKYnYwenBmRXRGVjl5NUhhdmhaTkJGeVlUVXlGRU9Rdk1kTjgzOGtsUXEvS2xKQmJGNmEzRFNUMENqaVprUVZqN0lmcz0=',
+      'x-primary-target': 'td=1,au=1,ld=4',
+      'x-secondary-target': 'td=2,au=2,ld=3',
+      'x-target-version': '0',
+      Origin: 'https://groww.in',
+      Referer: 'https://groww.in/user/profile/report',
       Accept: 'application/json, text/plain, */*',
     };
 
@@ -226,7 +253,7 @@ export class GrowwSyncService {
           errorMsg.toLowerCase().includes('token')
         ) {
           throw new UnauthorizedException(
-            'Your Groww session has expired. Please copy a fresh token from Groww and try again.',
+            'Your Groww session has expired or is invalid. Please copy a fresh token/cURL from Groww and try again.',
           );
         }
 

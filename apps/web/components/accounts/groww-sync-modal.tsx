@@ -183,7 +183,7 @@ export function GrowwSyncModal({
               }}
             >
               <label style={{ fontSize: "12px", fontWeight: 600, color: "var(--ink)" }}>
-                Groww Session Token (x-user-campaign)
+                Groww Session Token or cURL
               </label>
               <button
                 type="button"
@@ -217,18 +217,18 @@ export function GrowwSyncModal({
                   marginBottom: "10px",
                 }}
               >
-                <strong>How to get your Groww token in 3 steps:</strong>
+                <strong>Easiest method (10 seconds):</strong>
                 <ol style={{ margin: "6px 0 0 16px", padding: 0 }}>
-                  <li>Log in to <strong>groww.in</strong> in your browser.</li>
-                  <li>Press <code>F12</code> (Inspect) &rarr; Go to <strong>Network</strong> tab &rarr; Open Reports &rarr; Click download holdings.</li>
-                  <li>Click the <code>holdings_report</code> request &rarr; Copy the value of <code>x-user-campaign</code> from Request Headers.</li>
+                  <li>Log in to <strong>groww.in</strong> &rarr; Open Reports &rarr; Click download holdings.</li>
+                  <li>Press <code>F12</code> &rarr; <strong>Network</strong> tab &rarr; find <code>holdings_report</code>.</li>
+                  <li>Right-click <code>holdings_report</code> &rarr; <strong>Copy</strong> &rarr; <strong>Copy as cURL</strong> (or copy <code>x-user-campaign</code>) and paste below!</li>
                 </ol>
               </div>
             )}
 
-            <input
-              type="password"
-              placeholder="Paste Groww session token (leave empty to use saved Vault token)..."
+            <textarea
+              rows={3}
+              placeholder="Paste Groww x-user-campaign token OR full cURL (leave empty to use saved Vault token)..."
               value={token}
               onChange={(e) => setToken(e.target.value)}
               style={{
@@ -238,8 +238,9 @@ export function GrowwSyncModal({
                 border: "1px solid var(--line)",
                 background: "var(--card)",
                 color: "var(--ink)",
-                fontSize: "13px",
+                fontSize: "12px",
                 fontFamily: "monospace",
+                resize: "vertical",
               }}
             />
           </div>
