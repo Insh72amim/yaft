@@ -64,7 +64,6 @@ export function ThemeToggle({ className = '', showColors = true }: { className?:
       >
         <Sun className="theme-icon theme-icon-light" aria-hidden="true" />
         <Moon className="theme-icon theme-icon-dark" aria-hidden="true" />
-        <span className="theme-label" aria-hidden="true" />
       </button>
     );
   }
@@ -78,9 +77,8 @@ export function ThemeToggle({ className = '', showColors = true }: { className?:
         aria-label="Toggle dark/light mode"
         title="Toggle dark/light mode"
       >
-        <Sun className="theme-icon theme-icon-light" size={15} aria-hidden="true" />
-        <Moon className="theme-icon theme-icon-dark" size={15} aria-hidden="true" />
-        <span className="theme-label" aria-hidden="true" />
+        <Sun className="theme-icon theme-icon-light" size={16} aria-hidden="true" />
+        <Moon className="theme-icon theme-icon-dark" size={16} aria-hidden="true" />
       </button>
 
       <div className="sidebar-color-dots">
