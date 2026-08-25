@@ -15,6 +15,7 @@ import {
   extractAlertReferenceNumber,
   extractAlertRawMerchant,
   extractAlertDateTime,
+  findEmailConfigForSender,
 } from '@yaft/shared';
 
 export { parseIndianDate, MONTH_MAP, canonicalizeMerchantName as cleanMerchantName };
@@ -30,6 +31,7 @@ export interface ParsedEmailTransaction {
   referenceNumber?: string;
   transactionDate: Date;
   rawSnippet: string;
+  suggestedCategoryName?: string;
   emailMessageId?: string;
   emailSubject?: string;
   emailSender?: string;
@@ -92,10 +94,13 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     return null;
   }
 
-  // 1. Detect Bank / AMC Name
+  // 1. Resolve Provider Configuration (if sender/subject matches registered bank/card config)
+  const emailConfig = findEmailConfigForSender(senderOrSubject, fullContext);
+
+  // Detect Bank / AMC Name
   const matchedInst = findInstitution(fullContext);
   const isExplicitInvestment = EMAIL_ALERT_PATTERNS.EXPLICIT_INVESTMENT_REGEX.test(fullContext);
-  const bankName = matchedInst ? matchedInst.name : (isExplicitInvestment ? 'Mutual Fund' : 'Bank Alert');
+  const bankName = matchedInst ? matchedInst.name : (emailConfig?.displayName || (isExplicitInvestment ? 'Mutual Fund' : 'Bank Alert'));
 
   // 2. Detect Account Type (Investment vs Credit Card vs Bank Account)
   const isExplicitCreditCard = EMAIL_ALERT_PATTERNS.EXPLICIT_CREDIT_CARD_REGEX.test(fullContext);
@@ -108,6 +113,8 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     accountType = AccountType.CREDIT_CARD;
   } else if (isExplicitBankAccount) {
     accountType = AccountType.BANK;
+  } else if (emailConfig?.accountType) {
+    accountType = emailConfig.accountType;
   } else if (isExplicitCreditCard) {
     accountType = AccountType.CREDIT_CARD;
   }
@@ -117,7 +124,23 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   const type: 'DEBIT' | 'CREDIT' = isCredit ? 'CREDIT' : 'DEBIT';
 
   // 4. Extract Amount
-  const rawAmountNum = extractAlertAmount(text);
+  let rawAmountNum: number | null = null;
+  if (emailConfig?.amountRegexes) {
+    for (const rx of emailConfig.amountRegexes) {
+      const m = text.match(rx);
+      if (m && m[1]) {
+        const parsed = parseFloat(m[1].replace(/,/g, ''));
+        if (Number.isFinite(parsed)) {
+          rawAmountNum = parsed;
+          break;
+        }
+      }
+    }
+  }
+  if (rawAmountNum === null) {
+    rawAmountNum = extractAlertAmount(text);
+  }
+
   if (rawAmountNum === null || rawAmountNum <= 0 || rawAmountNum > FINANCIAL_CONSTANTS.MAX_EMAIL_TRANSACTION_AMOUNT) {
     return null;
   }
@@ -126,13 +149,49 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   const amountMinor = type === 'DEBIT' ? -rawMinor : rawMinor;
 
   // 5. Extract Account / Card Last 4 Digits
-  const accountLast4 = extractAlertAccountLast4(text);
+  let accountLast4: string | undefined = undefined;
+  if (emailConfig?.last4Regexes) {
+    for (const rx of emailConfig.last4Regexes) {
+      const m = text.match(rx);
+      if (m && m[1]) {
+        accountLast4 = m[1].length >= 4 ? m[1].slice(-4) : m[1];
+        break;
+      }
+    }
+  }
+  if (!accountLast4) {
+    accountLast4 = extractAlertAccountLast4(text);
+  }
 
   // 6. Extract Reference / UTR Number
-  const referenceNumber = extractAlertReferenceNumber(text);
+  let referenceNumber: string | undefined = undefined;
+  if (emailConfig?.referenceRegexes) {
+    for (const rx of emailConfig.referenceRegexes) {
+      const m = text.match(rx);
+      if (m && m[1]) {
+        referenceNumber = m[1];
+        break;
+      }
+    }
+  }
+  if (!referenceNumber) {
+    referenceNumber = extractAlertReferenceNumber(text);
+  }
 
   // 7. Extract Merchant / Payee
-  const rawMerchant = extractAlertRawMerchant(text);
+  let rawMerchant: string | undefined = undefined;
+  if (emailConfig?.merchantRegexes) {
+    for (const rx of emailConfig.merchantRegexes) {
+      const m = text.match(rx);
+      if (m && m[1] && !/^(vpa|account|a\/c|your|debited|credited|ref|bank|savings|primary)$/i.test(m[1].trim())) {
+        rawMerchant = m[1].replace(/[.,\s\-_]+$/, '').trim();
+        break;
+      }
+    }
+  }
+  if (!rawMerchant) {
+    rawMerchant = extractAlertRawMerchant(text);
+  }
   const merchant = canonicalizeMerchantName(rawMerchant);
 
   // 8. Extract Date & Time
@@ -153,6 +212,7 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     referenceNumber,
     transactionDate,
     rawSnippet: text.slice(0, 300),
+    suggestedCategoryName: emailConfig?.defaultCategoryName,
   };
 }
 

@@ -46,9 +46,12 @@ describe('CategoryRulesService', () => {
   describe('matchTransactionCategory', () => {
     const categories = [
       { id: 'cat-food', name: 'Food & Dining' },
+      { id: 'cat-groceries', name: 'Groceries' },
       { id: 'cat-transport', name: 'Transport & Fuel' },
       { id: 'cat-shopping', name: 'Shopping & Clothing' },
       { id: 'cat-bills', name: 'Bills & Utilities' },
+      { id: 'cat-mf', name: 'Mutual Fund SIP' },
+      { id: 'cat-ott', name: 'Entertainment & OTT' },
     ];
 
     it('matches built-in pattern for MakeMyTrip credit card spend to Transport & Fuel', () => {
@@ -61,6 +64,18 @@ describe('CategoryRulesService', () => {
       const result = service.matchTransactionCategory([], categories, 'AMAZON PAY INDIA [HDFC Credit Card]', 'AMAZON PAY');
       expect(result.categoryId).toBe('cat-shopping');
       expect(result.confidence).toBe(85);
+    });
+
+    it('matches built-in pattern for Blinkit credit card spend to Groceries', () => {
+      const result = service.matchTransactionCategory([], categories, 'BLINKIT COMMERCE [SBI Card ••0004]', 'BLINKIT');
+      expect(result.categoryId).toBe('cat-groceries');
+      expect(result.confidence).toBe(85);
+    });
+
+    it('matches suggestedCategoryName from email alert parser', () => {
+      const result = service.matchTransactionCategory([], categories, 'UTI NIFTY 50 INDEX FUND [Folio 12345]', 'UTI MUTUAL FUND', undefined, 'Mutual Fund SIP');
+      expect(result.categoryId).toBe('cat-mf');
+      expect(result.confidence).toBe(90);
     });
 
     it('prioritizes user custom rules over built-in patterns', () => {

@@ -452,5 +452,40 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.amountDisplay).toBe(2500);
     expect(result?.amountMinor).toBe(-250000n);
     expect(result?.referenceNumber).toBe('TXN55443322');
+    expect(result?.suggestedCategoryName).toBe('Mutual Fund SIP');
+  });
+
+  it('should parse SBI Card alert from onlinesbicard@sbicard.com with exact merchant and limit extraction', () => {
+    const text = 'Dear Cardholder, Rs.1,499.00 spent on your SBI Card ending 0004 at BLINKIT on 22/08/26. Total Available Credit Limit is Rs.98,501.00.';
+    const result = parseEmailAlertSnippet(text, 'SBI Card Transaction Alert <onlinesbicard@sbicard.com>');
+
+    expect(result).not.toBeNull();
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('0004');
+    expect(result?.amountDisplay).toBe(1499);
+    expect(result?.amountMinor).toBe(-149900n);
+    expect(result?.merchant).toBe('BLINKIT');
+  });
+
+  it('should parse Axis Bank credit card alert from alerts@axis.bank.in', () => {
+    const text = 'Transaction Amount: INR 450.00 spent on Axis Bank Card no. XX5678 at STARBUCKS on 22-08-2026. Ref: 987654. Total Credit Limit: INR 1,50,000.00';
+    const result = parseEmailAlertSnippet(text, 'alerts@axis.bank.in');
+
+    expect(result).not.toBeNull();
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('8423');
+    expect(result?.amountDisplay).toBe(450);
+    expect(result?.merchant).toBe('STARBUCKS');
+  });
+
+  it('should parse ICICI Credit Card alert from credit_cards@icici.bank.in', () => {
+    const text = 'Dear Customer, INR 2,199.00 has been spent on your ICICI Bank Credit Card ending 0001 on 23-Aug-26 at ZOMATO. Available Limit: INR 85,000.00.';
+    const result = parseEmailAlertSnippet(text, 'credit_cards@icici.bank.in');
+
+    expect(result).not.toBeNull();
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('0001');
+    expect(result?.amountDisplay).toBe(2199);
+    expect(result?.merchant).toBe('ZOMATO');
   });
 });

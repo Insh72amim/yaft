@@ -4,20 +4,20 @@ import { PrismaService } from '../common/prisma.service';
 import { CreateCategoryRuleDto, UpdateCategoryRuleDto } from './category-rules.dto';
 
 export const BUILTIN_CATEGORY_PATTERNS: Array<[RegExp, string]> = [
-  [/cred|credit\s*card\s*payment|cc\s*payment|card\s*bill|cred\s*club/i, 'CC Transfer'],
-  [/self\s*transfer|transfer\s*to\s*self|internal\s*transfer/i, 'Self Transfer'],
-  [/upi\s*lite|upilite/i, 'UPI Lite'],
-  [/swiggy|zomato|instamart|starbucks|chaayos|dominos|mcdonalds|kfc|subway|pizza|rest|cafe|diner|bakery|burger|haldiram|barbeque|eats/i, 'Food & Dining'],
-  [/blinkit|zepto|bigbasket|bbdaily|dmart|spar|grocery|supermarket|kirana|natures basket|dunzo|country delight|milk/i, 'Groceries'],
-  [/amazon|flipkart|myntra|tatacliq|ajio|nykaa|zara|uniqlo|decathlon|westside|reliance|meesho|max fashion|h&m|lifestyle|croma|vijay sales/i, 'Shopping & Clothing'],
-  [/uber|ola|rapido|blusmart|petrol|shell|hpcl|bpcl|iocl|fuel|irctc|indigo|air india|vistara|fastag|metro|toll|makemytrip|mmt|goibibo|cleartrip|easemytrip|yatra|red bus|redbus|parking/i, 'Transport & Fuel'],
-  [/bescom|tata power|msedcl|bses|cesc|airtel|jio|vi |actfibernet|tata play|dish tv|indane|bharat gas|hp gas|electricity|water bill|broadband|billdesk|recharge|paytm postpaid|insurance|lic/i, 'Bills & Utilities'],
-  [/netflix|spotify|prime video|hotstar|youtube|apple\.com|bookmyshow|pvr|inox|cinema|playstation|steam|amazon prime/i, 'Entertainment & OTT'],
-  [/zerodha|groww|kfintech|cams|coin|mf central|sip|sgb|nps|epfo|ppf|mutual fund|indmoney|kite/i, 'Mutual Fund SIP'],
-  [/apollo|netmeds|pharmeasy|1mg|medplus|hospital|clinic|lab|diagnostics|pharmacy|healthkart|cult\.fit|gym/i, 'Medical & Health'],
-  [/cred rent|nobroker|society maintenance|mygate|housing/i, 'Housing & Rent'],
-  [/salary|payroll|stipend|bonus/i, 'Salary & Wages'],
-  [/cashback|interest|reward|refund/i, 'Interest & Cashback'],
+  [/cred\s*cc|credit\s*card\s*payment|cc\s*payment|card\s*bill|cred\s*club|card\s*autopay/i, 'CC Transfer'],
+  [/self\s*transfer|transfer\s*to\s*self|internal\s*transfer|own\s*account|sweep\s*transfer/i, 'Self Transfer'],
+  [/upi\s*lite|upilite|topup\s*lite/i, 'UPI Lite'],
+  [/swiggy|zomato|instamart|starbucks|chaayos|dominos|mcdonalds|kfc|subway|burger\s*king|pizza|haldiram|barbeque\s*nation|behrouz|faasos|eatclub|third\s*wave|blue\s*tokai|cafe\s*coffee|costa|wow\s*momo|bira|brewery|rest|cafe|diner|bakery|bistro|dhaba|kitchen|food\s*court|canteen|chai\s*point|eats/i, 'Food & Dining'],
+  [/blinkit|zepto|bigbasket|bbdaily|dmart|spar|natures\s*basket|country\s*delight|dunzo\s*daily|milk\s*basket|freshtohome|licious|grocery|supermarket|kirana|provision|hypermarket|milk|vegetable|meat/i, 'Groceries'],
+  [/amazon|flipkart|myntra|tatacliq|ajio|nykaa|zara|uniqlo|decathlon|westside|reliance\s*trends|meesho|max\s*fashion|h&m|lifestyle|croma|vijay\s*sales|apple\s*store|pantaloons|shoppers\s*stop|urbanic|snitch|bewakoof|fabindia|marks\s*&\s*spencer|ikea|lenskart|titan|tanishq|caratlane|kalyan|malabar/i, 'Shopping & Clothing'],
+  [/uber|ola|rapido|blusmart|petrol|shell|hpcl|bpcl|iocl|indian\s*oil|fuel|irctc|indian\s*railways|indigo|air\s*india|vistara|akasa|spicejet|fastag|toll|metro|parking|makemytrip|mmt|goibibo|cleartrip|easemytrip|yatra|red\s*bus|redbus|abhibus|zoomcar/i, 'Transport & Fuel'],
+  [/bescom|tata\s*power|msedcl|bses|cesc|tneb|wbsedcl|torrent\s*power|adani\s*electricity|airtel|jio|vi |actfibernet|tata\s*play|dish\s*tv|sun\s*direct|indane|bharat\s*gas|hp\s*gas|igl|mgl|adani\s*gas|electricity|water\s*bill|bwssb|djb|broadband|billdesk|bbps|recharge|paytm\s*postpaid|insurance|lic|hdfc\s*life|icici\s*pru|star\s*health|care\s*health|niva\s*bupa|max\s*life|policybazaar/i, 'Bills & Utilities'],
+  [/netflix|spotify|prime\s*video|hotstar|youtube|apple\.com|bookmyshow|pvr|inox|cinepolis|cinema|playstation|steam|xbox|nintendo|amazon\s*prime|sonyliv|zee5|jiocinema|gaana|wynk|audible|kindle/i, 'Entertainment & OTT'],
+  [/zerodha|groww|kfintech|cams|camsonline|mf\s*central|mutual\s*fund|sip|folio|units\s*allotted|nav\s*:|uti\s*mf|hdfc\s*mf|sbi\s*mf|icici\s*pru|axis\s*mf|mirae\s*asset|nippon\s*india|ppfas|parag\s*parikh|kotak\s*mf|motilal|quant\s*mf|dsp\s*mf|edelweiss|indmoney|kuvera|dhan|upstox|demat|sgb|nps|ppf|kite|coin/i, 'Mutual Fund SIP'],
+  [/apollo|netmeds|pharmeasy|1mg|tata\s*1mg|medplus|practo|cult\.fit|cultpass|gym|gold's\s*gym|fitness|hospital|clinic|lab|diagnostics|srl|dr\s*lal|metropolis|pharmacy|chemist|healthkart|dental|optical|wellness/i, 'Medical & Health'],
+  [/cred\s*rent|nobroker|society\s*maintenance|mygate|nobrokerhood|adda|housing|apartment|rent\s*payment|landlord/i, 'Housing & Rent'],
+  [/salary|payroll|stipend|bonus|incentive|allowance|remuneration|employer/i, 'Salary & Wages'],
+  [/cashback|interest\s*credited|bank\s*interest|reward\s*points?|refund\s*credited|auto\s*reversal|dividend/i, 'Interest & Cashback'],
 ];
 
 @Injectable()
@@ -168,6 +168,7 @@ export class CategoryRulesService {
     descriptionRaw: string,
     merchant?: string | null,
     reference?: string | null,
+    suggestedCategoryName?: string | null,
   ): { categoryId?: string; confidence: number } {
     // 1. Check user custom rules first (highest priority)
     if (rules && rules.length > 0) {
@@ -177,7 +178,20 @@ export class CategoryRulesService {
       }
     }
 
-    // 2. Check built-in smart merchant patterns
+    // 2. Check alert parser suggested category hint (e.g. 'Mutual Fund SIP')
+    if (suggestedCategoryName) {
+      const foundSuggested = categories.find(
+        (c) =>
+          c.name.toLowerCase() === suggestedCategoryName.toLowerCase() ||
+          c.name.toLowerCase().includes(suggestedCategoryName.toLowerCase()) ||
+          suggestedCategoryName.toLowerCase().includes(c.name.toLowerCase()),
+      );
+      if (foundSuggested) {
+        return { categoryId: foundSuggested.id, confidence: 90 };
+      }
+    }
+
+    // 3. Check built-in smart merchant patterns
     const textToMatch = `${merchant || ''} ${descriptionRaw} ${reference || ''}`.trim();
     for (const [pattern, catName] of BUILTIN_CATEGORY_PATTERNS) {
       if (pattern.test(textToMatch)) {

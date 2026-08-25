@@ -7,6 +7,7 @@ import { CategoryRulesService } from '../category-rules/category-rules.service';
 import { StatementCredentialCipher } from '../common/statement-credentials.service';
 import { parseMultipleEmailAlerts, ParsedEmailTransaction, getAlertFingerprint } from './email-alert-parser';
 import { AccountType } from '../common/constants/enums';
+import { INSTITUTION_EMAIL_CONFIGS, getEmailConfigsForAccounts } from '@yaft/shared';
 
 @Injectable()
 export class GoogleGmailService {
@@ -268,65 +269,37 @@ export class GoogleGmailService {
       try {
         const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-        // Build dynamic server-side filtered search query based on selected scope
-        const bankFilter = 'from:(hdfcbank.net OR hdfcbank.com OR hdfc.bank.in OR icicibank.com OR icicibank.co.in OR icici.bank.in OR axisbank.com OR axis.bank.in OR sbi.co.in OR sbi.bank.in OR kotak.com OR kotak.bank.in OR pnb.co.in OR pnb.bank.in OR indusind.com OR idfcfirstbank.com OR rblbank.com OR standardchartered.co.in OR citibank.com OR "ICICI Bank" OR "Axis Bank" OR "HDFC Bank" OR "State Bank of India" OR "Punjab National Bank") (debited OR credited OR spent OR alert OR transaction OR payment OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs." OR "UPI" OR "NEFT" OR "IMPS")';
-        const cardFilter = 'from:(hdfcbank.net OR hdfcbank.com OR icicibank.com OR axisbank.com OR sbi.co.in OR sbicard.com OR americanexpress.com OR kotak.com OR rblbank.com OR indusind.com OR idfcfirstbank.com OR standardchartered.co.in OR citibank.com) ("credit card" OR "card ending" OR "card ending with" OR "spent on your card" OR "transaction on your card" OR "amazon pay" OR "pixel" OR "card no" OR "card xx" OR "spent")';
-        const sipFilter = 'from:(camsonline.com OR kfintech.com OR mfcentral.com OR zerodha.com OR groww.in OR hdfcfund.com OR sbimf.com OR icicipruamc.com OR axismf.com OR miraeasset.com OR nipponindiamf.com OR ppfas.com OR "Mutual Fund") (SIP OR "Mutual Fund" OR "allotted" OR "Folio" OR "NAV" OR "Purchase" OR "debited" OR "transaction")';
-
+        // Build dynamic configuration-driven search query based on selected scope
         let query = '';
         if (accountScope === 'ALL_CARDS') {
-          query = `(${cardFilter}) after:${afterDateStr}`;
+          const cardConfigs = INSTITUTION_EMAIL_CONFIGS.filter((c) => c.accountType === AccountType.CREDIT_CARD);
+          const senders = Array.from(new Set(cardConfigs.flatMap((c) => c.senders)));
+          query = `from:(${senders.join(' OR ')}) ("credit card" OR "card ending" OR "card ending with" OR "spent on your card" OR "transaction on your card" OR "amazon pay" OR "pixel" OR "card no" OR "card xx" OR "spent") after:${afterDateStr}`;
         } else if (accountScope === 'ALL_BANKS') {
-          query = `(${bankFilter}) after:${afterDateStr}`;
+          const bankConfigs = INSTITUTION_EMAIL_CONFIGS.filter((c) => c.accountType === AccountType.BANK);
+          const senders = Array.from(new Set(bankConfigs.flatMap((c) => c.senders)));
+          query = `from:(${senders.join(' OR ')}) (debited OR credited OR spent OR alert OR transaction OR payment OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs." OR "UPI" OR "NEFT" OR "IMPS") after:${afterDateStr}`;
         } else if (accountScope === 'ALL_INVESTMENTS') {
-          query = `(${sipFilter}) after:${afterDateStr}`;
+          const sipConfigs = INSTITUTION_EMAIL_CONFIGS.filter((c) => c.accountType === AccountType.MUTUAL_FUND);
+          const senders = Array.from(new Set(sipConfigs.flatMap((c) => c.senders)));
+          query = `from:(${senders.join(' OR ')}) (SIP OR "Mutual Fund" OR "allotted" OR "Folio" OR "NAV" OR "Purchase" OR "debited" OR "transaction") after:${afterDateStr}`;
         } else if (accountScope === 'CUSTOM') {
-          const customSenders: string[] = [];
-          for (const acc of candidateAccounts) {
-            const inst = (acc.institution || '').toLowerCase();
-            const name = (acc.name || '').toLowerCase();
-            if (inst.includes('sbi') || name.includes('sbi') || inst.includes('state bank')) {
-              customSenders.push('sbicard.com', 'sbi.co.in', 'sbi.bank.in', 'alerts.sbi.bank.in', 'onlinesbicard@sbicard.com');
-            }
-            if (inst.includes('hdfc') || name.includes('hdfc') || name.includes('pixel')) {
-              customSenders.push('hdfcbank.net', 'hdfcbank.com', 'hdfc.bank.in');
-            }
-            if (inst.includes('icici') || name.includes('icici') || name.includes('amazon')) {
-              customSenders.push('icicibank.com', 'icicibank.co.in', 'icici.bank.in');
-            }
-            if (inst.includes('axis') || name.includes('axis') || name.includes('neo') || name.includes('flipkart') || name.includes('rewards')) {
-              customSenders.push('axisbank.com', 'axis.bank.in');
-            }
-            if (inst.includes('pnb') || name.includes('pnb') || name.includes('punjab')) {
-              customSenders.push('pnb.co.in', 'pnb.bank.in', 'pnbindia.in');
-            }
-            if (inst.includes('kotak') || name.includes('kotak')) {
-              customSenders.push('kotak.com', 'kotak.bank.in');
-            }
-            if (acc.type === AccountType.MUTUAL_FUND || acc.type === AccountType.STOCKS || name.includes('groww') || name.includes('zerodha') || name.includes('coin')) {
-              customSenders.push('camsonline.com', 'kfintech.com', 'mfcentral.com', 'zerodha.com', 'groww.in');
-            }
-          }
-
-          const uniqueSenders = Array.from(new Set(customSenders));
-          if (uniqueSenders.length > 0) {
-            const senderFilter = `from:(${uniqueSenders.join(' OR ')})`;
-            query = `${senderFilter} (debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs." OR "NACH" OR "Dispute") after:${afterDateStr}`;
+          const matchedConfigs = getEmailConfigsForAccounts(candidateAccounts);
+          const allSenders = Array.from(new Set(matchedConfigs.flatMap((c) => c.senders)));
+          const allKeywords = Array.from(new Set(matchedConfigs.flatMap((c) => c.queryKeywords || [])));
+          if (allSenders.length > 0) {
+            const senderFilter = `from:(${allSenders.join(' OR ')})`;
+            const keywordFilter = allKeywords.length > 0
+              ? `(${allKeywords.map((k) => k.includes(' ') ? `"${k}"` : k).join(' OR ')})`
+              : '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.")';
+            query = `${senderFilter} ${keywordFilter} after:${afterDateStr}`;
           } else {
-            const hasCards = candidateAccounts.some((a) => a.type === AccountType.CREDIT_CARD);
-            const hasBanks = candidateAccounts.some((a) => [AccountType.BANK, AccountType.SAVINGS, AccountType.CASH].includes(a.type as any));
-            const hasInvestments = candidateAccounts.some((a) => a.type === AccountType.MUTUAL_FUND || a.type === AccountType.STOCKS);
-
-            const queryParts: string[] = [];
-            if (hasCards) queryParts.push(cardFilter);
-            if (hasBanks) queryParts.push(bankFilter);
-            if (hasInvestments) queryParts.push(sipFilter);
-
-            query = `(${queryParts.join(' OR ') || bankFilter}) after:${afterDateStr}`;
+            query = `(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.") after:${afterDateStr}`;
           }
         } else {
           // Default ALL
-          query = `(${bankFilter} OR ${cardFilter} OR ${sipFilter}) after:${afterDateStr}`;
+          const allSenders = Array.from(new Set(INSTITUTION_EMAIL_CONFIGS.flatMap((c) => c.senders)));
+          query = `from:(${allSenders.join(' OR ')}) (debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs." OR "SIP" OR "Mutual Fund") after:${afterDateStr}`;
         }
 
         let pageToken: string | undefined = undefined;
@@ -445,6 +418,7 @@ export class GoogleGmailService {
               descriptionRaw,
               alert.merchant,
               alert.referenceNumber,
+              alert.suggestedCategoryName,
             );
 
             return {
