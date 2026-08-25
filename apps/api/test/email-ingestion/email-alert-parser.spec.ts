@@ -310,6 +310,10 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     // 10. Reward points summary
     const rewardPoints = 'Dear Customer, You have earned 500 reward points on your recent transaction. Total reward points earned: 2,450.';
     expect(parseEmailAlertSnippet(rewardPoints, 'alerts@icicibank.com')).toBeNull();
+
+    // 11. Debit / Credit card benefits and informational announcements
+    const debitCardBenefits = "31-07-2026 Dear Test User, We hope that you are enjoying the hand-picked benefits that come with your Online Rewards Debit Card no. XX9012, linked to your A/c no. XX1234. Here's a quick glance at the benefits on your card: • Earn accelerated EDGE REWARD Points on eligible categories • Avail voucher worth Rs. 500";
+    expect(parseEmailAlertSnippet(debitCardBenefits, 'Axis Bank Alerts <alerts@axis.bank.in> Important information regarding your Axis Bank Online Rewards Debit Card')).toBeNull();
   });
 
   it('should parse SBI Credit Card spend alert', () => {

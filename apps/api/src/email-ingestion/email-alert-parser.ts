@@ -46,6 +46,8 @@ export function parseMoneyToMinorUnits(amountStr: string): bigint {
 }
 
 export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
+  // Informational, feature, terms, and card benefit announcements
+  '(?:important\\s+information\\s+regarding|glance\\s+at\\s+(?:the\\s+)?benefits|benefits\\s+that\\s+come\\s+with|benefits\\s+on\\s+your\\s+(?:card|account)|hand-picked\\s+benefits|edge\\s+reward\\s+points|features\\s+and\\s+benefits|schedule\\s+of\\s+charges|annual\\s+fee\\s+structure|know\\s+(?:more\\s+about\\s+)?your\\s+card|welcome\\s+to\\s+your\\s+new|terms\\s+(?:and|&)\\s+conditions|service\\s+charges|tariff\\s+guide|cardholder\\s+agreement|earn\\s+accelerated|enjoy\\s+the\\s+benefits|explore\\s+benefits|reward\\s+points\\s+on\\s+eligible)',
   // EMI conversions & loan offers
   '(?:flexi\\s*emi|flexipay|easy\\s*emi|smart\\s*emi|convert.*(?:trxn|txn|transaction|expenses?|spends?).*into.*emi|converting your transaction|processing fee on converting|convert.*into.*easy.*emi|convert.*transactions? worth|turn your eligible spends into)',
   // Marketing & reward offers & discounts
@@ -65,7 +67,7 @@ export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
   '(?:declined|transaction declined|payment failed|unsuccessful transaction)'
 ].join('|'), 'i');
 
-export const EXPLICIT_TRANSACTION_INDICATOR_REGEX = /\b(?:debited|credited|spent|charged|used\s+for|used\s+at|purchase\s+of|payment\s+of|withdrawn|received|deposited|refund\s+of|transfer\s+of|amount\s+debited|amount\s+credited|transaction\s*(?:on|amount|of|for|info|details|summary)?|processed\s+for|successful\s+transaction|paid\s+to|paid\s+for|txn\s*(?:of|on|amount)?|auto\s*debit(?:ed)?|mandate|standing\s*instruction|si\s*debit)\b/i;
+export const EXPLICIT_TRANSACTION_INDICATOR_REGEX = /\b(?:debited|credited|spent|charged|used\s+for|used\s+at|purchase\s+of|payment\s+of|withdrawn|received|deposited|refund\s+of|transfer\s+of|amount\s+debited|amount\s+credited|transaction\s+(?:on|of|for|amount|info|details|summary)|transaction\s*amount|processed\s+for|successful\s+transaction|paid\s+to|paid\s+for|txn\s*(?:of|on|amount|for)?|auto\s*debit(?:ed)?|mandate|standing\s*instruction|si\s*debit)\b/i;
 
 export const PROMOTIONAL_SENDER_REGEX = /offers@|deals@|marketing@|promo@|newsletter@|campaign@|digital\.axisbankmail|statements?@/i;
 

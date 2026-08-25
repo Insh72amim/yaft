@@ -191,12 +191,13 @@ export const EMAIL_ALERT_PATTERNS = {
 
   LABEL_AMOUNT_REGEX: /(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount\s*invested|sip\s*amount|amount)\s*[:=]\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   VERB_AMOUNT_REGEXES: [
-    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with|sip\s+installment\s+of|sip\s+debit\s+of|sip\s+amount\s+of|invested\s+amount\s+of|purchase\s+of\s+units\s+worth|has\s+a\s+debit\s+by\s+[a-zA-Z0-9\s]+\s+of|has\s+a\s+debit\s+of|debit\s+by\s+[a-zA-Z0-9\s]+\s+of|debit\s+of)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+(?:of|for|on)|amount\s+of|for\s+(?:an\s+amount\s+of\s+)?(?:inr|rs\.?|₹)|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with|sip\s+installment\s+of|sip\s+debit\s+of|sip\s+amount\s+of|invested\s+amount\s+of|purchase\s+of\s+units\s+worth|has\s+a\s+debit\s+by\s+[a-zA-Z0-9\s]+\s+of|has\s+a\s+debit\s+of|debit\s+by\s+[a-zA-Z0-9\s]+\s+of|debit\s+of)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
     /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited|transferred|processed|invested)/i,
     /^(?:.*?\b)?(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited|credited|processed|invested)/i,
+    /(?:for|towards)\s+(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:credited|debited|spent|charged|paid|transferred|withdrawn)\s+(?:by|with|for)?\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
     /(?:NEFT|IMPS|RTGS|UPI|SIP)\s*(?:CR|DR)?\s*[:\s-]+\s*(?:inr|rs\.?|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   ],
-  FALLBACK_AMOUNT_REGEX: /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
 
   ACCOUNT_LAST4_REGEXES: [
     /(?:credit\s*card|account\s*number|a\/c\s*no\.?|a\/c|account|card)\s*(?:no\.?|is|:)?\s*(?:\d{4}\s*[xX*]+[\s*xX\d-]*|4[xX]+[\s*xX\d-]*|[xX*]{4,}[\s*xX\d-]*)\s*(\d{4})\b/i,
@@ -253,12 +254,6 @@ export function extractAlertAmount(text: string): number | null {
       const parsed = parseFloat(verbMatch[1].replace(/,/g, ''));
       return Number.isFinite(parsed) ? parsed : null;
     }
-  }
-
-  const fallbackMatch = textWithoutLimits.match(EMAIL_ALERT_PATTERNS.FALLBACK_AMOUNT_REGEX);
-  if (fallbackMatch) {
-    const parsed = parseFloat(fallbackMatch[1].replace(/,/g, ''));
-    return Number.isFinite(parsed) ? parsed : null;
   }
 
   return null;
