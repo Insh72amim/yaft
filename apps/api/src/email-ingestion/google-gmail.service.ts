@@ -7,7 +7,7 @@ import { CategoryRulesService } from '../category-rules/category-rules.service';
 import { StatementCredentialCipher } from '../common/statement-credentials.service';
 import { parseMultipleEmailAlerts, ParsedEmailTransaction, getAlertFingerprint } from './email-alert-parser';
 import { AccountType } from '../common/constants/enums';
-import { INSTITUTION_EMAIL_CONFIGS, getEmailConfigsForAccounts } from '@yaft/shared';
+import { INSTITUTION_EMAIL_CONFIGS, getEmailConfigsForAccounts, isDuplicateTransaction, ExistingTxSummary } from '@yaft/shared';
 
 @Injectable()
 export class GoogleGmailService {
@@ -400,17 +400,41 @@ export class GoogleGmailService {
           const bankName = account.institution || sampleAlert.bankName;
           const last4 = sampleAlert.accountLast4;
 
-          const existingTxFingerprints = new Set(
-            (await this.prisma.transaction.findMany({ where: { accountId: account.id }, select: { fingerprint: true } })).map((x) => x.fingerprint)
-          );
-          const existingStagedFingerprints = new Set(
-            (await this.prisma.stagedTransaction.findMany({ where: { batch: { accountId: account.id, status: 'REVIEW' } }, select: { fingerprint: true } })).map((x) => x.fingerprint)
-          );
+          const [existingTxs, existingStagedTxs] = await Promise.all([
+            this.prisma.transaction.findMany({
+              where: { accountId: account.id },
+              select: { fingerprint: true, reference: true, amount: true, transactionDate: true, merchant: true, descriptionRaw: true },
+            }),
+            this.prisma.stagedTransaction.findMany({
+              where: { batch: { accountId: account.id, status: 'REVIEW' } },
+              select: { fingerprint: true, reference: true, amount: true, transactionDate: true, merchant: true, descriptionRaw: true },
+            }),
+          ]);
+
+          const allKnownTxs: ExistingTxSummary[] = [...existingTxs, ...existingStagedTxs];
+          const existingFingerprints = new Set(allKnownTxs.map((x) => x.fingerprint).filter((f): f is string => Boolean(f)));
 
           const stagedRows = groupAlerts.map((alert, idx) => {
             const fingerprint = getAlertFingerprint(account.id, alert);
-            const isDuplicate = existingTxFingerprints.has(fingerprint) || existingStagedFingerprints.has(fingerprint);
-            existingTxFingerprints.add(fingerprint);
+            const isDuplicate = isDuplicateTransaction(
+              allKnownTxs,
+              existingFingerprints,
+              alert.amountMinor,
+              alert.transactionDate,
+              alert.referenceNumber,
+              alert.merchant,
+              fingerprint,
+            );
+            existingFingerprints.add(fingerprint);
+            allKnownTxs.push({
+              fingerprint,
+              reference: alert.referenceNumber || null,
+              amount: alert.amountMinor,
+              transactionDate: alert.transactionDate,
+              merchant: alert.merchant,
+              descriptionRaw: alert.merchant,
+            });
+
             const descriptionRaw = `${alert.merchant} [${alert.bankName}${alert.accountLast4 ? ' ••' + alert.accountLast4 : ''}]`;
             const catMatch = this.categoryRulesService.matchTransactionCategory(
               userRules,

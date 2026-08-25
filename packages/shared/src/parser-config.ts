@@ -454,3 +454,68 @@ export const EPFO_PASSBOOK_PATTERNS = {
   CONTRIBUTION_ROW_REGEX: /^([a-zA-Z]{3}-\d{4})\s+(\d{2}-\d{2}-\d{4})\s+(CR|DR)\s+(.*?)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)$/,
   INTEREST_ROW_REGEX: /^(Int\.\s+Updated\s+upto\s+(\d{2}\/\d{2}\/\d{4}))\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)$/i,
 };
+
+// ---------------------------------------------------------------------------
+// Cross-Source Transaction Deduplication Helper
+// ---------------------------------------------------------------------------
+
+export interface ExistingTxSummary {
+  fingerprint?: string;
+  reference?: string | null;
+  amount: bigint | number;
+  transactionDate: Date;
+  merchant?: string | null;
+  descriptionRaw?: string | null;
+}
+
+export function isDuplicateTransaction(
+  existingTxns: ExistingTxSummary[],
+  existingFingerprints: Set<string>,
+  rowAmountMinor: bigint | number,
+  rowDate: Date,
+  rowReference?: string | null,
+  rowDescriptionOrMerchant?: string | null,
+  rowFingerprint?: string | null,
+): boolean {
+  if (rowFingerprint && existingFingerprints.has(rowFingerprint)) return true;
+
+  const targetAmountMinor = typeof rowAmountMinor === 'bigint' ? rowAmountMinor : BigInt(Math.round(rowAmountMinor));
+  const rowCanonical = rowDescriptionOrMerchant ? canonicalizeMerchantName(rowDescriptionOrMerchant) : null;
+  const rowCleanRef = rowReference?.trim().toLowerCase();
+
+  for (const tx of existingTxns) {
+    const txAmountMinor = typeof tx.amount === 'bigint' ? tx.amount : BigInt(Math.round(tx.amount));
+    if (txAmountMinor !== targetAmountMinor) continue;
+
+    // 1. Reference number match
+    if (rowCleanRef && tx.reference) {
+      const txCleanRef = tx.reference.trim().toLowerCase();
+      if (rowCleanRef === txCleanRef) {
+        return true;
+      }
+    }
+
+    // 2. Date proximity (within 2 days) + matching canonical merchant / description
+    const txTime = tx.transactionDate instanceof Date ? tx.transactionDate.getTime() : new Date(tx.transactionDate).getTime();
+    const rowTime = rowDate instanceof Date ? rowDate.getTime() : new Date(rowDate).getTime();
+    const diffDays = Math.abs(rowTime - txTime) / 86_400_000;
+
+    if (diffDays <= 2.5) {
+      if (rowCanonical && tx.merchant && rowCanonical !== 'General Merchant') {
+        const txCanonical = canonicalizeMerchantName(tx.merchant);
+        if (rowCanonical === txCanonical || rowCanonical === tx.merchant.toUpperCase()) {
+          return true;
+        }
+      }
+      if (rowDescriptionOrMerchant && tx.descriptionRaw) {
+        const d1 = rowDescriptionOrMerchant.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const d2 = tx.descriptionRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (d1.length >= 4 && (d1.includes(d2) || d2.includes(d1))) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}

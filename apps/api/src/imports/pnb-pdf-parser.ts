@@ -67,8 +67,7 @@ export function parsePnbTables(pages: PageTableResult[]): { rows: PnbParsedRow[]
   if (rows.length > 1) {
     const descendingMismatches = rows.slice(0, -1).filter((row, index) => Math.abs(rows[index + 1].balanceMinor + row.amountMinor - row.balanceMinor) > 1).length;
     const ascendingMismatches = rows.slice(1).filter((row, index) => Math.abs(rows[index].balanceMinor + row.amountMinor - row.balanceMinor) > 1).length;
-    const comparisons = rows.length - 1;
-    if (Math.min(descendingMismatches, ascendingMismatches) > Math.floor(comparisons * 0.05)) {
+    if (Math.min(descendingMismatches, ascendingMismatches) > 0) {
       throw new BadRequestException('The PNB running balances did not reconcile with the extracted deposits and withdrawals.');
     }
     isDescending = descendingMismatches < ascendingMismatches;

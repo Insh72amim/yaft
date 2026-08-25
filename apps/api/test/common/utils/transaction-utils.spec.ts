@@ -57,7 +57,7 @@ describe('transaction-utils', () => {
   });
 
   describe('computeCreditCardCurrentBalance', () => {
-    it('anchors to spends strictly after latest payment when bill is paid', () => {
+    it('accurately calculates outstanding after payments and spends', () => {
       const card = { openingBalance: 0n };
       const txs = [
         { amount: -500000n, transactionDate: new Date('2026-07-10T10:00:00Z') },
@@ -71,6 +71,30 @@ describe('transaction-utils', () => {
       const { currentBalance, outstanding } = computeCreditCardCurrentBalance(card, txs);
       expect(outstanding).toBe(50000);
       expect(currentBalance).toBe(-50000);
+    });
+
+    it('retains remaining outstanding debt after partial payment', () => {
+      const card = { openingBalance: 0n };
+      const txs = [
+        { amount: -5000000n, transactionDate: new Date('2026-07-10T10:00:00Z') }, // ₹50,000 spend
+        { amount: 1000000n, transactionDate: new Date('2026-08-15T00:00:00Z') },  // ₹10,000 partial payment
+      ];
+
+      const { currentBalance, outstanding } = computeCreditCardCurrentBalance(card, txs);
+      expect(outstanding).toBe(4000000); // ₹40,000 debt remaining
+      expect(currentBalance).toBe(-4000000);
+    });
+
+    it('correctly reduces outstanding balance upon receiving a merchant refund without dropping history', () => {
+      const card = { openingBalance: 0n };
+      const txs = [
+        { amount: -5000000n, transactionDate: new Date('2026-07-10T10:00:00Z') }, // ₹50,000 spend
+        { amount: 50000n, transactionDate: new Date('2026-08-15T00:00:00Z') },    // ₹500 refund
+      ];
+
+      const { currentBalance, outstanding } = computeCreditCardCurrentBalance(card, txs);
+      expect(outstanding).toBe(4950000); // ₹49,500 debt remaining
+      expect(currentBalance).toBe(-4950000);
     });
 
     it('returns 0 outstanding when card is fully settled with no subsequent spends', () => {

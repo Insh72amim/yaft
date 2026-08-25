@@ -22,6 +22,7 @@ function setup() {
     category: { findMany: jest.fn().mockResolvedValue([]) },
     categoryRule: { findMany: jest.fn().mockResolvedValue([]) },
     transaction: { findMany: jest.fn().mockResolvedValue([]) },
+    stagedTransaction: { findMany: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
   } as unknown as PrismaService;
   const credentials = { getPassword: jest.fn().mockResolvedValue(undefined),

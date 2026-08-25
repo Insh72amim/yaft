@@ -9,7 +9,7 @@ import { parseStatementWithMetadata } from './statement-parser';
 import { TransfersService } from '../transfers/transfers.service';
 import { CategoryRulesService } from '../category-rules/category-rules.service';
 import { CategoryRule, AccountType } from '@prisma/client';
-import { isDeclinedOrFailedDescription } from '@yaft/shared';
+import { isDeclinedOrFailedDescription, isDuplicateTransaction, ExistingTxSummary } from '@yaft/shared';
 
 const categoryRules: Array<[RegExp, string]> = [
   [/salary|payroll/i, 'Salary'], [/swiggy|zomato|restaurant|cafe/i, 'Food & dining'],
@@ -179,12 +179,21 @@ export class ImportsService {
       rowsToStage = upiLiteRows;
     }
 
-    const [categories, userRules] = await Promise.all([
+    const [categories, userRules, existingTxs, existingStagedTxs] = await Promise.all([
       this.prisma.category.findMany({ where: { userId } }),
       this.prisma.categoryRule.findMany({ where: { userId }, orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }] }),
+      this.prisma.transaction.findMany({
+        where: { accountId },
+        select: { fingerprint: true, reference: true, amount: true, transactionDate: true, merchant: true, descriptionRaw: true },
+      }),
+      this.prisma.stagedTransaction.findMany({
+        where: { batch: { accountId, status: 'REVIEW' } },
+        select: { fingerprint: true, reference: true, amount: true, transactionDate: true, merchant: true, descriptionRaw: true },
+      }),
     ]);
-    const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
-    const staged = rowsToStage.map((row) => this.enrich(accountId, row, categories, existingFingerprints, userRules));
+    const allKnownTxs: ExistingTxSummary[] = [...existingTxs, ...existingStagedTxs];
+    const existingFingerprints = new Set(allKnownTxs.map((x) => x.fingerprint).filter((f): f is string => Boolean(f)));
+    const staged = rowsToStage.map((row) => this.enrich(accountId, row, categories, allKnownTxs, existingFingerprints, userRules));
     const encrypted = dto.rememberPassword && explicitPassword && parsed.parserId === 'SBI'
       ? this.credentials.encrypt(accountId, explicitPassword) : undefined;
     const batch = await this.prisma.$transaction(async (tx) => {
@@ -228,12 +237,21 @@ export class ImportsService {
         targetAccountId = matchingAccount.id;
       }
     }
-    const [categories, userRules] = await Promise.all([
+    const [categories, userRules, existingTxs, existingStagedTxs] = await Promise.all([
       this.prisma.category.findMany({ where: { userId } }),
       this.prisma.categoryRule.findMany({ where: { userId }, orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }] }),
+      this.prisma.transaction.findMany({
+        where: { accountId: targetAccountId },
+        select: { fingerprint: true, reference: true, amount: true, transactionDate: true, merchant: true, descriptionRaw: true },
+      }),
+      this.prisma.stagedTransaction.findMany({
+        where: { batch: { accountId: targetAccountId, status: 'REVIEW' } },
+        select: { fingerprint: true, reference: true, amount: true, transactionDate: true, merchant: true, descriptionRaw: true },
+      }),
     ]);
-    const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId: targetAccountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
-    const staged = parsed.rows.map((row) => this.enrich(targetAccountId, row, categories, existingFingerprints, userRules));
+    const allKnownTxs: ExistingTxSummary[] = [...existingTxs, ...existingStagedTxs];
+    const existingFingerprints = new Set(allKnownTxs.map((x) => x.fingerprint).filter((f): f is string => Boolean(f)));
+    const staged = parsed.rows.map((row) => this.enrich(targetAccountId, row, categories, allKnownTxs, existingFingerprints, userRules));
     const batch = await this.prisma.importBatch.create({ data: { userId, accountId: targetAccountId, filename: file.originalname.slice(0, 200),
       fileHash: hash, rowCount: staged.length, statementBalance: parsed.closingBalanceMinor, staged: { create: staged } } });
     return this.get(userId, batch.id);
@@ -377,20 +395,22 @@ export class ImportsService {
       }
 
       if (batch.statementBalance !== null && batch.account.type !== 'EPFO') {
-        const maxDate = batch.staged.length > 0
-          ? new Date(Math.max(...batch.staged.map(s => s.transactionDate.getTime())))
-          : new Date();
-        const sumResult = await tx.transaction.aggregate({
-          where: { accountId: batch.accountId, transactionDate: { lte: maxDate } },
-          _sum: { amount: true },
-        });
-        const sumBeforeStatementEnd = sumResult._sum.amount || 0n;
-        const newOpeningBalance = batch.statementBalance - sumBeforeStatementEnd;
-        
-        await tx.account.update({
+        const currentAccount = await tx.account.findUnique({
           where: { id: batch.accountId },
-          data: { openingBalance: newOpeningBalance }
+          select: { openingBalance: true },
         });
+
+        if (currentAccount && currentAccount.openingBalance === 0n) {
+          const statementNet = batch.staged
+            .filter((s) => s.include)
+            .reduce((sum, s) => sum + s.amount, 0n);
+          const initialOpeningBalance = batch.statementBalance - statementNet;
+
+          await tx.account.update({
+            where: { id: batch.accountId },
+            data: { openingBalance: initialOpeningBalance },
+          });
+        }
       }
 
       await tx.importBatch.update({ where: { id: batch.id }, data: { status: 'COMMITTED', committedAt: new Date() } });
@@ -410,7 +430,8 @@ export class ImportsService {
     accountId: string,
     row: ParsedRow,
     categories: { id: string; name: string }[],
-    existing: Set<string>,
+    allKnownTxs: ExistingTxSummary[],
+    existingFingerprints: Set<string>,
     userRules: CategoryRule[] = [],
   ) {
     const merchant = row.description.replace(/\b(UPI|POS|NEFT|IMPS|REF|TXN)\b/gi, ' ').replace(/[\d@/_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
@@ -428,8 +449,25 @@ export class ImportsService {
       ? `${accountId}|${row.date.toISOString().slice(0, 10)}|${row.postedDate?.toISOString().slice(0, 10) ?? ''}|${stableIdentity}|${row.amountMinor}`
       : `${accountId}|${row.date.toISOString().slice(0, 10)}|${stableIdentity}|${row.amountMinor}`;
     const fingerprint = createHash('sha256').update(fingerprintSeed).digest('hex');
-    const isDuplicate = existing.has(fingerprint);
-    existing.add(fingerprint);
+
+    const isDuplicate = isDuplicateTransaction(
+      allKnownTxs,
+      existingFingerprints,
+      BigInt(row.amountMinor),
+      row.date,
+      row.reference,
+      row.description,
+      fingerprint,
+    );
+    existingFingerprints.add(fingerprint);
+    allKnownTxs.push({
+      fingerprint,
+      reference: row.reference ?? null,
+      amount: BigInt(row.amountMinor),
+      transactionDate: row.date,
+      merchant,
+      descriptionRaw: row.description,
+    });
 
     const isDeclinedOrFailed = isDeclinedOrFailedDescription(row.description);
 

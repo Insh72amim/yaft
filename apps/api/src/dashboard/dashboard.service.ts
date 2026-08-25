@@ -196,10 +196,21 @@ export class DashboardService {
 
       const amt = Math.abs(Number(tx.amount));
       const internal = isInternalTransfer(tx);
-
       if (tx.amount > 0) {
         if (internal) {
           accFlow.internalInbound += amt;
+        } else if (isRefund(tx)) {
+          accFlow.expenses = Math.max(0, accFlow.expenses - amt);
+          const catName = tx.category?.name ?? 'Uncategorised';
+          const catColor = tx.category?.color ?? '#94a3b8';
+          const existing = accFlow.expenseCategories.get(catName);
+          if (existing) {
+            existing.amount = Math.max(0, existing.amount - amt);
+          }
+          const overallExisting = overallExpenseCategories.get(catName);
+          if (overallExisting) {
+            overallExisting.amount = Math.max(0, overallExisting.amount - amt);
+          }
         } else {
           accFlow.externalInbound += amt;
         }
@@ -308,20 +319,36 @@ export class DashboardService {
       const acc = accounts.find((a) => a.id === tx.accountId);
       if (!acc) return;
       const amt = Math.abs(Number(tx.amount));
-      if (tx.amount < 0 && !isInternalTransfer(tx)) {
-        const catName = tx.category?.name ?? 'Uncategorised';
-        const catColor = tx.category?.color ?? '#94a3b8';
-        const isCcTransferCat = /^\s*cc transfer\s*$/i.test(catName);
-        const isUpiLiteCat = /^\s*upi lite\s*$/i.test(catName);
+      if (isInternalTransfer(tx)) return;
 
-        if (acc.type === 'CREDIT_CARD' && !isCcTransferCat) {
+      const catName = tx.category?.name ?? 'Uncategorised';
+      const catColor = tx.category?.color ?? '#94a3b8';
+      const isCcTransferCat = /^\s*cc transfer\s*$/i.test(catName);
+      const isUpiLiteCat = /^\s*upi lite\s*$/i.test(catName);
+
+      if (acc.type === 'CREDIT_CARD' && !isCcTransferCat) {
+        if (tx.amount < 0) {
           totalDirectCcSpend += amt;
           const ex = directCcCategoryMap.get(catName) || { name: catName, color: catColor, amount: 0 };
           directCcCategoryMap.set(catName, { name: catName, color: catColor, amount: ex.amount + amt });
-        } else if (acc.type === 'UPI_LITE' && !isUpiLiteCat) {
+        } else if (isRefund(tx)) {
+          totalDirectCcSpend = Math.max(0, totalDirectCcSpend - amt);
+          const ex = directCcCategoryMap.get(catName);
+          if (ex) {
+            ex.amount = Math.max(0, ex.amount - amt);
+          }
+        }
+      } else if (acc.type === 'UPI_LITE' && !isUpiLiteCat) {
+        if (tx.amount < 0) {
           totalDirectUpiLiteSpend += amt;
           const ex = directUpiLiteCategoryMap.get(catName) || { name: catName, color: catColor, amount: 0 };
           directUpiLiteCategoryMap.set(catName, { name: catName, color: catColor, amount: ex.amount + amt });
+        } else if (isRefund(tx)) {
+          totalDirectUpiLiteSpend = Math.max(0, totalDirectUpiLiteSpend - amt);
+          const ex = directUpiLiteCategoryMap.get(catName);
+          if (ex) {
+            ex.amount = Math.max(0, ex.amount - amt);
+          }
         }
       }
     });
