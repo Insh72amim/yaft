@@ -16,11 +16,19 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { CreateAccountDto, DeleteAccountDto, UpdateAccountDto } from './accounts.dto';
 import { AccountsService } from './accounts.service';
+import { TransactionsService } from '../transactions/transactions.service';
+import { CreditCardsService } from './credit-cards.service';
+import { LoansService } from '../loans/loans.service';
 
 @Controller('accounts')
 @UseGuards(JwtAuthGuard)
 export class AccountsController {
-  constructor(private readonly accountsService: AccountsService) {}
+  constructor(
+    private readonly accountsService: AccountsService,
+    private readonly transactionsService: TransactionsService,
+    private readonly creditCardsService: CreditCardsService,
+    private readonly loansService: LoansService,
+  ) {}
 
   @Get()
   async list(@CurrentUser() user: { id: string }) {
@@ -49,7 +57,7 @@ export class AccountsController {
     @Query('tagId') tagId?: string,
     @Query('mode') mode?: string,
   ) {
-    return this.accountsService.allTransactions(
+    return this.transactionsService.allTransactions(
       user.id,
       requestedPage,
       requestedPageSize,
@@ -75,7 +83,7 @@ export class AccountsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.accountsService.getCreditCardsSummary(user.id, timeRange, accountId, startDate, endDate);
+    return this.creditCardsService.getCreditCardsSummary(user.id, timeRange, accountId, startDate, endDate);
   }
 
   @Get(':accountId/transactions')
@@ -91,7 +99,7 @@ export class AccountsController {
     @Query('endDate') endDate?: string,
     @Query('categoryId') categoryId?: string,
   ) {
-    return this.accountsService.getAccountTransactions(
+    return this.transactionsService.getAccountTransactions(
       user.id,
       accountId,
       requestedPage,
@@ -139,7 +147,7 @@ export class AccountsController {
     @CurrentUser() user: { id: string },
     @Param('accountId') accountId: string,
   ) {
-    return this.accountsService.getAccountTimeline(user.id, accountId);
+    return this.transactionsService.getAccountTimeline(user.id, accountId);
   }
 
   @Post(':accountId/epfo-transactions')
@@ -148,7 +156,7 @@ export class AccountsController {
     @Param('accountId') accountId: string,
     @Body() dto: { description: string; amount: number; transactionDate: string },
   ) {
-    return this.accountsService.addEpfoTransaction(user.id, accountId, dto);
+    return this.transactionsService.addEpfoTransaction(user.id, accountId, dto);
   }
 
   @Patch(':accountId')
@@ -167,7 +175,7 @@ export class AccountsController {
     @Param('accountId') accountId: string,
     @Param('transactionId') transactionId: string,
   ) {
-    return this.accountsService.deleteEpfoTransaction(user.id, accountId, transactionId);
+    return this.transactionsService.deleteEpfoTransaction(user.id, accountId, transactionId);
   }
 
   @Patch(':accountId/transactions/:transactionId')
@@ -177,7 +185,7 @@ export class AccountsController {
     @Param('transactionId') transactionId: string,
     @Body() dto: { categoryId?: string | null },
   ) {
-    return this.accountsService.updateTransactionCategory(user.id, accountId, transactionId, dto.categoryId);
+    return this.transactionsService.updateTransactionCategory(user.id, accountId, transactionId, dto.categoryId);
   }
 
   @Get(':accountId/loan')
@@ -185,7 +193,7 @@ export class AccountsController {
     @CurrentUser() user: { id: string },
     @Param('accountId') accountId: string,
   ) {
-    return this.accountsService.getLoanDetails(user.id, accountId);
+    return this.loansService.getLoanDetails(user.id, accountId);
   }
 
   @Patch(':accountId/installments/:installmentId/confirm')
@@ -194,7 +202,6 @@ export class AccountsController {
     @Param('accountId') accountId: string,
     @Param('installmentId') installmentId: string,
   ) {
-    return this.accountsService.confirmLoanInstallment(user.id, accountId, installmentId);
+    return this.loansService.confirmLoanInstallment(user.id, accountId, installmentId);
   }
 }
-

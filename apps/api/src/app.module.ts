@@ -21,6 +21,8 @@ import { TagsModule } from './tags/tags.module';
 import { EmailIngestionModule } from './email-ingestion/email-ingestion.module';
 import { SuperCategoriesModule } from './super-categories/super-categories.module';
 
+import { TransactionsModule } from './transactions/transactions.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'] }),
@@ -28,6 +30,7 @@ import { SuperCategoriesModule } from './super-categories/super-categories.modul
     CommonModule,
     AuthModule,
     AccountsModule,
+    TransactionsModule,
     AccountDocumentsModule,
     LoansModule,
     ImportsModule,

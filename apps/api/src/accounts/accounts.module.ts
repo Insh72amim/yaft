@@ -2,12 +2,15 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { AccountsController } from './accounts.controller';
 import { AccountsService } from './accounts.service';
+import { CreditCardsService } from './credit-cards.service';
 import { AccountDocumentsModule } from '../account-documents/account-documents.module';
+import { LoansModule } from '../loans/loans.module';
+import { TransactionsModule } from '../transactions/transactions.module';
 
 @Module({
-  imports: [AuthModule, AccountDocumentsModule],
+  imports: [AuthModule, AccountDocumentsModule, LoansModule, TransactionsModule],
   controllers: [AccountsController],
-  providers: [AccountsService],
-  exports: [AccountsService],
+  providers: [AccountsService, CreditCardsService],
+  exports: [AccountsService, CreditCardsService],
 })
 export class AccountsModule {}
