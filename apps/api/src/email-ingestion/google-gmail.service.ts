@@ -282,8 +282,8 @@ export class GoogleGmailService {
           query = `(${sipFilter}) after:${afterDateStr}`;
         } else if (accountScope === 'CUSTOM') {
           const hasCards = candidateAccounts.some((a) => a.type === AccountType.CREDIT_CARD);
-          const hasBanks = candidateAccounts.some((a) => [AccountType.BANK, AccountType.SAVINGS, AccountType.UPI_LITE, AccountType.CASH].includes(a.type as any));
-          const hasInvestments = candidateAccounts.some((a) => a.type === AccountType.INVESTMENT || a.name.toLowerCase().includes('mutual') || a.name.toLowerCase().includes('sip') || a.name.toLowerCase().includes('coin') || a.name.toLowerCase().includes('groww'));
+          const hasBanks = candidateAccounts.some((a) => [AccountType.BANK, AccountType.SAVINGS, AccountType.CASH].includes(a.type as any));
+          const hasInvestments = candidateAccounts.some((a) => a.type === AccountType.MUTUAL_FUND || a.type === AccountType.STOCKS || a.name.toLowerCase().includes('mutual') || a.name.toLowerCase().includes('sip') || a.name.toLowerCase().includes('coin') || a.name.toLowerCase().includes('groww') || a.name.toLowerCase().includes('zerodha'));
 
           const queryParts: string[] = [];
           if (hasCards) queryParts.push(cardFilter);
