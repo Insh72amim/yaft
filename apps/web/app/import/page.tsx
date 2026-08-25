@@ -882,328 +882,303 @@ function ImportWorkspace() {
             {googleConfig?.connected ? (
               <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {/* Account-Level Granularity Scope Selector */}
-                <div style={{ background: 'var(--background-alt)', padding: '16px', borderRadius: '12px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <ShieldCheck size={14} color="var(--green)" /> Target Sync Scope:
-                    </span>
+                {(() => {
+                  // Only include accounts supported by email transaction alert parsers
+                  const bankAccounts = (catalog?.accounts || []).filter((a) =>
+                    ['BANK', 'SAVINGS'].includes(a.type) &&
+                    a.type !== 'UPI_LITE' &&
+                    !a.name.toLowerCase().includes('upi lite') &&
+                    !a.name.toLowerCase().includes('-fd-') &&
+                    !a.name.toLowerCase().includes('loan') &&
+                    !a.name.toLowerCase().includes('epfo')
+                  );
+                  const creditCards = (catalog?.accounts || []).filter((a) => a.type === 'CREDIT_CARD');
+                  const investments = (catalog?.accounts || []).filter((a) =>
+                    !a.name.toLowerCase().includes('epfo') &&
+                    a.type !== 'EPFO' &&
+                    (['MUTUAL_FUND', 'STOCKS'].includes(a.type) ||
+                      a.name.toLowerCase().includes('sip') ||
+                      a.name.toLowerCase().includes('mutual') ||
+                      a.name.toLowerCase().includes('coin') ||
+                      a.name.toLowerCase().includes('groww') ||
+                      a.name.toLowerCase().includes('zerodha'))
+                  );
 
-                    {syncAccountScope === 'CUSTOM' && (
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedSyncAccountIds(catalog?.accounts.map((a) => a.id) || [])}
-                          style={{ fontSize: '11px', color: 'var(--green)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
-                          Select All ({catalog?.accounts.length || 0})
-                        </button>
-                        <span style={{ color: 'var(--line)' }}>|</span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedSyncAccountIds([])}
-                          style={{ fontSize: '11px', color: 'var(--muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                          Deselect All
-                        </button>
+                  const allSupportedAccounts = [...bankAccounts, ...creditCards, ...investments];
+                  const allSupportedAccountIds = allSupportedAccounts.map((a) => a.id);
+
+                  const categoriesList = [
+                    {
+                      key: 'BANKS',
+                      title: 'Bank & Savings Accounts',
+                      icon: Landmark,
+                      color: 'var(--green)',
+                      accounts: bankAccounts,
+                    },
+                    {
+                      key: 'CARDS',
+                      title: 'Credit Cards',
+                      icon: CreditCard,
+                      color: '#3b82f6',
+                      accounts: creditCards,
+                    },
+                    {
+                      key: 'INVESTMENTS',
+                      title: 'SIP & Mutual Funds / Demat',
+                      icon: BriefcaseBusiness,
+                      color: '#10b981',
+                      accounts: investments,
+                    },
+                  ].filter((cat) => cat.accounts.length > 0);
+
+                  const selectedSupportedCount = selectedSyncAccountIds.filter((id) =>
+                    allSupportedAccountIds.includes(id)
+                  ).length;
+
+                  return (
+                    <div style={{ background: 'var(--background-alt)', padding: '16px', borderRadius: '12px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <ShieldCheck size={14} color="var(--green)" /> Target Sync Scope:
+                        </span>
+
+                        {syncAccountScope === 'CUSTOM' && (
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSyncAccountIds(allSupportedAccountIds)}
+                              style={{ fontSize: '11px', color: 'var(--green)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                              Select All ({allSupportedAccounts.length})
+                            </button>
+                            <span style={{ color: 'var(--line)' }}>|</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSyncAccountIds([])}
+                              style={{ fontSize: '11px', color: 'var(--muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                              Deselect All
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Scope Selector Chips */}
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {[
-                      { id: 'ALL', label: 'All Accounts', icon: Landmark, count: catalog?.accounts.length || 0 },
-                      {
-                        id: 'ALL_BANKS',
-                        label: 'Bank Accounts Only',
-                        icon: Landmark,
-                        count: catalog?.accounts.filter((a) => ['BANK', 'SAVINGS', 'UPI_LITE', 'CASH'].includes(a.type)).length || 0,
-                      },
-                      {
-                        id: 'ALL_CARDS',
-                        label: 'Credit Cards Only',
-                        icon: CreditCard,
-                        count: catalog?.accounts.filter((a) => a.type === 'CREDIT_CARD').length || 0,
-                      },
-                      {
-                        id: 'ALL_INVESTMENTS',
-                        label: 'SIP & Mutual Funds',
-                        icon: BriefcaseBusiness,
-                        count: catalog?.accounts.filter((a) => ['MUTUAL_FUND', 'STOCKS', 'EPFO'].includes(a.type) || a.name.toLowerCase().includes('mutual') || a.name.toLowerCase().includes('sip') || a.name.toLowerCase().includes('coin') || a.name.toLowerCase().includes('groww')).length || 0,
-                      },
-                      {
-                        id: 'CUSTOM',
-                        label: `Specific Accounts ${selectedSyncAccountIds.length > 0 ? `(${selectedSyncAccountIds.length})` : ''}`,
-                        icon: Check,
-                        count: selectedSyncAccountIds.length,
-                      },
-                    ].map((scope) => {
-                      const Icon = scope.icon;
-                      const isActive = syncAccountScope === scope.id;
-                      return (
-                        <button
-                          key={scope.id}
-                          type="button"
-                          className={`secondary compact ${isActive ? 'active' : ''}`}
-                          onClick={() => {
-                            setSyncAccountScope(scope.id as any);
-                            if (scope.id === 'CUSTOM' && selectedSyncAccountIds.length === 0) {
-                              setSelectedSyncAccountIds(catalog?.accounts.map((a) => a.id) || []);
-                            }
-                          }}
-                          style={{
-                            fontSize: '11.5px',
-                            padding: '6px 12px',
-                            borderRadius: '8px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontWeight: isActive ? 700 : 500,
-                            background: isActive ? 'var(--ink)' : 'var(--card)',
-                            color: isActive ? '#ffffff' : 'var(--ink)',
-                            border: '1px solid var(--line)',
-                          }}>
-                          <Icon size={13} color={isActive ? '#ffffff' : 'var(--green)'} />
-                          <span>{scope.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Specific Account Categorically Grouped Multi-Select Checklist */}
-                  {syncAccountScope === 'CUSTOM' && catalog?.accounts && (() => {
-                    // Group accounts into clean logical categories
-                    const bankAccounts = catalog.accounts.filter((a) =>
-                      ['BANK', 'SAVINGS', 'UPI_LITE', 'CASH'].includes(a.type)
-                    );
-                    const creditCards = catalog.accounts.filter((a) => a.type === 'CREDIT_CARD');
-                    const epfoAccounts = catalog.accounts.filter((a) =>
-                      a.type === 'EPFO' || a.name.toLowerCase().includes('epfo') || a.institution?.toLowerCase().includes('epfo')
-                    );
-                    const investments = catalog.accounts.filter((a) =>
-                      !epfoAccounts.includes(a) &&
-                      (['MUTUAL_FUND', 'STOCKS'].includes(a.type) ||
-                        a.name.toLowerCase().includes('sip') ||
-                        a.name.toLowerCase().includes('mutual') ||
-                        a.name.toLowerCase().includes('coin') ||
-                        a.name.toLowerCase().includes('groww') ||
-                        a.name.toLowerCase().includes('zerodha'))
-                    );
-                    const depositsAndLoans = catalog.accounts.filter((a) =>
-                      !bankAccounts.includes(a) &&
-                      !creditCards.includes(a) &&
-                      !epfoAccounts.includes(a) &&
-                      !investments.includes(a) &&
-                      (['FIXED_DEPOSIT', 'LOAN'].includes(a.type) ||
-                        a.name.toLowerCase().includes('-fd-') ||
-                        a.name.toLowerCase().includes('loan'))
-                    );
-                    const otherAccounts = catalog.accounts.filter((a) =>
-                      !bankAccounts.includes(a) &&
-                      !creditCards.includes(a) &&
-                      !epfoAccounts.includes(a) &&
-                      !investments.includes(a) &&
-                      !depositsAndLoans.includes(a)
-                    );
-
-                    const categoriesList = [
-                      {
-                        key: 'BANKS',
-                        title: 'Bank & Savings Accounts',
-                        icon: Landmark,
-                        color: 'var(--green)',
-                        accounts: bankAccounts,
-                      },
-                      {
-                        key: 'CARDS',
-                        title: 'Credit Cards',
-                        icon: CreditCard,
-                        color: '#3b82f6',
-                        accounts: creditCards,
-                      },
-                      {
-                        key: 'INVESTMENTS',
-                        title: 'SIP & Mutual Funds / Demat',
-                        icon: BriefcaseBusiness,
-                        color: '#10b981',
-                        accounts: investments,
-                      },
-                      {
-                        key: 'EPFO',
-                        title: 'Provident Fund (EPFO)',
-                        icon: Building2,
-                        color: '#8b5cf6',
-                        accounts: epfoAccounts,
-                      },
-                      {
-                        key: 'DEPOSITS_LOANS',
-                        title: 'Fixed Deposits & Loans',
-                        icon: BadgeIndianRupee,
-                        color: '#f59e0b',
-                        accounts: depositsAndLoans,
-                      },
-                      {
-                        key: 'OTHER',
-                        title: 'Other Accounts',
-                        icon: Landmark,
-                        color: 'var(--muted)',
-                        accounts: otherAccounts,
-                      },
-                    ].filter((cat) => cat.accounts.length > 0);
-
-                    return (
-                      <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        {categoriesList.map((catGroup) => {
-                          const Icon = catGroup.icon;
-                          const groupAccountIds = catGroup.accounts.map((a) => a.id);
-                          const selectedInGroupCount = groupAccountIds.filter((id) =>
-                            selectedSyncAccountIds.includes(id)
-                          ).length;
-                          const allSelectedInGroup = selectedInGroupCount === groupAccountIds.length;
-
-                          const toggleGroupAll = () => {
-                            if (allSelectedInGroup) {
-                              setSelectedSyncAccountIds((prev) =>
-                                prev.filter((id) => !groupAccountIds.includes(id))
-                              );
-                            } else {
-                              setSelectedSyncAccountIds((prev) =>
-                                Array.from(new Set([...prev, ...groupAccountIds]))
-                              );
-                            }
-                          };
-
+                      {/* Scope Selector Chips */}
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {[
+                          { id: 'ALL', label: 'All Accounts', icon: Landmark, count: allSupportedAccounts.length },
+                          {
+                            id: 'ALL_BANKS',
+                            label: 'Bank Accounts Only',
+                            icon: Landmark,
+                            count: bankAccounts.length,
+                          },
+                          {
+                            id: 'ALL_CARDS',
+                            label: 'Credit Cards Only',
+                            icon: CreditCard,
+                            count: creditCards.length,
+                          },
+                          {
+                            id: 'ALL_INVESTMENTS',
+                            label: 'SIP & Mutual Funds',
+                            icon: BriefcaseBusiness,
+                            count: investments.length,
+                          },
+                          {
+                            id: 'CUSTOM',
+                            label: `Specific Accounts ${selectedSupportedCount > 0 ? `(${selectedSupportedCount})` : ''}`,
+                            icon: Check,
+                            count: selectedSupportedCount,
+                          },
+                        ].map((scope) => {
+                          const Icon = scope.icon;
+                          const isActive = syncAccountScope === scope.id;
                           return (
-                            <div
-                              key={catGroup.key}
+                            <button
+                              key={scope.id}
+                              type="button"
+                              className={`secondary compact ${isActive ? 'active' : ''}`}
+                              onClick={() => {
+                                setSyncAccountScope(scope.id as any);
+                                if (scope.id === 'CUSTOM' && selectedSyncAccountIds.length === 0) {
+                                  setSelectedSyncAccountIds(allSupportedAccountIds);
+                                }
+                              }}
                               style={{
-                                background: 'var(--card)',
-                                borderRadius: '10px',
+                                fontSize: '11.5px',
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontWeight: isActive ? 700 : 500,
+                                background: isActive ? 'var(--ink)' : 'var(--card)',
+                                color: isActive ? '#ffffff' : 'var(--ink)',
                                 border: '1px solid var(--line)',
-                                padding: '14px 16px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '10px',
                               }}>
-                              {/* Category Header */}
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  borderBottom: '1px solid var(--line)',
-                                  paddingBottom: '8px',
-                                }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <Icon size={16} color={catGroup.color} />
-                                  <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>
-                                    {catGroup.title}
-                                  </strong>
-                                  <span
-                                    style={{
-                                      fontSize: '10.5px',
-                                      fontWeight: 700,
-                                      background: 'var(--background-alt)',
-                                      padding: '1px 6px',
-                                      borderRadius: '10px',
-                                      color: 'var(--muted)',
-                                    }}>
-                                    {selectedInGroupCount} / {catGroup.accounts.length}
-                                  </span>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={toggleGroupAll}
-                                  style={{
-                                    fontSize: '11px',
-                                    fontWeight: 600,
-                                    color: allSelectedInGroup ? 'var(--muted)' : 'var(--green)',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                  }}>
-                                  {allSelectedInGroup ? 'Deselect Category' : 'Select All in Category'}
-                                </button>
-                              </div>
-
-                              {/* Accounts Grid */}
-                              <div
-                                style={{
-                                  display: 'grid',
-                                  gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-                                  gap: '8px',
-                                }}>
-                                {catGroup.accounts.map((acc) => {
-                                  const isChecked = selectedSyncAccountIds.includes(acc.id);
-                                  return (
-                                    <label
-                                      key={acc.id}
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '10px',
-                                        padding: '8px 12px',
-                                        borderRadius: '8px',
-                                        background: isChecked
-                                          ? 'rgba(29, 117, 79, 0.06)'
-                                          : 'var(--background-alt)',
-                                        border: isChecked
-                                          ? '1px solid var(--green)'
-                                          : '1px solid var(--line)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.1s ease',
-                                      }}>
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={(e) => {
-                                          if (e.target.checked) {
-                                            setSelectedSyncAccountIds((prev) => [...prev, acc.id]);
-                                          } else {
-                                            setSelectedSyncAccountIds((prev) =>
-                                              prev.filter((id) => id !== acc.id)
-                                            );
-                                          }
-                                        }}
-                                        style={{
-                                          accentColor: 'var(--green)',
-                                          width: '15px',
-                                          height: '15px',
-                                          cursor: 'pointer',
-                                        }}
-                                      />
-                                      <Icon size={14} color={isChecked ? 'var(--green)' : 'var(--muted)'} />
-                                      <div
-                                        style={{
-                                          display: 'flex',
-                                          flexDirection: 'column',
-                                          minWidth: 0,
-                                          flex: 1,
-                                        }}>
-                                        <strong
-                                          style={{
-                                            fontSize: '12px',
-                                            color: 'var(--ink)',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                          }}>
-                                          {acc.name}
-                                        </strong>
-                                        <small style={{ fontSize: '10px', color: 'var(--muted)' }}>
-                                          {acc.institution || acc.type}
-                                        </small>
-                                      </div>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </div>
+                              <Icon size={13} color={isActive ? '#ffffff' : 'var(--green)'} />
+                              <span>{scope.label}</span>
+                            </button>
                           );
                         })}
                       </div>
-                    );
-                  })()}
-                </div>
+
+                      {/* Specific Account Categorically Grouped Multi-Select Checklist */}
+                      {syncAccountScope === 'CUSTOM' && (
+                        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                          {categoriesList.map((catGroup) => {
+                            const Icon = catGroup.icon;
+                            const groupAccountIds = catGroup.accounts.map((a) => a.id);
+                            const selectedInGroupCount = groupAccountIds.filter((id) =>
+                              selectedSyncAccountIds.includes(id)
+                            ).length;
+                            const allSelectedInGroup = selectedInGroupCount === groupAccountIds.length;
+
+                            const toggleGroupAll = () => {
+                              if (allSelectedInGroup) {
+                                setSelectedSyncAccountIds((prev) =>
+                                  prev.filter((id) => !groupAccountIds.includes(id))
+                                );
+                              } else {
+                                setSelectedSyncAccountIds((prev) =>
+                                  Array.from(new Set([...prev, ...groupAccountIds]))
+                                );
+                              }
+                            };
+
+                            return (
+                              <div
+                                key={catGroup.key}
+                                style={{
+                                  background: 'var(--card)',
+                                  borderRadius: '10px',
+                                  border: '1px solid var(--line)',
+                                  padding: '14px 16px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '10px',
+                                }}>
+                                {/* Category Header */}
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    borderBottom: '1px solid var(--line)',
+                                    paddingBottom: '8px',
+                                  }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Icon size={16} color={catGroup.color} />
+                                    <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>
+                                      {catGroup.title}
+                                    </strong>
+                                    <span
+                                      style={{
+                                        fontSize: '10.5px',
+                                        fontWeight: 700,
+                                        background: 'var(--background-alt)',
+                                        padding: '1px 6px',
+                                        borderRadius: '10px',
+                                        color: 'var(--muted)',
+                                      }}>
+                                      {selectedInGroupCount} / {catGroup.accounts.length}
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={toggleGroupAll}
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      color: allSelectedInGroup ? 'var(--muted)' : 'var(--green)',
+                                      background: 'transparent',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                    }}>
+                                    {allSelectedInGroup ? 'Deselect Category' : 'Select All in Category'}
+                                  </button>
+                                </div>
+
+                                {/* Accounts Grid */}
+                                <div
+                                  style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                                    gap: '8px',
+                                  }}>
+                                  {catGroup.accounts.map((acc) => {
+                                    const isChecked = selectedSyncAccountIds.includes(acc.id);
+                                    return (
+                                      <label
+                                        key={acc.id}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '10px',
+                                          padding: '8px 12px',
+                                          borderRadius: '8px',
+                                          background: isChecked
+                                            ? 'rgba(29, 117, 79, 0.06)'
+                                            : 'var(--background-alt)',
+                                          border: isChecked
+                                            ? '1px solid var(--green)'
+                                            : '1px solid var(--line)',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.1s ease',
+                                        }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setSelectedSyncAccountIds((prev) => [...prev, acc.id]);
+                                            } else {
+                                              setSelectedSyncAccountIds((prev) =>
+                                                prev.filter((id) => id !== acc.id)
+                                              );
+                                            }
+                                          }}
+                                          style={{
+                                            accentColor: 'var(--green)',
+                                            width: '15px',
+                                            height: '15px',
+                                            cursor: 'pointer',
+                                          }}
+                                        />
+                                        <Icon size={14} color={isChecked ? 'var(--green)' : 'var(--muted)'} />
+                                        <div
+                                          style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            minWidth: 0,
+                                            flex: 1,
+                                          }}>
+                                          <strong
+                                            style={{
+                                              fontSize: '12px',
+                                              color: 'var(--ink)',
+                                              whiteSpace: 'nowrap',
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                            }}>
+                                            {acc.name}
+                                          </strong>
+                                          <small style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                                            {acc.institution || acc.type}
+                                          </small>
+                                        </div>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Time Range Selector */}
                 <div style={{ background: 'var(--background-alt)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>

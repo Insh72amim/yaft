@@ -212,16 +212,24 @@ export class GoogleGmailService {
       }),
     ]);
 
+    // Filter to only accounts supported by email ingestion (exclude UPI_LITE, EPFO, FIXED_DEPOSIT, LOAN)
+    const emailSupportedAccounts = allUserAccounts.filter((a) => {
+      if (a.type === 'UPI_LITE' || a.type === 'FIXED_DEPOSIT' || a.type === 'LOAN' || a.type === 'EPFO') return false;
+      if (a.name.toLowerCase().includes('epfo') || a.institution?.toLowerCase().includes('epfo')) return false;
+      if (a.name.toLowerCase().includes('-fd-') || a.name.toLowerCase().includes('loan')) return false;
+      return true;
+    });
+
     // Apply granular candidate account filtering based on accountScope / targetAccountIds
-    let candidateAccounts = allUserAccounts;
+    let candidateAccounts = emailSupportedAccounts;
     if (accountScope === 'ALL_BANKS') {
-      candidateAccounts = allUserAccounts.filter((acc) =>
-        [AccountType.BANK, AccountType.SAVINGS, AccountType.UPI_LITE, AccountType.CASH].includes(acc.type as any)
+      candidateAccounts = emailSupportedAccounts.filter((acc) =>
+        [AccountType.BANK, AccountType.SAVINGS].includes(acc.type as any)
       );
     } else if (accountScope === 'ALL_CARDS') {
-      candidateAccounts = allUserAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
+      candidateAccounts = emailSupportedAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
     } else if (accountScope === 'ALL_INVESTMENTS') {
-      candidateAccounts = allUserAccounts.filter((acc) =>
+      candidateAccounts = emailSupportedAccounts.filter((acc) =>
         acc.type === AccountType.MUTUAL_FUND ||
         acc.type === AccountType.STOCKS ||
         acc.name.toLowerCase().includes('mutual') ||
@@ -230,7 +238,7 @@ export class GoogleGmailService {
         acc.name.toLowerCase().includes('groww')
       );
     } else if (accountScope === 'CUSTOM' && targetAccountIds.length > 0) {
-      candidateAccounts = allUserAccounts.filter((acc) => targetAccountIds.includes(acc.id));
+      candidateAccounts = emailSupportedAccounts.filter((acc) => targetAccountIds.includes(acc.id));
     }
 
     if (candidateAccounts.length === 0 && allUserAccounts.length > 0) {
@@ -616,10 +624,11 @@ export class GoogleGmailService {
       }
     } else {
       candidateAccounts = userAccounts.filter((acc) =>
-        [AccountType.BANK, AccountType.SAVINGS, AccountType.UPI_LITE, AccountType.CASH].includes(acc.type as any)
+        [AccountType.BANK, AccountType.SAVINGS, AccountType.CASH].includes(acc.type as any) &&
+        acc.type !== AccountType.UPI_LITE
       );
       if (candidateAccounts.length === 0) {
-        candidateAccounts = userAccounts;
+        candidateAccounts = userAccounts.filter((acc) => acc.type !== AccountType.UPI_LITE);
       }
     }
 
