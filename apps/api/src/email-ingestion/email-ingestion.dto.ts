@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class ParseEmailSnippetDto {
   @IsString()
@@ -30,4 +30,13 @@ export class SyncGmailDto {
   @IsString()
   @IsOptional()
   emailId?: string;
+
+  @IsString()
+  @IsOptional()
+  accountScope?: 'ALL' | 'ALL_BANKS' | 'ALL_CARDS' | 'ALL_INVESTMENTS' | 'CUSTOM';
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  targetAccountIds?: string[];
 }

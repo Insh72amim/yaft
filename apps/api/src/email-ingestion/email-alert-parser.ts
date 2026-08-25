@@ -92,22 +92,25 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     return null;
   }
 
-  // 1. Detect Bank Name
+  // 1. Detect Bank / AMC Name
   const matchedInst = findInstitution(fullContext);
-  const bankName = matchedInst ? matchedInst.name : 'Bank Alert';
+  const isExplicitInvestment = EMAIL_ALERT_PATTERNS.EXPLICIT_INVESTMENT_REGEX.test(fullContext);
+  const bankName = matchedInst ? matchedInst.name : (isExplicitInvestment ? 'Mutual Fund' : 'Bank Alert');
 
-  // 2. Detect Account Type (Credit Card vs Bank Account)
+  // 2. Detect Account Type (Investment vs Credit Card vs Bank Account)
   const isExplicitCreditCard = EMAIL_ALERT_PATTERNS.EXPLICIT_CREDIT_CARD_REGEX.test(fullContext);
   const isExplicitBankAccount = EMAIL_ALERT_PATTERNS.EXPLICIT_BANK_ACCOUNT_REGEX.test(text);
 
-  const accountType: AccountType =
-    isExplicitCreditCard && !isExplicitBankAccount
-      ? AccountType.CREDIT_CARD
-      : isExplicitBankAccount
-      ? AccountType.BANK
-      : isExplicitCreditCard
-      ? AccountType.CREDIT_CARD
-      : AccountType.BANK;
+  let accountType: AccountType = AccountType.BANK;
+  if (isExplicitInvestment && !isExplicitCreditCard) {
+    accountType = AccountType.MUTUAL_FUND;
+  } else if (isExplicitCreditCard && !isExplicitBankAccount) {
+    accountType = AccountType.CREDIT_CARD;
+  } else if (isExplicitBankAccount) {
+    accountType = AccountType.BANK;
+  } else if (isExplicitCreditCard) {
+    accountType = AccountType.CREDIT_CARD;
+  }
 
   // 3. Detect Debit vs Credit
   const isCredit = EMAIL_ALERT_PATTERNS.CREDIT_TXN_REGEX.test(text) && !EMAIL_ALERT_PATTERNS.DEBIT_TXN_REGEX.test(text);

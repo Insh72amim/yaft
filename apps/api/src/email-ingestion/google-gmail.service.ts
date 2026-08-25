@@ -161,7 +161,22 @@ export class GoogleGmailService {
     };
   }
 
-  async syncGmail(userId: string, days?: number, emailId?: string) {
+  async syncGmail(userId: string, dtoOrDays?: any, legacyEmailId?: string) {
+    let days = 90;
+    let emailId: string | undefined = undefined;
+    let accountScope: 'ALL' | 'ALL_BANKS' | 'ALL_CARDS' | 'ALL_INVESTMENTS' | 'CUSTOM' = 'ALL';
+    let targetAccountIds: string[] = [];
+
+    if (typeof dtoOrDays === 'number') {
+      days = dtoOrDays;
+      emailId = legacyEmailId;
+    } else if (dtoOrDays && typeof dtoOrDays === 'object') {
+      days = dtoOrDays.days ?? 90;
+      emailId = dtoOrDays.emailId;
+      accountScope = dtoOrDays.accountScope ?? 'ALL';
+      targetAccountIds = Array.isArray(dtoOrDays.targetAccountIds) ? dtoOrDays.targetAccountIds : [];
+    }
+
     let configs = [];
     if (emailId) {
       const cfg = await this.prisma.googleEmailConfig.findFirst({ where: { id: emailId, userId } });
@@ -186,7 +201,7 @@ export class GoogleGmailService {
     const emailSummaries: string[] = [];
 
     // Fetch user's active accounts, categories, and category rules once for all Gmail accounts
-    const [userAccounts, categories, userRules] = await Promise.all([
+    const [allUserAccounts, categories, userRules] = await Promise.all([
       this.prisma.account.findMany({
         where: { userId, archived: false },
       }),
@@ -196,6 +211,40 @@ export class GoogleGmailService {
         orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
       }),
     ]);
+
+    // Apply granular candidate account filtering based on accountScope / targetAccountIds
+    let candidateAccounts = allUserAccounts;
+    if (accountScope === 'ALL_BANKS') {
+      candidateAccounts = allUserAccounts.filter((acc) =>
+        [AccountType.BANK, AccountType.SAVINGS, AccountType.UPI_LITE, AccountType.CASH].includes(acc.type as any)
+      );
+    } else if (accountScope === 'ALL_CARDS') {
+      candidateAccounts = allUserAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
+    } else if (accountScope === 'ALL_INVESTMENTS') {
+      candidateAccounts = allUserAccounts.filter((acc) =>
+        acc.type === AccountType.MUTUAL_FUND ||
+        acc.type === AccountType.STOCKS ||
+        acc.name.toLowerCase().includes('mutual') ||
+        acc.name.toLowerCase().includes('sip') ||
+        acc.name.toLowerCase().includes('coin') ||
+        acc.name.toLowerCase().includes('groww')
+      );
+    } else if (accountScope === 'CUSTOM' && targetAccountIds.length > 0) {
+      candidateAccounts = allUserAccounts.filter((acc) => targetAccountIds.includes(acc.id));
+    }
+
+    if (candidateAccounts.length === 0 && allUserAccounts.length > 0) {
+      // If user filtered for a scope with 0 matching accounts, inform them gracefully
+      return {
+        success: true,
+        message: `No active accounts matched the selected sync scope (${accountScope}).`,
+        batchIds: [],
+        scannedCount: 0,
+        parsedCount: 0,
+        stagedRowsCount: 0,
+        summaries: [],
+      };
+    }
 
     for (const config of configs) {
       const refreshToken = this.decryptRefreshToken(userId, config);
@@ -211,10 +260,33 @@ export class GoogleGmailService {
       try {
         const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-        // Fast server-side filtered search for transaction emails across all major Indian banks & cards
-        const baseBankFilter = 'from:(hdfcbank.net OR hdfcbank.com OR hdfc.bank.in OR icicibank.com OR icicibank.co.in OR icici.bank.in OR axisbank.com OR axis.bank.in OR sbi.co.in OR sbi.bank.in OR kotak.com OR kotak.bank.in OR americanexpress.com OR pnb.co.in OR pnb.bank.in OR indusind.com OR idfcfirstbank.com OR rblbank.com OR standardchartered.co.in OR citibank.com OR "ICICI Bank" OR "Axis Bank" OR "HDFC Bank" OR "State Bank of India" OR "Punjab National Bank")';
-        const keywordsFilter = '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs.")';
-        const query = `${baseBankFilter} ${keywordsFilter} after:${afterDateStr}`;
+        // Build dynamic server-side filtered search query based on selected scope
+        const bankFilter = 'from:(hdfcbank.net OR hdfcbank.com OR hdfc.bank.in OR icicibank.com OR icicibank.co.in OR icici.bank.in OR axisbank.com OR axis.bank.in OR sbi.co.in OR sbi.bank.in OR kotak.com OR kotak.bank.in OR pnb.co.in OR pnb.bank.in OR indusind.com OR idfcfirstbank.com OR rblbank.com OR standardchartered.co.in OR citibank.com OR "ICICI Bank" OR "Axis Bank" OR "HDFC Bank" OR "State Bank of India" OR "Punjab National Bank") (debited OR credited OR spent OR alert OR transaction OR payment OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs." OR "UPI" OR "NEFT" OR "IMPS")';
+        const cardFilter = 'from:(hdfcbank.net OR hdfcbank.com OR icicibank.com OR axisbank.com OR sbi.co.in OR sbicard.com OR americanexpress.com OR kotak.com OR rblbank.com OR indusind.com OR idfcfirstbank.com OR standardchartered.co.in OR citibank.com) ("credit card" OR "card ending" OR "card ending with" OR "spent on your card" OR "transaction on your card" OR "amazon pay" OR "pixel" OR "card no" OR "card xx" OR "spent")';
+        const sipFilter = 'from:(camsonline.com OR kfintech.com OR mfcentral.com OR zerodha.com OR groww.in OR hdfcfund.com OR sbimf.com OR icicipruamc.com OR axismf.com OR miraeasset.com OR nipponindiamf.com OR ppfas.com OR "Mutual Fund") (SIP OR "Mutual Fund" OR "allotted" OR "Folio" OR "NAV" OR "Purchase" OR "debited" OR "transaction")';
+
+        let query = '';
+        if (accountScope === 'ALL_CARDS') {
+          query = `(${cardFilter}) after:${afterDateStr}`;
+        } else if (accountScope === 'ALL_BANKS') {
+          query = `(${bankFilter}) after:${afterDateStr}`;
+        } else if (accountScope === 'ALL_INVESTMENTS') {
+          query = `(${sipFilter}) after:${afterDateStr}`;
+        } else if (accountScope === 'CUSTOM') {
+          const hasCards = candidateAccounts.some((a) => a.type === AccountType.CREDIT_CARD);
+          const hasBanks = candidateAccounts.some((a) => [AccountType.BANK, AccountType.SAVINGS, AccountType.UPI_LITE, AccountType.CASH].includes(a.type as any));
+          const hasInvestments = candidateAccounts.some((a) => a.type === AccountType.INVESTMENT || a.name.toLowerCase().includes('mutual') || a.name.toLowerCase().includes('sip') || a.name.toLowerCase().includes('coin') || a.name.toLowerCase().includes('groww'));
+
+          const queryParts: string[] = [];
+          if (hasCards) queryParts.push(cardFilter);
+          if (hasBanks) queryParts.push(bankFilter);
+          if (hasInvestments) queryParts.push(sipFilter);
+
+          query = `(${queryParts.join(' OR ') || bankFilter}) after:${afterDateStr}`;
+        } else {
+          // Default ALL
+          query = `(${bankFilter} OR ${cardFilter} OR ${sipFilter}) after:${afterDateStr}`;
+        }
 
         let pageToken: string | undefined = undefined;
         const messages: { id?: string | null; threadId?: string | null }[] = [];
@@ -290,13 +362,13 @@ export class GoogleGmailService {
           continue;
         }
 
-        // Route alerts to existing user accounts (both Bank accounts and Credit Cards)
+        // Route alerts to filtered candidate user accounts
         const accountGroups = new Map<string, { account: any; alerts: ParsedEmailTransaction[] }>();
 
         for (const alert of extractedAlerts) {
-          const matchedAccount = this.findMatchingAccount(userAccounts, alert, alert.rawSnippet);
+          const matchedAccount = this.findMatchingAccount(candidateAccounts, alert, alert.rawSnippet);
           if (!matchedAccount) {
-            this.logger.warn(`Skipping alert: No matching account found for type="${alert.accountType}", bank="${alert.bankName}", last4="${alert.accountLast4 || ''}", merchant="${alert.merchant}"`);
+            this.logger.warn(`Skipping alert: No matching candidate account found in selected scope for type="${alert.accountType}", bank="${alert.bankName}", last4="${alert.accountLast4 || ''}", merchant="${alert.merchant}"`);
             continue;
           }
 
@@ -529,6 +601,19 @@ export class GoogleGmailService {
     let candidateAccounts: any[] = [];
     if (alert.accountType === AccountType.CREDIT_CARD) {
       candidateAccounts = userAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
+    } else if (alert.accountType === AccountType.MUTUAL_FUND) {
+      candidateAccounts = userAccounts.filter((acc) =>
+        acc.type === AccountType.MUTUAL_FUND ||
+        acc.type === AccountType.STOCKS ||
+        acc.name.toLowerCase().includes('mutual') ||
+        acc.name.toLowerCase().includes('sip') ||
+        acc.name.toLowerCase().includes('coin') ||
+        acc.name.toLowerCase().includes('groww') ||
+        acc.name.toLowerCase().includes('zerodha')
+      );
+      if (candidateAccounts.length === 0) {
+        candidateAccounts = userAccounts;
+      }
     } else {
       candidateAccounts = userAccounts.filter((acc) =>
         [AccountType.BANK, AccountType.SAVINGS, AccountType.UPI_LITE, AccountType.CASH].includes(acc.type as any)

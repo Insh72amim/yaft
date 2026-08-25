@@ -148,6 +148,8 @@ function ImportWorkspace() {
   const [syncingGmail, setSyncingGmail] = useState(false);
   const [connectingGoogle, setConnectingGoogle] = useState(false);
   const [syncDays, setSyncDays] = useState(90);
+  const [syncAccountScope, setSyncAccountScope] = useState<'ALL' | 'ALL_BANKS' | 'ALL_CARDS' | 'ALL_INVESTMENTS' | 'CUSTOM'>('ALL');
+  const [selectedSyncAccountIds, setSelectedSyncAccountIds] = useState<string[]>([]);
   const [lastSyncMeta, setLastSyncMeta] = useState<any>(null);
 
   const [catalog, setCatalog] = useState<Catalog>();
@@ -214,7 +216,12 @@ function ImportWorkspace() {
     try {
       const res = await api<any>('/email-ingestion/google/sync', {
         method: 'POST',
-        body: JSON.stringify({ days: daysToSync, emailId }),
+        body: JSON.stringify({
+          days: daysToSync,
+          emailId,
+          accountScope: syncAccountScope,
+          targetAccountIds: syncAccountScope === 'CUSTOM' ? selectedSyncAccountIds : undefined,
+        }),
       });
       setNotice(res.message);
       if (res.dateRange) {
@@ -813,10 +820,22 @@ function ImportWorkspace() {
                       type="button"
                       className="primary compact"
                       onClick={() => handleSyncGmailNow()}
-                      disabled={syncingGmail}
+                      disabled={syncingGmail || (syncAccountScope === 'CUSTOM' && selectedSyncAccountIds.length === 0)}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                       <RefreshCw size={14} className={syncingGmail ? 'spin' : ''} />
-                      <span>{syncingGmail ? `Syncing past ${syncDays} days…` : `Sync All Inboxes (${syncDays === 90 ? '3 Months' : `${syncDays} Days`})`}</span>
+                      <span>
+                        {syncingGmail
+                          ? `Syncing past ${syncDays} days…`
+                          : syncAccountScope === 'ALL_BANKS'
+                          ? `Sync Bank Accounts (${syncDays}D)`
+                          : syncAccountScope === 'ALL_CARDS'
+                          ? `Sync Credit Cards (${syncDays}D)`
+                          : syncAccountScope === 'ALL_INVESTMENTS'
+                          ? `Sync SIP & Mutual Funds (${syncDays}D)`
+                          : syncAccountScope === 'CUSTOM'
+                          ? `Sync (${selectedSyncAccountIds.length}) Selected Accounts`
+                          : `Sync All Inboxes (${syncDays === 90 ? '3 Months' : `${syncDays} Days`})`}
+                      </span>
                     </button>
 
                     <button
@@ -862,6 +881,146 @@ function ImportWorkspace() {
 
             {googleConfig?.connected ? (
               <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Account-Level Granularity Scope Selector */}
+                <div style={{ background: 'var(--background-alt)', padding: '16px', borderRadius: '12px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <ShieldCheck size={14} color="var(--green)" /> Target Sync Scope:
+                    </span>
+
+                    {syncAccountScope === 'CUSTOM' && (
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSyncAccountIds(catalog?.accounts.map((a) => a.id) || [])}
+                          style={{ fontSize: '11px', color: 'var(--green)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                          Select All ({catalog?.accounts.length || 0})
+                        </button>
+                        <span style={{ color: 'var(--line)' }}>|</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSyncAccountIds([])}
+                          style={{ fontSize: '11px', color: 'var(--muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                          Deselect All
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Scope Selector Chips */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    {[
+                      { id: 'ALL', label: 'All Accounts', icon: Landmark, count: catalog?.accounts.length || 0 },
+                      {
+                        id: 'ALL_BANKS',
+                        label: 'Bank Accounts Only',
+                        icon: Landmark,
+                        count: catalog?.accounts.filter((a) => ['BANK', 'SAVINGS', 'UPI_LITE', 'CASH'].includes(a.type)).length || 0,
+                      },
+                      {
+                        id: 'ALL_CARDS',
+                        label: 'Credit Cards Only',
+                        icon: CreditCard,
+                        count: catalog?.accounts.filter((a) => a.type === 'CREDIT_CARD').length || 0,
+                      },
+                      {
+                        id: 'ALL_INVESTMENTS',
+                        label: 'SIP & Mutual Funds',
+                        icon: BriefcaseBusiness,
+                        count: catalog?.accounts.filter((a) => ['MUTUAL_FUND', 'STOCKS', 'EPFO'].includes(a.type) || a.name.toLowerCase().includes('mutual') || a.name.toLowerCase().includes('sip') || a.name.toLowerCase().includes('coin') || a.name.toLowerCase().includes('groww')).length || 0,
+                      },
+                      {
+                        id: 'CUSTOM',
+                        label: `Specific Accounts ${selectedSyncAccountIds.length > 0 ? `(${selectedSyncAccountIds.length})` : ''}`,
+                        icon: Check,
+                        count: selectedSyncAccountIds.length,
+                      },
+                    ].map((scope) => {
+                      const Icon = scope.icon;
+                      const isActive = syncAccountScope === scope.id;
+                      return (
+                        <button
+                          key={scope.id}
+                          type="button"
+                          className={`secondary compact ${isActive ? 'active' : ''}`}
+                          onClick={() => {
+                            setSyncAccountScope(scope.id as any);
+                            if (scope.id === 'CUSTOM' && selectedSyncAccountIds.length === 0) {
+                              setSelectedSyncAccountIds(catalog?.accounts.map((a) => a.id) || []);
+                            }
+                          }}
+                          style={{
+                            fontSize: '11.5px',
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontWeight: isActive ? 700 : 500,
+                            background: isActive ? 'var(--ink)' : 'var(--card)',
+                            color: isActive ? '#ffffff' : 'var(--ink)',
+                            border: '1px solid var(--line)',
+                          }}>
+                          <Icon size={13} color={isActive ? '#ffffff' : 'var(--green)'} />
+                          <span>{scope.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Specific Account Multi-Select Checklist */}
+                  {syncAccountScope === 'CUSTOM' && catalog?.accounts && (
+                    <div style={{ marginTop: '6px', padding: '12px', background: 'var(--card)', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '8px' }}>
+                        {catalog.accounts.map((acc) => {
+                          const isChecked = selectedSyncAccountIds.includes(acc.id);
+                          const isCard = acc.type === 'CREDIT_CARD';
+                          const isInvest = ['MUTUAL_FUND', 'STOCKS', 'EPFO'].includes(acc.type) || acc.name.toLowerCase().includes('sip') || acc.name.toLowerCase().includes('mutual') || acc.name.toLowerCase().includes('coin') || acc.name.toLowerCase().includes('groww');
+                          const Icon = isCard ? CreditCard : isInvest ? BriefcaseBusiness : Landmark;
+
+                          return (
+                            <label
+                              key={acc.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '8px 10px',
+                                borderRadius: '6px',
+                                background: isChecked ? 'rgba(29, 117, 79, 0.06)' : 'var(--background-alt)',
+                                border: isChecked ? '1px solid var(--green)' : '1px solid var(--line)',
+                                cursor: 'pointer',
+                                transition: 'all 0.1s ease',
+                              }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSyncAccountIds((prev) => [...prev, acc.id]);
+                                  } else {
+                                    setSelectedSyncAccountIds((prev) => prev.filter((id) => id !== acc.id));
+                                  }
+                                }}
+                                style={{ accentColor: 'var(--green)', width: '15px', height: '15px', cursor: 'pointer' }}
+                              />
+                              <Icon size={14} color={isChecked ? 'var(--green)' : 'var(--muted)'} />
+                              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                                <strong style={{ fontSize: '12px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {acc.name}
+                                </strong>
+                                <small style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                                  {acc.institution || acc.type}
+                                </small>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Time Range Selector */}
                 <div style={{ background: 'var(--background-alt)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                   <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -908,10 +1067,22 @@ function ImportWorkspace() {
                           type="button"
                           className="secondary compact"
                           onClick={() => handleSyncGmailNow(syncDays, cfg.id !== 'single' ? cfg.id : undefined)}
-                          disabled={syncingGmail}
+                          disabled={syncingGmail || (syncAccountScope === 'CUSTOM' && selectedSyncAccountIds.length === 0)}
                           style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <RefreshCw size={12} className={syncingGmail ? 'spin' : ''} />
-                          <span>Sync This Inbox</span>
+                          <span>
+                            {syncingGmail
+                              ? 'Syncing…'
+                              : syncAccountScope === 'ALL_BANKS'
+                              ? 'Sync Bank Accounts'
+                              : syncAccountScope === 'ALL_CARDS'
+                              ? 'Sync Credit Cards'
+                              : syncAccountScope === 'ALL_INVESTMENTS'
+                              ? 'Sync SIP & Mutual Funds'
+                              : syncAccountScope === 'CUSTOM'
+                              ? `Sync (${selectedSyncAccountIds.length}) Selected`
+                              : 'Sync This Inbox'}
+                          </span>
                         </button>
                         <button
                           type="button"

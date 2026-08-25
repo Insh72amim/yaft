@@ -182,18 +182,19 @@ export const EMAIL_ALERT_PATTERNS = {
 
   EXPLICIT_CREDIT_CARD_REGEX: /credit\s*card|creditcard|pixel\s*play|card\s*ending|card\s*no\.?\s*(?:xx|\d)|card\s*xx\d|amazon\s*pay|card\s+4[xX]+|sbi\s*card/i,
   EXPLICIT_BANK_ACCOUNT_REGEX: /(?:debited\s+from\s+your\s+A\/c|debited\s+from\s+A\/c|Account\s*Number:\s*XX|from\s+account\s*[\*xX\d]+|savings\s*a\/c|bank\s*a\/c)/i,
+  EXPLICIT_INVESTMENT_REGEX: /mutual\s*fund|sip\s*(?:debit|installment|transaction|amount)|folio\s*no\.?|units\s*allotted|nav\s*:\s*|camsonline|kfintech|mfcentral|zerodha\s*coin|groww\s*invest|amc\b|uti\s*mf|hdfc\s*mf|sbi\s*mf|icici\s*pru(?:dential)?\s*mf|axis\s*mf|mirae\s*asset|nippon\s*india|parag\s*parikh/i,
 
   CREDIT_TXN_REGEX: /credited|received|deposited|refund/i,
-  DEBIT_TXN_REGEX: /debited|spent|used|charged|purchase|auto\s*debit/i,
+  DEBIT_TXN_REGEX: /debited|spent|used|charged|purchase|auto\s*debit|sip\s*debit|invested/i,
 
   LIMITS_NOISE_REGEX: /(?:available\s*(?:credit)?\s*limit|total\s*(?:credit)?\s*limit|credit\s*limit|total\s*due|total\s*outstanding|available\s*balance|bal\s*limit|available\s*a\/c\s*bal|clear\s*bal)\*?\s*(?:is|:)?\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*[\d,]+(?:\.\d{1,2})?/gi,
 
-  LABEL_AMOUNT_REGEX: /(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount)\s*[:=]\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+  LABEL_AMOUNT_REGEX: /(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount\s*invested|sip\s*amount|amount)\s*[:=]\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   VERB_AMOUNT_REGEXES: [
-    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited|transferred|processed)/i,
-    /^(?:.*?\b)?(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited|credited|processed)/i,
-    /(?:NEFT|IMPS|RTGS|UPI)\s*(?:CR|DR)?\s*[:\s-]+\s*(?:inr|rs\.?|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with|sip\s+installment\s+of|sip\s+debit\s+of|sip\s+amount\s+of|invested\s+amount\s+of|purchase\s+of\s+units\s+worth)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited|transferred|processed|invested)/i,
+    /^(?:.*?\b)?(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited|credited|processed|invested)/i,
+    /(?:NEFT|IMPS|RTGS|UPI|SIP)\s*(?:CR|DR)?\s*[:\s-]+\s*(?:inr|rs\.?|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   ],
   FALLBACK_AMOUNT_REGEX: /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
 

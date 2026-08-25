@@ -430,4 +430,27 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
       expect(parsed?.merchant).toBe(b.expected);
     }
   });
+
+  it('should parse CAMS / AMC Mutual Fund SIP installment alert', () => {
+    const text = 'Dear Investor, SIP installment of Rs. 5,000.00 has been processed for Folio No. 12345678 in Parag Parikh Flexi Cap Fund on 10-Aug-2026. Ref: CAMS987654.';
+    const result = parseEmailAlertSnippet(text, 'donotreply@camsonline.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.accountType).toBe('MUTUAL_FUND');
+    expect(result?.type).toBe('DEBIT');
+    expect(result?.amountDisplay).toBe(5000);
+    expect(result?.amountMinor).toBe(-500000n);
+    expect(result?.referenceNumber).toBe('CAMS987654');
+  });
+
+  it('should parse Zerodha Coin / Groww Mutual Fund SIP debit alert', () => {
+    const text = 'Dear User, Your SIP debit of INR 2,500.00 for UTI Nifty 50 Index Fund was successful on 12-Aug-2026. Units will be allotted shortly. Ref: TXN55443322.';
+    const result = parseEmailAlertSnippet(text, 'notifications@zerodha.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.accountType).toBe('MUTUAL_FUND');
+    expect(result?.amountDisplay).toBe(2500);
+    expect(result?.amountMinor).toBe(-250000n);
+    expect(result?.referenceNumber).toBe('TXN55443322');
+  });
 });
