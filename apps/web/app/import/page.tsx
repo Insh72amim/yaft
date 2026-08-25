@@ -1110,11 +1110,11 @@ function ImportWorkspace() {
                                   alignItems: 'center',
                                   gap: '5px',
                                   fontWeight: isActive ? 700 : 500,
-                                  background: isActive ? 'var(--ink)' : 'var(--background-alt)',
+                                  background: isActive ? 'var(--accent, #3b82f6)' : 'var(--background-alt)',
                                   color: isActive ? '#ffffff' : 'var(--ink)',
-                                  border: `1px solid ${isActive ? 'var(--ink)' : 'var(--line)'}`,
+                                  border: `1px solid ${isActive ? 'var(--accent, #3b82f6)' : 'var(--line)'}`,
                                   cursor: 'pointer',
-                                  transition: 'all 0.1s ease',
+                                  transition: 'all 0.12s ease',
                                 }}>
                                 <Icon size={12} color={isActive ? '#ffffff' : 'var(--muted)'} />
                                 <span>{scope.label}</span>
@@ -1142,11 +1142,11 @@ function ImportWorkspace() {
                                 fontSize: '11px',
                                 padding: '3px 8px',
                                 borderRadius: '5px',
-                                border: 'none',
+                                border: syncDays === preset.days ? '1px solid var(--line)' : '1px solid transparent',
                                 fontWeight: syncDays === preset.days ? 700 : 500,
                                 background: syncDays === preset.days ? 'var(--card)' : 'transparent',
-                                color: syncDays === preset.days ? 'var(--ink)' : 'var(--muted)',
-                                boxShadow: syncDays === preset.days ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                color: syncDays === preset.days ? 'var(--accent, #3b82f6)' : 'var(--muted)',
+                                boxShadow: syncDays === preset.days ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                                 cursor: 'pointer',
                               }}>
                               {preset.label}
