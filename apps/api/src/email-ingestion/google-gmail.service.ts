@@ -216,13 +216,21 @@ export class GoogleGmailService {
         const keywordsFilter = '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs.")';
         const query = `${baseBankFilter} ${keywordsFilter} after:${afterDateStr}`;
 
-        const listRes = await gmail.users.messages.list({
-          userId: 'me',
-          q: query,
-          maxResults: 100,
-        });
+        let pageToken: string | undefined = undefined;
+        const messages: { id?: string | null; threadId?: string | null }[] = [];
+        do {
+          const listRes: any = await gmail.users.messages.list({
+            userId: 'me',
+            q: query,
+            maxResults: 100,
+            pageToken,
+          });
+          if (listRes.data.messages && listRes.data.messages.length > 0) {
+            messages.push(...listRes.data.messages);
+          }
+          pageToken = listRes.data.nextPageToken || undefined;
+        } while (pageToken && messages.length < 500);
 
-        const messages = listRes.data.messages || [];
         grandTotalScanned += messages.length;
         const extractedAlerts: ParsedEmailTransaction[] = [];
 
