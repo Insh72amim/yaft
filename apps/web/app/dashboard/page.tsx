@@ -969,7 +969,7 @@ function MonthlyFlow({
               MULTI-BANK CASH FLOW & HIERARCHICAL SETTLEMENT SANKEY
             </span>
             <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
-              External Inbound → Funding Banks (with Inter-Bank Transfers) → Supergroups (Expenses, Investments, Loans, CC & UPI Lite) → Subgroups
+              External Inbound → Funding Banks (with Inter-Bank Transfers) → Intermediate Channels (Direct Spends, Credit Cards, UPI Lite, Loans) → Final Expense Categories
             </span>
           </div>
         </div>

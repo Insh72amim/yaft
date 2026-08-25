@@ -44,10 +44,15 @@ describe('BackupSchedulerService', () => {
       }),
     };
 
+    const amfiNavService = {
+      syncAllMutualFundAccounts: jest.fn().mockResolvedValue({ success: true, updatedAccounts: 1 }),
+    };
+
     scheduler = new BackupSchedulerService(
       prisma as unknown as PrismaService,
       googleDriveService as unknown as GoogleDriveService,
       googleGmailService as unknown as GoogleGmailService,
+      amfiNavService as any,
     );
   });
 

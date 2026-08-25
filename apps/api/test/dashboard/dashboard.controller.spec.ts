@@ -65,4 +65,46 @@ describe('DashboardController & DashboardService', () => {
     expect(result.savingsNetOutbound).toBe(15_000);
     expect(result.savings).toBe(35_000);
   });
+
+  it('distributes credit card payments into true categories in accountFlow', async () => {
+    const accountFindMany = jest.fn().mockResolvedValue([
+      { id: 'acc-axis', name: 'Axis Bank', type: 'SAVINGS', openingBalance: 100_000n, creditLimit: null, dueDay: null, transactions: [], holdings: [] },
+      { id: 'acc-cc', name: 'HDFC CC', type: 'CREDIT_CARD', openingBalance: 0n, creditLimit: 200_000n, dueDay: 15, transactions: [], holdings: [] },
+    ]);
+    const transactionFindMany = jest.fn().mockResolvedValue([
+      // Income
+      { id: 'tx-1', amount: 100_000n, accountId: 'acc-axis', account: { id: 'acc-axis', name: 'Axis Bank', type: 'SAVINGS' }, descriptionRaw: 'SALARY' },
+      // CC Payment from Axis
+      { id: 'tx-2', amount: -20_000n, accountId: 'acc-axis', account: { id: 'acc-axis', name: 'Axis Bank', type: 'SAVINGS' }, descriptionRaw: 'CC PAYMENT', category: { name: 'CC Transfer', color: '#10b981' } },
+      // Real spends on Credit Card
+      { id: 'tx-3', amount: -15_000n, accountId: 'acc-cc', account: { id: 'acc-cc', name: 'HDFC CC', type: 'CREDIT_CARD' }, descriptionRaw: 'SWIGGY', category: { name: 'Food & dining', color: '#ef4444' } },
+      { id: 'tx-4', amount: -5_000n, accountId: 'acc-cc', account: { id: 'acc-cc', name: 'HDFC CC', type: 'CREDIT_CARD' }, descriptionRaw: 'ZEPTO', category: { name: 'Groceries', color: '#10b981' } },
+    ]);
+
+    const prisma = {
+      account: { findMany: accountFindMany },
+      transaction: { findMany: transactionFindMany },
+      accountVaultEntry: { findMany: jest.fn().mockResolvedValue([]) },
+    } as unknown as PrismaService;
+
+    const service = new DashboardService(prisma);
+    const controller = new DashboardController(service);
+
+    const result = await controller.overview({ id: 'owner-a' }, undefined, undefined, '2026-01');
+
+    const ccSupergroup = result.accountFlow.overall.supergroups.find((sg) => sg.id === 'CC_PAYMENTS');
+    expect(ccSupergroup).toBeDefined();
+    expect(ccSupergroup?.amount).toBe(20_000);
+    // CC categories should be distributed into Food & dining (75%) and Groceries (25%)
+    expect(ccSupergroup?.categories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'Food & dining', amount: 15_000 }),
+        expect.objectContaining({ name: 'Groceries', amount: 5_000 }),
+      ]),
+    );
+
+    // Final categories should not include "CC Transfer"
+    const catNames = result.categories.map((c) => c.name);
+    expect(catNames).not.toContain('CC Transfer');
+  });
 });
