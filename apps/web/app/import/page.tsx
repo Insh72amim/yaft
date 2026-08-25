@@ -968,57 +968,241 @@ function ImportWorkspace() {
                     })}
                   </div>
 
-                  {/* Specific Account Multi-Select Checklist */}
-                  {syncAccountScope === 'CUSTOM' && catalog?.accounts && (
-                    <div style={{ marginTop: '6px', padding: '12px', background: 'var(--card)', borderRadius: '8px', border: '1px solid var(--line)' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '8px' }}>
-                        {catalog.accounts.map((acc) => {
-                          const isChecked = selectedSyncAccountIds.includes(acc.id);
-                          const isCard = acc.type === 'CREDIT_CARD';
-                          const isInvest = ['MUTUAL_FUND', 'STOCKS', 'EPFO'].includes(acc.type) || acc.name.toLowerCase().includes('sip') || acc.name.toLowerCase().includes('mutual') || acc.name.toLowerCase().includes('coin') || acc.name.toLowerCase().includes('groww');
-                          const Icon = isCard ? CreditCard : isInvest ? BriefcaseBusiness : Landmark;
+                  {/* Specific Account Categorically Grouped Multi-Select Checklist */}
+                  {syncAccountScope === 'CUSTOM' && catalog?.accounts && (() => {
+                    // Group accounts into clean logical categories
+                    const bankAccounts = catalog.accounts.filter((a) =>
+                      ['BANK', 'SAVINGS', 'UPI_LITE', 'CASH'].includes(a.type)
+                    );
+                    const creditCards = catalog.accounts.filter((a) => a.type === 'CREDIT_CARD');
+                    const epfoAccounts = catalog.accounts.filter((a) =>
+                      a.type === 'EPFO' || a.name.toLowerCase().includes('epfo') || a.institution?.toLowerCase().includes('epfo')
+                    );
+                    const investments = catalog.accounts.filter((a) =>
+                      !epfoAccounts.includes(a) &&
+                      (['MUTUAL_FUND', 'STOCKS'].includes(a.type) ||
+                        a.name.toLowerCase().includes('sip') ||
+                        a.name.toLowerCase().includes('mutual') ||
+                        a.name.toLowerCase().includes('coin') ||
+                        a.name.toLowerCase().includes('groww') ||
+                        a.name.toLowerCase().includes('zerodha'))
+                    );
+                    const depositsAndLoans = catalog.accounts.filter((a) =>
+                      !bankAccounts.includes(a) &&
+                      !creditCards.includes(a) &&
+                      !epfoAccounts.includes(a) &&
+                      !investments.includes(a) &&
+                      (['FIXED_DEPOSIT', 'LOAN'].includes(a.type) ||
+                        a.name.toLowerCase().includes('-fd-') ||
+                        a.name.toLowerCase().includes('loan'))
+                    );
+                    const otherAccounts = catalog.accounts.filter((a) =>
+                      !bankAccounts.includes(a) &&
+                      !creditCards.includes(a) &&
+                      !epfoAccounts.includes(a) &&
+                      !investments.includes(a) &&
+                      !depositsAndLoans.includes(a)
+                    );
+
+                    const categoriesList = [
+                      {
+                        key: 'BANKS',
+                        title: 'Bank & Savings Accounts',
+                        icon: Landmark,
+                        color: 'var(--green)',
+                        accounts: bankAccounts,
+                      },
+                      {
+                        key: 'CARDS',
+                        title: 'Credit Cards',
+                        icon: CreditCard,
+                        color: '#3b82f6',
+                        accounts: creditCards,
+                      },
+                      {
+                        key: 'INVESTMENTS',
+                        title: 'SIP & Mutual Funds / Demat',
+                        icon: BriefcaseBusiness,
+                        color: '#10b981',
+                        accounts: investments,
+                      },
+                      {
+                        key: 'EPFO',
+                        title: 'Provident Fund (EPFO)',
+                        icon: Building2,
+                        color: '#8b5cf6',
+                        accounts: epfoAccounts,
+                      },
+                      {
+                        key: 'DEPOSITS_LOANS',
+                        title: 'Fixed Deposits & Loans',
+                        icon: BadgeIndianRupee,
+                        color: '#f59e0b',
+                        accounts: depositsAndLoans,
+                      },
+                      {
+                        key: 'OTHER',
+                        title: 'Other Accounts',
+                        icon: Landmark,
+                        color: 'var(--muted)',
+                        accounts: otherAccounts,
+                      },
+                    ].filter((cat) => cat.accounts.length > 0);
+
+                    return (
+                      <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        {categoriesList.map((catGroup) => {
+                          const Icon = catGroup.icon;
+                          const groupAccountIds = catGroup.accounts.map((a) => a.id);
+                          const selectedInGroupCount = groupAccountIds.filter((id) =>
+                            selectedSyncAccountIds.includes(id)
+                          ).length;
+                          const allSelectedInGroup = selectedInGroupCount === groupAccountIds.length;
+
+                          const toggleGroupAll = () => {
+                            if (allSelectedInGroup) {
+                              setSelectedSyncAccountIds((prev) =>
+                                prev.filter((id) => !groupAccountIds.includes(id))
+                              );
+                            } else {
+                              setSelectedSyncAccountIds((prev) =>
+                                Array.from(new Set([...prev, ...groupAccountIds]))
+                              );
+                            }
+                          };
 
                           return (
-                            <label
-                              key={acc.id}
+                            <div
+                              key={catGroup.key}
                               style={{
+                                background: 'var(--card)',
+                                borderRadius: '10px',
+                                border: '1px solid var(--line)',
+                                padding: '14px 16px',
                                 display: 'flex',
-                                alignItems: 'center',
+                                flexDirection: 'column',
                                 gap: '10px',
-                                padding: '8px 10px',
-                                borderRadius: '6px',
-                                background: isChecked ? 'rgba(29, 117, 79, 0.06)' : 'var(--background-alt)',
-                                border: isChecked ? '1px solid var(--green)' : '1px solid var(--line)',
-                                cursor: 'pointer',
-                                transition: 'all 0.1s ease',
                               }}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedSyncAccountIds((prev) => [...prev, acc.id]);
-                                  } else {
-                                    setSelectedSyncAccountIds((prev) => prev.filter((id) => id !== acc.id));
-                                  }
-                                }}
-                                style={{ accentColor: 'var(--green)', width: '15px', height: '15px', cursor: 'pointer' }}
-                              />
-                              <Icon size={14} color={isChecked ? 'var(--green)' : 'var(--muted)'} />
-                              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                                <strong style={{ fontSize: '12px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {acc.name}
-                                </strong>
-                                <small style={{ fontSize: '10px', color: 'var(--muted)' }}>
-                                  {acc.institution || acc.type}
-                                </small>
+                              {/* Category Header */}
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  borderBottom: '1px solid var(--line)',
+                                  paddingBottom: '8px',
+                                }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <Icon size={16} color={catGroup.color} />
+                                  <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>
+                                    {catGroup.title}
+                                  </strong>
+                                  <span
+                                    style={{
+                                      fontSize: '10.5px',
+                                      fontWeight: 700,
+                                      background: 'var(--background-alt)',
+                                      padding: '1px 6px',
+                                      borderRadius: '10px',
+                                      color: 'var(--muted)',
+                                    }}>
+                                    {selectedInGroupCount} / {catGroup.accounts.length}
+                                  </span>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={toggleGroupAll}
+                                  style={{
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    color: allSelectedInGroup ? 'var(--muted)' : 'var(--green)',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                  }}>
+                                  {allSelectedInGroup ? 'Deselect Category' : 'Select All in Category'}
+                                </button>
                               </div>
-                            </label>
+
+                              {/* Accounts Grid */}
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                                  gap: '8px',
+                                }}>
+                                {catGroup.accounts.map((acc) => {
+                                  const isChecked = selectedSyncAccountIds.includes(acc.id);
+                                  return (
+                                    <label
+                                      key={acc.id}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        background: isChecked
+                                          ? 'rgba(29, 117, 79, 0.06)'
+                                          : 'var(--background-alt)',
+                                        border: isChecked
+                                          ? '1px solid var(--green)'
+                                          : '1px solid var(--line)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.1s ease',
+                                      }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedSyncAccountIds((prev) => [...prev, acc.id]);
+                                          } else {
+                                            setSelectedSyncAccountIds((prev) =>
+                                              prev.filter((id) => id !== acc.id)
+                                            );
+                                          }
+                                        }}
+                                        style={{
+                                          accentColor: 'var(--green)',
+                                          width: '15px',
+                                          height: '15px',
+                                          cursor: 'pointer',
+                                        }}
+                                      />
+                                      <Icon size={14} color={isChecked ? 'var(--green)' : 'var(--muted)'} />
+                                      <div
+                                        style={{
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          minWidth: 0,
+                                          flex: 1,
+                                        }}>
+                                        <strong
+                                          style={{
+                                            fontSize: '12px',
+                                            color: 'var(--ink)',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                          }}>
+                                          {acc.name}
+                                        </strong>
+                                        <small style={{ fontSize: '10px', color: 'var(--muted)' }}>
+                                          {acc.institution || acc.type}
+                                        </small>
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* Time Range Selector */}
