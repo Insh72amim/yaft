@@ -19,7 +19,7 @@ import {
   Check,
   Sparkles,
 } from "lucide-react";
-import { money } from "@/lib/api";
+import { api, errorMessage, money } from "@/lib/api";
 
 export type SuperCategoryOption = {
   id: string;
@@ -212,14 +212,34 @@ export function EnvelopesTab({
     });
   }, [expenseCategories, budgets, searchTerm, statusFilter]);
 
+  const [savingInlineCatId, setSavingInlineCatId] = useState<string | null>(null);
+
   // Handle saving an inline limit directly
   const handleSaveInlineLimit = async (catId: string) => {
-    setSelectedCatId(catId);
-    setLimitInput(inlineLimitValue);
-    setInlineEditingCatId(null);
-    // Submit via standard form handler by simulating event
-    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
-    await handleSaveBudget(fakeEvent);
+    const val = parseFloat(inlineLimitValue.replace(/,/g, ""));
+    if (isNaN(val) || val < 0) {
+      alert("Please enter a valid target limit amount.");
+      return;
+    }
+    setSavingInlineCatId(catId);
+    try {
+      await api("/budgets", {
+        method: "POST",
+        body: JSON.stringify({
+          categoryId: catId,
+          monthlyLimit: val,
+          periodType: "MONTHLY",
+          month: selectedMonth,
+          year: selectedYear,
+        }),
+      });
+      setInlineEditingCatId(null);
+      onReload();
+    } catch (err) {
+      alert(errorMessage(err, "Failed to save envelope target limit."));
+    } finally {
+      setSavingInlineCatId(null);
+    }
   };
 
   return (
@@ -469,122 +489,6 @@ export function EnvelopesTab({
           </small>
         </div>
       </div>
-
-      {/* Quick Set / Assign Target Envelope Limit Form */}
-      <section className="panel" style={{ padding: "20px", borderRadius: "12px" }}>
-        <div className="panel-title" style={{ marginBottom: "14px" }}>
-          <div>
-            <span className="eyebrow" style={{ color: "var(--green)" }}>
-              Envelope Allocation
-            </span>
-            <h2 style={{ fontSize: "1.2rem", fontWeight: 800, margin: 0 }}>
-              Set or Update Envelope Target Limit ({monthLabel})
-            </h2>
-          </div>
-        </div>
-
-        <form
-          onSubmit={handleSaveBudget}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "16px",
-            alignItems: "end",
-          }}>
-          <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "var(--muted)",
-                marginBottom: "6px",
-              }}>
-              Expense Category
-            </label>
-            <select
-              value={selectedCatId}
-              onChange={(e) => {
-                setSelectedCatId(e.target.value);
-                const b = (budgets || []).find((item) => item?.categoryId === e.target.value);
-                if (b && b.hasBudget && b.monthlyLimit > 0) {
-                  setLimitInput(String(b.monthlyLimit));
-                } else {
-                  setLimitInput("");
-                }
-              }}
-              style={{
-                width: "100%",
-                height: "40px",
-                fontSize: "13px",
-                padding: "0 12px",
-                borderRadius: "8px",
-                border: "1px solid var(--line)",
-                background: "var(--background-alt)",
-                color: "var(--ink)",
-                fontWeight: 600,
-              }}>
-              {expenseCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "var(--muted)",
-                marginBottom: "6px",
-              }}>
-              Monthly Target (₹)
-            </label>
-            <input
-              type="number"
-              placeholder="e.g. 15000"
-              value={limitInput}
-              onChange={(e) => setLimitInput(e.target.value)}
-              step="100"
-              style={{
-                width: "100%",
-                height: "40px",
-                fontSize: "13px",
-                padding: "0 12px",
-                borderRadius: "8px",
-                border: "1px solid var(--line)",
-                background: "var(--background-alt)",
-                color: "var(--ink)",
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={savingBudget}
-            className="secondary compact"
-            style={{
-              height: "40px",
-              padding: "0 20px",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-              background: "var(--green)",
-              color: "#ffffff",
-              border: "none",
-              fontWeight: 700,
-              borderRadius: "8px",
-              cursor: "pointer",
-            }}>
-            {savingBudget ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
-            <span>Save Target Limit</span>
-          </button>
-        </form>
-      </section>
 
       {/* ── Redesigned Expense Envelopes & Target Limits Table ─────────────────────── */}
       <section className="panel" style={{ padding: "20px", borderRadius: "12px" }}>
