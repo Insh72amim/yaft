@@ -15,7 +15,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
-import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
+import { api, errorMessage, isUnauthorized, money, quantity, formatMoney } from "@/lib/api";
 import { AccountTransactions, ActiveSipsPanel } from "@/components/account-transactions";
 import { AddAccountModal } from "@/components/add-account-modal";
 import { VaultModal } from "@/components/vault-modal";
@@ -30,20 +30,8 @@ import { Account, PortfolioAccount } from "@/components/accounts/account-card";
 import { AccountsPortfolioTab, AssetsHistoryData } from "@/components/accounts/accounts-portfolio-tab";
 import { CreditCardsTab } from "@/components/accounts/credit-cards-tab";
 
-const quantity = (value: string) =>
-  new Intl.NumberFormat("en-IN", { maximumFractionDigits: 6 }).format(
-    Number(value),
-  );
-
 const price = (minor: number | null) =>
-  minor === null
-    ? "—"
-    : new Intl.NumberFormat("en-IN", {
-        style: "currency",
-        currency: "INR",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(minor / 100);
+  formatMoney(minor, { minFractionDigits: 2, maxFractionDigits: 2, fallback: "—" });
 
 function PortfolioContent() {
   const router = useRouter();

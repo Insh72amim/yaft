@@ -14,21 +14,54 @@ export const isUnauthorized = (reason: unknown): reason is ApiError => reason in
 
 export const errorMessage = (reason: unknown, fallback = 'Something went wrong.') => reason instanceof Error ? reason.message : fallback;
 
+import { formatMoney, formatQuantity, formatPercent, formatMonthYear } from '@yaft/shared';
+
+export { formatMoney, formatQuantity, formatPercent, formatMonthYear };
+
+// Backward compatible alias
+export const money = (minor: number | null | undefined, compact = false) =>
+  formatMoney(minor, { compact });
+
+export const quantity = (value: string | number | null | undefined, maxDecimals = 6) =>
+  formatQuantity(value, maxDecimals);
+
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, { ...init, credentials: 'include', headers: {
-    ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...init.headers,
-  }});
+  const response = await fetch(`${API_URL}${path}`, {
+    ...init,
+    credentials: 'include',
+    headers: {
+      ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      ...init.headers,
+    },
+  });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     const message = Array.isArray(body.message) ? body.message.join(', ') : body.message;
     throw new ApiError(message || 'Something went wrong.', response.status);
   }
-  return response.status === 204 ? undefined as T : response.json();
+  return response.status === 204 ? (undefined as T) : response.json();
 }
 
-export const money = (minor: number, compact = false) => new Intl.NumberFormat('en-IN', {
-  style: 'currency', currency: 'INR', maximumFractionDigits: 0, notation: compact ? 'compact' : 'standard',
-}).format(minor / 100);
+api.get = <T>(path: string, init?: RequestInit) => api<T>(path, { ...init, method: 'GET' });
+api.post = <T>(path: string, body?: unknown, init?: RequestInit) =>
+  api<T>(path, {
+    ...init,
+    method: 'POST',
+    body: body instanceof FormData ? body : JSON.stringify(body),
+  });
+api.put = <T>(path: string, body?: unknown, init?: RequestInit) =>
+  api<T>(path, {
+    ...init,
+    method: 'PUT',
+    body: body instanceof FormData ? body : JSON.stringify(body),
+  });
+api.patch = <T>(path: string, body?: unknown, init?: RequestInit) =>
+  api<T>(path, {
+    ...init,
+    method: 'PATCH',
+    body: body instanceof FormData ? body : JSON.stringify(body),
+  });
+api.delete = <T>(path: string, init?: RequestInit) => api<T>(path, { ...init, method: 'DELETE' });
 
 export async function downloadFile(path: string, filename: string) {
   const response = await fetch(`${API_URL}${path}`, { credentials: 'include' });

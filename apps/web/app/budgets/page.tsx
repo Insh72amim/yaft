@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { api, errorMessage } from "@/lib/api";
+import { useMonthNavigation } from "@/hooks";
+import { BudgetSummary } from "@yaft/shared";
 
 import { EnvelopesTab, CategoryOption, CategoryBudgetItem } from "@/components/budgets/envelopes-tab";
 import { TagsTab, TagItem, TagAnalytics } from "@/components/budgets/tags-tab";
@@ -56,9 +58,11 @@ function BudgetsContent() {
 
   const [activeTab, setActiveTab] = useState<"ENVELOPES" | "TAGS" | "CATEGORIES" | "RULES" | "CONFIRMATIONS">(initialTab);
 
-  const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
+  const {
+    selectedMonth,
+    selectedYear,
+    setMonthYear,
+  } = useMonthNavigation();
 
   // Main Data States
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -66,7 +70,13 @@ function BudgetsContent() {
   const [rules, setRules] = useState<CategoryRuleItem[]>([]);
   const [unverifiedCategories, setUnverifiedCategories] = useState<UnverifiedCategoryGroup[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
-  const [summary, setSummary] = useState({ totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0, totalTransactionsCount: 0 });
+  const [summary, setSummary] = useState<BudgetSummary>({
+    totalBudgeted: 0,
+    totalSpent: 0,
+    totalRemaining: 0,
+    overallPercentage: 0,
+    totalTransactionsCount: 0,
+  });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -127,11 +137,16 @@ function BudgetsContent() {
       setError("");
 
       const [catRes, budgetRes, ruleRes, unverifiedRes, tagRes] = await Promise.all([
-        api<any>("/categories").catch(() => []),
-        api<{ summary: any; budgets: CategoryBudgetItem[] }>(`/budgets?year=${selectedYear}&month=${selectedMonth}`).catch(() => ({ summary: { totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0, totalTransactionsCount: 0 }, budgets: [] })),
-        api<CategoryRuleItem[]>("/category-rules").catch(() => []),
-        api<UnverifiedCategoryGroup[]>("/category-rules/unverified").catch(() => []),
-        api<TagItem[]>("/tags").catch(() => []),
+        api.get<CategoryOption[] | { categories: CategoryOption[] }>("/categories").catch(() => []),
+        api.get<{ summary: BudgetSummary; budgets: CategoryBudgetItem[] }>(
+          `/budgets?year=${selectedYear}&month=${selectedMonth}`
+        ).catch(() => ({
+          summary: { totalBudgeted: 0, totalSpent: 0, totalRemaining: 0, overallPercentage: 0, totalTransactionsCount: 0 },
+          budgets: [],
+        })),
+        api.get<CategoryRuleItem[]>("/category-rules").catch(() => []),
+        api.get<UnverifiedCategoryGroup[]>("/category-rules/unverified").catch(() => []),
+        api.get<TagItem[]>("/tags").catch(() => []),
       ]);
 
       const catList: CategoryOption[] = Array.isArray(catRes)
@@ -567,23 +582,7 @@ function BudgetsContent() {
             summary={summary}
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
-            onMonthChange={(m, y) => {
-              setSelectedMonth(m);
-              setSelectedYear(y);
-            }}
-            selectedCatId={selectedCatId}
-            setSelectedCatId={setSelectedCatId}
-            limitInput={limitInput}
-            setLimitInput={setLimitInput}
-            savingBudget={savingBudget}
-            deletingBudgetId={deletingBudgetId}
-            handleSaveBudget={handleSaveBudget}
-            handleDeleteBudget={handleDeleteBudget}
-            setEditingCategory={setEditingCategory}
-            setEditCatName={setEditCatName}
-            setEditCatType={setEditCatType}
-            setEditCatColor={setEditCatColor}
-            setEditCatBudgetLimit={setEditCatBudgetLimit}
+            onMonthChange={setMonthYear}
             onReload={loadData}
           />
         )}

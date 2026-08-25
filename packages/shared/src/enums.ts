@@ -15,6 +15,14 @@ export enum AccountType {
   UPI_LITE = 'UPI_LITE',
 }
 
+export enum CategoryType {
+  EXPENSE = 'EXPENSE',
+  INCOME = 'INCOME',
+  INVESTMENT = 'INVESTMENT',
+  TRANSFER = 'TRANSFER',
+  OTHER = 'OTHER',
+}
+
 export enum ImportSourceType {
   BANK_STATEMENT = 'BANK_STATEMENT',
   CREDIT_CARD = 'CREDIT_CARD',
