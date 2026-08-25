@@ -94,16 +94,16 @@ const SOURCE_URLS: Record<string, string> = {
 
 const PORTAL_CATEGORIES = [
   {
-    title: 'NetBanking & Cards',
+    title: 'NetBanking Portals',
     icon: Landmark,
     color: '#3b82f6',
     portals: [
-      { name: 'HDFC Bank', url: 'https://netbanking.hdfcbank.com/', sub: 'NetBanking & Cards' },
+      { name: 'HDFC Bank', url: 'https://netbanking.hdfcbank.com/', sub: 'NetBanking' },
       { name: 'ICICI Bank', url: 'https://infinity.icicibank.com/', sub: 'Infinity Retail' },
       { name: 'SBI Online', url: 'https://yonoretail.sbi.bank.in/registration/welcome', sub: 'YONO NetBanking' },
       { name: 'Axis Bank', url: 'https://omni.axis.bank.in/axisretailbanking/', sub: 'Omni Retail' },
-      { name: 'SBI Card', url: 'https://www.sbicard.com/creditcards/app/user/login', sub: 'Cards Portal' },
       { name: 'Kotak Bank', url: 'https://netbanking.kotak.com/knb2/', sub: 'NetBanking' },
+      { name: 'PNB Online', url: 'https://iretail.pnb.bank.in/', sub: 'Retail NetBanking' },
     ],
   },
   {
