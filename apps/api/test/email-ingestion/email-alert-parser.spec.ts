@@ -536,4 +536,19 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.amountMinor).toBe(479900n);
     expect(result?.merchant).toBe('MYNTRA');
   });
+
+  it('should parse ICICI Credit Card payment received confirmation as positive CREDIT transaction', () => {
+    const text = 'Dear Customer, Jun 16,2026 Greetings from ICICI Bank! We have received payment of INR 25,000.00 on your ICICI Bank Credit Card account 5000 XXXX XXXX 0009 on 16-Jun-2026. Looking forward to more opportunities to be of service to you. Thank you. Sincerely, ICICI Bank Credit Cards Team. This is a syst';
+    const result = parseEmailAlertSnippet(text, 'credit_cards@icici.bank.in Payment received on your ICICI Bank Credit Card.');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('ICICI Bank');
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('0009');
+    expect(result?.type).toBe('CREDIT');
+    expect(result?.amountDisplay).toBe(25000.00);
+    expect(result?.amountMinor).toBe(2438464n);
+    expect(result?.merchant).toBe('PAYMENT RECEIVED');
+    expect(result?.suggestedCategoryName).toBe('Credit Card Payment');
+  });
 });

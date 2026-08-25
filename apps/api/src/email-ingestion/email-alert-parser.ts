@@ -8,6 +8,7 @@ import {
   canonicalizeMerchantName,
   TRANSACTION_STATUS_CONFIG,
   isExplicitSuccessfulRefund,
+  isCardPaymentReceived,
   EMAIL_ALERT_PATTERNS,
   cleanEmailAlertText,
   extractAlertAmount,
@@ -127,8 +128,19 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   }
 
   // 3. Detect Debit vs Credit
-  const isCredit = EMAIL_ALERT_PATTERNS.CREDIT_TXN_REGEX.test(text) && !EMAIL_ALERT_PATTERNS.DEBIT_TXN_REGEX.test(text);
-  const type: 'DEBIT' | 'CREDIT' = isCredit ? 'CREDIT' : 'DEBIT';
+  const isPaymentReceived = isCardPaymentReceived(fullContext);
+  const isRefund = isExplicitSuccessfulRefund(fullContext);
+  const hasCreditIndicator = EMAIL_ALERT_PATTERNS.CREDIT_TXN_REGEX.test(fullContext);
+  const hasDebitIndicator = EMAIL_ALERT_PATTERNS.DEBIT_TXN_REGEX.test(text);
+
+  let type: 'DEBIT' | 'CREDIT' = 'DEBIT';
+  if (isPaymentReceived || isRefund) {
+    type = 'CREDIT';
+  } else if (hasCreditIndicator && !hasDebitIndicator) {
+    type = 'CREDIT';
+  } else {
+    type = 'DEBIT';
+  }
 
   // 4. Extract Amount
   let rawAmountNum: number | null = null;
@@ -199,6 +211,9 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   if (!rawMerchant) {
     rawMerchant = extractAlertRawMerchant(text, senderOrSubject);
   }
+  if (isPaymentReceived && (!rawMerchant || rawMerchant === 'General Merchant')) {
+    rawMerchant = 'Payment Received';
+  }
   const merchant = canonicalizeMerchantName(rawMerchant);
 
   // 8. Extract Date & Time
@@ -206,6 +221,13 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   const { dateStr, timeStr } = extractAlertDateTime(text);
   if (dateStr) {
     transactionDate = parseIndianDate(dateStr, timeStr);
+  }
+
+  let suggestedCategory = emailConfig?.defaultCategoryName;
+  if (isPaymentReceived) {
+    suggestedCategory = 'Credit Card Payment';
+  } else if (isRefund) {
+    suggestedCategory = 'Refund';
   }
 
   return {
@@ -219,7 +241,7 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     referenceNumber,
     transactionDate,
     rawSnippet: text.slice(0, 300),
-    suggestedCategoryName: emailConfig?.defaultCategoryName,
+    suggestedCategoryName: suggestedCategory,
   };
 }
 

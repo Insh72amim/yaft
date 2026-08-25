@@ -62,6 +62,8 @@ export const REFUND_REVERSAL_CONFIG = {
   EXPLICIT_REFUND_ALERT_REGEX: /\b(?:refund\s+of|credited.*(?:refund|cashback|reversal)|refund\s+(?:has\s+been\s+)?(?:processed|credited|initiated)|cashback\s+credited|amount\s+refunded|refund\s+processed|towards\s+refund|refund\s+from|reversal\s+of|reversal\s+credit)\b/i,
 };
 
+export const CARD_PAYMENT_RECEIVED_REGEX = /\b(?:payment\s+received|received\s+payment|payment\s+of\s+(?:inr|rs\.?|₹)?\s*[\d,.]+\s+(?:on|towards|for)\s+your|thank\s+you\s+for\s+(?:your\s+)?payment|payment\s+towards\s+your\s+(?:credit\s*card|card|sbi\s*card|icici\s*bank\s*credit\s*card)|we\s+have\s+received\s+payment)\b/i;
+
 export function isRefundOrReversal(description?: string | null): boolean {
   if (!description) return false;
   return REFUND_REVERSAL_CONFIG.REVERSAL_REGEX.test(description);
@@ -70,6 +72,11 @@ export function isRefundOrReversal(description?: string | null): boolean {
 export function isExplicitSuccessfulRefund(text?: string | null): boolean {
   if (!text) return false;
   return REFUND_REVERSAL_CONFIG.EXPLICIT_REFUND_ALERT_REGEX.test(text);
+}
+
+export function isCardPaymentReceived(text?: string | null): boolean {
+  if (!text) return false;
+  return CARD_PAYMENT_RECEIVED_REGEX.test(text);
 }
 
 export interface BrandCanonicalRule {
@@ -113,6 +120,7 @@ export const BRAND_CANONICAL_RULES: BrandCanonicalRule[] = [
   { pattern: /\bgpay\b|google\s*pay|googlepay/i, canonical: 'Google Pay' },
   { pattern: /razorpay/i, canonical: 'Razorpay' },
   { pattern: /\bcred\b/i, canonical: 'CRED' },
+  { pattern: /payment\s*received/i, canonical: 'Payment Received' },
 ];
 
 export function cleanBeneficiaryToken(token: string): string {
@@ -191,9 +199,9 @@ export const EMAIL_ALERT_PATTERNS = {
 
   LABEL_AMOUNT_REGEX: /(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount\s*invested|sip\s*amount|amount)\s*[:=]\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   VERB_AMOUNT_REGEXES: [
-    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+(?:of|for|on)|refund\s+(?:of|worth|for|amount\s+of)?|cashback\s+(?:of|worth|for)?|reversal\s+(?:of|worth|for)?|amount\s+of|for\s+(?:an\s+amount\s+of\s+)?(?:inr|rs\.?|₹)|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with|sip\s+installment\s+of|sip\s+debit\s+of|sip\s+amount\s+of|invested\s+amount\s+of|purchase\s+of\s+units\s+worth|has\s+a\s+debit\s+by\s+[a-zA-Z0-9\s]+\s+of|has\s+a\s+debit\s+of|debit\s+by\s+[a-zA-Z0-9\s]+\s+of|debit\s+of)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited|transferred|processed|invested|refunded)/i,
-    /^(?:.*?\b)?(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited|credited|processed|invested|refunded)/i,
+    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+(?:of|for|on)|refund\s+(?:of|worth|for|amount\s+of)?|cashback\s+(?:of|worth|for)?|reversal\s+(?:of|worth|for)?|payment\s+of|received\s+payment\s+of|amount\s+of|for\s+(?:an\s+amount\s+of\s+)?(?:inr|rs\.?|₹)|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with|sip\s+installment\s+of|sip\s+debit\s+of|sip\s+amount\s+of|invested\s+amount\s+of|purchase\s+of\s+units\s+worth|has\s+a\s+debit\s+by\s+[a-zA-Z0-9\s]+\s+of|has\s+a\s+debit\s+of|debit\s+by\s+[a-zA-Z0-9\s]+\s+of|debit\s+of)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited|transferred|processed|invested|refunded|received)/i,
+    /^(?:.*?\b)?(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited|credited|processed|invested|refunded|received)/i,
     /(?:for|towards)\s+(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
     /(?:credited|debited|spent|charged|paid|transferred|withdrawn|refunded)\s+(?:by|with|for)?\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
     /(?:NEFT|IMPS|RTGS|UPI|SIP)\s*(?:CR|DR)?\s*[:\s-]+\s*(?:inr|rs\.?|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,

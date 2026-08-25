@@ -713,7 +713,17 @@ export class GoogleGmailService {
     if (productMatch) return productMatch;
 
     // 3. Institution match
-    const instMatches = candidateAccounts.filter((acc) => isInstitutionMatch(acc, bankName));
+    const instMatches = candidateAccounts.filter((acc) => {
+      if (!isInstitutionMatch(acc, bankName)) return false;
+      if (last4) {
+        const accName = (acc.name || '').toLowerCase();
+        const accDigitsMatch = accName.match(/(?:••|\*\*|xx|\b)(\d{4})\b/i);
+        if (accDigitsMatch && accDigitsMatch[1] !== last4) {
+          return false;
+        }
+      }
+      return true;
+    });
 
     if (instMatches.length === 1) {
       return instMatches[0];
