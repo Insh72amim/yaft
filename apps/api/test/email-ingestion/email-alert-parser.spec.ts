@@ -478,14 +478,18 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.merchant).toBe('STARBUCKS');
   });
 
-  it('should parse ICICI Credit Card alert from credit_cards@icici.bank.in', () => {
-    const text = 'Dear Customer, INR 2,199.00 has been spent on your ICICI Bank Credit Card ending 0001 on 23-Aug-26 at ZOMATO. Available Limit: INR 85,000.00.';
-    const result = parseEmailAlertSnippet(text, 'credit_cards@icici.bank.in');
+  it('should parse Axis Bank credit alert containing counterparty /SBIN/ in UPI txn info without misidentifying as SBI', () => {
+    const text = "03-06-2026 Dear Test User, Here's the summary of your transaction: Amount Credited: INR 4000.00 Account Number: XX1234 Date & Time: 03-06-26, 23:13:43 IST Transaction Info: UPI/P2A/100000000009/Nustran /SBIN/pres Feel free to connect with us for any clarification.";
+    const result = parseEmailAlertSnippet(text, 'Axis Bank Alerts <alerts@axis.bank.in>');
 
     expect(result).not.toBeNull();
-    expect(result?.accountType).toBe('CREDIT_CARD');
-    expect(result?.accountLast4).toBe('0001');
-    expect(result?.amountDisplay).toBe(2199);
-    expect(result?.merchant).toBe('ZOMATO');
+    expect(result?.bankName).toBe('Axis Bank');
+    expect(result?.accountType).toBe('BANK');
+    expect(result?.accountLast4).toBe('6785');
+    expect(result?.type).toBe('CREDIT');
+    expect(result?.amountDisplay).toBe(4000);
+    expect(result?.amountMinor).toBe(400000n);
+    expect(result?.merchant).toBe('NUSTRAN');
+    expect(result?.referenceNumber).toBe('100000000009');
   });
 });

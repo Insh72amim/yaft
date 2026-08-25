@@ -644,16 +644,33 @@ export class GoogleGmailService {
       const b = (bName || '').toLowerCase();
       if (!b || b === 'bank alert') return false;
 
-      if ((inst.includes('sbi') || name.includes('sbi') || inst.includes('state bank')) && (b.includes('sbi') || b.includes('state bank'))) return true;
-      if ((inst.includes('hdfc') || name.includes('hdfc')) && b.includes('hdfc')) return true;
-      if ((inst.includes('icici') || name.includes('icici')) && b.includes('icici')) return true;
-      if ((inst.includes('axis') || name.includes('axis')) && b.includes('axis')) return true;
-      if ((inst.includes('pnb') || name.includes('pnb') || inst.includes('punjab')) && (b.includes('pnb') || b.includes('punjab'))) return true;
-      if ((inst.includes('kotak') || name.includes('kotak')) && b.includes('kotak')) return true;
-      if ((inst.includes('indusind') || name.includes('indusind')) && b.includes('indusind')) return true;
-      if ((inst.includes('idfc') || name.includes('idfc')) && b.includes('idfc')) return true;
-      if ((inst.includes('rbl') || name.includes('rbl')) && b.includes('rbl')) return true;
-      if ((inst.includes('amex') || inst.includes('american express')) && (b.includes('amex') || b.includes('american express'))) return true;
+      // Mutually exclusive bank checks
+      const isSbiAlert = b.includes('sbi') || b.includes('state bank');
+      if (isSbiAlert) return inst.includes('sbi') || name.includes('sbi') || inst.includes('state bank') || name.includes('state bank');
+
+      const isAxisAlert = b.includes('axis');
+      if (isAxisAlert) return inst.includes('axis') || name.includes('axis');
+
+      const isHdfcAlert = b.includes('hdfc');
+      if (isHdfcAlert) return inst.includes('hdfc') || name.includes('hdfc') || name.includes('pixel');
+
+      const isIciciAlert = b.includes('icici');
+      if (isIciciAlert) return inst.includes('icici') || name.includes('icici') || name.includes('amazon');
+
+      const isKotakAlert = b.includes('kotak');
+      if (isKotakAlert) return inst.includes('kotak') || name.includes('kotak');
+
+      const isPnbAlert = b.includes('pnb') || b.includes('punjab');
+      if (isPnbAlert) return inst.includes('pnb') || name.includes('pnb') || inst.includes('punjab') || name.includes('punjab');
+
+      const isIdfcAlert = b.includes('idfc');
+      if (isIdfcAlert) return inst.includes('idfc') || name.includes('idfc');
+
+      const isIndusindAlert = b.includes('indusind');
+      if (isIndusindAlert) return inst.includes('indusind') || name.includes('indusind');
+
+      const isAmexAlert = b.includes('amex') || b.includes('american express');
+      if (isAmexAlert) return inst.includes('amex') || name.includes('amex') || inst.includes('american express') || name.includes('american express');
 
       return (inst && (inst.includes(b) || b.includes(inst))) || name.includes(b);
     };

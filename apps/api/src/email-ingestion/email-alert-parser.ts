@@ -98,7 +98,12 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   const emailConfig = findEmailConfigForSender(senderOrSubject, fullContext);
 
   // Detect Bank / AMC Name
-  const matchedInst = findInstitution(fullContext);
+  // PRIORITY 1: Check senderOrSubject (e.g. alerts@axis.bank.in, Axis Bank Alerts)
+  const senderInst = senderOrSubject ? findInstitution(senderOrSubject) : null;
+  const configInst = emailConfig ? findInstitution(emailConfig.institutionId) : null;
+  const bodyInst = findInstitution(fullContext);
+
+  const matchedInst = senderInst || configInst || bodyInst;
   const isExplicitInvestment = EMAIL_ALERT_PATTERNS.EXPLICIT_INVESTMENT_REGEX.test(fullContext);
   const bankName = matchedInst ? matchedInst.name : (emailConfig?.displayName || (isExplicitInvestment ? 'Mutual Fund' : 'Bank Alert'));
 

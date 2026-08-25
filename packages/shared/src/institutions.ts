@@ -50,7 +50,7 @@ export const INSTITUTIONS: InstitutionDefinition[] = [
     aliases: ['axis', 'axis bank', 'axisbank'],
     localLogo: '/logos/axis.png',
     defaultType: AccountType.BANK,
-    senderDomains: ['axisbank.com'],
+    senderDomains: ['axisbank.com', 'axis.bank.in'],
   },
   {
     id: 'pnb',
@@ -67,7 +67,7 @@ export const INSTITUTIONS: InstitutionDefinition[] = [
     domain: 'kotak.com',
     aliases: ['kotak', 'kotak mahindra', 'kotak bank'],
     defaultType: AccountType.BANK,
-    senderDomains: ['kotak.com'],
+    senderDomains: ['kotak.com', 'kotak.bank.in'],
   },
   {
     id: 'idfc',
@@ -251,18 +251,24 @@ export function findInstitution(query?: string | null): InstitutionDefinition | 
     if (inst.id === q || inst.name.toLowerCase() === q) return inst;
   }
 
-  // 2. Alias match
+  // 2. Exact sender domain or domain substring match (gives highest fidelity for emails & URLs)
   for (const inst of INSTITUTIONS) {
-    if (inst.aliases.some((alias) => q.includes(alias.toLowerCase()))) {
+    if (inst.senderDomains?.some((sDomain) => q.includes(sDomain.toLowerCase()))) {
+      return inst;
+    }
+    if (q.includes(inst.domain.toLowerCase())) {
       return inst;
     }
   }
 
-  // 3. Domain match
+  // 3. Word-boundary alias matching (ensures short tokens like 'sbi', 'axis', 'rbl', 'bob' do not match inside words like '/SBIN/' or 'responsible')
   for (const inst of INSTITUTIONS) {
-    if (q.includes(inst.domain.toLowerCase())) return inst;
-    if (inst.senderDomains?.some((sDomain) => q.includes(sDomain.toLowerCase()))) {
-      return inst;
+    for (const alias of inst.aliases) {
+      const escaped = alias.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wordRegex = new RegExp(`(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`, 'i');
+      if (wordRegex.test(q)) {
+        return inst;
+      }
     }
   }
 
