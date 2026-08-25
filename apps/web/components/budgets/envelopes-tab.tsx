@@ -2,22 +2,19 @@
 
 import { useState, useMemo } from "react";
 import {
-  Plus,
-  Loader2,
-  Edit2,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   Search,
-  CheckCircle2,
-  AlertCircle,
   RefreshCw,
   Layers,
   ArrowUpRight,
   ArrowDownLeft,
   X,
   Check,
-  Sparkles,
+  Edit2,
+  Trash2,
+  Plus,
+  Loader2,
 } from "lucide-react";
 import { api, errorMessage, money } from "@/lib/api";
 
@@ -76,19 +73,19 @@ interface EnvelopesTabProps {
   selectedMonth: number;
   selectedYear: number;
   onMonthChange: (month: number, year: number) => void;
-  selectedCatId: string;
-  setSelectedCatId: (id: string) => void;
-  limitInput: string;
-  setLimitInput: (limit: string) => void;
-  savingBudget: boolean;
-  deletingBudgetId: string | null;
-  handleSaveBudget: (e: React.FormEvent) => Promise<void>;
-  handleDeleteBudget: (budgetId: string) => Promise<void>;
-  setEditingCategory: (cat: CategoryOption | null) => void;
-  setEditCatName: (name: string) => void;
-  setEditCatType: (type: "EXPENSE" | "INCOME" | "INVESTMENT") => void;
-  setEditCatColor: (color: string) => void;
-  setEditCatBudgetLimit: (limit: string) => void;
+  selectedCatId?: string;
+  setSelectedCatId?: (id: string) => void;
+  limitInput?: string;
+  setLimitInput?: (limit: string) => void;
+  savingBudget?: boolean;
+  deletingBudgetId?: string | null;
+  handleSaveBudget?: (e: React.FormEvent) => Promise<void>;
+  handleDeleteBudget?: (budgetId: string) => Promise<void>;
+  setEditingCategory?: (cat: CategoryOption | null) => void;
+  setEditCatName?: (name: string) => void;
+  setEditCatType?: (type: "EXPENSE" | "INCOME" | "INVESTMENT") => void;
+  setEditCatColor?: (color: string) => void;
+  setEditCatBudgetLimit?: (limit: string) => void;
   onReload: () => void;
 }
 
@@ -114,19 +111,6 @@ export function EnvelopesTab({
   selectedMonth,
   selectedYear,
   onMonthChange,
-  selectedCatId,
-  setSelectedCatId,
-  limitInput,
-  setLimitInput,
-  savingBudget,
-  deletingBudgetId,
-  handleSaveBudget,
-  handleDeleteBudget,
-  setEditingCategory,
-  setEditCatName,
-  setEditCatType,
-  setEditCatColor,
-  setEditCatBudgetLimit,
   onReload,
 }: EnvelopesTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -135,6 +119,8 @@ export function EnvelopesTab({
   // Inline editing state for quick limit updates directly in table row
   const [inlineEditingCatId, setInlineEditingCatId] = useState<string | null>(null);
   const [inlineLimitValue, setInlineLimitValue] = useState<string>("");
+  const [savingInlineCatId, setSavingInlineCatId] = useState<string | null>(null);
+  const [deletingCatBudgetId, setDeletingCatBudgetId] = useState<string | null>(null);
 
   // Month navigation helpers
   const handlePrevMonth = () => {
@@ -212,8 +198,6 @@ export function EnvelopesTab({
     });
   }, [expenseCategories, budgets, searchTerm, statusFilter]);
 
-  const [savingInlineCatId, setSavingInlineCatId] = useState<string | null>(null);
-
   // Handle saving an inline limit directly
   const handleSaveInlineLimit = async (catId: string) => {
     const val = parseFloat(inlineLimitValue.replace(/,/g, ""));
@@ -242,258 +226,233 @@ export function EnvelopesTab({
     }
   };
 
+  // Handle deleting a budget limit directly
+  const handleDeleteTargetLimit = async (budgetId: string) => {
+    if (!confirm("Are you sure you want to remove this envelope target?")) return;
+    setDeletingCatBudgetId(budgetId);
+    try {
+      await api(`/budgets/${budgetId}`, { method: "DELETE" });
+      onReload();
+    } catch (err) {
+      alert(errorMessage(err, "Failed to delete envelope limit."));
+    } finally {
+      setDeletingCatBudgetId(null);
+    }
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      {/* Top Header: Month Switcher & High-Level Summary Stats */}
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {/* ── Unified Header: Month Navigation & Integrated KPI Summary Cards ────────── */}
       <div
         className="panel"
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "16px",
           padding: "16px 20px",
-          borderRadius: "12px",
+          borderRadius: "14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
         }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "var(--background-alt)",
-              padding: "4px 8px",
-              borderRadius: "8px",
-              border: "1px solid var(--line)",
-            }}>
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              title="Previous Month"
+        {/* Month Selector Bar */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "12px",
+          }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div
               style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "4px",
                 display: "flex",
-                color: "var(--ink)",
-              }}>
-              <ChevronLeft size={16} />
-            </button>
-            <span
-              style={{
-                fontSize: "13px",
-                fontWeight: 700,
-                minWidth: "120px",
-                textAlign: "center",
-                color: "var(--ink)",
-              }}>
-              {monthLabel}
-            </span>
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              title="Next Month"
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "4px",
-                display: "flex",
-                color: "var(--ink)",
-              }}>
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          {!isCurrentMonth && (
-            <button
-              type="button"
-              onClick={handleResetToCurrentMonth}
-              style={{
-                fontSize: "12px",
-                color: "var(--muted)",
-                background: "transparent",
-                border: "1px dashed var(--line)",
-                padding: "4px 10px",
-                borderRadius: "6px",
-                cursor: "pointer",
-                display: "inline-flex",
                 alignItems: "center",
                 gap: "4px",
+                background: "var(--background-alt)",
+                padding: "4px 8px",
+                borderRadius: "8px",
+                border: "1px solid var(--line)",
               }}>
-              <RefreshCw size={12} /> Current Month
-            </button>
-          )}
+              <button
+                type="button"
+                onClick={handlePrevMonth}
+                title="Previous Month"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "4px",
+                  display: "flex",
+                  color: "var(--ink)",
+                }}>
+                <ChevronLeft size={16} />
+              </button>
+              <strong
+                style={{
+                  fontSize: "13.5px",
+                  fontWeight: 800,
+                  minWidth: "125px",
+                  textAlign: "center",
+                  color: "var(--ink)",
+                }}>
+                {monthLabel}
+              </strong>
+              <button
+                type="button"
+                onClick={handleNextMonth}
+                title="Next Month"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "4px",
+                  display: "flex",
+                  color: "var(--ink)",
+                }}>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+
+            {!isCurrentMonth && (
+              <button
+                type="button"
+                onClick={handleResetToCurrentMonth}
+                style={{
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                  background: "transparent",
+                  border: "1px dashed var(--line)",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}>
+                <RefreshCw size={12} /> Current Month
+              </button>
+            )}
+          </div>
+
+          <div style={{ fontSize: "12px", color: "var(--muted)" }}>
+            Envelope Budgeting for <strong style={{ color: "var(--ink)" }}>{monthLabel}</strong>
+          </div>
         </div>
 
-        <div style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ fontSize: "12px", color: "var(--muted)" }}>
-            Total Allocated:{" "}
-            <strong style={{ color: "var(--ink)", fontWeight: 800 }}>
-              {money(summary.totalBudgeted * 100)}
-            </strong>
-          </div>
-          <div style={{ fontSize: "12px", color: "var(--muted)" }}>
-            Total Spent:{" "}
-            <strong style={{ color: "#ef4444", fontWeight: 800 }}>
-              {money(summary.totalSpent * 100)}
-            </strong>
-          </div>
-          <div style={{ fontSize: "12px", color: "var(--muted)" }}>
-            Utilization:{" "}
+        {/* 3 Unified Metric Cards */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: "12px",
+          }}>
+          <div
+            style={{
+              background: "var(--background-alt)",
+              border: "1px solid var(--line)",
+              padding: "14px 16px",
+              borderRadius: "10px",
+            }}>
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "var(--muted)",
+                textTransform: "uppercase",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}>
+              <Layers size={12} color="var(--green)" /> Total Envelopes Budget
+            </span>
             <strong
               style={{
-                color:
-                  summary.overallPercentage > 100
-                    ? "#ef4444"
-                    : summary.overallPercentage >= 80
-                    ? "#f59e0b"
-                    : "var(--green)",
+                display: "block",
+                fontSize: "1.5rem",
                 fontWeight: 800,
+                color: "var(--ink)",
+                marginTop: "4px",
               }}>
-              {summary.overallPercentage}%
+              {money(summary.totalBudgeted * 100)}
             </strong>
+            <small style={{ color: "var(--muted)", fontSize: "11px", display: "block", marginTop: "2px" }}>
+              {counts.withTarget} of {counts.total} categories budgeted
+            </small>
+          </div>
+
+          <div
+            style={{
+              background: "var(--background-alt)",
+              border: "1px solid var(--line)",
+              padding: "14px 16px",
+              borderRadius: "10px",
+            }}>
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "var(--muted)",
+                textTransform: "uppercase",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}>
+              <ArrowUpRight size={13} color="#ef4444" /> Total Actual Outflows
+            </span>
+            <strong
+              style={{
+                display: "block",
+                fontSize: "1.5rem",
+                fontWeight: 800,
+                color: "#ef4444",
+                marginTop: "4px",
+              }}>
+              {money(summary.totalSpent * 100)}
+            </strong>
+            <small style={{ color: "var(--muted)", fontSize: "11px", display: "block", marginTop: "2px" }}>
+              Debits minus refunds for {monthLabel}
+            </small>
+          </div>
+
+          <div
+            style={{
+              background: "var(--background-alt)",
+              border: "1px solid var(--line)",
+              padding: "14px 16px",
+              borderRadius: "10px",
+            }}>
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                color: summary.totalRemaining > 0 ? "var(--green)" : "#ef4444",
+                textTransform: "uppercase",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}>
+              <ArrowDownLeft size={13} color="var(--green)" /> Budget Remaining ({summary.overallPercentage}%)
+            </span>
+            <strong
+              style={{
+                display: "block",
+                fontSize: "1.5rem",
+                fontWeight: 800,
+                color: summary.totalRemaining > 0 ? "var(--green)" : "#ef4444",
+                marginTop: "4px",
+              }}>
+              {money(summary.totalRemaining * 100)}
+            </strong>
+            <small style={{ color: "var(--muted)", fontSize: "11px", display: "block", marginTop: "2px" }}>
+              {summary.overallPercentage > 100 ? "Outflows exceed target limit" : "Available within allocated budget"}
+            </small>
           </div>
         </div>
       </div>
 
-      {/* KPI Metric Summary Cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "14px",
-        }}>
+      {/* ── Expense Envelopes & Target Limits Table ──────────────────────────────── */}
+      <section className="panel" style={{ padding: "20px", borderRadius: "14px" }}>
+        {/* Table Controls Header */}
         <div
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--line)",
-            padding: "16px 20px",
-            borderRadius: "14px",
-          }}>
-          <span
-            style={{
-              fontSize: "11px",
-              fontWeight: 700,
-              color: "var(--muted)",
-              textTransform: "uppercase",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              letterSpacing: "0.02em",
-            }}>
-            <Layers size={13} color="var(--green)" /> Total Envelopes Budget
-          </span>
-          <strong
-            style={{
-              display: "block",
-              fontSize: "1.6rem",
-              fontWeight: 800,
-              color: "var(--ink)",
-              marginTop: "6px",
-            }}>
-            {money(summary.totalBudgeted * 100)}
-          </strong>
-          <small
-            style={{
-              color: "var(--muted)",
-              fontSize: "11px",
-              marginTop: "4px",
-              display: "block",
-            }}>
-            {counts.withTarget} of {counts.total} expense categories budgeted
-          </small>
-        </div>
-
-        <div
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--line)",
-            padding: "16px 20px",
-            borderRadius: "14px",
-          }}>
-          <span
-            style={{
-              fontSize: "11px",
-              fontWeight: 700,
-              color: "var(--muted)",
-              textTransform: "uppercase",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              letterSpacing: "0.02em",
-            }}>
-            <ArrowUpRight size={13} color="#ef4444" /> Total Actual Outflows
-          </span>
-          <strong
-            style={{
-              display: "block",
-              fontSize: "1.6rem",
-              fontWeight: 800,
-              color: "#ef4444",
-              marginTop: "6px",
-            }}>
-            {money(summary.totalSpent * 100)}
-          </strong>
-          <small
-            style={{
-              color: "var(--muted)",
-              fontSize: "11px",
-              marginTop: "4px",
-              display: "block",
-            }}>
-            Actual debits minus refunds for {monthLabel}
-          </small>
-        </div>
-
-        <div
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--line)",
-            padding: "16px 20px",
-            borderRadius: "14px",
-          }}>
-          <span
-            style={{
-              fontSize: "11px",
-              fontWeight: 700,
-              color: summary.totalRemaining > 0 ? "var(--green)" : "#ef4444",
-              textTransform: "uppercase",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              letterSpacing: "0.02em",
-            }}>
-            <ArrowDownLeft size={13} color="var(--green)" /> Remaining in Budget
-          </span>
-          <strong
-            style={{
-              display: "block",
-              fontSize: "1.6rem",
-              fontWeight: 800,
-              color: summary.totalRemaining > 0 ? "var(--green)" : "#ef4444",
-              marginTop: "6px",
-            }}>
-            {money(summary.totalRemaining * 100)}
-          </strong>
-          <small
-            style={{
-              color: "var(--muted)",
-              fontSize: "11px",
-              marginTop: "4px",
-              display: "block",
-            }}>
-            Remaining envelope allowance for {monthLabel}
-          </small>
-        </div>
-      </div>
-
-      {/* ── Redesigned Expense Envelopes & Target Limits Table ─────────────────────── */}
-      <section className="panel" style={{ padding: "20px", borderRadius: "12px" }}>
-        <div
-          className="panel-title"
           style={{
             marginBottom: "16px",
             display: "flex",
@@ -507,12 +466,12 @@ export function EnvelopesTab({
               Envelope Limits &amp; Management
             </span>
             <h2 style={{ fontSize: "1.25rem", fontWeight: 800, margin: 0 }}>
-              Expense Envelopes &amp; Target Allocations ({filteredExpenseCategories.length})
+              Expense Category Envelopes ({filteredExpenseCategories.length})
             </h2>
           </div>
 
           {/* Search and Quick Status Filter Pills */}
-          <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
             <div
               style={{
                 display: "flex",
@@ -526,7 +485,7 @@ export function EnvelopesTab({
               <Search size={14} color="var(--muted)" />
               <input
                 type="text"
-                placeholder="Search expense category..."
+                placeholder="Search category..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={{
@@ -535,7 +494,7 @@ export function EnvelopesTab({
                   fontSize: "12px",
                   color: "var(--ink)",
                   outline: "none",
-                  width: "180px",
+                  width: "160px",
                 }}
               />
               {searchTerm && (
@@ -628,16 +587,16 @@ export function EnvelopesTab({
           </div>
         </div>
 
-        {/* Clean, Modern Table */}
+        {/* Clean, Non-redundant Table */}
         <div className="table-responsive">
           <table className="data-table" style={{ width: "100%", fontSize: "13px" }}>
             <thead>
               <tr style={{ borderBottom: "2px solid var(--line)" }}>
                 <th style={{ width: "260px", padding: "12px 10px" }}>Expense Category</th>
-                <th style={{ width: "220px", padding: "12px 10px" }}>Monthly Target Limit</th>
-                <th style={{ width: "220px", padding: "12px 10px" }}>Current Outflow ({monthLabel})</th>
+                <th style={{ width: "200px", padding: "12px 10px" }}>Monthly Target Limit</th>
+                <th style={{ width: "220px", padding: "12px 10px" }}>Current Outflow</th>
                 <th style={{ width: "180px", padding: "12px 10px" }}>Envelope Status</th>
-                <th style={{ width: "140px", padding: "12px 10px", textAlign: "right" }}>Actions</th>
+                <th style={{ width: "120px", padding: "12px 10px", textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -651,6 +610,8 @@ export function EnvelopesTab({
                 const txCount = budget?.transactionCount ?? 0;
                 const catColor = cat.color || "#3b82f6";
                 const isInlineEditing = inlineEditingCatId === cat.id;
+                const isSaving = savingInlineCatId === cat.id;
+                const isDeleting = deletingCatBudgetId === budget?.budgetId;
 
                 return (
                   <tr
@@ -678,7 +639,7 @@ export function EnvelopesTab({
                             <strong style={{ color: "var(--ink)", fontWeight: 700, fontSize: "13.5px" }}>
                               {cat.name}
                             </strong>
-                            {cat.superCategory && (
+                            {cat.superCategory && cat.superCategory.name !== "Expense" && (
                               <span
                                 style={{
                                   fontSize: "10px",
@@ -700,7 +661,7 @@ export function EnvelopesTab({
                       </div>
                     </td>
 
-                    {/* Column 2: Monthly Target Limit with Inline Editing */}
+                    {/* Column 2: Monthly Target Limit */}
                     <td style={{ padding: "12px 10px" }}>
                       {isInlineEditing ? (
                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -744,6 +705,7 @@ export function EnvelopesTab({
                           <button
                             type="button"
                             title="Save"
+                            disabled={isSaving}
                             onClick={() => handleSaveInlineLimit(cat.id)}
                             style={{
                               background: "var(--green)",
@@ -754,7 +716,7 @@ export function EnvelopesTab({
                               cursor: "pointer",
                               display: "flex",
                             }}>
-                            <Check size={13} />
+                            {isSaving ? <Loader2 size={13} className="spin" /> : <Check size={13} />}
                           </button>
                           <button
                             type="button"
@@ -777,7 +739,7 @@ export function EnvelopesTab({
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
-                            gap: "8px",
+                            gap: "6px",
                             cursor: "pointer",
                             padding: "4px 8px",
                             borderRadius: "6px",
@@ -800,7 +762,6 @@ export function EnvelopesTab({
                             {money(limit * 100)}
                           </strong>
                           <span style={{ fontSize: "11px", color: "var(--muted)" }}>/ mo</span>
-                          <Edit2 size={11} color="var(--muted)" />
                         </div>
                       ) : (
                         <button
@@ -822,14 +783,14 @@ export function EnvelopesTab({
                             borderRadius: "6px",
                             cursor: "pointer",
                           }}>
-                          <Plus size={12} /> Set Target Limit
+                          <Plus size={12} /> Set Target
                         </button>
                       )}
                     </td>
 
-                    {/* Column 3: Current Outflow & Utilization Progress */}
+                    {/* Column 3: Current Outflow & Progress */}
                     <td style={{ padding: "12px 10px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", width: "160px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", width: "150px" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                           <strong style={{ color: "var(--ink)", fontSize: "13px" }}>
                             {money(spent * 100)}
@@ -932,7 +893,7 @@ export function EnvelopesTab({
                       )}
                     </td>
 
-                    {/* Column 5: Actions */}
+                    {/* Column 5: Clean Actions */}
                     <td style={{ padding: "12px 10px", textAlign: "right" }}>
                       <div
                         style={{
@@ -945,12 +906,11 @@ export function EnvelopesTab({
                           type="button"
                           title={hasBudget ? "Edit Target Limit" : "Set Target Limit"}
                           onClick={() => {
-                            setSelectedCatId(cat.id);
-                            setLimitInput(hasBudget ? String(limit) : "");
-                            window.scrollTo({ top: 0, behavior: "smooth" });
+                            setInlineEditingCatId(cat.id);
+                            setInlineLimitValue(hasBudget ? String(limit) : "");
                           }}
                           style={{
-                            padding: "4px 8px",
+                            padding: "4px 10px",
                             borderRadius: "6px",
                             border: "1px solid var(--line)",
                             background: "var(--background-alt)",
@@ -970,8 +930,8 @@ export function EnvelopesTab({
                           <button
                             type="button"
                             title="Remove Target Limit"
-                            onClick={() => handleDeleteBudget(budget.budgetId!)}
-                            disabled={deletingBudgetId === budget.budgetId}
+                            onClick={() => handleDeleteTargetLimit(budget.budgetId!)}
+                            disabled={isDeleting}
                             style={{
                               padding: "4px 8px",
                               borderRadius: "6px",
@@ -983,11 +943,7 @@ export function EnvelopesTab({
                               display: "inline-flex",
                               alignItems: "center",
                             }}>
-                            {deletingBudgetId === budget.budgetId ? (
-                              <Loader2 size={11} className="spin" />
-                            ) : (
-                              <Trash2 size={11} />
-                            )}
+                            {isDeleting ? <Loader2 size={11} className="spin" /> : <Trash2 size={11} />}
                           </button>
                         )}
                       </div>
