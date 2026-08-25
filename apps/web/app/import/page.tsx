@@ -767,61 +767,125 @@ function ImportWorkspace() {
         )}
 
         {/* Email Header Banner */}
-        <div className="panel" style={{ padding: '20px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(99, 102, 241, 0.04) 100%)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <div style={{ background: '#3b82f6', color: '#fff', padding: '10px', borderRadius: '10px' }}>
-                <Mail size={24} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--ink)' }}>Email Transaction Alert Ingestion</h3>
-                <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--muted)' }}>
-                  Parse bank transaction alert emails &amp; SMS text instantly (HDFC, ICICI, SBI, Axis, Amex, Kotak).
-                </p>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                className={`secondary compact ${emailSubTab === 'GMAIL_OAUTH' ? 'active' : ''}`}
-                onClick={() => setEmailSubTab('GMAIL_OAUTH')}>
-                <ShieldCheck size={14} /> 1-Click Connect Google
-              </button>
-              <button
-                type="button"
-                className={`secondary compact ${emailSubTab === 'LOGS' ? 'active' : ''}`}
-                onClick={() => { setEmailSubTab('LOGS'); loadEmailLogs(); }}>
-                <RefreshCw size={14} /> Activity Logs
-              </button>
-            </div>
-          </div>
-        </div>
-
         {/* Notice & Error Messages */}
         {error && <div className="error-banner" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><AlertTriangle size={16}/><span>{error}</span></div>}
         {notice && <div className="notice-banner" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}><Check size={16}/><span>{notice}</span></div>}
 
-        {emailSubTab === 'GMAIL_OAUTH' && (
+        {emailSubTab === 'LOGS' ? (
           <div className="panel" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
                 <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: 700, color: 'var(--ink)' }}>
-                  Google OAuth 2.0 Gmail Sync
+                  Email Ingestion Activity Logs
                 </h4>
                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>
-                  Connect your Google Account securely to automatically scan bank transaction alerts (HDFC, ICICI, SBI, Axis, Kotak, Amex, PNB).
+                  Recent transaction alert parsing events and sync history.
                 </p>
               </div>
+              <button
+                type="button"
+                className="secondary compact"
+                onClick={() => setEmailSubTab('GMAIL_OAUTH')}
+                style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldCheck size={14} /> Back to Gmail Sync
+              </button>
+            </div>
 
-              {googleConfig?.connected ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {loadingEmailLogs ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--muted)' }}>
+                <RefreshCw size={24} className="spin" style={{ margin: '0 auto 12px auto', display: 'block' }} />
+                <span>Loading activity logs…</span>
+              </div>
+            ) : emailLogs.length === 0 ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--muted)' }}>
+                <span>No ingestion activity logged yet.</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {emailLogs.map((log: any, idx: number) => (
+                  <div
+                    key={log.id || idx}
+                    style={{
+                      padding: '12px 16px',
+                      background: 'var(--background-alt)',
+                      borderRadius: '8px',
+                      border: '1px solid var(--line)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '12.5px',
+                    }}>
+                    <div>
+                      <strong style={{ color: 'var(--ink)', marginRight: '8px' }}>{log.event || log.subject || 'Email Scan'}</strong>
+                      <span style={{ color: 'var(--muted)' }}>{log.details || log.message}</span>
+                    </div>
+                    <small style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                      {log.createdAt ? new Date(log.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Header & Main Actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                <div style={{ background: '#3b82f6', color: '#fff', padding: '12px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Mail size={24} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--ink)' }}>
+                      Gmail Auto-Sync Engine
+                    </h3>
+                    {googleConfig?.connected && (
+                      <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        ● Connected ({(googleConfig.configs && googleConfig.configs.length) || 1})
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--muted)' }}>
+                    Scan and ingest transaction alerts from HDFC, ICICI, SBI, Axis, Kotak, Amex, and Mutual Funds.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="secondary compact"
+                  onClick={() => { setEmailSubTab('LOGS'); loadEmailLogs(); }}
+                  style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <RefreshCw size={13} /> Activity Logs
+                </button>
+
+                {googleConfig?.connected ? (
+                  <>
                     <button
                       type="button"
-                      className="primary compact"
+                      className="secondary compact"
+                      onClick={handleConnectGoogle}
+                      disabled={connectingGoogle}
+                      style={{ fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Mail size={13} /> + Add Gmail
+                    </button>
+
+                    <button
+                      type="button"
+                      className="primary"
                       onClick={() => handleSyncGmailNow()}
                       disabled={syncingGmail || (syncAccountScope === 'CUSTOM' && selectedSyncAccountIds.length === 0)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                      }}>
                       <RefreshCw size={14} className={syncingGmail ? 'spin' : ''} />
                       <span>
                         {syncingGmail
@@ -833,57 +897,98 @@ function ImportWorkspace() {
                           : syncAccountScope === 'ALL_INVESTMENTS'
                           ? `Sync SIP & Mutual Funds (${syncDays}D)`
                           : syncAccountScope === 'CUSTOM'
-                          ? `Sync (${selectedSyncAccountIds.length}) Selected Accounts`
-                          : `Sync All Inboxes (${syncDays === 90 ? '3 Months' : `${syncDays} Days`})`}
+                          ? `Sync (${selectedSyncAccountIds.length}) Selected`
+                          : `Sync All Inboxes (${syncDays}D)`}
                       </span>
                     </button>
-
-                    <button
-                      type="button"
-                      className="secondary compact"
-                      onClick={handleConnectGoogle}
-                      disabled={connectingGoogle}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <Mail size={14} />
-                      <span>+ Connect Another Gmail</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={handleConnectGoogle}
-                  disabled={connectingGoogle}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    padding: '10px 18px',
-                    borderRadius: '8px',
-                    fontWeight: 700,
-                    fontSize: '14px',
-                    background: '#4285F4',
-                    borderColor: '#4285F4',
-                    color: '#ffffff',
-                    boxShadow: '0 2px 8px rgba(66, 133, 244, 0.25)',
-                  }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24">
-                    <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#ffffff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#ffffff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                    <path fill="#ffffff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                  </svg>
-                  <span>{connectingGoogle ? 'Opening Google Sign-In…' : 'Connect with Google Account'}</span>
-                </button>
-              )}
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={handleConnectGoogle}
+                    disabled={connectingGoogle}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '10px 18px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      background: '#4285F4',
+                      borderColor: '#4285F4',
+                      color: '#ffffff',
+                    }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24">
+                      <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#ffffff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#ffffff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                      <path fill="#ffffff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>{connectingGoogle ? 'Connecting…' : 'Connect Google Account'}</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {googleConfig?.connected ? (
-              <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* Account-Level Granularity Scope Selector */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Connected Inboxes Strip */}
+                <div style={{ background: 'var(--background-alt)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Connected Inboxes:
+                    </span>
+                    {(googleConfig.configs && googleConfig.configs.length > 0 ? googleConfig.configs : [{ id: 'single', email: googleConfig.email, lastSyncAt: googleConfig.lastSyncAt, syncStatus: googleConfig.syncStatus }]).map((cfg: any) => (
+                      <div
+                        key={cfg.id || cfg.email}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          background: 'var(--card)',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--line)',
+                          fontSize: '12px',
+                        }}>
+                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                        <strong style={{ color: 'var(--ink)' }}>{cfg.email}</strong>
+                        {cfg.lastSyncAt && (
+                          <span style={{ color: 'var(--muted)', fontSize: '11px' }}>
+                            ({new Date(cfg.lastSyncAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })})
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDisconnectGoogle(cfg.id !== 'single' ? cfg.id : undefined, cfg.email)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            padding: '0 2px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            marginLeft: '4px',
+                          }}>
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {lastSyncMeta && (
+                    <div style={{ fontSize: '11.5px', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Calendar size={13} color="var(--green)" />
+                      <span>Latest Range: <strong>{lastSyncMeta.label || `Past ${lastSyncMeta.daysSynced} days`}</strong></span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Scope & Time Window Toolbar */}
                 {(() => {
-                  // Only include accounts supported by email transaction alert parsers
                   const bankAccounts = (catalog?.accounts || []).filter((a) =>
                     ['BANK', 'SAVINGS'].includes(a.type) &&
                     a.type !== 'UPI_LITE' &&
@@ -936,341 +1041,226 @@ function ImportWorkspace() {
                   ).length;
 
                   return (
-                    <div style={{ background: 'var(--background-alt)', padding: '16px', borderRadius: '12px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                          <ShieldCheck size={14} color="var(--green)" /> Target Sync Scope:
-                        </span>
-
-                        {syncAccountScope === 'CUSTOM' && (
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedSyncAccountIds(allSupportedAccountIds)}
-                              style={{ fontSize: '11px', color: 'var(--green)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
-                              Select All ({allSupportedAccounts.length})
-                            </button>
-                            <span style={{ color: 'var(--line)' }}>|</span>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedSyncAccountIds([])}
-                              style={{ fontSize: '11px', color: 'var(--muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                              Deselect All
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Scope Selector Chips */}
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        {[
-                          { id: 'ALL', label: 'All Accounts', icon: Landmark, count: allSupportedAccounts.length },
-                          {
-                            id: 'ALL_BANKS',
-                            label: 'Bank Accounts Only',
-                            icon: Landmark,
-                            count: bankAccounts.length,
-                          },
-                          {
-                            id: 'ALL_CARDS',
-                            label: 'Credit Cards Only',
-                            icon: CreditCard,
-                            count: creditCards.length,
-                          },
-                          {
-                            id: 'ALL_INVESTMENTS',
-                            label: 'SIP & Mutual Funds',
-                            icon: BriefcaseBusiness,
-                            count: investments.length,
-                          },
-                          {
-                            id: 'CUSTOM',
-                            label: `Specific Accounts ${selectedSupportedCount > 0 ? `(${selectedSupportedCount})` : ''}`,
-                            icon: Check,
-                            count: selectedSupportedCount,
-                          },
-                        ].map((scope) => {
-                          const Icon = scope.icon;
-                          const isActive = syncAccountScope === scope.id;
-                          return (
-                            <button
-                              key={scope.id}
-                              type="button"
-                              className={`secondary compact ${isActive ? 'active' : ''}`}
-                              onClick={() => {
-                                setSyncAccountScope(scope.id as any);
-                                if (scope.id === 'CUSTOM' && selectedSyncAccountIds.length === 0) {
-                                  setSelectedSyncAccountIds(allSupportedAccountIds);
-                                }
-                              }}
-                              style={{
-                                fontSize: '11.5px',
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                fontWeight: isActive ? 700 : 500,
-                                background: isActive ? 'var(--ink)' : 'var(--card)',
-                                color: isActive ? '#ffffff' : 'var(--ink)',
-                                border: '1px solid var(--line)',
-                              }}>
-                              <Icon size={13} color={isActive ? '#ffffff' : 'var(--green)'} />
-                              <span>{scope.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Specific Account Categorically Grouped Multi-Select Checklist */}
-                      {syncAccountScope === 'CUSTOM' && (
-                        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                          {categoriesList.map((catGroup) => {
-                            const Icon = catGroup.icon;
-                            const groupAccountIds = catGroup.accounts.map((a) => a.id);
-                            const selectedInGroupCount = groupAccountIds.filter((id) =>
-                              selectedSyncAccountIds.includes(id)
-                            ).length;
-                            const allSelectedInGroup = selectedInGroupCount === groupAccountIds.length;
-
-                            const toggleGroupAll = () => {
-                              if (allSelectedInGroup) {
-                                setSelectedSyncAccountIds((prev) =>
-                                  prev.filter((id) => !groupAccountIds.includes(id))
-                                );
-                              } else {
-                                setSelectedSyncAccountIds((prev) =>
-                                  Array.from(new Set([...prev, ...groupAccountIds]))
-                                );
-                              }
-                            };
-
+                    <div style={{ background: 'var(--card)', borderRadius: '12px', border: '1px solid var(--line)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                        {/* Scope Pills */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--muted)', marginRight: '4px' }}>
+                            Scope:
+                          </span>
+                          {[
+                            { id: 'ALL', label: `All (${allSupportedAccounts.length})`, icon: Landmark },
+                            { id: 'ALL_BANKS', label: `Banks (${bankAccounts.length})`, icon: Landmark },
+                            { id: 'ALL_CARDS', label: `Cards (${creditCards.length})`, icon: CreditCard },
+                            { id: 'ALL_INVESTMENTS', label: `SIP / MF (${investments.length})`, icon: BriefcaseBusiness },
+                            { id: 'CUSTOM', label: `Custom ${selectedSupportedCount > 0 ? `(${selectedSupportedCount})` : ''}`, icon: Check },
+                          ].map((scope) => {
+                            const Icon = scope.icon;
+                            const isActive = syncAccountScope === scope.id;
                             return (
-                              <div
-                                key={catGroup.key}
+                              <button
+                                key={scope.id}
+                                type="button"
+                                onClick={() => {
+                                  setSyncAccountScope(scope.id as any);
+                                  if (scope.id === 'CUSTOM' && selectedSyncAccountIds.length === 0) {
+                                    setSelectedSyncAccountIds(allSupportedAccountIds);
+                                  }
+                                }}
                                 style={{
-                                  background: 'var(--card)',
-                                  borderRadius: '10px',
-                                  border: '1px solid var(--line)',
-                                  padding: '14px 16px',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '10px',
+                                  fontSize: '11.5px',
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  fontWeight: isActive ? 700 : 500,
+                                  background: isActive ? 'var(--ink)' : 'var(--background-alt)',
+                                  color: isActive ? '#ffffff' : 'var(--ink)',
+                                  border: `1px solid ${isActive ? 'var(--ink)' : 'var(--line)'}`,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.1s ease',
                                 }}>
-                                {/* Category Header */}
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    borderBottom: '1px solid var(--line)',
-                                    paddingBottom: '8px',
-                                  }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Icon size={16} color={catGroup.color} />
-                                    <strong style={{ fontSize: '13px', color: 'var(--ink)' }}>
-                                      {catGroup.title}
-                                    </strong>
-                                    <span
+                                <Icon size={12} color={isActive ? '#ffffff' : 'var(--muted)'} />
+                                <span>{scope.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Scan Time Window Segmented Bar */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--background-alt)', padding: '3px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', padding: '0 6px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            <Calendar size={12} />
+                          </span>
+                          {[
+                            { days: 7, label: '7D' },
+                            { days: 30, label: '30D' },
+                            { days: 90, label: '90D (3M)' },
+                            { days: 180, label: '180D (6M)' },
+                          ].map((preset) => (
+                            <button
+                              key={preset.days}
+                              type="button"
+                              onClick={() => setSyncDays(preset.days)}
+                              style={{
+                                fontSize: '11px',
+                                padding: '3px 8px',
+                                borderRadius: '5px',
+                                border: 'none',
+                                fontWeight: syncDays === preset.days ? 700 : 500,
+                                background: syncDays === preset.days ? 'var(--card)' : 'transparent',
+                                color: syncDays === preset.days ? 'var(--ink)' : 'var(--muted)',
+                                boxShadow: syncDays === preset.days ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                cursor: 'pointer',
+                              }}>
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Custom Specific Accounts Filter (Compact Tag Grid) */}
+                      {syncAccountScope === 'CUSTOM' && (
+                        <div style={{ borderTop: '1px solid var(--line)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
+                              Select the specific accounts you want to scan and sync:
+                            </span>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedSyncAccountIds(allSupportedAccountIds)}
+                                style={{ fontSize: '11px', color: 'var(--green)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                                Select All ({allSupportedAccounts.length})
+                              </button>
+                              <span style={{ color: 'var(--line)' }}>|</span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedSyncAccountIds([])}
+                                style={{ fontSize: '11px', color: 'var(--muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                                Deselect All
+                              </button>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {categoriesList.map((catGroup) => {
+                              const groupAccountIds = catGroup.accounts.map((a) => a.id);
+                              const selectedInGroupCount = groupAccountIds.filter((id) =>
+                                selectedSyncAccountIds.includes(id)
+                              ).length;
+                              const allSelectedInGroup = selectedInGroupCount === groupAccountIds.length;
+
+                              const toggleGroupAll = () => {
+                                if (allSelectedInGroup) {
+                                  setSelectedSyncAccountIds((prev) =>
+                                    prev.filter((id) => !groupAccountIds.includes(id))
+                                  );
+                                } else {
+                                  setSelectedSyncAccountIds((prev) =>
+                                    Array.from(new Set([...prev, ...groupAccountIds]))
+                                  );
+                                }
+                              };
+
+                              return (
+                                <div key={catGroup.key} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--ink)' }}>
+                                        {catGroup.title}
+                                      </span>
+                                      <span style={{ fontSize: '10px', color: 'var(--muted)', background: 'var(--background-alt)', padding: '1px 5px', borderRadius: '6px', fontWeight: 600 }}>
+                                        {selectedInGroupCount}/{catGroup.accounts.length}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={toggleGroupAll}
                                       style={{
                                         fontSize: '10.5px',
-                                        fontWeight: 700,
-                                        background: 'var(--background-alt)',
-                                        padding: '1px 6px',
-                                        borderRadius: '10px',
-                                        color: 'var(--muted)',
+                                        color: allSelectedInGroup ? 'var(--muted)' : 'var(--green)',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
                                       }}>
-                                      {selectedInGroupCount} / {catGroup.accounts.length}
-                                    </span>
+                                      {allSelectedInGroup ? 'Deselect All' : 'Select All'}
+                                    </button>
                                   </div>
 
-                                  <button
-                                    type="button"
-                                    onClick={toggleGroupAll}
-                                    style={{
-                                      fontSize: '11px',
-                                      fontWeight: 600,
-                                      color: allSelectedInGroup ? 'var(--muted)' : 'var(--green)',
-                                      background: 'transparent',
-                                      border: 'none',
-                                      cursor: 'pointer',
-                                    }}>
-                                    {allSelectedInGroup ? 'Deselect Category' : 'Select All in Category'}
-                                  </button>
-                                </div>
-
-                                {/* Accounts Grid */}
-                                <div
-                                  style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-                                    gap: '8px',
-                                  }}>
-                                  {catGroup.accounts.map((acc) => {
-                                    const isChecked = selectedSyncAccountIds.includes(acc.id);
-                                    return (
-                                      <label
-                                        key={acc.id}
-                                        style={{
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          gap: '10px',
-                                          padding: '8px 12px',
-                                          borderRadius: '8px',
-                                          background: isChecked
-                                            ? 'rgba(29, 117, 79, 0.06)'
-                                            : 'var(--background-alt)',
-                                          border: isChecked
-                                            ? '1px solid var(--green)'
-                                            : '1px solid var(--line)',
-                                          cursor: 'pointer',
-                                          transition: 'all 0.1s ease',
-                                        }}>
-                                        <input
-                                          type="checkbox"
-                                          checked={isChecked}
-                                          onChange={(e) => {
-                                            if (e.target.checked) {
-                                              setSelectedSyncAccountIds((prev) => [...prev, acc.id]);
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '6px' }}>
+                                    {catGroup.accounts.map((acc) => {
+                                      const isChecked = selectedSyncAccountIds.includes(acc.id);
+                                      return (
+                                        <button
+                                          key={acc.id}
+                                          type="button"
+                                          onClick={() => {
+                                            if (isChecked) {
+                                              setSelectedSyncAccountIds((prev) => prev.filter((id) => id !== acc.id));
                                             } else {
-                                              setSelectedSyncAccountIds((prev) =>
-                                                prev.filter((id) => id !== acc.id)
-                                              );
+                                              setSelectedSyncAccountIds((prev) => [...prev, acc.id]);
                                             }
                                           }}
                                           style={{
-                                            accentColor: 'var(--green)',
-                                            width: '15px',
-                                            height: '15px',
-                                            cursor: 'pointer',
-                                          }}
-                                        />
-                                        <Icon size={14} color={isChecked ? 'var(--green)' : 'var(--muted)'} />
-                                        <div
-                                          style={{
                                             display: 'flex',
-                                            flexDirection: 'column',
-                                            minWidth: 0,
-                                            flex: 1,
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '6px 10px',
+                                            borderRadius: '6px',
+                                            background: isChecked ? 'rgba(29, 117, 79, 0.08)' : 'var(--background-alt)',
+                                            border: `1px solid ${isChecked ? 'var(--green)' : 'var(--line)'}`,
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            transition: 'all 0.1s ease',
                                           }}>
-                                          <strong
+                                          <span
                                             style={{
-                                              fontSize: '12px',
-                                              color: 'var(--ink)',
-                                              whiteSpace: 'nowrap',
-                                              overflow: 'hidden',
-                                              textOverflow: 'ellipsis',
+                                              width: '14px',
+                                              height: '14px',
+                                              borderRadius: '3px',
+                                              border: `1.5px solid ${isChecked ? 'var(--green)' : 'var(--muted)'}`,
+                                              background: isChecked ? 'var(--green)' : 'transparent',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              color: '#fff',
+                                              fontSize: '10px',
+                                              fontWeight: 900,
+                                              flexShrink: 0,
                                             }}>
-                                            {acc.name}
-                                          </strong>
-                                          <small style={{ fontSize: '10px', color: 'var(--muted)' }}>
-                                            {acc.institution || acc.type}
-                                          </small>
-                                        </div>
-                                      </label>
-                                    );
-                                  })}
+                                            {isChecked ? '✓' : ''}
+                                          </span>
+                                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                                            <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                              {acc.name}
+                                            </span>
+                                            <span style={{ fontSize: '9.5px', color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                              {acc.institution || acc.type}
+                                            </span>
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>
                   );
                 })()}
-
-                {/* Time Range Selector */}
-                <div style={{ background: 'var(--background-alt)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <Calendar size={14} /> Scan Time Window:
-                  </span>
-                  {[
-                    { days: 7, label: 'Past 7 Days' },
-                    { days: 30, label: 'Past 30 Days' },
-                    { days: 90, label: 'Past 90 Days (3 Months)' },
-                    { days: 180, label: 'Past 180 Days (6 Months)' },
-                  ].map((preset) => (
-                    <button
-                      key={preset.days}
-                      type="button"
-                      className={`secondary compact ${syncDays === preset.days ? 'active' : ''}`}
-                      onClick={() => setSyncDays(preset.days)}
-                      style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '6px' }}>
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Account Cards Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
-                  {(googleConfig.configs && googleConfig.configs.length > 0 ? googleConfig.configs : [{ id: 'single', email: googleConfig.email, lastSyncAt: googleConfig.lastSyncAt, syncStatus: googleConfig.syncStatus }]).map((cfg: any) => (
-                    <div key={cfg.id || cfg.email} style={{ background: 'var(--background-alt)', padding: '16px', borderRadius: '12px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '3px 8px', borderRadius: '12px', fontSize: '10px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            ✓ Connected
-                          </span>
-                          <span style={{ fontSize: '11px', color: cfg.syncStatus === 'ACTIVE' ? '#10b981' : '#ef4444', fontWeight: 600 }}>
-                            {cfg.syncStatus || 'ACTIVE'}
-                          </span>
-                        </div>
-                        <strong style={{ fontSize: '14px', color: 'var(--ink)', display: 'block', wordBreak: 'break-all' }}>{cfg.email}</strong>
-                        <small style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                          Last Synced: {cfg.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Not synced yet'}
-                        </small>
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--line)', paddingTop: '10px', marginTop: '4px' }}>
-                        <button
-                          type="button"
-                          className="secondary compact"
-                          onClick={() => handleSyncGmailNow(syncDays, cfg.id !== 'single' ? cfg.id : undefined)}
-                          disabled={syncingGmail || (syncAccountScope === 'CUSTOM' && selectedSyncAccountIds.length === 0)}
-                          style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <RefreshCw size={12} className={syncingGmail ? 'spin' : ''} />
-                          <span>
-                            {syncingGmail
-                              ? 'Syncing…'
-                              : syncAccountScope === 'ALL_BANKS'
-                              ? 'Sync Bank Accounts'
-                              : syncAccountScope === 'ALL_CARDS'
-                              ? 'Sync Credit Cards'
-                              : syncAccountScope === 'ALL_INVESTMENTS'
-                              ? 'Sync SIP & Mutual Funds'
-                              : syncAccountScope === 'CUSTOM'
-                              ? `Sync (${selectedSyncAccountIds.length}) Selected`
-                              : 'Sync This Inbox'}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button danger"
-                          onClick={() => handleDisconnectGoogle(cfg.id !== 'single' ? cfg.id : undefined, cfg.email)}
-                          style={{ color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px' }}>
-                          Disconnect
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {lastSyncMeta && (
-                  <div style={{ padding: '8px 12px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Calendar size={14} color="#3b82f6" />
-                    <span style={{ color: 'var(--ink)' }}>
-                      <strong>Latest Synced Alerts Range:</strong> {lastSyncMeta.label || `Past ${lastSyncMeta.daysSynced} days`}
-                    </span>
-                  </div>
-                )}
               </div>
             ) : (
-              <div style={{ marginTop: '20px', background: 'var(--background-alt)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)', fontSize: '13px', lineHeight: 1.5, color: 'var(--muted)' }}>
+              <div style={{ background: 'var(--background-alt)', padding: '16px 20px', borderRadius: '10px', border: '1px solid var(--line)', fontSize: '13px', lineHeight: 1.6, color: 'var(--muted)' }}>
                 <strong style={{ color: 'var(--ink)', display: 'block', marginBottom: '6px' }}>🔒 Privacy &amp; Security Guarantees:</strong>
                 <ul style={{ margin: 0, paddingLeft: '20px' }}>
                   <li><strong>Multiple Google Accounts Supported</strong>: Connect separate Gmail accounts for different bank accounts &amp; credit cards.</li>
-                  <li><strong>Bank &amp; Credit Card Alerts Ingested</strong>: Ingest transaction emails across Bank Savings accounts, UPI Lite, and Credit Cards.</li>
-                  <li><strong>Read-Only Access</strong>: YAFT only requests `gmail.readonly` permission to detect transaction alert subjects &amp; amounts.</li>
+                  <li><strong>Supported Ingestion</strong>: Bank savings alerts, credit card transaction emails, and SIP/Mutual Fund allotment notices.</li>
+                  <li><strong>Read-Only Access</strong>: YAFT only requests read-only permission to detect transaction alert subjects &amp; amounts.</li>
                   <li><strong>Local Token Encryption</strong>: OAuth refresh tokens are encrypted at rest using local AES-256-GCM.</li>
                 </ul>
               </div>
