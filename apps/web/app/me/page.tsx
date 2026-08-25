@@ -6,8 +6,6 @@ import {
   Check,
   CheckCircle2,
   Cloud,
-  Copy,
-  CreditCard,
   Database,
   Download,
   ExternalLink,
@@ -15,7 +13,6 @@ import {
   Globe,
   History,
   Key,
-  Landmark,
   Lock,
   RefreshCw,
   RotateCcw,
@@ -33,15 +30,6 @@ type UserProfile = {
   id: string;
   name: string;
   email: string;
-};
-
-type AccountItem = {
-  id: string;
-  name: string;
-  type: string;
-  institution?: string;
-  accountNumber?: string;
-  balance: number;
 };
 
 type DriveConfig = {
@@ -64,11 +52,8 @@ type DriveRevision = {
 export default function ProfileMePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [accounts, setAccounts] = useState<AccountItem[]>([]);
-  const [vaultEntries, setVaultEntries] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Preference state
   const [defaultDatePreset, setDefaultDatePreset] = useState("DEFAULT");
@@ -137,19 +122,8 @@ export default function ProfileMePage() {
 
     async function loadProfileData() {
       try {
-        const [meData, accData, vaultData] = await Promise.all([
-          api<UserProfile>("/auth/me"),
-          api<AccountItem[]>("/accounts"),
-          api<{ accountId: string; last4?: string }[]>("/vault").catch(() => []),
-        ]);
+        const meData = await api<UserProfile>("/auth/me");
         setProfile(meData);
-        setAccounts(accData);
-
-        const vMap: Record<string, string> = {};
-        for (const v of vaultData) {
-          if (v.last4) vMap[v.accountId] = v.last4;
-        }
-        setVaultEntries(vMap);
       } catch (err) {
         if (isUnauthorized(err)) {
           router.replace("/login");
@@ -185,12 +159,6 @@ export default function ProfileMePage() {
         });
     }
   }, [router, loadGoogleDriveData]);
-
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(text);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
 
   const handleSavePreferences = (preset: string) => {
     setDefaultDatePreset(preset);
@@ -1076,129 +1044,6 @@ export default function ProfileMePage() {
               </div>
             </div>
           )}
-
-          {/* Section 5: System Identifiers & Linked Accounts Directory */}
-          <section className="panel" style={{ padding: "24px" }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
-                flexWrap: "wrap",
-                gap: "10px",
-              }}>
-              <div>
-                <span className="eyebrow">System metadata</span>
-                <h2 style={{ margin: 0, fontSize: "18px" }}>Linked Accounts & System Identifiers (IDs)</h2>
-              </div>
-              <span
-                style={{
-                  fontSize: "12px",
-                  background: "var(--card-hover)",
-                  border: "1px solid var(--line)",
-                  padding: "4px 10px",
-                  borderRadius: "8px",
-                  fontWeight: 600,
-                }}>
-                {accounts.length} Total Account{accounts.length === 1 ? "" : "s"}
-              </span>
-            </div>
-
-            <div style={{ overflowX: "auto" }}>
-              <div className="account-transaction-table system-ids-table">
-                <header>
-                  <span>Account Name</span>
-                  <span>System ID (accountId)</span>
-                  <span>Type & Institution</span>
-                  <span>Card / Account Masked</span>
-                  <span style={{ textAlign: "right" }}>Copy</span>
-                </header>
-
-                {accounts.map((acc) => {
-                  const last4 = vaultEntries[acc.id];
-                  return (
-                    <article key={acc.id} className="transaction-row">
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, overflow: "hidden" }}>
-                        {acc.type === "CREDIT_CARD" ? (
-                          <CreditCard size={15} color="var(--accent)" style={{ flexShrink: 0 }} />
-                        ) : (
-                          <Landmark size={15} color="#0ea5e9" style={{ flexShrink: 0 }} />
-                        )}
-                        <strong
-                          style={{
-                            fontSize: "13px",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                          title={acc.name}>
-                          {acc.name}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <code
-                          style={{
-                            fontFamily: "monospace",
-                            fontSize: "11px",
-                            background: "var(--background-alt)",
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            border: "1px solid var(--line)",
-                          }}>
-                          {acc.id}
-                        </code>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span
-                          style={{
-                            fontSize: "10px",
-                            fontWeight: 700,
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            background: acc.type === "CREDIT_CARD" ? "rgba(245, 158, 11, 0.15)" : "rgba(14, 165, 233, 0.15)",
-                            color: acc.type === "CREDIT_CARD" ? "#f59e0b" : "#0ea5e9",
-                          }}>
-                          {acc.type}
-                        </span>
-                        {acc.institution && (
-                          <small style={{ color: "var(--muted)", fontSize: "11px" }}>
-                            ({acc.institution})
-                          </small>
-                        )}
-                      </div>
-
-                      <div>
-                        {last4 ? (
-                          <span style={{ fontFamily: "monospace", fontSize: "12px", fontWeight: 600 }}>
-                            ••••{last4}
-                          </span>
-                        ) : (
-                          <span style={{ color: "var(--muted)", fontSize: "11px" }}>—</span>
-                        )}
-                      </div>
-
-                      <div style={{ textAlign: "right" }}>
-                        <button
-                          type="button"
-                          className="ghost compact"
-                          onClick={() => copyToClipboard(acc.id, "Account ID")}
-                          style={{ padding: "4px 8px", fontSize: "11px" }}>
-                          {copiedId === acc.id ? (
-                            <span style={{ color: "#10b981", fontWeight: 600 }}>Copied!</span>
-                          ) : (
-                            <Copy size={13} />
-                          )}
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
         </div>
       )}
     </Shell>
