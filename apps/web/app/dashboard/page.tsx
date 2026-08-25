@@ -168,6 +168,16 @@ export default function DashboardPage() {
   const [presetKey, setPresetKey] = useState('DEFAULT');
   const [cycleOffset, setCycleOffset] = useState(0);
 
+  const selectedMonth = useMemo(() => {
+    const d = new Date(endDate);
+    return isNaN(d.getTime()) ? new Date().getMonth() + 1 : d.getUTCMonth() + 1;
+  }, [endDate]);
+
+  const selectedYear = useMemo(() => {
+    const d = new Date(endDate);
+    return isNaN(d.getTime()) ? new Date().getFullYear() : d.getUTCFullYear();
+  }, [endDate]);
+
   const shiftCycle = (direction: -1 | 1) => {
     const nextOffset = cycleOffset + direction;
     setCycleOffset(nextOffset);
@@ -269,16 +279,6 @@ export default function DashboardPage() {
     : data.month;
 
   const monthLabel = dateRangeLabel;
-
-  const selectedMonth = useMemo(() => {
-    const d = new Date(endDate);
-    return isNaN(d.getTime()) ? new Date().getMonth() + 1 : d.getUTCMonth() + 1;
-  }, [endDate]);
-
-  const selectedYear = useMemo(() => {
-    const d = new Date(endDate);
-    return isNaN(d.getTime()) ? new Date().getFullYear() : d.getUTCFullYear();
-  }, [endDate]);
 
   const totalSpend = (data.categories || []).reduce((sum, category) => sum + category.amount, 0);
   let angle = 0;
