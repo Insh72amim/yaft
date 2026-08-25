@@ -198,10 +198,10 @@ export const EMAIL_ALERT_PATTERNS = {
   FALLBACK_AMOUNT_REGEX: /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
 
   ACCOUNT_LAST4_REGEXES: [
+    /(?:credit\s*card|account\s*number|a\/c\s*no\.?|a\/c|account|card)\s*(?:no\.?|is|:)?\s*(?:\d{4}\s*[xX*]+[\s*xX\d-]*|4[xX]+[\s*xX\d-]*|[xX*]{4,}[\s*xX\d-]*)\s*(\d{4})\b/i,
+    /(?:ending\s+(?:with|in)|ending|ending\s+xx)\s*(?:XX|\*+)?(\d{4,8})\b/i,
     /(?:credit\s*card|account\s*number|a\/c\s*no\.?|a\/c|account|card)\s*(?:ending\s*(?:with|in)?|no\.?|is|:)?\s*(?:XX|\*+|4[xX]+)?(\d{4,8})\b/i,
-    /(?:ending\s+with|ending\s+in|ending)\s*(?:XX|\*+)?(\d{4})\b/i,
-    /(?:\b\d{4}|\b[xX]{4}|\b[*]{4})[*xX\d-]{4,16}(\d{4})\b/i,
-    /\b(?:XX|\*+|4[xX]+)(\d{4})\b/i,
+    /\b(?:XX|\*+|4[xX]+)(\d{4,8})\b/i,
   ],
 
   REFERENCE_NUMBER_REGEXES: [

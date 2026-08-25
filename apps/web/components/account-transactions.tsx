@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files, Pencil, Trash, TrendingUp, Search, Filter, RotateCcw, SlidersHorizontal, X, Tag, Workflow, Mail } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files, Pencil, Trash, TrendingUp, Search, Filter, RotateCcw, SlidersHorizontal, X, Tag, Workflow, Mail, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -10,6 +10,7 @@ import { AccountDocuments } from '@/components/account-documents';
 import { SipModal, type Sip } from '@/components/sip-modal';
 import { SpendRulesModal } from '@/components/spend-rules-modal';
 import { CategoryPickerPopover } from '@/components/category-picker-popover';
+import { EmailProofModal } from '@/components/email-proof-modal';
 
 import { AccountType } from '@/lib/constants';
 
@@ -119,6 +120,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [showCategoryEdit, setShowCategoryEdit] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [editingTxCatId, setEditingTxCatId] = useState<string | null>(null);
+  const [selectedEmailTx, setSelectedEmailTx] = useState<AccountLedger['transactions'][0] | null>(null);
 
   const load = useCallback(() => {
     setError('');
@@ -729,9 +731,65 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                   />
                 )}
               </div>
-              <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
-                {transaction.amount > 0 ? '+' : ''}{money(transaction.amount)}
-              </b>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  gap: '8px',
+                }}
+              >
+                {transaction.emailReference ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedEmailTx(transaction);
+                    }}
+                    title="View source email proof (Gmail alert)"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      background: 'rgba(59, 130, 246, 0.1)',
+                      color: '#3b82f6',
+                      cursor: 'pointer',
+                      padding: 0,
+                      flexShrink: 0,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Eye size={13} />
+                  </button>
+                ) : (
+                  <span
+                    title="No email proof available"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--line)',
+                      background: 'transparent',
+                      color: 'var(--muted)',
+                      opacity: 0.2,
+                      cursor: 'not-allowed',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <EyeOff size={13} />
+                  </span>
+                )}
+                <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
+                  {transaction.amount > 0 ? '+' : ''}{money(transaction.amount)}
+                </b>
+              </div>
               {account.type === 'EPFO' && (
                 <button
                   className="danger compact"
@@ -809,7 +867,18 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
           </section>
         </div>
       )}
-
+      {selectedEmailTx && selectedEmailTx.emailReference && (
+        <EmailProofModal
+          data={{
+            accountName: account.name,
+            accountType: account.type,
+            cardLast4: account.cardLast4,
+            amount: selectedEmailTx.amount,
+            emailReference: selectedEmailTx.emailReference,
+          }}
+          onClose={() => setSelectedEmailTx(null)}
+        />
+      )}
     </div>
   );
 

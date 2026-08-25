@@ -25,12 +25,15 @@ import {
   Calendar,
   Loader2,
   Mail,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shell } from "@/components/shell";
 import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
 import { CategoryPickerPopover } from "@/components/category-picker-popover";
+import { EmailProofModal } from "@/components/email-proof-modal";
 
 type Mode = "CREDIT_CARD" | "BANK" | "UPI" | "UPI_LITE" | "ALL";
 
@@ -155,6 +158,7 @@ export function TransactionsSection({
   const [updatingCatId, setUpdatingCatId] = useState<string | null>(null);
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [batchUpdating, setBatchUpdating] = useState(false);
+  const [selectedEmailTx, setSelectedEmailTx] = useState<Transaction | null>(null);
 
   const handleSingleTxTagAssign = async (
     txId: string,
@@ -1971,12 +1975,66 @@ export function TransactionsSection({
                       )}
                     </div>
 
-                    <b
-                      className={`transaction-amount-cell ${
-                        isDebit ? "negative" : "positive"
-                      }`}>
-                      {isDebit ? money(tx.amount) : `+${money(tx.amount)}`}
-                    </b>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-end",
+                        gap: "8px",
+                      }}>
+                      {tx.emailReference ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEmailTx(tx);
+                          }}
+                          title="View source email proof (Gmail alert)"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "24px",
+                            height: "24px",
+                            borderRadius: "6px",
+                            border: "1px solid rgba(59, 130, 246, 0.3)",
+                            background: "rgba(59, 130, 246, 0.1)",
+                            color: "#3b82f6",
+                            cursor: "pointer",
+                            padding: 0,
+                            flexShrink: 0,
+                            transition: "all 0.15s ease",
+                          }}>
+                          <Eye size={13} />
+                        </button>
+                      ) : (
+                        <span
+                          title="No email proof available"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "24px",
+                            height: "24px",
+                            borderRadius: "6px",
+                            border: "1px solid var(--line)",
+                            background: "transparent",
+                            color: "var(--muted)",
+                            opacity: 0.2,
+                            cursor: "not-allowed",
+                            flexShrink: 0,
+                          }}>
+                          <EyeOff size={13} />
+                        </span>
+                      )}
+                      <b
+                        className={`transaction-amount-cell ${
+                          isDebit ? "negative" : "positive"
+                        }`}
+                        style={{ textAlign: "right" }}>
+                        {isDebit ? money(tx.amount) : `+${money(tx.amount)}`}
+                      </b>
+                    </div>
                   </article>
                 );
               })}
@@ -2247,6 +2305,19 @@ export function TransactionsSection({
             </form>
           </section>
         </div>
+      )}
+
+      {selectedEmailTx && selectedEmailTx.emailReference && (
+        <EmailProofModal
+          data={{
+            accountName: selectedEmailTx.accountName,
+            accountType: selectedEmailTx.accountType,
+            cardLast4: selectedEmailTx.cardLast4,
+            amount: selectedEmailTx.amount,
+            emailReference: selectedEmailTx.emailReference,
+          }}
+          onClose={() => setSelectedEmailTx(null)}
+        />
       )}
     </div>
   );
