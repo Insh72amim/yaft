@@ -1556,56 +1556,95 @@ function MultiBankSankeyDiagram({
     return n;
   });
 
-  // 7. Position Stage 4: Subgroup Category Nodes (Grouped & Ordered strictly under each parent Supergroup)
-  type DisplayCategory = {
-    superGroupId: string;
-    superGroupName: string;
-    superGroupColor: string;
+  // 7. Position Stage 4: Consolidated Unified Expense Categories (Summed across Direct Spends, Credit Cards, and UPI Lite)
+  type ConsolidatedCategory = {
+    id: string;
     name: string;
     color: string;
-    amount: number;
+    totalAmount: number;
+    sources: Array<{
+      superGroupId: string;
+      superGroupName: string;
+      superGroupColor: string;
+      amount: number;
+    }>;
     height: number;
     x: number;
     y: number;
   };
 
-  const categoryNodesWithY: DisplayCategory[] = [];
+  const consolidatedCategories = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        color: string;
+        totalAmount: number;
+        sources: Array<{
+          superGroupId: string;
+          superGroupName: string;
+          superGroupColor: string;
+          amount: number;
+        }>;
+      }
+    >();
+
+    for (const sg of supergroupNodesWithY) {
+      const cats = sg.categories || [];
+      for (const c of cats) {
+        if (c.amount <= 0) continue;
+        const normalizedName = c.name.trim();
+        const key = normalizedName.toLowerCase();
+        const existing = map.get(key);
+        if (existing) {
+          existing.totalAmount += c.amount;
+          existing.sources.push({
+            superGroupId: sg.id,
+            superGroupName: sg.name,
+            superGroupColor: sg.color,
+            amount: c.amount,
+          });
+          if (c.color && (!existing.color || existing.color === '#94a3b8')) {
+            existing.color = c.color;
+          }
+        } else {
+          map.set(key, {
+            id: key.replace(/[^a-z0-9]/g, '-'),
+            name: normalizedName,
+            color: c.color || sg.color,
+            totalAmount: c.amount,
+            sources: [
+              {
+                superGroupId: sg.id,
+                superGroupName: sg.name,
+                superGroupColor: sg.color,
+                amount: c.amount,
+              },
+            ],
+          });
+        }
+      }
+    }
+
+    // Sort categories by totalAmount descending
+    return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount);
+  }, [supergroupNodesWithY]);
+
   const catGap = 10;
   let catCurY = PAD_V;
 
-  supergroupNodesWithY.forEach((sgNode) => {
-    const cats = (sgNode.categories || []).filter((c) => c.amount > 0);
-    const sorted = [...cats].sort((a, b) => b.amount - a.amount);
-    const topCats = sorted.slice(0, 5);
-    const rest = sorted.slice(5);
-    const restAmount = rest.reduce((s, c) => s + c.amount, 0);
-
-    const displayList = [
-      ...topCats,
-      ...(restAmount > 0 ? [{ name: `Other ${sgNode.name.split(' ')[0]}`, color: '#94a3b8', amount: restAmount }] : []),
-    ];
-
-    if (displayList.length === 0 && sgNode.amount > 0) {
-      displayList.push({ name: sgNode.name, color: sgNode.color, amount: sgNode.amount });
-    }
-
-    displayList.forEach((c) => {
-      const sliceH = Math.max(18, flowH(c.amount));
-      categoryNodesWithY.push({
-        superGroupId: sgNode.id,
-        superGroupName: sgNode.name,
-        superGroupColor: sgNode.color,
-        name: c.name,
-        color: c.color || sgNode.color,
-        amount: c.amount,
-        height: sliceH,
-        x: CAT_X,
-        y: catCurY,
-      });
-      catCurY += sliceH + catGap;
-    });
-
-    catCurY += 12; // Visual spacing between supergroup clusters
+  const categoryNodesWithY: ConsolidatedCategory[] = consolidatedCategories.map((c) => {
+    const incomingFlowH = c.sources.reduce((sum, s) => sum + flowH(s.amount), 0);
+    const sliceH = Math.max(18, incomingFlowH > 0 ? incomingFlowH : flowH(c.totalAmount));
+    const node: ConsolidatedCategory = {
+      ...c,
+      height: sliceH,
+      x: CAT_X,
+      y: catCurY,
+    };
+    catCurY += sliceH + catGap;
+    return node;
   });
 
   const finalSvgH = Math.max(usableH + PAD_V * 2, bankCurY + PAD_V, sgCurY + PAD_V, catCurY + PAD_V);
@@ -1684,10 +1723,10 @@ function MultiBankSankeyDiagram({
     }
   }
 
-  // 11. Build Stage 3 -> Stage 4 Ribbons (Supergroups -> Subgroup Categories)
+  // 11. Build Stage 3 -> Stage 4 Ribbons (Supergroups -> Consolidated Categories)
   type CatRibbon = {
     sg: (typeof supergroupNodesWithY)[0];
-    cat: DisplayCategory;
+    cat: ConsolidatedCategory;
     amount: number;
     srcT: number;
     srcB: number;
@@ -1699,24 +1738,31 @@ function MultiBankSankeyDiagram({
   const sgOutOffset = new Map<string, number>();
   supergroupNodesWithY.forEach((sg) => sgOutOffset.set(sg.id, 0));
 
-  for (const cat of categoryNodesWithY) {
-    const sg = supergroupNodesWithY.find((s) => s.id === cat.superGroupId);
-    if (!sg || cat.amount <= 0) continue;
+  const catInOffset = new Map<string, number>();
+  categoryNodesWithY.forEach((cat) => catInOffset.set(cat.id, 0));
 
-    const sliceH = flowH(cat.amount);
-    const sgOff = sgOutOffset.get(sg.id)!;
+  for (const sg of supergroupNodesWithY) {
+    for (const cat of categoryNodesWithY) {
+      const sourceContrib = cat.sources.find((s) => s.superGroupId === sg.id);
+      if (!sourceContrib || sourceContrib.amount <= 0) continue;
 
-    sgToCatRibbons.push({
-      sg,
-      cat,
-      amount: cat.amount,
-      srcT: sg.y + sgOff,
-      srcB: sg.y + sgOff + sliceH,
-      dstT: cat.y,
-      dstB: cat.y + sliceH,
-    });
+      const sliceH = flowH(sourceContrib.amount);
+      const sgOff = sgOutOffset.get(sg.id)!;
+      const catOff = catInOffset.get(cat.id)!;
 
-    sgOutOffset.set(sg.id, sgOff + sliceH);
+      sgToCatRibbons.push({
+        sg,
+        cat,
+        amount: sourceContrib.amount,
+        srcT: sg.y + sgOff,
+        srcB: sg.y + sgOff + sliceH,
+        dstT: cat.y + catOff,
+        dstB: cat.y + catOff + sliceH,
+      });
+
+      sgOutOffset.set(sg.id, sgOff + sliceH);
+      catInOffset.set(cat.id, catOff + sliceH);
+    }
   }
 
   return (
@@ -1770,13 +1816,22 @@ function MultiBankSankeyDiagram({
             )),
           )}
 
-          {/* Supergroup to Category Gradients */}
-          {categoryNodesWithY.map((c, idx) => (
-            <linearGradient key={`g-sc-${idx}`} id={`g-sc-${idx}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor={c.superGroupColor} />
-              <stop offset="100%" stopColor={c.color} />
-            </linearGradient>
-          ))}
+          {/* Supergroup to Consolidated Category Gradients */}
+          {supergroupNodesWithY.flatMap((sg) =>
+            categoryNodesWithY.map((c) => (
+              <linearGradient
+                key={`g-sc-${sg.id}-${c.id}`}
+                id={`g-sc-${sg.id}-${c.id}`}
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="0"
+              >
+                <stop offset="0%" stopColor={sg.color} />
+                <stop offset="100%" stopColor={c.color} />
+              </linearGradient>
+            )),
+          )}
         </defs>
 
         {/* ── Stage 1 -> Stage 2: Inbound Ribbons ─────────────────── */}
@@ -1831,13 +1886,13 @@ function MultiBankSankeyDiagram({
           );
         })}
 
-        {/* ── Stage 3 -> Stage 4: Supergroup to Category Ribbons ── */}
+        {/* ── Stage 3 -> Stage 4: Supergroup to Consolidated Category Ribbons ── */}
         {sgToCatRibbons.map((r, idx) => {
           return (
             <path
               key={`sc-ribbon-${idx}`}
               d={ribbon(HUB_X + NODE_W, r.srcT, r.srcB, CAT_X, r.dstT, r.dstB)}
-              fill={`url(#g-sc-${idx})`}
+              fill={`url(#g-sc-${r.sg.id}-${r.cat.id})`}
               opacity={0.52}
               style={{ transition: 'opacity .18s', cursor: 'pointer' }}
               onMouseEnter={() => {
@@ -2004,18 +2059,32 @@ function MultiBankSankeyDiagram({
           );
         })}
 
-        {/* ── Stage 4 Nodes: Subgroup Categories ──────────────── */}
+        {/* ── Stage 4 Nodes: Consolidated Unified Categories ──── */}
         {categoryNodesWithY.map((catNode, idx) => {
           const midY = catNode.y + catNode.height / 2;
           return (
-            <g key={`cat-node-${idx}-${catNode.name}`}>
+            <g
+              key={`cat-node-${idx}-${catNode.name}`}
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={() => {
+                const breakdown = catNode.sources
+                  .map((s) => `${s.superGroupName}: ${money(s.amount)}`)
+                  .join(' • ');
+                setHoveredFlow({
+                  title: `${catNode.name} (${breakdown})`,
+                  amount: money(catNode.totalAmount),
+                  color: catNode.color,
+                });
+              }}
+              onMouseLeave={() => setHoveredFlow(null)}
+            >
               <rect x={catNode.x} y={catNode.y} width={NODE_W} height={catNode.height} fill={catNode.color} rx="4" />
               <rect x={CAT_X + NODE_W + 8} y={midY - 5} width={6} height={6} rx="3" fill={catNode.color} />
               <text x={CAT_X + NODE_W + 18} y={midY - 1} fill="var(--ink)" fontSize="12" fontWeight="700">
                 {catNode.name}
               </text>
               <text x={CAT_X + NODE_W + 18} y={midY + 13} fill="var(--muted)" fontSize="11" fontWeight="600">
-                {money(catNode.amount)}
+                {money(catNode.totalAmount)}
               </text>
             </g>
           );
