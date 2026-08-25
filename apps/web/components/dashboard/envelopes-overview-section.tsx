@@ -3,18 +3,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Loader2,
-  Edit2,
-  Trash2,
   Search,
-  CheckCircle2,
-  AlertCircle,
-  RefreshCw,
   Layers,
   X,
-  Tag as TagIcon,
   CreditCard,
   Landmark,
-  Zap,
+  AlertCircle,
 } from "lucide-react";
 import { api, errorMessage, money } from "@/lib/api";
 
@@ -75,26 +69,10 @@ interface EnvelopesOverviewSectionProps {
   onBudgetUpdated?: () => void;
 }
 
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
 export function EnvelopesOverviewSection({
   selectedMonth,
   selectedYear,
   monthLabel,
-  onBudgetUpdated,
 }: EnvelopesOverviewSectionProps) {
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [budgets, setBudgets] = useState<CategoryBudgetItem[]>([]);
@@ -127,17 +105,10 @@ export function EnvelopesOverviewSection({
   const [loadingTx, setLoadingTx] = useState(false);
   const [txError, setTxError] = useState("");
   const [txSearch, setTxSearch] = useState("");
-  const [updatingCatTxId, setUpdatingCatTxId] = useState<string | null>(null);
 
   // Pagination for transactions table
   const [page, setPage] = useState(1);
   const pageSize = 15;
-
-  // Quick edit envelope modal state
-  const [editingBudgetCategory, setEditingBudgetCategory] = useState<CategoryOption | null>(null);
-  const [editLimitInput, setEditLimitInput] = useState("");
-  const [savingEditLimit, setSavingEditLimit] = useState(false);
-  const [deletingBudgetId, setDeletingBudgetId] = useState<string | null>(null);
 
   // Load categories and budget limits for the selected month/year
   const loadBudgetData = useCallback(async () => {
@@ -218,75 +189,7 @@ export function EnvelopesOverviewSection({
     loadTransactions();
   }, [loadTransactions]);
 
-  // Re-assign transaction category
-  const handleReassignCategory = async (
-    transactionId: string,
-    accountId: string,
-    newCategoryId: string
-  ) => {
-    setUpdatingCatTxId(transactionId);
-    try {
-      await api(`/accounts/${accountId}/transactions/${transactionId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ categoryId: newCategoryId || null }),
-      });
-      loadTransactions();
-      loadBudgetData();
-      onBudgetUpdated?.();
-    } catch (err) {
-      setTxError(errorMessage(err, "Could not update transaction category."));
-    } finally {
-      setUpdatingCatTxId(null);
-    }
-  };
-
-  // Quick save target limit for category
-  const handleSaveQuickLimit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingBudgetCategory) return;
-    setSavingEditLimit(true);
-    try {
-      const val = parseFloat(editLimitInput.replace(/,/g, ""));
-      if (isNaN(val) || val < 0) {
-        throw new Error("Enter a valid amount.");
-      }
-      await api("/budgets", {
-        method: "POST",
-        body: JSON.stringify({
-          categoryId: editingBudgetCategory.id,
-          monthlyLimit: val,
-          periodType: "MONTHLY",
-          month: selectedMonth,
-          year: selectedYear,
-        }),
-      });
-      setEditingBudgetCategory(null);
-      loadBudgetData();
-      onBudgetUpdated?.();
-    } catch (err) {
-      alert(errorMessage(err, "Failed to save budget limit."));
-    } finally {
-      setSavingEditLimit(false);
-    }
-  };
-
-  // Quick delete target limit
-  const handleDeleteQuickLimit = async (budgetId: string) => {
-    if (!confirm("Are you sure you want to remove this envelope target?")) return;
-    setDeletingBudgetId(budgetId);
-    try {
-      await api(`/budgets/${budgetId}`, { method: "DELETE" });
-      setEditingBudgetCategory(null);
-      loadBudgetData();
-      onBudgetUpdated?.();
-    } catch (err) {
-      alert(errorMessage(err, "Failed to remove budget limit."));
-    } finally {
-      setDeletingBudgetId(null);
-    }
-  };
-
-  // Expense categories
+  // Strictly expense categories
   const expenseCategories = useMemo(
     () => (categories || []).filter((c) => (c?.type || "EXPENSE") === "EXPENSE"),
     [categories]
@@ -352,7 +255,7 @@ export function EnvelopesOverviewSection({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px", marginBottom: "24px" }}>
-      {/* ── Section 1: Expense Categories & Budget Envelopes Grid ─────────────────── */}
+      {/* ── Section 1: View-Only Expense Categories & Envelopes Grid ─────────────── */}
       <section className="panel" style={{ padding: "20px" }}>
         <div
           className="panel-title"
@@ -543,7 +446,7 @@ export function EnvelopesOverviewSection({
           </div>
         </div>
 
-        {/* Categories Grid */}
+        {/* Categories Grid - View Only */}
         <div
           style={{
             display: "grid",
@@ -570,17 +473,28 @@ export function EnvelopesOverviewSection({
                   background: isSelected ? "rgba(29, 117, 79, 0.05)" : "var(--card)",
                   border: isSelected ? "1.5px solid var(--green)" : "1px solid var(--line)",
                   borderRadius: "10px",
-                  padding: "10px 13px",
+                  padding: "12px 14px",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
-                  gap: "7px",
+                  gap: "8px",
                   cursor: "pointer",
                   boxShadow: isSelected ? "0 2px 8px rgba(0,0,0,0.06)" : "none",
                   transition: "all 0.15s ease",
-                  position: "relative",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = "var(--ink)";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = "var(--line)";
+                    e.currentTarget.style.transform = "none";
+                  }
                 }}>
-                {/* Header: Dot + Name + Count + Edit Icon */}
+                {/* Header: Dot + Name + Count */}
                 <div
                   style={{
                     display: "flex",
@@ -616,43 +530,20 @@ export function EnvelopesOverviewSection({
                       }}>
                       {catName}
                     </strong>
-                    <span
-                      style={{
-                        fontSize: "10px",
-                        color: "var(--muted)",
-                        fontWeight: 600,
-                        background: "var(--background-alt)",
-                        padding: "1px 5px",
-                        borderRadius: "8px",
-                        flexShrink: 0,
-                      }}>
-                      {txCount}
-                    </span>
                   </div>
 
-                  <div
-                    style={{ display: "flex", gap: "2px", alignItems: "center" }}
-                    onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      title={budget && budget.hasBudget ? "Edit Target Limit" : "Set Target Limit"}
-                      onClick={() => {
-                        setEditingBudgetCategory(cat);
-                        setEditLimitInput(budget && budget.hasBudget ? String(budget.monthlyLimit || "") : "");
-                      }}
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        padding: "3px",
-                        cursor: "pointer",
-                        color: "var(--muted)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        borderRadius: "4px",
-                      }}>
-                      <Edit2 size={11} />
-                    </button>
-                  </div>
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      color: "var(--muted)",
+                      fontWeight: 600,
+                      background: "var(--background-alt)",
+                      padding: "1px 5px",
+                      borderRadius: "8px",
+                      flexShrink: 0,
+                    }}>
+                    {txCount}
+                  </span>
                 </div>
 
                 {/* Amounts & Percentage Row */}
@@ -693,24 +584,9 @@ export function EnvelopesOverviewSection({
                         {pct}%
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingBudgetCategory(cat);
-                          setEditLimitInput("");
-                        }}
-                        style={{
-                          fontSize: "10.5px",
-                          color: "var(--green)",
-                          fontWeight: 600,
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          padding: 0,
-                        }}>
-                        + Set Target
-                      </button>
+                      <span style={{ fontSize: "10.5px", color: "var(--muted)" }}>
+                        No target
+                      </span>
                     )}
                   </div>
 
@@ -722,7 +598,7 @@ export function EnvelopesOverviewSection({
                       background: "var(--background-alt)",
                       borderRadius: "2px",
                       overflow: "hidden",
-                      margin: "5px 0 4px 0",
+                      margin: "6px 0 4px 0",
                     }}>
                     {budget && budget.hasBudget ? (
                       <div
@@ -798,7 +674,7 @@ export function EnvelopesOverviewSection({
         )}
       </section>
 
-      {/* ── Section 2: All Expense Transactions Explorer ────────────────────────── */}
+      {/* ── Section 2: All Expense Transactions Explorer (View Only) ─────────────── */}
       <section className="panel" style={{ padding: "24px" }}>
         <div
           style={{
@@ -958,7 +834,7 @@ export function EnvelopesOverviewSection({
           })}
         </div>
 
-        {/* Transactions Table */}
+        {/* Transactions Table - View Only */}
         {loadingTx ? (
           <div style={{ textAlign: "center", padding: "40px", color: "var(--muted)" }}>
             <Loader2 size={24} className="spin" style={{ margin: "0 auto 8px auto" }} />
@@ -981,7 +857,7 @@ export function EnvelopesOverviewSection({
                   <th style={{ width: "110px" }}>Date</th>
                   <th>Description / Merchant</th>
                   <th style={{ width: "160px" }}>Account</th>
-                  <th style={{ width: "160px" }}>Category</th>
+                  <th style={{ width: "150px" }}>Category</th>
                   <th style={{ width: "120px" }}>Tags</th>
                   <th style={{ width: "110px", textAlign: "right" }}>Amount</th>
                 </tr>
@@ -1030,27 +906,29 @@ export function EnvelopesOverviewSection({
                         </span>
                       </td>
                       <td>
-                        <select
-                          value={tx.categoryId || ""}
-                          disabled={updatingCatTxId === tx.id}
-                          onChange={(e) => handleReassignCategory(tx.id, tx.accountId, e.target.value)}
+                        <span
                           style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
                             fontSize: "11.5px",
-                            padding: "3px 6px",
-                            borderRadius: "6px",
-                            border: "1px solid var(--line)",
-                            background: "var(--card)",
-                            color: tx.categoryColor || "var(--ink)",
                             fontWeight: 600,
-                            maxWidth: "140px",
+                            color: tx.categoryColor || "var(--ink)",
+                            background: tx.categoryColor ? `${tx.categoryColor}15` : "var(--background-alt)",
+                            padding: "2px 8px",
+                            borderRadius: "6px",
+                            border: `1px solid ${tx.categoryColor ? `${tx.categoryColor}33` : "var(--line)"}`,
                           }}>
-                          <option value="">Uncategorised</option>
-                          {categories.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
+                          <span
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              borderRadius: "50%",
+                              background: tx.categoryColor || "var(--muted)",
+                            }}
+                          />
+                          {tx.categoryName || "Uncategorised"}
+                        </span>
                       </td>
                       <td>
                         {tx.tags && tx.tags.length > 0 ? (
@@ -1145,168 +1023,6 @@ export function EnvelopesOverviewSection({
           </div>
         )}
       </section>
-
-      {/* Quick Edit Envelope Target Modal */}
-      {editingBudgetCategory && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "16px",
-          }}
-          onClick={() => setEditingBudgetCategory(null)}>
-          <div
-            className="panel"
-            style={{
-              maxWidth: "400px",
-              width: "100%",
-              padding: "24px",
-              borderRadius: "12px",
-              background: "var(--card)",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-            }}
-            onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "16px",
-              }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span
-                  style={{
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "50%",
-                    background: editingBudgetCategory.color,
-                  }}
-                />
-                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>
-                  {editingBudgetCategory.name} Envelope
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingBudgetCategory(null)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--muted)",
-                }}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveQuickLimit}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "12px",
-                  color: "var(--muted)",
-                  marginBottom: "6px",
-                  fontWeight: 600,
-                }}>
-                Monthly Target Limit (₹) for {monthLabel}
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                placeholder="e.g. 5000"
-                value={editLimitInput}
-                onChange={(e) => setEditLimitInput(e.target.value)}
-                style={{
-                  width: "100%",
-                  height: "38px",
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  padding: "0 12px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--line)",
-                  background: "var(--background-alt)",
-                  color: "var(--ink)",
-                  marginBottom: "16px",
-                }}
-              />
-
-              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-                {(() => {
-                  const existingBudget = (budgets || []).find(
-                    (b) => b?.categoryId === editingBudgetCategory.id
-                  );
-                  if (existingBudget && existingBudget.hasBudget && existingBudget.budgetId) {
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteQuickLimit(existingBudget.budgetId!)}
-                        disabled={deletingBudgetId === existingBudget.budgetId}
-                        style={{
-                          padding: "8px 14px",
-                          borderRadius: "8px",
-                          border: "1px solid #ef444433",
-                          background: "rgba(239, 68, 68, 0.08)",
-                          color: "#ef4444",
-                          fontSize: "12px",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          marginRight: "auto",
-                        }}>
-                        {deletingBudgetId === existingBudget.budgetId ? (
-                          <Loader2 size={12} className="spin" />
-                        ) : (
-                          "Remove Target"
-                        )}
-                      </button>
-                    );
-                  }
-                  return null;
-                })()}
-
-                <button
-                  type="button"
-                  onClick={() => setEditingBudgetCategory(null)}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: "8px",
-                    border: "1px solid var(--line)",
-                    background: "var(--background-alt)",
-                    color: "var(--ink)",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                  }}>
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingEditLimit}
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: "8px",
-                    border: "none",
-                    background: "var(--green)",
-                    color: "#ffffff",
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                  }}>
-                  {savingEditLimit ? <Loader2 size={12} className="spin" /> : "Save Target"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
