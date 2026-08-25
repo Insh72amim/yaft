@@ -352,7 +352,7 @@ export class GoogleGmailService {
             const internalDate = msgDetail.data.internalDate ? new Date(Number(msgDetail.data.internalDate)) : (dateHeader ? new Date(dateHeader) : undefined);
             const validEmailDate = internalDate && !isNaN(internalDate.getTime()) ? internalDate : undefined;
 
-            const alerts = parseMultipleEmailAlerts(bodyText + ' ' + snippet, `${from} ${subject}`);
+            const alerts = parseMultipleEmailAlerts(bodyText + ' ' + snippet, `${from} ${subject}`, validEmailDate);
             for (const alert of alerts) {
               alert.emailMessageId = msgDetail.data.id || undefined;
               alert.emailSubject = subject || undefined;

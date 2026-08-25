@@ -219,7 +219,7 @@ export const EMAIL_ALERT_PATTERNS = {
     /UPI\/(?:P2A|P2M|P2P)\/(\d{8,18})\//i,
   ],
 
-  MERCHANT_NAME_LABEL_REGEX: /(?:merchant\s*name|info|payee\s*name|beneficiary\s*name)[:\s]+([a-zA-Z0-9\s._\-&@]{2,50}?)(?=\s+(?:Axis|Date|Available|Total|The|Ref|Avail|Auth|\*|\.|$))/i,
+  MERCHANT_NAME_LABEL_REGEX: /(?:merchant\s*name|info|payee\s*name|beneficiary\s*name)[:\s]+([a-zA-Z0-9\s._\-&@]{2,50}?)(?=\s+(?:AutoPay|Auto\s*Pay|Axis|Date|Available|Total|The|Ref|Avail|Auth|Max|Card|To|Please|Mandate|\*|\.|$))/i,
   MERCHANT_TXN_INFO_REGEX: /transaction\s*info[:\s]+([a-zA-Z0-9\s._\-&@\/]{3,60}?)(?=\s+(?:If|To|Please|Available|Date|\.|$))/i,
   MERCHANT_TO_VPA_REGEX: /to\s+(?:VPA\s+)?(?!(?:your\s+)?(?:a\/c|account|bank|savings|card)\b)([a-zA-Z0-9._\-@&]{3,50})(?=\s+(?:on\s+\d|at\s+\d|\.|\bref\b|$))/i,
   MERCHANT_TOWARDS_REGEX: /towards\s+(?:refund\s+(?:from|for)\s+)?([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s+(?:at\s+\d|on\s+\d|\.|Bal|Total|Ref|via|$))/i,

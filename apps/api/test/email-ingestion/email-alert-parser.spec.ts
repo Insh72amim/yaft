@@ -551,4 +551,25 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.merchant).toBe('PAYMENT RECEIVED');
     expect(result?.suggestedCategoryName).toBe('Credit Card Payment');
   });
+
+  it('should use fallbackDate when email has no inline date and extract merchant from AutoPay structure', () => {
+    const text = "Dear Customer, Here's the summary of your successful AutoPay transaction: Transaction Amount: INR 4042.00 Merchant Name: Educative AutoPay ID: AUTOPAY123456 Axis Bank Credit Card No. XX3748 Max Limit: INR 4042.00 To manage your AutoPay facility, click here";
+    const emailDate = new Date('2026-05-25T11:42:49.000Z');
+    const result = parseEmailAlertSnippet(text, 'Axis Bank Alerts <alerts@axis.bank.in> AutoPay for Educative: ACTIVATED', emailDate);
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('Axis Bank');
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('3748');
+    expect(result?.amountDisplay).toBe(4042);
+    expect(result?.amountMinor).toBe(-404200n);
+    expect(result?.merchant).toBe('EDUCATIVE');
+    expect(result?.transactionDate.toISOString()).toBe(emailDate.toISOString());
+  });
+
+  it('should reject upcoming AutoPay reminders as non-transactions', () => {
+    const text = "Dear Customer, Here's the summary of your upcoming AutoPay transaction: Transaction Amount: INR 4042.00 Merchant Name: Educative To be debited by: 08-06-2026 Max Limit: INR 4042.00 Axis Bank Credit card No. XX3748 AutoPay ID: AUTOPAY123456 Please keep sufficient limit on the card to process the auto debit";
+    const result = parseEmailAlertSnippet(text, 'Axis Bank Alerts <alerts@axis.bank.in> Upcoming AutoPay txn. reminder');
+    expect(result).toBeNull();
+  });
 });

@@ -56,8 +56,8 @@ export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
   '(?:up\\s+to\\s*(?:rs\\.?|inr|₹|&#8377;)?\\s*[\\d,]+\\s*(?:off|cashback|discount|voucher|rewards?)|\\b\\d+%\\s*off|\\bflat\\s+(?:rs\\.?|inr|₹|&#8377;)?\\s*[\\d,]+\\s*off|\\boff\\s+on\\b)',
   '(?:avail\\s*(?:now|offer|discount|cashback)|exciting\\s*offer|exclusive\\s*offer|great\\s*offer|limited\\s*period\\s*offer|save\\s+up\\s+to|get\\s+up\\s+to|instant\\s+discount|discount\\s+on|discounts\\s+on|cashback\\s+offer)',
   '(?:earned\\s+\\d+\\s+reward\\s+points|reward\\s+points\\s+summary|total\\s+reward\\s+points\\s+earned|reward\\s+points\\s+credited)',
-  // Card activations & PIN generation
-  '(?:card\\s+(?:has\s+been\s+)?activated|congratulations.*card.*activated|welcome\\s+to.*credit\\s*card|pin\\s+generated|generate\\s+(?:green\\s*)?pin)',
+  // Card activations & PIN generation & Mandate notifications / reminders
+  '(?:card\\s+(?:has\\s+been\\s+)?activated|congratulations.*card.*activated|welcome\\s+to.*credit\\s*card|pin\\s+generated|generate\\s+(?:green\\s*)?pin|upcoming\\s+autopay|autopay.*reminder|to\\s+be\\s+debited\\s+by)',
   // Balance enquiry & mini-statements
   '(?:your\\s+(?:a\\/c|account|card)\\s+balance\\s+is|available\\s+balance\\s+is|a\\/c\\s+bal\\s+is|balance\\s+enquiry|mini\\s*statement|last\\s+\\d+\\s+transactions)',
   // OTPs & Authentication emails
@@ -72,7 +72,7 @@ export const EXPLICIT_TRANSACTION_INDICATOR_REGEX = /\b(?:debited|credited|spent
 
 export const PROMOTIONAL_SENDER_REGEX = /offers@|deals@|marketing@|promo@|newsletter@|campaign@|digital\.axisbankmail|statements?@/i;
 
-export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: string): ParsedEmailTransaction | null {
+export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: string, fallbackDate?: Date): ParsedEmailTransaction | null {
   if (!bodyText || typeof bodyText !== 'string') return null;
 
   // Reject explicit marketing senders immediately
@@ -217,7 +217,7 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   const merchant = canonicalizeMerchantName(rawMerchant);
 
   // 8. Extract Date & Time
-  let transactionDate = new Date();
+  let transactionDate = fallbackDate ? new Date(fallbackDate) : new Date();
   const { dateStr, timeStr } = extractAlertDateTime(text);
   if (dateStr) {
     transactionDate = parseIndianDate(dateStr, timeStr);
@@ -245,7 +245,7 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
   };
 }
 
-export function parseMultipleEmailAlerts(emailTextContent: string, senderOrSubject?: string): ParsedEmailTransaction[] {
+export function parseMultipleEmailAlerts(emailTextContent: string, senderOrSubject?: string, fallbackDate?: Date): ParsedEmailTransaction[] {
   if (!emailTextContent) return [];
 
   const rawBlocks = emailTextContent
@@ -257,7 +257,7 @@ export function parseMultipleEmailAlerts(emailTextContent: string, senderOrSubje
   const seenRefs = new Set<string>();
 
   for (const block of rawBlocks) {
-    const parsed = parseEmailAlertSnippet(block, senderOrSubject);
+    const parsed = parseEmailAlertSnippet(block, senderOrSubject, fallbackDate);
     if (parsed) {
       const key = `${parsed.bankName}-${parsed.amountMinor}-${parsed.transactionDate.toISOString().slice(0, 10)}-${parsed.merchant}`;
       if (!seenRefs.has(key)) {
@@ -268,7 +268,7 @@ export function parseMultipleEmailAlerts(emailTextContent: string, senderOrSubje
   }
 
   if (results.length === 0) {
-    const fallback = parseEmailAlertSnippet(emailTextContent, senderOrSubject);
+    const fallback = parseEmailAlertSnippet(emailTextContent, senderOrSubject, fallbackDate);
     if (fallback) results.push(fallback);
   }
 
