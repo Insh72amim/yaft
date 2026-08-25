@@ -672,10 +672,59 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                 key={transaction.id}
                 className={`transaction-row ${isPopoverOpen ? "has-popover-open" : ""}`}
                 style={{ position: "relative", zIndex: isPopoverOpen ? 100 : 1 }}>
-                <time className="transaction-time-cell">
-                  <span className="date-text">{new Date(transaction.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
-                  <span className="time-text">{new Date(transaction.transactionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })}</span>
-                </time>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <time className="transaction-time-cell">
+                    <span className="date-text">{new Date(transaction.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}</span>
+                    <span className="time-text">{new Date(transaction.transactionDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' })}</span>
+                  </time>
+                  {transaction.emailReference ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedEmailTx(transaction);
+                      }}
+                      title="View source email proof (Gmail alert)"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        color: '#3b82f6',
+                        cursor: 'pointer',
+                        padding: 0,
+                        flexShrink: 0,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <Eye size={12} />
+                    </button>
+                  ) : (
+                    <span
+                      title="No email proof available"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--line)',
+                        background: 'transparent',
+                        color: 'var(--muted)',
+                        opacity: 0.2,
+                        cursor: 'not-allowed',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <EyeOff size={12} />
+                    </span>
+                  )}
+                </div>
                 <div className="transaction-description-cell">
                   <strong>{transaction.description}</strong>
                   <small>{transaction.details || (transaction.postedDate ? `Posted ${new Date(transaction.postedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })}` : 'Ledger transaction')}</small>
@@ -731,65 +780,9 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                   />
                 )}
               </div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  gap: '8px',
-                }}
-              >
-                {transaction.emailReference ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedEmailTx(transaction);
-                    }}
-                    title="View source email proof (Gmail alert)"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(59, 130, 246, 0.3)',
-                      background: 'rgba(59, 130, 246, 0.1)',
-                      color: '#3b82f6',
-                      cursor: 'pointer',
-                      padding: 0,
-                      flexShrink: 0,
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <Eye size={13} />
-                  </button>
-                ) : (
-                  <span
-                    title="No email proof available"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '6px',
-                      border: '1px solid var(--line)',
-                      background: 'transparent',
-                      color: 'var(--muted)',
-                      opacity: 0.2,
-                      cursor: 'not-allowed',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <EyeOff size={13} />
-                  </span>
-                )}
-                <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
-                  {transaction.amount > 0 ? '+' : ''}{money(transaction.amount)}
-                </b>
-              </div>
+              <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
+                {transaction.amount > 0 ? '+' : ''}{money(transaction.amount)}
+              </b>
               {account.type === 'EPFO' && (
                 <button
                   className="danger compact"

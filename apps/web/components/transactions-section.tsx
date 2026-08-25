@@ -1750,30 +1750,78 @@ export function TransactionsSection({
                       </div>
                     )}
 
-                    <time className="transaction-time-cell">
-                      <span className="date-text">
-                        {new Date(tx.transactionDate).toLocaleDateString(
-                          "en-IN",
-                          {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            timeZone: "UTC",
-                          },
-                        )}
-                      </span>
-                      <span className="time-text">
-                        {new Date(tx.transactionDate).toLocaleTimeString(
-                          "en-IN",
-                          {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                            timeZone: "UTC",
-                          },
-                        )}
-                      </span>
-                    </time>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <time className="transaction-time-cell">
+                        <span className="date-text">
+                          {new Date(tx.transactionDate).toLocaleDateString(
+                            "en-IN",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                              timeZone: "UTC",
+                            },
+                          )}
+                        </span>
+                        <span className="time-text">
+                          {new Date(tx.transactionDate).toLocaleTimeString(
+                            "en-IN",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                              timeZone: "UTC",
+                            },
+                          )}
+                        </span>
+                      </time>
+
+                      {tx.emailReference ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEmailTx(tx);
+                          }}
+                          title="View source email proof (Gmail alert)"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "22px",
+                            height: "22px",
+                            borderRadius: "6px",
+                            border: "1px solid rgba(59, 130, 246, 0.3)",
+                            background: "rgba(59, 130, 246, 0.1)",
+                            color: "#3b82f6",
+                            cursor: "pointer",
+                            padding: 0,
+                            flexShrink: 0,
+                            transition: "all 0.15s ease",
+                          }}>
+                          <Eye size={12} />
+                        </button>
+                      ) : (
+                        <span
+                          title="No email proof available"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "22px",
+                            height: "22px",
+                            borderRadius: "6px",
+                            border: "1px solid var(--line)",
+                            background: "transparent",
+                            color: "var(--muted)",
+                            opacity: 0.2,
+                            cursor: "not-allowed",
+                            flexShrink: 0,
+                          }}>
+                          <EyeOff size={12} />
+                        </span>
+                      )}
+                    </div>
 
                     <div
                       className="transaction-account-cell"
@@ -1851,7 +1899,8 @@ export function TransactionsSection({
                                   fontWeight: 700,
                                   border: `1px solid ${t.color}40`,
                                   cursor: "pointer",
-                                }}>
+                                }}
+                              >
                                 #{t.name} ×
                               </span>
                             ))}
@@ -1975,66 +2024,12 @@ export function TransactionsSection({
                       )}
                     </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-end",
-                        gap: "8px",
-                      }}>
-                      {tx.emailReference ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedEmailTx(tx);
-                          }}
-                          title="View source email proof (Gmail alert)"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "24px",
-                            height: "24px",
-                            borderRadius: "6px",
-                            border: "1px solid rgba(59, 130, 246, 0.3)",
-                            background: "rgba(59, 130, 246, 0.1)",
-                            color: "#3b82f6",
-                            cursor: "pointer",
-                            padding: 0,
-                            flexShrink: 0,
-                            transition: "all 0.15s ease",
-                          }}>
-                          <Eye size={13} />
-                        </button>
-                      ) : (
-                        <span
-                          title="No email proof available"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "24px",
-                            height: "24px",
-                            borderRadius: "6px",
-                            border: "1px solid var(--line)",
-                            background: "transparent",
-                            color: "var(--muted)",
-                            opacity: 0.2,
-                            cursor: "not-allowed",
-                            flexShrink: 0,
-                          }}>
-                          <EyeOff size={13} />
-                        </span>
-                      )}
-                      <b
-                        className={`transaction-amount-cell ${
-                          isDebit ? "negative" : "positive"
-                        }`}
-                        style={{ textAlign: "right" }}>
-                        {isDebit ? money(tx.amount) : `+${money(tx.amount)}`}
-                      </b>
-                    </div>
+                    <b
+                      className={`transaction-amount-cell ${
+                        isDebit ? "negative" : "positive"
+                      }`}>
+                      {isDebit ? money(tx.amount) : `+${money(tx.amount)}`}
+                    </b>
                   </article>
                 );
               })}
