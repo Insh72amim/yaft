@@ -29,6 +29,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Shell } from '@/components/shell';
 import { SpendRulesModal } from '@/components/spend-rules-modal';
 import { CategoryBudgetsModal } from '@/components/category-budgets-modal';
+import { EnvelopesOverviewSection } from '@/components/dashboard/envelopes-overview-section';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 
 type Account = { id: string; name: string; type: string; balance: number; creditLimit: number | null; dueDay: number | null };
@@ -268,6 +269,16 @@ export default function DashboardPage() {
     : data.month;
 
   const monthLabel = dateRangeLabel;
+
+  const selectedMonth = useMemo(() => {
+    const d = new Date(endDate);
+    return isNaN(d.getTime()) ? new Date().getMonth() + 1 : d.getUTCMonth() + 1;
+  }, [endDate]);
+
+  const selectedYear = useMemo(() => {
+    const d = new Date(endDate);
+    return isNaN(d.getTime()) ? new Date().getFullYear() : d.getUTCFullYear();
+  }, [endDate]);
 
   const totalSpend = (data.categories || []).reduce((sum, category) => sum + category.amount, 0);
   let angle = 0;
@@ -602,6 +613,14 @@ export default function DashboardPage() {
           )}
         </article>
       </section>
+
+      {/* Real-time Expense Categories & Envelopes + All Expense Transactions Ledger */}
+      <EnvelopesOverviewSection
+        selectedMonth={selectedMonth}
+        selectedYear={selectedYear}
+        monthLabel={monthLabel}
+        onBudgetUpdated={() => void load()}
+      />
 
       {/* Category Budgets Modal */}
       {showBudgetsModal && (
