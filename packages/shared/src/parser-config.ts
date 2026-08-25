@@ -191,11 +191,11 @@ export const EMAIL_ALERT_PATTERNS = {
 
   LABEL_AMOUNT_REGEX: /(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount\s*invested|sip\s*amount|amount)\s*[:=]\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   VERB_AMOUNT_REGEXES: [
-    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+(?:of|for|on)|amount\s+of|for\s+(?:an\s+amount\s+of\s+)?(?:inr|rs\.?|₹)|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with|sip\s+installment\s+of|sip\s+debit\s+of|sip\s+amount\s+of|invested\s+amount\s+of|purchase\s+of\s+units\s+worth|has\s+a\s+debit\s+by\s+[a-zA-Z0-9\s]+\s+of|has\s+a\s+debit\s+of|debit\s+by\s+[a-zA-Z0-9\s]+\s+of|debit\s+of)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited|transferred|processed|invested)/i,
-    /^(?:.*?\b)?(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited|credited|processed|invested)/i,
+    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+(?:of|for|on)|refund\s+(?:of|worth|for|amount\s+of)?|cashback\s+(?:of|worth|for)?|reversal\s+(?:of|worth|for)?|amount\s+of|for\s+(?:an\s+amount\s+of\s+)?(?:inr|rs\.?|₹)|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with|sip\s+installment\s+of|sip\s+debit\s+of|sip\s+amount\s+of|invested\s+amount\s+of|purchase\s+of\s+units\s+worth|has\s+a\s+debit\s+by\s+[a-zA-Z0-9\s]+\s+of|has\s+a\s+debit\s+of|debit\s+by\s+[a-zA-Z0-9\s]+\s+of|debit\s+of)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited|transferred|processed|invested|refunded)/i,
+    /^(?:.*?\b)?(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited|credited|processed|invested|refunded)/i,
     /(?:for|towards)\s+(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
-    /(?:credited|debited|spent|charged|paid|transferred|withdrawn)\s+(?:by|with|for)?\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:credited|debited|spent|charged|paid|transferred|withdrawn|refunded)\s+(?:by|with|for)?\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)/i,
     /(?:NEFT|IMPS|RTGS|UPI|SIP)\s*(?:CR|DR)?\s*[:\s-]+\s*(?:inr|rs\.?|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   ],
 
@@ -280,7 +280,7 @@ export function extractAlertReferenceNumber(text: string): string | undefined {
   return undefined;
 }
 
-export function extractAlertRawMerchant(text: string): string {
+export function extractAlertRawMerchant(text: string, senderOrSubject?: string): string {
   const merchantNameMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_NAME_LABEL_REGEX);
   if (merchantNameMatch) return merchantNameMatch[1].replace(/[.,\s\-_]+$/, '').trim();
 
@@ -302,6 +302,14 @@ export function extractAlertRawMerchant(text: string): string {
 
   const atMatch = text.match(EMAIL_ALERT_PATTERNS.MERCHANT_AT_REGEX);
   if (atMatch) return atMatch[1].replace(/[.,\s\-_]+$/, '').trim();
+
+  // Check for known brand names in text or sender/subject
+  const combinedContext = `${text} ${senderOrSubject || ''}`;
+  for (const rule of BRAND_CANONICAL_RULES) {
+    if (rule.pattern.test(combinedContext)) {
+      return rule.canonical;
+    }
+  }
 
   return 'General Merchant';
 }

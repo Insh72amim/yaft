@@ -125,7 +125,7 @@ export const INSTITUTION_EMAIL_CONFIGS: InstitutionEmailConfig[] = [
     institutionId: 'sbi',
     displayName: 'State Bank of India',
     accountType: AccountType.CREDIT_CARD,
-    senders: ['onlinesbicard@sbicard.com', 'feedback@sbicard.com', 'sbicard.com'],
+    senders: ['onlinesbicard@sbicard.com', 'alerts@sbicard.com', 'donotreply@sbicard.com', 'feedback@sbicard.com', 'customercare@sbicard.com', 'transactionalert@sbicard.com', 'sbicard.com', 'sbicard.co.in'],
     subjectPatterns: [
       /sbi\s*card\s*transaction\s*alert/i,
       /transaction\s*alert.*sbi\s*card/i,
@@ -265,6 +265,33 @@ export const INSTITUTION_EMAIL_CONFIGS: InstitutionEmailConfig[] = [
       /amex\s*card\s*alert/i,
     ],
     queryKeywords: ['spent on your American Express Card', 'Card ending', 'Membership Rewards'],
+  },
+
+  // ---------------------------------------------------------------------------
+  // Payment Gateways & Merchant Refunds (PayU, Razorpay, Cashfree, Myntra, etc.)
+  // ---------------------------------------------------------------------------
+  {
+    id: 'payment-gateway-refunds',
+    institutionId: 'gateway',
+    displayName: 'Refunds & Payment Gateways',
+    accountType: AccountType.CREDIT_CARD,
+    senders: [
+      'notifications@payu.in',
+      'refunds@payu.in',
+      'payu.in',
+      'refunds@razorpay.com',
+      'notifications@razorpay.com',
+      'razorpay.com',
+      'updates@myntra.com',
+      'support@myntra.com',
+      'orders@myntra.com',
+      'myntra.com',
+    ],
+    subjectPatterns: [
+      /refund\s*(?:successful|processed|initiated|credited|update)/i,
+      /order\s*refund/i,
+    ],
+    queryKeywords: ['refund', 'processed', 'credited', 'successful', 'PayU', 'Razorpay', 'Myntra'],
   },
 
   // ---------------------------------------------------------------------------

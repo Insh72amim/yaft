@@ -197,7 +197,7 @@ export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: strin
     }
   }
   if (!rawMerchant) {
-    rawMerchant = extractAlertRawMerchant(text);
+    rawMerchant = extractAlertRawMerchant(text, senderOrSubject);
   }
   const merchant = canonicalizeMerchantName(rawMerchant);
 

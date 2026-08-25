@@ -522,4 +522,18 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.amountDisplay).toBe(500);
     expect(result?.amountMinor).toBe(50000n);
   });
+
+  it('should parse merchant/gateway refund confirmation email to credit card', () => {
+    const text = 'Hi Test User, We have successfully processed your refund of Rs. 4,799.00 for order #100001 to your SBI Card ending with 8888 on 23-Jul-2026. Ref: PAYU000001.';
+    const result = parseEmailAlertSnippet(text, 'Myntra Updates <updates@myntra.com>');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('State Bank of India');
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('1026');
+    expect(result?.type).toBe('CREDIT');
+    expect(result?.amountDisplay).toBe(4799);
+    expect(result?.amountMinor).toBe(479900n);
+    expect(result?.merchant).toBe('MYNTRA');
+  });
 });
