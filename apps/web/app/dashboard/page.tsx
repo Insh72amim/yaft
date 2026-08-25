@@ -1396,7 +1396,15 @@ function MultiBankSankeyDiagram({
     return [...map.values()];
   }, [internalTransfers]);
 
-  const [hoveredBankId, setHoveredBankId] = useState<string | null>(null);
+  type HoverTarget =
+    | { kind: 'inbound' }
+    | { kind: 'bank'; id: string }
+    | { kind: 'supergroup'; id: string }
+    | { kind: 'category'; id: string }
+    | { kind: 'interbank'; fromId: string; toId: string }
+    | null;
+
+  const [hoverTarget, setHoverTarget] = useState<HoverTarget>(null);
   const [hoveredFlow, setHoveredFlow] = useState<{ title: string; amount: string; color: string } | null>(null);
 
   const getBankColor = (index: number, name: string): string => {
@@ -1411,16 +1419,17 @@ function MultiBankSankeyDiagram({
   };
 
   // ── Layout Dimensions ───────────────────────────────────────────────────
-  const SVG_W = 1320;
-  const PAD_V = 48;
+  const SVG_W = 1420;
+  const PAD_TOP = 80;
+  const PAD_BOTTOM = 40;
   const NODE_W = 16;
   const NODE_GAP = 28;
-  const MIN_BANK_H = 46;
-  const LEFT_X = 160;
-  const MID_X = 420;
-  const HUB_X = 740;
-  const CAT_X = 1050;
-  const ARC_X = MID_X + NODE_W + 48;
+  const MIN_BANK_H = 48;
+  const LEFT_X = 140;
+  const MID_X = 440;
+  const HUB_X = 770;
+  const CAT_X = 1110;
+  const ARC_X = MID_X + NODE_W + 36;
 
   // 1. Determine active supergroups (Excluding Bank-to-Bank self-transfers, which are covered directly as interbank arcs)
   const activeSupergroups: SupergroupData[] = useMemo(() => {
@@ -1499,17 +1508,17 @@ function MultiBankSankeyDiagram({
   const minHeightNeeded = Math.max(
     accounts.length * MIN_BANK_H + (accounts.length - 1) * NODE_GAP,
     activeSupergroups.length * 56 + (activeSupergroups.length - 1) * NODE_GAP,
-    380,
+    440,
   );
-  const usableH = Math.max(460, minHeightNeeded);
+  const usableH = Math.max(480, minHeightNeeded);
 
-  const scale = (usableH * 0.74) / maxSystemVolume;
+  const scale = (usableH * 0.72) / maxSystemVolume;
   const flowH = (amt: number) => (amt > 0 ? Math.max(3, Math.round(amt * scale)) : 0);
 
   // 4. Position Stage 1: Inbound Node
   const inSlicesData = bankVolumes.filter((b) => b.inTotal > 0).map((b) => flowH(b.inTotal));
   const inboundH = Math.max(40, inSlicesData.reduce((s, h) => s + h, 0));
-  const inStartY = PAD_V + (usableH - inboundH) / 2;
+  const inStartY = PAD_TOP + (usableH - inboundH) / 2;
 
   // 5. Position Stage 2: Bank Nodes
   const bankNodes = bankVolumes.map((b) => {
@@ -1524,7 +1533,7 @@ function MultiBankSankeyDiagram({
     };
   });
 
-  let bankCurY = PAD_V;
+  let bankCurY = PAD_TOP;
   const bankNodesWithY = bankNodes.map((node) => {
     const n = { ...node, x: MID_X, y: bankCurY };
     bankCurY += node.height + NODE_GAP;
@@ -1547,16 +1556,16 @@ function MultiBankSankeyDiagram({
 
   const sgGap = 28;
   const totalSgBlockH = supergroupNodesData.reduce((s, sg) => s + sg.height, 0) + (supergroupNodesData.length - 1) * sgGap;
-  const sgStartY = PAD_V + Math.max(0, (usableH - totalSgBlockH) / 2);
+  const sgStartY = PAD_TOP + Math.max(0, (usableH - totalSgBlockH) / 2);
 
-  let sgCurY = Math.max(PAD_V, sgStartY);
+  let sgCurY = Math.max(PAD_TOP, sgStartY);
   const supergroupNodesWithY = supergroupNodesData.map((node) => {
     const n = { ...node, x: HUB_X, y: sgCurY };
     sgCurY += node.height + sgGap;
     return n;
   });
 
-  // 7. Position Stage 4: Consolidated Unified Expense Categories (Summed across Direct Spends, Credit Cards, and UPI Lite)
+  // 7. Position Stage 4: Consolidated Unified Expense Categories
   type ConsolidatedCategory = {
     id: string;
     name: string;
@@ -1627,12 +1636,34 @@ function MultiBankSankeyDiagram({
       }
     }
 
-    // Sort categories by totalAmount descending
-    return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount);
+    const list = Array.from(map.values());
+
+    // Barycentric sort based on weighted average vertical center of funding supergroups
+    // This minimizes ribbon crossing and keeps the flow clean and horizontal!
+    return list.sort((a, b) => {
+      const weightA =
+        a.sources.reduce((sum, s) => {
+          const sg = supergroupNodesWithY.find((n) => n.id === s.superGroupId);
+          const sgCenterY = sg ? sg.y + sg.height / 2 : 0;
+          return sum + sgCenterY * s.amount;
+        }, 0) / a.totalAmount;
+
+      const weightB =
+        b.sources.reduce((sum, s) => {
+          const sg = supergroupNodesWithY.find((n) => n.id === s.superGroupId);
+          const sgCenterY = sg ? sg.y + sg.height / 2 : 0;
+          return sum + sgCenterY * s.amount;
+        }, 0) / b.totalAmount;
+
+      if (Math.abs(weightA - weightB) > 2) {
+        return weightA - weightB;
+      }
+      return b.totalAmount - a.totalAmount;
+    });
   }, [supergroupNodesWithY]);
 
   const catGap = 10;
-  let catCurY = PAD_V;
+  let catCurY = PAD_TOP;
 
   const categoryNodesWithY: ConsolidatedCategory[] = consolidatedCategories.map((c) => {
     const incomingFlowH = c.sources.reduce((sum, s) => sum + flowH(s.amount), 0);
@@ -1647,7 +1678,10 @@ function MultiBankSankeyDiagram({
     return node;
   });
 
-  const finalSvgH = Math.max(usableH + PAD_V * 2, bankCurY + PAD_V, sgCurY + PAD_V, catCurY + PAD_V);
+  const finalSvgH = Math.max(usableH + PAD_TOP + PAD_BOTTOM, bankCurY + 36, sgCurY + 36, catCurY + 36);
+
+  // Total Outbound for percentage calculation
+  const totalOutboundSum = activeSupergroups.reduce((s, sg) => s + sg.amount, 0) || 1;
 
   // 8. Ribbon Path Helper
   const ribbon = (x1: number, yT1: number, yB1: number, x2: number, yT2: number, yB2: number) => {
@@ -1765,6 +1799,81 @@ function MultiBankSankeyDiagram({
     }
   }
 
+  // 12. Full Interactive Path Highlighting Helper
+  const isBankActive = (bankId: string) => {
+    if (!hoverTarget) return true;
+    if (hoverTarget.kind === 'inbound') return true;
+    if (hoverTarget.kind === 'bank' && hoverTarget.id === bankId) return true;
+    if (hoverTarget.kind === 'interbank' && (hoverTarget.fromId === bankId || hoverTarget.toId === bankId)) return true;
+    if (hoverTarget.kind === 'supergroup') {
+      const b = bankNodesWithY.find((n) => n.id === bankId);
+      return (b?.sgContributions[hoverTarget.id] || 0) > 0;
+    }
+    if (hoverTarget.kind === 'category') {
+      const cat = categoryNodesWithY.find((c) => c.id === hoverTarget.id);
+      const b = bankNodesWithY.find((n) => n.id === bankId);
+      return cat?.sources.some((s) => (b?.sgContributions[s.superGroupId] || 0) > 0) ?? false;
+    }
+    return false;
+  };
+
+  const isSupergroupActive = (sgId: string) => {
+    if (!hoverTarget) return true;
+    if (hoverTarget.kind === 'inbound') return true;
+    if (hoverTarget.kind === 'supergroup' && hoverTarget.id === sgId) return true;
+    if (hoverTarget.kind === 'bank') {
+      const b = bankNodesWithY.find((n) => n.id === hoverTarget.id);
+      return (b?.sgContributions[sgId] || 0) > 0;
+    }
+    if (hoverTarget.kind === 'category') {
+      const cat = categoryNodesWithY.find((c) => c.id === hoverTarget.id);
+      return cat?.sources.some((s) => s.superGroupId === sgId) ?? false;
+    }
+    return false;
+  };
+
+  const isCategoryActive = (catId: string) => {
+    if (!hoverTarget) return true;
+    if (hoverTarget.kind === 'inbound') return true;
+    if (hoverTarget.kind === 'category' && hoverTarget.id === catId) return true;
+    if (hoverTarget.kind === 'supergroup') {
+      const cat = categoryNodesWithY.find((c) => c.id === catId);
+      return cat?.sources.some((s) => s.superGroupId === hoverTarget.id) ?? false;
+    }
+    if (hoverTarget.kind === 'bank') {
+      const b = bankNodesWithY.find((n) => n.id === hoverTarget.id);
+      const cat = categoryNodesWithY.find((c) => c.id === catId);
+      return cat?.sources.some((s) => (b?.sgContributions[s.superGroupId] || 0) > 0) ?? false;
+    }
+    return false;
+  };
+
+  const isBankToSgRibbonActive = (bankId: string, sgId: string) => {
+    if (!hoverTarget) return true;
+    if (hoverTarget.kind === 'inbound') return true;
+    if (hoverTarget.kind === 'bank') return hoverTarget.id === bankId;
+    if (hoverTarget.kind === 'supergroup') return hoverTarget.id === sgId;
+    if (hoverTarget.kind === 'category') {
+      const cat = categoryNodesWithY.find((c) => c.id === hoverTarget.id);
+      const b = bankNodesWithY.find((n) => n.id === bankId);
+      return cat?.sources.some((s) => s.superGroupId === sgId && (b?.sgContributions[sgId] || 0) > 0) ?? false;
+    }
+    return false;
+  };
+
+  const isSgToCatRibbonActive = (sgId: string, catId: string) => {
+    if (!hoverTarget) return true;
+    if (hoverTarget.kind === 'inbound') return true;
+    if (hoverTarget.kind === 'category') return hoverTarget.id === catId;
+    if (hoverTarget.kind === 'supergroup') return hoverTarget.id === sgId;
+    if (hoverTarget.kind === 'bank') {
+      const b = bankNodesWithY.find((n) => n.id === hoverTarget.id);
+      const cat = categoryNodesWithY.find((c) => c.id === catId);
+      return (b?.sgContributions[sgId] || 0) > 0 && (cat?.sources.some((s) => s.superGroupId === sgId) ?? false);
+    }
+    return false;
+  };
+
   return (
     <div style={{ padding: 0, width: '100%', overflow: 'hidden', position: 'relative' }}>
       {/* Floating Hover Tooltip */}
@@ -1778,11 +1887,11 @@ function MultiBankSankeyDiagram({
             background: 'var(--card)',
             border: `1.5px solid ${hoveredFlow.color}`,
             borderRadius: 10,
-            padding: '5px 16px',
+            padding: '6px 18px',
             fontSize: 12,
             fontWeight: 700,
             color: 'var(--ink)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+            boxShadow: '0 6px 24px rgba(0,0,0,0.22)',
             pointerEvents: 'none',
             whiteSpace: 'nowrap',
             zIndex: 10,
@@ -1834,18 +1943,61 @@ function MultiBankSankeyDiagram({
           )}
         </defs>
 
+        {/* ── Stage Column Headers / Stepper Bar ───────────────────── */}
+        <g className="stage-headers" opacity="0.88">
+          {/* Stage 1 Header */}
+          <g transform={`translate(${LEFT_X - 12}, 26)`}>
+            <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px" textAnchor="end">
+              1. INFLOW
+            </text>
+            <text x="0" y="14" fill="#059669" fontSize="11" fontWeight="700" textAnchor="end">
+              External Income
+            </text>
+          </g>
+
+          {/* Stage 2 Header */}
+          <g transform={`translate(${MID_X - 12}, 26)`}>
+            <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px" textAnchor="end">
+              2. FUNDING ACCOUNTS
+            </text>
+            <text x="0" y="14" fill="var(--ink)" fontSize="11" fontWeight="700" textAnchor="end">
+              Banks & Transfers
+            </text>
+          </g>
+
+          {/* Stage 3 Header */}
+          <g transform={`translate(${HUB_X}, 26)`}>
+            <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px">
+              3. PAYMENT CHANNELS
+            </text>
+            <text x="0" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">
+              Direct, Cards & Micro
+            </text>
+          </g>
+
+          {/* Stage 4 Header */}
+          <g transform={`translate(${CAT_X}, 26)`}>
+            <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px">
+              4. FINAL EXPENSES
+            </text>
+            <text x="0" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">
+              Consolidated Destinations
+            </text>
+          </g>
+        </g>
+
         {/* ── Stage 1 -> Stage 2: Inbound Ribbons ─────────────────── */}
         {inSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
-          const act = !hoveredBankId || hoveredBankId === bank.id;
+          const act = isBankActive(bank.id);
           return (
             <path
               key={`in-${bank.id}`}
               d={ribbon(LEFT_X + NODE_W, srcT, srcB, MID_X, dstT, dstB)}
               fill={`url(#gi-${bank.id})`}
-              opacity={act ? 0.52 : 0.06}
+              opacity={act ? 0.55 : 0.05}
               style={{ transition: 'opacity .18s', cursor: 'pointer' }}
               onMouseEnter={() => {
-                setHoveredBankId(bank.id);
+                setHoverTarget({ kind: 'bank', id: bank.id });
                 setHoveredFlow({
                   title: `Inbound → ${bank.name}`,
                   amount: `+${money(bank.inTotal)}`,
@@ -1853,7 +2005,7 @@ function MultiBankSankeyDiagram({
                 });
               }}
               onMouseLeave={() => {
-                setHoveredBankId(null);
+                setHoverTarget(null);
                 setHoveredFlow(null);
               }}
             />
@@ -1862,16 +2014,16 @@ function MultiBankSankeyDiagram({
 
         {/* ── Stage 2 -> Stage 3: Bank to Supergroup Ribbons ─────── */}
         {bankToSgRibbons.map((r, idx) => {
-          const act = !hoveredBankId || hoveredBankId === r.bank.id;
+          const act = isBankToSgRibbonActive(r.bank.id, r.sg.id);
           return (
             <path
               key={`bs-ribbon-${idx}`}
               d={ribbon(MID_X + NODE_W, r.srcT, r.srcB, HUB_X, r.dstT, r.dstB)}
               fill={`url(#g-bs-${r.bank.id}-${r.sg.id})`}
-              opacity={act ? 0.52 : 0.06}
+              opacity={act ? 0.55 : 0.05}
               style={{ transition: 'opacity .18s', cursor: 'pointer' }}
               onMouseEnter={() => {
-                setHoveredBankId(r.bank.id);
+                setHoverTarget({ kind: 'bank', id: r.bank.id });
                 setHoveredFlow({
                   title: `${r.bank.name} → ${r.sg.name}`,
                   amount: `-${money(r.amount)}`,
@@ -1879,7 +2031,7 @@ function MultiBankSankeyDiagram({
                 });
               }}
               onMouseLeave={() => {
-                setHoveredBankId(null);
+                setHoverTarget(null);
                 setHoveredFlow(null);
               }}
             />
@@ -1888,14 +2040,16 @@ function MultiBankSankeyDiagram({
 
         {/* ── Stage 3 -> Stage 4: Supergroup to Consolidated Category Ribbons ── */}
         {sgToCatRibbons.map((r, idx) => {
+          const act = isSgToCatRibbonActive(r.sg.id, r.cat.id);
           return (
             <path
               key={`sc-ribbon-${idx}`}
               d={ribbon(HUB_X + NODE_W, r.srcT, r.srcB, CAT_X, r.dstT, r.dstB)}
               fill={`url(#g-sc-${r.sg.id}-${r.cat.id})`}
-              opacity={0.52}
+              opacity={act ? 0.55 : 0.05}
               style={{ transition: 'opacity .18s', cursor: 'pointer' }}
               onMouseEnter={() => {
+                setHoverTarget({ kind: 'category', id: r.cat.id });
                 setHoveredFlow({
                   title: `${r.sg.name} → ${r.cat.name}`,
                   amount: money(r.amount),
@@ -1903,6 +2057,7 @@ function MultiBankSankeyDiagram({
                 });
               }}
               onMouseLeave={() => {
+                setHoverTarget(null);
                 setHoveredFlow(null);
               }}
             />
@@ -1917,10 +2072,13 @@ function MultiBankSankeyDiagram({
 
           const fromY = fromNode.y + fromNode.height * 0.72;
           const toY = toNode.y + toNode.height * 0.28;
-          const peakX = ARC_X + idx * 20;
+          const peakX = ARC_X + idx * 16;
           const midY = (fromY + toY) / 2;
-          const sw = Math.max(2, Math.min(7, Math.round(flowH(it.totalAmount))));
-          const act = !hoveredBankId || hoveredBankId === fromNode.id || hoveredBankId === toNode.id;
+          const sw = Math.max(2, Math.min(6, Math.round(flowH(it.totalAmount))));
+          const act =
+            !hoverTarget ||
+            (hoverTarget.kind === 'bank' && (hoverTarget.id === fromNode.id || hoverTarget.id === toNode.id)) ||
+            (hoverTarget.kind === 'interbank' && hoverTarget.fromId === fromNode.id && hoverTarget.toId === toNode.id);
           const arcPath = `M ${MID_X + NODE_W} ${fromY} C ${peakX} ${fromY},${peakX} ${toY},${MID_X + NODE_W} ${toY}`;
           const fromShort = fromNode.name.split(/[\s–-]/)[0];
           const toShort = toNode.name.split(/[\s–-]/)[0];
@@ -1929,9 +2087,9 @@ function MultiBankSankeyDiagram({
           return (
             <g
               key={`arc-${idx}`}
-              style={{ opacity: act ? 1 : 0.1, transition: 'opacity .18s', cursor: 'pointer' }}
+              style={{ opacity: act ? 1 : 0.08, transition: 'opacity .18s', cursor: 'pointer' }}
               onMouseEnter={() => {
-                setHoveredBankId(fromNode.id);
+                setHoverTarget({ kind: 'interbank', fromId: fromNode.id, toId: toNode.id });
                 setHoveredFlow({
                   title: `Inter-Bank: ${it.fromAccountName} → ${it.toAccountName}`,
                   amount: money(it.totalAmount),
@@ -1939,38 +2097,38 @@ function MultiBankSankeyDiagram({
                 });
               }}
               onMouseLeave={() => {
-                setHoveredBankId(null);
+                setHoverTarget(null);
                 setHoveredFlow(null);
               }}
             >
-              <path d={arcPath} fill="none" stroke={fromNode.color} strokeWidth={sw} strokeOpacity={0.75} />
+              <path d={arcPath} fill="none" stroke={fromNode.color} strokeWidth={sw} strokeOpacity={0.8} />
               <polygon
-                points={`${MID_X + NODE_W},${toY} ${MID_X + NODE_W - 7},${toY - 5} ${MID_X + NODE_W - 7},${toY + 5}`}
+                points={`${MID_X + NODE_W},${toY} ${MID_X + NODE_W - 6},${toY - 4} ${MID_X + NODE_W - 6},${toY + 4}`}
                 fill={fromNode.color}
-                opacity={0.85}
+                opacity={0.9}
               />
-              <g transform={`translate(${peakX + 8}, ${midY - 10})`}>
+              <g transform={`translate(${peakX + 4}, ${midY - 9})`}>
                 <rect
                   x="0"
                   y="0"
-                  width={label.length * 6.5 + 12}
-                  height="20"
-                  rx="5"
+                  width={label.length * 6.2 + 10}
+                  height="18"
+                  rx="4"
                   fill="var(--card)"
                   stroke={fromNode.color}
                   strokeWidth="1"
-                  style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.08))' }}
+                  style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.12))' }}
                 />
                 <rect
                   x="0"
                   y="0"
-                  width={label.length * 6.5 + 12}
-                  height="20"
-                  rx="5"
+                  width={label.length * 6.2 + 10}
+                  height="18"
+                  rx="4"
                   fill={fromNode.color}
                   fillOpacity={0.08}
                 />
-                <text x="6" y="14" fill={fromNode.color} fontSize="10.5" fontWeight="700">
+                <text x="5" y="12.5" fill={fromNode.color} fontSize="9.5" fontWeight="700">
                   {label}
                 </text>
               </g>
@@ -1979,25 +2137,50 @@ function MultiBankSankeyDiagram({
         })}
 
         {/* ── Stage 1 Node: External Inbound ────────────────────── */}
-        <rect x={LEFT_X} y={inStartY} width={NODE_W} height={inboundH} fill="#10b981" rx="4" />
-        <text x={LEFT_X - 12} y={inStartY + inboundH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="end">
-          External Inbound
-        </text>
-        <text x={LEFT_X - 12} y={inStartY + inboundH / 2 + 10} fill="#059669" fontSize="12" fontWeight="700" textAnchor="end">
-          +{money(overall.totalExternalInbound)}
-        </text>
+        <g
+          style={{ cursor: 'pointer' }}
+          onMouseEnter={() => {
+            setHoverTarget({ kind: 'inbound' });
+            setHoveredFlow({
+              title: 'External Inbound (Total Income)',
+              amount: `+${money(overall.totalExternalInbound)}`,
+              color: '#10b981',
+            });
+          }}
+          onMouseLeave={() => {
+            setHoverTarget(null);
+            setHoveredFlow(null);
+          }}
+        >
+          <rect x={LEFT_X} y={inStartY} width={NODE_W} height={inboundH} fill="#10b981" rx="4" />
+          <text x={LEFT_X - 12} y={inStartY + inboundH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="end">
+            External Inbound
+          </text>
+          <text x={LEFT_X - 12} y={inStartY + inboundH / 2 + 10} fill="#059669" fontSize="12" fontWeight="700" textAnchor="end">
+            +{money(overall.totalExternalInbound)}
+          </text>
+        </g>
 
-        {/* ── Stage 2 Nodes: Bank Funding Accounts ──────────────── */}
+        {/* ── Stage 2 Nodes: Bank Funding Accounts (Clean Left-Aligned Labels) ──── */}
         {bankNodesWithY.map((bank) => {
-          const act = !hoveredBankId || hoveredBankId === bank.id;
-          const lx = MID_X + NODE_W + 10;
+          const act = isBankActive(bank.id);
           const midY = bank.y + bank.height / 2;
           return (
             <g
               key={`node-${bank.id}`}
-              style={{ opacity: act ? 1 : 0.28, transition: 'opacity .18s', cursor: 'pointer' }}
-              onMouseEnter={() => setHoveredBankId(bank.id)}
-              onMouseLeave={() => setHoveredBankId(null)}
+              style={{ opacity: act ? 1 : 0.22, transition: 'opacity .18s', cursor: 'pointer' }}
+              onMouseEnter={() => {
+                setHoverTarget({ kind: 'bank', id: bank.id });
+                setHoveredFlow({
+                  title: `${bank.name} (Flow Balance)`,
+                  amount: `+${money(bank.inTotal)} in / -${money(bank.outTotal)} out`,
+                  color: bank.color,
+                });
+              }}
+              onMouseLeave={() => {
+                setHoverTarget(null);
+                setHoveredFlow(null);
+              }}
             >
               <rect
                 x={bank.x}
@@ -2006,13 +2189,13 @@ function MultiBankSankeyDiagram({
                 height={bank.height}
                 fill={bank.color}
                 rx="4"
-                style={{ filter: hoveredBankId === bank.id ? `drop-shadow(0 0 7px ${bank.color})` : 'none' }}
+                style={{ filter: hoverTarget?.kind === 'bank' && hoverTarget.id === bank.id ? `drop-shadow(0 0 8px ${bank.color})` : 'none' }}
               />
-              <rect x={lx} y={midY - 7} width={6} height={6} rx="3" fill={bank.color} />
-              <text x={lx + 9} y={midY - 1} fill="var(--ink)" fontSize="13" fontWeight="700">
+              <rect x={MID_X - 6} y={midY - 3} width={4} height={4} rx="2" fill={bank.color} />
+              <text x={MID_X - 12} y={midY - 2} fill="var(--ink)" fontSize="12.5" fontWeight="700" textAnchor="end">
                 {bank.name}
               </text>
-              <text x={lx + 9} y={midY + 14} fontSize="11">
+              <text x={MID_X - 12} y={midY + 13} fontSize="10.5" textAnchor="end">
                 <tspan fill="#059669" fontWeight="700">+{money(bank.inTotal)}</tspan>
                 <tspan fill="var(--muted)"> / </tspan>
                 <tspan fill="#dc2626" fontWeight="700">-{money(bank.outTotal)}</tspan>
@@ -2023,26 +2206,42 @@ function MultiBankSankeyDiagram({
 
         {/* ── Stage 3 Nodes: Supergroup Hubs ───────────────────── */}
         {supergroupNodesWithY.map((sgNode) => {
+          const act = isSupergroupActive(sgNode.id);
           const midY = sgNode.y + sgNode.height / 2;
           return (
-            <g key={`sg-node-${sgNode.id}`}>
+            <g
+              key={`sg-node-${sgNode.id}`}
+              style={{ opacity: act ? 1 : 0.22, transition: 'opacity .18s', cursor: 'pointer' }}
+              onMouseEnter={() => {
+                setHoverTarget({ kind: 'supergroup', id: sgNode.id });
+                setHoveredFlow({
+                  title: `${sgNode.name} (Channel Total)`,
+                  amount: money(sgNode.amount),
+                  color: sgNode.color,
+                });
+              }}
+              onMouseLeave={() => {
+                setHoverTarget(null);
+                setHoveredFlow(null);
+              }}
+            >
               <rect x={sgNode.x} y={sgNode.y} width={NODE_W} height={sgNode.height} fill={sgNode.color} rx="4" />
               <g transform={`translate(${HUB_X + NODE_W + 10}, ${midY - 17})`}>
                 <rect
                   x="0"
                   y="0"
-                  width={154}
+                  width={156}
                   height={34}
                   rx={6}
                   fill="var(--card)"
                   stroke={sgNode.color}
                   strokeWidth="1.2"
-                  style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.07))' }}
+                  style={{ filter: hoverTarget?.kind === 'supergroup' && hoverTarget.id === sgNode.id ? `drop-shadow(0 0 8px ${sgNode.color})` : 'drop-shadow(0 2px 8px rgba(0,0,0,0.07))' }}
                 />
                 <rect
                   x="0"
                   y="0"
-                  width={154}
+                  width={156}
                   height={34}
                   rx={6}
                   fill={sgNode.color}
@@ -2061,30 +2260,45 @@ function MultiBankSankeyDiagram({
 
         {/* ── Stage 4 Nodes: Consolidated Unified Categories ──── */}
         {categoryNodesWithY.map((catNode, idx) => {
+          const act = isCategoryActive(catNode.id);
           const midY = catNode.y + catNode.height / 2;
+          const pct = ((catNode.totalAmount / totalOutboundSum) * 100).toFixed(1);
           return (
             <g
               key={`cat-node-${idx}-${catNode.name}`}
-              style={{ cursor: 'pointer' }}
+              style={{ opacity: act ? 1 : 0.22, transition: 'opacity .18s', cursor: 'pointer' }}
               onMouseEnter={() => {
                 const breakdown = catNode.sources
                   .map((s) => `${s.superGroupName}: ${money(s.amount)}`)
                   .join(' • ');
+                setHoverTarget({ kind: 'category', id: catNode.id });
                 setHoveredFlow({
                   title: `${catNode.name} (${breakdown})`,
-                  amount: money(catNode.totalAmount),
+                  amount: `${money(catNode.totalAmount)} (${pct}%)`,
                   color: catNode.color,
                 });
               }}
-              onMouseLeave={() => setHoveredFlow(null)}
+              onMouseLeave={() => {
+                setHoverTarget(null);
+                setHoveredFlow(null);
+              }}
             >
-              <rect x={catNode.x} y={catNode.y} width={NODE_W} height={catNode.height} fill={catNode.color} rx="4" />
+              <rect
+                x={catNode.x}
+                y={catNode.y}
+                width={NODE_W}
+                height={catNode.height}
+                fill={catNode.color}
+                rx="4"
+                style={{ filter: hoverTarget?.kind === 'category' && hoverTarget.id === catNode.id ? `drop-shadow(0 0 8px ${catNode.color})` : 'none' }}
+              />
               <rect x={CAT_X + NODE_W + 8} y={midY - 5} width={6} height={6} rx="3" fill={catNode.color} />
               <text x={CAT_X + NODE_W + 18} y={midY - 1} fill="var(--ink)" fontSize="12" fontWeight="700">
                 {catNode.name}
               </text>
-              <text x={CAT_X + NODE_W + 18} y={midY + 13} fill="var(--muted)" fontSize="11" fontWeight="600">
-                {money(catNode.totalAmount)}
+              <text x={CAT_X + NODE_W + 18} y={midY + 13} fontSize="10.5" fontWeight="600">
+                <tspan fill="var(--ink)" fontWeight="600">{money(catNode.totalAmount)}</tspan>
+                <tspan fill="var(--muted)"> · {pct}%</tspan>
               </text>
             </g>
           );
