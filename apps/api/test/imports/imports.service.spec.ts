@@ -122,6 +122,37 @@ describe('ImportsService statement password flow', () => {
     await expect(service.create('user-1', 'account-1', csv)).resolves.toEqual({ id: 'batch-1' });
     expect(parseStatement).toHaveBeenCalledWith(csv, { institution: 'SBI', pdfPassword: undefined });
   });
+
+  it('filters only UPI Lite rows and turns top-ups into credits when importing into a UPI_LITE account', async () => {
+    const { service, prisma, tx } = setup();
+    prisma.account.findFirst.mockResolvedValue({ id: 'upi-lite-1', userId: 'user-1', type: 'UPI_LITE', archived: false });
+
+    const upiLiteSpend = { ...row, description: 'Paid to merchant', amountMinor: -7000, isUpiLite: true };
+    const bankSpend = { ...row, description: 'Paid by Axis Bank', amountMinor: -50000, isUpiLite: false };
+    const topUp = { ...row, description: 'Top-up to UPI Lite', amountMinor: -300000, isUpiLite: true };
+
+    parseStatement.mockResolvedValue({ rows: [upiLiteSpend, bankSpend, topUp], parserId: 'GPAY' });
+
+    await service.create('user-1', 'upi-lite-1', file);
+
+    const staged = tx.importBatch.create.mock.calls[0][0].data.staged.create;
+    // Should only have 2 staged rows (the upiLiteSpend and the topUp)
+    expect(staged).toHaveLength(2);
+    expect(staged[0].descriptionRaw).toBe('Paid to merchant');
+    expect(staged[0].amount).toBe(BigInt(-7000));
+    // Top-up should be positive (credit) in the UPI Lite account
+    expect(staged[1].descriptionRaw).toBe('Top-up to UPI Lite');
+    expect(staged[1].amount).toBe(BigInt(300000));
+  });
+
+  it('rejects GPay statement import into UPI_LITE if no UPI Lite transactions exist', async () => {
+    const { service, prisma } = setup();
+    prisma.account.findFirst.mockResolvedValue({ id: 'upi-lite-1', userId: 'user-1', type: 'UPI_LITE', archived: false });
+    const bankSpend = { ...row, description: 'Paid by Axis Bank', amountMinor: -50000, isUpiLite: false };
+    parseStatement.mockResolvedValue({ rows: [bankSpend], parserId: 'GPAY' });
+
+    await expect(service.create('user-1', 'upi-lite-1', file)).rejects.toThrow('No UPI Lite transactions were found in this statement');
+  });
 });
 
 describe('ImportsService safe review serialization', () => {

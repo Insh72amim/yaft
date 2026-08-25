@@ -39,14 +39,17 @@ export function parseGpayDocument(document: PdfStatementDocument): { rows: Parse
     const date = parseGPayDate(dateStr, timeStr);
     const amountVal = parseFloat(amountStr.replace(/,/g, ''));
     const isCredit = /^Received\s+from|^Refund\s+from/i.test(descTrim);
-    const amountMinor = Math.round((isCredit ? amountVal : -amountVal) * 100);
+    const isTopUp = /top-up\s+to\s+upi\s+lite|loaded\s+to\s+upi\s+lite|added\s+to\s+upi\s+lite/i.test(descTrim);
+    const isUpiLiteSpend = /UPI\s+Lite/i.test(paymentMethod);
+    const isUpiLite = isUpiLiteSpend || isTopUp;
 
-    const isUpiLite = /UPI\s+Lite/i.test(paymentMethod);
+    // For general bank statement, top-up is a debit (-). For credits (received/refund), amount is (+).
+    const amountMinor = Math.round((isCredit ? amountVal : -amountVal) * 100);
 
     rows.push({
       date,
       postedDate: date,
-      description: rawDescription.trim(),
+      description: descTrim,
       amountMinor,
       reference: refNo.trim(),
       dedupeKey: `gpay_${refNo.trim()}`,

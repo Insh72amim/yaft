@@ -159,12 +159,32 @@ export class ImportsService {
     if (isPdf && expectedParserId && parsed.parserId !== expectedParserId) {
       throw new BadRequestException(`The uploaded PDF does not match the selected ${expectedParserId} statement source.`);
     }
+
+    let rowsToStage = parsed.rows;
+    if ((account.type as string) === 'UPI_LITE') {
+      const upiLiteRows = parsed.rows
+        .filter((row) => row.isUpiLite)
+        .map((row) => {
+          // In the context of a UPI Lite wallet account, top-up is a credit (money added to wallet)
+          const isTopUp = /top-up\s+to\s+upi\s+lite|loaded\s+to\s+upi\s+lite|added\s+to\s+upi\s+lite/i.test(row.description);
+          if (isTopUp && row.amountMinor < 0) {
+            return { ...row, amountMinor: Math.abs(row.amountMinor) };
+          }
+          return row;
+        });
+
+      if (upiLiteRows.length === 0) {
+        throw new BadRequestException('No UPI Lite transactions were found in this statement. Only transactions made with or loaded to UPI Lite can be imported into a UPI Lite account.');
+      }
+      rowsToStage = upiLiteRows;
+    }
+
     const [categories, userRules] = await Promise.all([
       this.prisma.category.findMany({ where: { userId } }),
       this.prisma.categoryRule.findMany({ where: { userId }, orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }] }),
     ]);
     const existingFingerprints = new Set((await this.prisma.transaction.findMany({ where: { accountId }, select: { fingerprint: true } })).map((x) => x.fingerprint));
-    const staged = parsed.rows.map((row) => this.enrich(accountId, row, categories, existingFingerprints, userRules));
+    const staged = rowsToStage.map((row) => this.enrich(accountId, row, categories, existingFingerprints, userRules));
     const encrypted = dto.rememberPassword && explicitPassword && parsed.parserId === 'SBI'
       ? this.credentials.encrypt(accountId, explicitPassword) : undefined;
     const batch = await this.prisma.$transaction(async (tx) => {

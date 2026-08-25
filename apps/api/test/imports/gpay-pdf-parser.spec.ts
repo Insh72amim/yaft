@@ -72,6 +72,13 @@ describe('GPay PDF Parser', () => {
     expect(rows[2].amountMinor).toBe(-1200000);
     expect(rows[2].paymentMethod).toBe('Paid by Punjab National Bank 2707');
     expect(rows[2].isUpiLite).toBe(false);
+
+    // Row 4: Top-up to UPI Lite (isUpiLite: true)
+    expect(rows[3].description).toBe('Top-up to UPI Lite');
+    expect(rows[3].reference).toBe('100000000008');
+    expect(rows[3].amountMinor).toBe(-300000);
+    expect(rows[3].paymentMethod).toBe('Paid by Axis Bank 6785');
+    expect(rows[3].isUpiLite).toBe(true);
   });
 
   it('skips failed, declined, or cancelled Google Pay transactions', () => {

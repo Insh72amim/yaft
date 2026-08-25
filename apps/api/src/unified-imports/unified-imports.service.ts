@@ -375,12 +375,16 @@ export class UnifiedImportsService {
 
     if (spec.kind === 'UPI_STATEMENT') {
       const upiAccount = await this.prisma.account.findFirst({
-        where: { userId, archived: false, type: { in: ['UPI_LITE', 'BANK', 'SAVINGS'] } },
+        where: { userId, archived: false, type: AccountType.UPI_LITE },
+        select: { id: true, name: true, type: true, institution: true, currency: true },
+        orderBy: { createdAt: 'asc' },
+      }) || await this.prisma.account.findFirst({
+        where: { userId, archived: false, type: { in: ['BANK', 'SAVINGS'] } },
         select: { id: true, name: true, type: true, institution: true, currency: true },
         orderBy: { createdAt: 'asc' },
       });
       if (!upiAccount) {
-        throw new BadRequestException('No eligible account found for UPI statement import. Please add a bank account first.');
+        throw new BadRequestException('No eligible account found for UPI statement import. Please add a UPI Lite or bank account first.');
       }
       return upiAccount;
     }
