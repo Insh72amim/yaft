@@ -1,43 +1,17 @@
 import { createHash } from 'crypto';
-import { findInstitution } from '../common/institutions/institution-registry';
 import { AccountType } from '../common/constants/enums';
-import { FINANCIAL_CONSTANTS } from '../common/constants/financial-constants';
 import {
   parseIndianDate,
   MONTH_MAP,
   canonicalizeMerchantName,
-  TRANSACTION_STATUS_CONFIG,
-  isExplicitSuccessfulRefund,
-  isCardPaymentReceived,
-  EMAIL_ALERT_PATTERNS,
-  cleanEmailAlertText,
-  extractAlertAmount,
-  extractAlertAccountLast4,
-  extractAlertReferenceNumber,
-  extractAlertRawMerchant,
-  extractAlertDateTime,
-  findEmailConfigForSender,
+  parseStructuredEmailAlert,
+  parseMultipleStructuredEmailAlerts,
+  StructuredParsedEmailTransaction,
 } from '@yaft/shared';
 
 export { parseIndianDate, MONTH_MAP, canonicalizeMerchantName as cleanMerchantName };
 
-export interface ParsedEmailTransaction {
-  bankName: string;
-  accountLast4?: string;
-  accountType: AccountType;
-  type: 'DEBIT' | 'CREDIT';
-  amountMinor: bigint; // Signed minor units (negative for debit, positive for credit)
-  amountDisplay: number; // Absolute rupees
-  merchant: string;
-  referenceNumber?: string;
-  transactionDate: Date;
-  rawSnippet: string;
-  suggestedCategoryName?: string;
-  emailMessageId?: string;
-  emailSubject?: string;
-  emailSender?: string;
-  emailDate?: Date;
-}
+export interface ParsedEmailTransaction extends StructuredParsedEmailTransaction {}
 
 export function parseMoneyToMinorUnits(amountStr: string): bigint {
   const cleanStr = amountStr.replace(/,/g, '').trim();
@@ -46,233 +20,20 @@ export function parseMoneyToMinorUnits(amountStr: string): bigint {
   return BigInt(Math.round(num * 100));
 }
 
-export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
-  // Informational, feature, terms, and card benefit announcements
-  '(?:important\\s+information\\s+regarding|glance\\s+at\\s+(?:the\\s+)?benefits|benefits\\s+that\\s+come\\s+with|benefits\\s+on\\s+your\\s+(?:card|account)|hand-picked\\s+benefits|edge\\s+reward\\s+points|features\\s+and\\s+benefits|schedule\\s+of\\s+charges|annual\\s+fee\\s+structure|know\\s+(?:more\\s+about\\s+)?your\\s+card|welcome\\s+to\\s+your\\s+new|terms\\s+(?:and|&)\\s+conditions|service\\s+charges|tariff\\s+guide|cardholder\\s+agreement|earn\\s+accelerated|enjoy\\s+the\\s+benefits|explore\\s+benefits|reward\\s+points\\s+on\\s+eligible)',
-  // EMI conversions & loan offers
-  '(?:flexi\\s*emi|flexipay|easy\\s*emi|smart\\s*emi|convert.*(?:trxn|txn|transaction|expenses?|spends?).*into.*emi|converting your transaction|processing fee on converting|convert.*into.*easy.*emi|convert.*transactions? worth|turn your eligible spends into)',
-  // Marketing & reward offers & discounts
-  '(?:unlock.*(?:voucher|reward|cashback|exciting)|gift card, with|enjoy.*cashback on your next|special offer|pre-approved|apply now|upgrade your card|file your taxes|guide to smart credit card|switch to faster|complimentary voucher|rewards? on your.*credit card)',
-  '(?:up\\s+to\\s*(?:rs\\.?|inr|₹|&#8377;)?\\s*[\\d,]+\\s*(?:off|cashback|discount|voucher|rewards?)|\\b\\d+%\\s*off|\\bflat\\s+(?:rs\\.?|inr|₹|&#8377;)?\\s*[\\d,]+\\s*off|\\boff\\s+on\\b)',
-  '(?:avail\\s*(?:now|offer|discount|cashback)|exciting\\s*offer|exclusive\\s*offer|great\\s*offer|limited\\s*period\\s*offer|save\\s+up\\s+to|get\\s+up\\s+to|instant\\s+discount|discount\\s+on|discounts\\s+on|cashback\\s+offer)',
-  '(?:earned\\s+\\d+\\s+reward\\s+points|reward\\s+points\\s+summary|total\\s+reward\\s+points\\s+earned|reward\\s+points\\s+credited)',
-  // Card activations & PIN generation & Mandate notifications / reminders
-  '(?:card\\s+(?:has\\s+been\\s+)?activated|congratulations.*card.*activated|welcome\\s+to.*credit\\s*card|pin\\s+generated|generate\\s+(?:green\\s*)?pin|upcoming\\s+autopay|autopay.*reminder|to\\s+be\\s+debited\\s+by)',
-  // Balance enquiry & mini-statements
-  '(?:your\\s+(?:a\\/c|account|card)\\s+balance\\s+is|available\\s+balance\\s+is|a\\/c\\s+bal\\s+is|balance\\s+enquiry|mini\\s*statement|last\\s+\\d+\\s+transactions)',
-  // OTPs & Authentication emails
-  '(?:one time password|\\botp\\b|authentication code|secret code)',
-  // Statement notifications & monthly summary bills
-  '(?:monthly statement|e-statement|your.*statement for|statement summary|total amount due|minimum amount due|payment due date|consolidated account statement|attached herewith is the monthly statement|statement of your.*credit card)',
-  // Declined & Failed
-  '(?:declined|transaction declined|payment failed|unsuccessful transaction)'
-].join('|'), 'i');
-
-export const EXPLICIT_TRANSACTION_INDICATOR_REGEX = /\b(?:debited|credited|spent|charged|used\s+for|used\s+at|purchase\s+of|payment\s+of|withdrawn|received|deposited|refund\s+of|transfer\s+of|amount\s+debited|amount\s+credited|transaction\s+(?:on|of|for|amount|info|details|summary)|transaction\s*amount|processed\s+for|successful\s+transaction|paid\s+to|paid\s+for|txn\s*(?:of|on|amount|for)?|auto\s*debit(?:ed)?|mandate|standing\s*instruction|si\s*debit)\b/i;
-
-export const PROMOTIONAL_SENDER_REGEX = /offers@|deals@|marketing@|promo@|newsletter@|campaign@|digital\.axisbankmail|statements?@/i;
-
-export function parseEmailAlertSnippet(bodyText: string, senderOrSubject?: string, fallbackDate?: Date): ParsedEmailTransaction | null {
-  if (!bodyText || typeof bodyText !== 'string') return null;
-
-  // Reject explicit marketing senders immediately
-  if (senderOrSubject && PROMOTIONAL_SENDER_REGEX.test(senderOrSubject)) {
-    return null;
-  }
-
-  // Pre-clean boilerplate warnings and footers so they don't corrupt merchant or account extraction
-  const text = cleanEmailAlertText(bodyText);
-  const fullContext = `${senderOrSubject || ''} ${text}`;
-
-  // 0. Detect and reject Declined / Failed / Unsuccessful / Cancelled / Promotional / EMI / Statement transactions
-  const isRejected = PROMOTIONAL_OR_NON_TRANSACTION_REGEX.test(fullContext) || TRANSACTION_STATUS_CONFIG.EMAIL_FAILURE_REGEX.test(fullContext);
-
-  if (isRejected && !isExplicitSuccessfulRefund(text)) {
-    return null;
-  }
-
-  // Require an explicit transaction action verb or confirmation indicator unless it's a valid refund
-  const hasTransactionAction = EXPLICIT_TRANSACTION_INDICATOR_REGEX.test(fullContext) || EMAIL_ALERT_PATTERNS.DEBIT_TXN_REGEX.test(text) || EMAIL_ALERT_PATTERNS.CREDIT_TXN_REGEX.test(text);
-  if (!hasTransactionAction && !isExplicitSuccessfulRefund(text)) {
-    return null;
-  }
-
-  // 1. Resolve Provider Configuration (if sender/subject matches registered bank/card config)
-  const emailConfig = findEmailConfigForSender(senderOrSubject, fullContext);
-
-  // Detect Bank / AMC Name
-  // PRIORITY 1: Check senderOrSubject (e.g. alerts@axis.bank.in, Axis Bank Alerts)
-  const senderInst = senderOrSubject ? findInstitution(senderOrSubject) : null;
-  const configInst = emailConfig ? findInstitution(emailConfig.institutionId) : null;
-  const bodyInst = findInstitution(fullContext);
-
-  const matchedInst = senderInst || configInst || bodyInst;
-  const isExplicitInvestment = EMAIL_ALERT_PATTERNS.EXPLICIT_INVESTMENT_REGEX.test(fullContext);
-  const bankName = matchedInst ? matchedInst.name : (emailConfig?.displayName || (isExplicitInvestment ? 'Mutual Fund' : 'Bank Alert'));
-
-  // 2. Detect Account Type (Investment vs Credit Card vs Bank Account)
-  const isExplicitCreditCard = EMAIL_ALERT_PATTERNS.EXPLICIT_CREDIT_CARD_REGEX.test(fullContext);
-  const isExplicitBankAccount = EMAIL_ALERT_PATTERNS.EXPLICIT_BANK_ACCOUNT_REGEX.test(text);
-
-  let accountType: AccountType = AccountType.BANK;
-  if (isExplicitInvestment && !isExplicitCreditCard) {
-    accountType = AccountType.MUTUAL_FUND;
-  } else if (isExplicitCreditCard && !isExplicitBankAccount) {
-    accountType = AccountType.CREDIT_CARD;
-  } else if (isExplicitBankAccount) {
-    accountType = AccountType.BANK;
-  } else if (emailConfig?.accountType) {
-    accountType = emailConfig.accountType;
-  } else if (isExplicitCreditCard) {
-    accountType = AccountType.CREDIT_CARD;
-  }
-
-  // 3. Detect Debit vs Credit
-  const isPaymentReceived = isCardPaymentReceived(fullContext);
-  const isRefund = isExplicitSuccessfulRefund(fullContext);
-  const hasCreditIndicator = EMAIL_ALERT_PATTERNS.CREDIT_TXN_REGEX.test(fullContext);
-  const hasDebitIndicator = EMAIL_ALERT_PATTERNS.DEBIT_TXN_REGEX.test(text);
-
-  let type: 'DEBIT' | 'CREDIT' = 'DEBIT';
-  if (isPaymentReceived || isRefund) {
-    type = 'CREDIT';
-  } else if (hasCreditIndicator && !hasDebitIndicator) {
-    type = 'CREDIT';
-  } else {
-    type = 'DEBIT';
-  }
-
-  // 4. Extract Amount
-  let rawAmountNum: number | null = null;
-  if (emailConfig?.amountRegexes) {
-    for (const rx of emailConfig.amountRegexes) {
-      const m = text.match(rx);
-      if (m && m[1]) {
-        const parsed = parseFloat(m[1].replace(/,/g, ''));
-        if (Number.isFinite(parsed)) {
-          rawAmountNum = parsed;
-          break;
-        }
-      }
-    }
-  }
-  if (rawAmountNum === null) {
-    rawAmountNum = extractAlertAmount(text);
-  }
-
-  if (rawAmountNum === null || rawAmountNum <= 0 || rawAmountNum > FINANCIAL_CONSTANTS.MAX_EMAIL_TRANSACTION_AMOUNT) {
-    return null;
-  }
-
-  const rawMinor = BigInt(Math.round(rawAmountNum * 100));
-  const amountMinor = type === 'DEBIT' ? -rawMinor : rawMinor;
-
-  // 5. Extract Account / Card Last 4 Digits
-  let accountLast4: string | undefined = undefined;
-  if (emailConfig?.last4Regexes) {
-    for (const rx of emailConfig.last4Regexes) {
-      const m = text.match(rx);
-      if (m && m[1]) {
-        accountLast4 = m[1].length >= 4 ? m[1].slice(-4) : m[1];
-        break;
-      }
-    }
-  }
-  if (!accountLast4) {
-    accountLast4 = extractAlertAccountLast4(text);
-  }
-
-  // 6. Extract Reference / UTR Number
-  let referenceNumber: string | undefined = undefined;
-  if (emailConfig?.referenceRegexes) {
-    for (const rx of emailConfig.referenceRegexes) {
-      const m = text.match(rx);
-      if (m && m[1]) {
-        referenceNumber = m[1];
-        break;
-      }
-    }
-  }
-  if (!referenceNumber) {
-    referenceNumber = extractAlertReferenceNumber(text);
-  }
-
-  // 7. Extract Merchant / Payee
-  let rawMerchant: string | undefined = undefined;
-  if (emailConfig?.merchantRegexes) {
-    for (const rx of emailConfig.merchantRegexes) {
-      const m = text.match(rx);
-      if (m && m[1] && !/^(vpa|account|a\/c|your|debited|credited|ref|bank|savings|primary)$/i.test(m[1].trim())) {
-        rawMerchant = m[1].replace(/[.,\s\-_]+$/, '').trim();
-        break;
-      }
-    }
-  }
-  if (!rawMerchant) {
-    rawMerchant = extractAlertRawMerchant(text, senderOrSubject);
-  }
-  if (isPaymentReceived && (!rawMerchant || rawMerchant === 'General Merchant')) {
-    rawMerchant = 'Payment Received';
-  }
-  const merchant = canonicalizeMerchantName(rawMerchant);
-
-  // 8. Extract Date & Time
-  let transactionDate = fallbackDate ? new Date(fallbackDate) : new Date();
-  const { dateStr, timeStr } = extractAlertDateTime(text);
-  if (dateStr) {
-    transactionDate = parseIndianDate(dateStr, timeStr);
-  }
-
-  let suggestedCategory = emailConfig?.defaultCategoryName;
-  if (isPaymentReceived) {
-    suggestedCategory = 'Credit Card Payment';
-  } else if (isRefund) {
-    suggestedCategory = 'Refund';
-  }
-
-  return {
-    bankName,
-    accountLast4,
-    accountType,
-    type,
-    amountMinor,
-    amountDisplay: rawAmountNum,
-    merchant,
-    referenceNumber,
-    transactionDate,
-    rawSnippet: text.slice(0, 300),
-    suggestedCategoryName: suggestedCategory,
-  };
+export function parseEmailAlertSnippet(
+  bodyText: string,
+  senderOrSubject?: string,
+  fallbackDate?: Date
+): ParsedEmailTransaction | null {
+  return parseStructuredEmailAlert(bodyText, senderOrSubject, fallbackDate);
 }
 
-export function parseMultipleEmailAlerts(emailTextContent: string, senderOrSubject?: string, fallbackDate?: Date): ParsedEmailTransaction[] {
-  if (!emailTextContent) return [];
-
-  const rawBlocks = emailTextContent
-    .split(/(?:\r?\n){2,}|(?=Dear\s+(?:Customer|User|SBI|Cardholder|Account\s*holder))|(?=(?:^|\n)\s*(?:Rs\.|INR|₹)\s*[\d,]+)/im)
-    .map((b) => b.trim())
-    .filter((b) => b.length > 20);
-
-  const results: ParsedEmailTransaction[] = [];
-  const seenRefs = new Set<string>();
-
-  for (const block of rawBlocks) {
-    const parsed = parseEmailAlertSnippet(block, senderOrSubject, fallbackDate);
-    if (parsed) {
-      const key = `${parsed.bankName}-${parsed.amountMinor}-${parsed.transactionDate.toISOString().slice(0, 10)}-${parsed.merchant}`;
-      if (!seenRefs.has(key)) {
-        seenRefs.add(key);
-        results.push(parsed);
-      }
-    }
-  }
-
-  if (results.length === 0) {
-    const fallback = parseEmailAlertSnippet(emailTextContent, senderOrSubject, fallbackDate);
-    if (fallback) results.push(fallback);
-  }
-
-  return results;
+export function parseMultipleEmailAlerts(
+  emailTextContent: string,
+  senderOrSubject?: string,
+  fallbackDate?: Date
+): ParsedEmailTransaction[] {
+  return parseMultipleStructuredEmailAlerts(emailTextContent, senderOrSubject, fallbackDate);
 }
 
 export function getAlertFingerprint(accountId: string, alert: ParsedEmailTransaction): string {
