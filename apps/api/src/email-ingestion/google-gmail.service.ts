@@ -274,11 +274,11 @@ export class GoogleGmailService {
         if (accountScope === 'ALL_CARDS') {
           const cardConfigs = INSTITUTION_EMAIL_CONFIGS.filter((c) => c.accountType === AccountType.CREDIT_CARD);
           const senders = Array.from(new Set(cardConfigs.flatMap((c) => c.senders)));
-          query = `from:(${senders.join(' OR ')}) ("credit card" OR "card ending" OR "card ending with" OR "spent on your card" OR "transaction on your card" OR "amazon pay" OR "pixel" OR "card no" OR "card xx" OR "spent") after:${afterDateStr}`;
+          query = `from:(${senders.join(' OR ')}) (spent OR debited OR credited OR refund OR refunded OR reversal OR cashback OR "credit card" OR "card ending" OR "card ending with" OR "spent on your card" OR "transaction on your card" OR "amazon pay" OR "pixel" OR "card no" OR "card xx") after:${afterDateStr}`;
         } else if (accountScope === 'ALL_BANKS') {
           const bankConfigs = INSTITUTION_EMAIL_CONFIGS.filter((c) => c.accountType === AccountType.BANK);
           const senders = Array.from(new Set(bankConfigs.flatMap((c) => c.senders)));
-          query = `from:(${senders.join(' OR ')}) (debited OR credited OR spent OR alert OR transaction OR payment OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs." OR "UPI" OR "NEFT" OR "IMPS") after:${afterDateStr}`;
+          query = `from:(${senders.join(' OR ')}) (debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs." OR "UPI" OR "NEFT" OR "IMPS") after:${afterDateStr}`;
         } else if (accountScope === 'ALL_INVESTMENTS') {
           const sipConfigs = INSTITUTION_EMAIL_CONFIGS.filter((c) => c.accountType === AccountType.MUTUAL_FUND);
           const senders = Array.from(new Set(sipConfigs.flatMap((c) => c.senders)));
@@ -291,15 +291,15 @@ export class GoogleGmailService {
             const senderFilter = `from:(${allSenders.join(' OR ')})`;
             const keywordFilter = allKeywords.length > 0
               ? `(${allKeywords.map((k) => k.includes(' ') ? `"${k}"` : k).join(' OR ')})`
-              : '(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.")';
+              : '(debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.")';
             query = `${senderFilter} ${keywordFilter} after:${afterDateStr}`;
           } else {
-            query = `(debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.") after:${afterDateStr}`;
+            query = `(debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.") after:${afterDateStr}`;
           }
         } else {
           // Default ALL
           const allSenders = Array.from(new Set(INSTITUTION_EMAIL_CONFIGS.flatMap((c) => c.senders)));
-          query = `from:(${allSenders.join(' OR ')}) (debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs." OR "SIP" OR "Mutual Fund") after:${afterDateStr}`;
+          query = `from:(${allSenders.join(' OR ')}) (debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs." OR "SIP" OR "Mutual Fund") after:${afterDateStr}`;
         }
 
         let pageToken: string | undefined = undefined;

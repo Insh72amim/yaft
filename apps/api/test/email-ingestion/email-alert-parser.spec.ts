@@ -496,4 +496,30 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.merchant).toBe('NUSTRAN');
     expect(result?.referenceNumber).toBe('100000000009');
   });
+
+  it('should parse SBI Credit Card refund alert as positive CREDIT transaction', () => {
+    const text = 'Dear Cardholder, INR 3,285.00 has been credited to your SBI Card ending 8888 towards REFUND FROM MYNTRA on 20-Aug-2026. Ref: TXN987654. Total Available Credit Limit is INR 1,45,200.00.';
+    const result = parseEmailAlertSnippet(text, 'onlinesbicard@sbicard.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('1026');
+    expect(result?.type).toBe('CREDIT');
+    expect(result?.amountDisplay).toBe(3285);
+    expect(result?.amountMinor).toBe(328500n);
+    expect(result?.merchant).toBe('MYNTRA');
+    expect(result?.referenceNumber).toBe('TXN987654');
+  });
+
+  it('should parse SBI Credit Card cashback alert as positive CREDIT transaction', () => {
+    const text = 'Dear Cardholder, Rs. 500.00 has been credited to your SBI Card ending 8888 on 15-Aug-2026 towards CASHBACK. Ref: REF000001.';
+    const result = parseEmailAlertSnippet(text, 'onlinesbicard@sbicard.com');
+
+    expect(result).not.toBeNull();
+    expect(result?.accountType).toBe('CREDIT_CARD');
+    expect(result?.accountLast4).toBe('1026');
+    expect(result?.type).toBe('CREDIT');
+    expect(result?.amountDisplay).toBe(500);
+    expect(result?.amountMinor).toBe(50000n);
+  });
 });

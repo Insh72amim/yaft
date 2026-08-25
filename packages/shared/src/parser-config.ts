@@ -59,7 +59,7 @@ export function isDeclinedOrFailedTransaction(description?: string | null, statu
 
 export const REFUND_REVERSAL_CONFIG = {
   REVERSAL_REGEX: /refund|reversal|returned|cashback|cb\s|credit\s*adj|cancelled|canceled/i,
-  EXPLICIT_REFUND_ALERT_REGEX: /\b(?:refund\s+of|credited\s+with\s+refund|refund\s+has\s+been\s+processed|cashback\s+credited)\b/i,
+  EXPLICIT_REFUND_ALERT_REGEX: /\b(?:refund\s+of|credited.*(?:refund|cashback|reversal)|refund\s+(?:has\s+been\s+)?(?:processed|credited|initiated)|cashback\s+credited|amount\s+refunded|refund\s+processed|towards\s+refund|refund\s+from|reversal\s+of|reversal\s+credit)\b/i,
 };
 
 export function isRefundOrReversal(description?: string | null): boolean {
@@ -214,7 +214,7 @@ export const EMAIL_ALERT_PATTERNS = {
   MERCHANT_NAME_LABEL_REGEX: /(?:merchant\s*name|info|payee\s*name|beneficiary\s*name)[:\s]+([a-zA-Z0-9\s._\-&@]{2,50}?)(?=\s+(?:Axis|Date|Available|Total|The|Ref|Avail|Auth|\*|\.|$))/i,
   MERCHANT_TXN_INFO_REGEX: /transaction\s*info[:\s]+([a-zA-Z0-9\s._\-&@\/]{3,60}?)(?=\s+(?:If|To|Please|Available|Date|\.|$))/i,
   MERCHANT_TO_VPA_REGEX: /to\s+(?:VPA\s+)?(?!(?:your\s+)?(?:a\/c|account|bank|savings|card)\b)([a-zA-Z0-9._\-@&]{3,50})(?=\s+(?:on\s+\d|at\s+\d|\.|\bref\b|$))/i,
-  MERCHANT_TOWARDS_REGEX: /towards\s+([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s+(?:at\s+\d|on\s+\d|\.|Bal|Total|Ref|via|$))/i,
+  MERCHANT_TOWARDS_REGEX: /towards\s+(?:refund\s+(?:from|for)\s+)?([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s+(?:at\s+\d|on\s+\d|\.|Bal|Total|Ref|via|$))/i,
   MERCHANT_FROM_REGEX: /from\s+(?!(?:your\s+)?(?:a\/c|account|bank|savings|card|credit\s*card)\b)([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s*[.]|\s+(?:\bNEFT|\bIMPS|\bRef|\bUPI|\bon\s+\d|\bat\s+\d|$))/i,
   MERCHANT_AT_REGEX: /\bat\s+(?!\d{1,2}:\d{2})(?!\d{1,2}[-/]\d{1,2})([a-zA-Z0-9\s._\-&@\/]{2,45}?)(?=\s+(?:on\s+\d|at\s+\d|\.|\binfo\b|\bavail|\btotal|\bref|\bcard|\ba\/c|\btrxn|\breport|$))/i,
 
