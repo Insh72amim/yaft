@@ -178,20 +178,20 @@ export function canonicalizeMerchantName(raw: string): string {
 }
 
 export const EMAIL_ALERT_PATTERNS = {
-  BOILERPLATE_WARNINGS_REGEX: /(?:If (?:this )?transaction was not (?:done|initiated) by you|To block UPI|Please SMS BLOCK|We care about your security|Call us at:|Always open to help you|Warm Regards|This is an auto-generated (?:email|message)|Please do not reply to this (?:email|message)|For any queries,?\s*(?:please\s*)?contact|RBI Disclaimer|DICGC)[\s\S]*/i,
+  BOILERPLATE_WARNINGS_REGEX: /(?:Trxn\.?\s*not\s*done\s*by\s*you|Safe\s*Banking\s*Tip|If\s*you\s*have\s*not\s*authorized|Report\s*at\s*https?:\/\/[^\s]+|Caution:\s*Be\s*Alert|Exclusive\s*offer\*?!|If (?:this )?transaction was not (?:done|initiated) by you|To block UPI|Please SMS BLOCK|We care about your security|Call us at:|Always open to help you|Warm Regards|This is an auto-generated (?:email|message)|Please do not reply to this (?:email|message)|For any queries,?\s*(?:please\s*)?contact|RBI Disclaimer|DICGC)[\s\S]*/i,
 
   EXPLICIT_CREDIT_CARD_REGEX: /credit\s*card|creditcard|pixel\s*play|card\s*ending|card\s*no\.?\s*(?:xx|\d)|card\s*xx\d|amazon\s*pay|card\s+4[xX]+|sbi\s*card/i,
   EXPLICIT_BANK_ACCOUNT_REGEX: /(?:debited\s+from\s+your\s+A\/c|debited\s+from\s+A\/c|Account\s*Number:\s*XX|from\s+account\s*[\*xX\d]+|savings\s*a\/c|bank\s*a\/c)/i,
   EXPLICIT_INVESTMENT_REGEX: /mutual\s*fund|sip\s*(?:debit|installment|transaction|amount)|folio\s*no\.?|units\s*allotted|nav\s*:\s*|camsonline|kfintech|mfcentral|zerodha\s*coin|groww\s*invest|amc\b|uti\s*mf|hdfc\s*mf|sbi\s*mf|icici\s*pru(?:dential)?\s*mf|axis\s*mf|mirae\s*asset|nippon\s*india|parag\s*parikh/i,
 
   CREDIT_TXN_REGEX: /credited|received|deposited|refund/i,
-  DEBIT_TXN_REGEX: /debited|spent|used|charged|purchase|auto\s*debit|sip\s*debit|invested/i,
+  DEBIT_TXN_REGEX: /debited|spent|used|charged|purchase|auto\s*debit|sip\s*debit|invested|\bdebit\b/i,
 
   LIMITS_NOISE_REGEX: /(?:available\s*(?:credit)?\s*limit|total\s*(?:credit)?\s*limit|credit\s*limit|total\s*due|total\s*outstanding|available\s*balance|bal\s*limit|available\s*a\/c\s*bal|clear\s*bal)\*?\s*(?:is|:)?\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*[\d,]+(?:\.\d{1,2})?/gi,
 
   LABEL_AMOUNT_REGEX: /(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount\s*invested|sip\s*amount|amount)\s*[:=]\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   VERB_AMOUNT_REGEXES: [
-    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with|sip\s+installment\s+of|sip\s+debit\s+of|sip\s+amount\s+of|invested\s+amount\s+of|purchase\s+of\s+units\s+worth)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /(?:spent|debited|charged|used\s+for|purchase\s+of|transaction\s+of|amount\s+of|for\s+inr|txn\s+of|noticed\s+a\s+transaction\s+of|auto\s*debit\s+of|mandate\s+of|si\s+debit\s+of|standing\s+instruction\s+of|transfer\s+of|credited\s+by|credited\s+with|sip\s+installment\s+of|sip\s+debit\s+of|sip\s+amount\s+of|invested\s+amount\s+of|purchase\s+of\s+units\s+worth|has\s+a\s+debit\s+by\s+[a-zA-Z0-9\s]+\s+of|has\s+a\s+debit\s+of|debit\s+by\s+[a-zA-Z0-9\s]+\s+of|debit\s+of)\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
     /(?:rs\.?|inr|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:has\s+been|was|is)?\s*(?:spent|debited|charged|used|paid|credited|transferred|processed|invested)/i,
     /^(?:.*?\b)?(?:inr|rs\.?|₹|&#8377;|&#x20b9;)\s*([\d,]+(?:\.\d{1,2})?)\s+(?:spent|was\s+debited|debited|credited|processed|invested)/i,
     /(?:NEFT|IMPS|RTGS|UPI|SIP)\s*(?:CR|DR)?\s*[:\s-]+\s*(?:inr|rs\.?|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
@@ -215,7 +215,7 @@ export const EMAIL_ALERT_PATTERNS = {
   MERCHANT_TO_VPA_REGEX: /to\s+(?:VPA\s+)?(?!(?:your\s+)?(?:a\/c|account|bank|savings|card)\b)([a-zA-Z0-9._\-@&]{3,50})(?=\s+(?:on\s+\d|at\s+\d|\.|\bref\b|$))/i,
   MERCHANT_TOWARDS_REGEX: /towards\s+([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s+(?:at\s+\d|on\s+\d|\.|Bal|Total|Ref|via|$))/i,
   MERCHANT_FROM_REGEX: /from\s+(?!(?:your\s+)?(?:a\/c|account|bank|savings|card|credit\s*card)\b)([a-zA-Z0-9\s._\-&@]{2,45}?)(?=\s*[.]|\s+(?:\bNEFT|\bIMPS|\bRef|\bUPI|\bon\s+\d|\bat\s+\d|$))/i,
-  MERCHANT_AT_REGEX: /\bat\s+(?!\d{1,2}:\d{2})(?!\d{1,2}[-/]\d{1,2})([a-zA-Z0-9\s._\-&@\/]{2,45}?)(?=\s+(?:on\s+\d|at\s+\d|\.|\binfo\b|\bavail|\btotal|\bref|\bcard|\ba\/c|$))/i,
+  MERCHANT_AT_REGEX: /\bat\s+(?!\d{1,2}:\d{2})(?!\d{1,2}[-/]\d{1,2})([a-zA-Z0-9\s._\-&@\/]{2,45}?)(?=\s+(?:on\s+\d|at\s+\d|\.|\binfo\b|\bavail|\btotal|\bref|\bcard|\ba\/c|\btrxn|\breport|$))/i,
 
   DATE_REGEX: /\b((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{2,4}|\d{1,2}[-\s](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-\s,]?\s*\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}-\d{2}-\d{2})\b/i,
   TIME_REGEXES: [

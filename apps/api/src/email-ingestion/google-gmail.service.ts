@@ -281,16 +281,49 @@ export class GoogleGmailService {
         } else if (accountScope === 'ALL_INVESTMENTS') {
           query = `(${sipFilter}) after:${afterDateStr}`;
         } else if (accountScope === 'CUSTOM') {
-          const hasCards = candidateAccounts.some((a) => a.type === AccountType.CREDIT_CARD);
-          const hasBanks = candidateAccounts.some((a) => [AccountType.BANK, AccountType.SAVINGS, AccountType.CASH].includes(a.type as any));
-          const hasInvestments = candidateAccounts.some((a) => a.type === AccountType.MUTUAL_FUND || a.type === AccountType.STOCKS || a.name.toLowerCase().includes('mutual') || a.name.toLowerCase().includes('sip') || a.name.toLowerCase().includes('coin') || a.name.toLowerCase().includes('groww') || a.name.toLowerCase().includes('zerodha'));
+          const customSenders: string[] = [];
+          for (const acc of candidateAccounts) {
+            const inst = (acc.institution || '').toLowerCase();
+            const name = (acc.name || '').toLowerCase();
+            if (inst.includes('sbi') || name.includes('sbi') || inst.includes('state bank')) {
+              customSenders.push('sbicard.com', 'sbi.co.in', 'sbi.bank.in', 'alerts.sbi.bank.in', 'onlinesbicard@sbicard.com');
+            }
+            if (inst.includes('hdfc') || name.includes('hdfc') || name.includes('pixel')) {
+              customSenders.push('hdfcbank.net', 'hdfcbank.com', 'hdfc.bank.in');
+            }
+            if (inst.includes('icici') || name.includes('icici') || name.includes('amazon')) {
+              customSenders.push('icicibank.com', 'icicibank.co.in', 'icici.bank.in');
+            }
+            if (inst.includes('axis') || name.includes('axis') || name.includes('neo') || name.includes('flipkart') || name.includes('rewards')) {
+              customSenders.push('axisbank.com', 'axis.bank.in');
+            }
+            if (inst.includes('pnb') || name.includes('pnb') || name.includes('punjab')) {
+              customSenders.push('pnb.co.in', 'pnb.bank.in', 'pnbindia.in');
+            }
+            if (inst.includes('kotak') || name.includes('kotak')) {
+              customSenders.push('kotak.com', 'kotak.bank.in');
+            }
+            if (acc.type === AccountType.MUTUAL_FUND || acc.type === AccountType.STOCKS || name.includes('groww') || name.includes('zerodha') || name.includes('coin')) {
+              customSenders.push('camsonline.com', 'kfintech.com', 'mfcentral.com', 'zerodha.com', 'groww.in');
+            }
+          }
 
-          const queryParts: string[] = [];
-          if (hasCards) queryParts.push(cardFilter);
-          if (hasBanks) queryParts.push(bankFilter);
-          if (hasInvestments) queryParts.push(sipFilter);
+          const uniqueSenders = Array.from(new Set(customSenders));
+          if (uniqueSenders.length > 0) {
+            const senderFilter = `from:(${uniqueSenders.join(' OR ')})`;
+            query = `${senderFilter} (debited OR credited OR spent OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs." OR "NACH" OR "Dispute") after:${afterDateStr}`;
+          } else {
+            const hasCards = candidateAccounts.some((a) => a.type === AccountType.CREDIT_CARD);
+            const hasBanks = candidateAccounts.some((a) => [AccountType.BANK, AccountType.SAVINGS, AccountType.CASH].includes(a.type as any));
+            const hasInvestments = candidateAccounts.some((a) => a.type === AccountType.MUTUAL_FUND || a.type === AccountType.STOCKS);
 
-          query = `(${queryParts.join(' OR ') || bankFilter}) after:${afterDateStr}`;
+            const queryParts: string[] = [];
+            if (hasCards) queryParts.push(cardFilter);
+            if (hasBanks) queryParts.push(bankFilter);
+            if (hasInvestments) queryParts.push(sipFilter);
+
+            query = `(${queryParts.join(' OR ') || bankFilter}) after:${afterDateStr}`;
+          }
         } else {
           // Default ALL
           query = `(${bankFilter} OR ${cardFilter} OR ${sipFilter}) after:${afterDateStr}`;
@@ -619,47 +652,62 @@ export class GoogleGmailService {
         acc.name.toLowerCase().includes('groww') ||
         acc.name.toLowerCase().includes('zerodha')
       );
-      if (candidateAccounts.length === 0) {
-        candidateAccounts = userAccounts;
-      }
     } else {
       candidateAccounts = userAccounts.filter((acc) =>
         [AccountType.BANK, AccountType.SAVINGS, AccountType.CASH].includes(acc.type as any) &&
         acc.type !== AccountType.UPI_LITE
       );
-      if (candidateAccounts.length === 0) {
-        candidateAccounts = userAccounts.filter((acc) => acc.type !== AccountType.UPI_LITE);
-      }
     }
 
     if (candidateAccounts.length === 0) {
       return null;
     }
 
+    // Helper to check if bank/institution matches
+    const isInstitutionMatch = (acc: any, bName: string) => {
+      const inst = (acc.institution || '').toLowerCase();
+      const name = (acc.name || '').toLowerCase();
+      const b = (bName || '').toLowerCase();
+      if (!b || b === 'bank alert') return false;
+
+      if ((inst.includes('sbi') || name.includes('sbi') || inst.includes('state bank')) && (b.includes('sbi') || b.includes('state bank'))) return true;
+      if ((inst.includes('hdfc') || name.includes('hdfc')) && b.includes('hdfc')) return true;
+      if ((inst.includes('icici') || name.includes('icici')) && b.includes('icici')) return true;
+      if ((inst.includes('axis') || name.includes('axis')) && b.includes('axis')) return true;
+      if ((inst.includes('pnb') || name.includes('pnb') || inst.includes('punjab')) && (b.includes('pnb') || b.includes('punjab'))) return true;
+      if ((inst.includes('kotak') || name.includes('kotak')) && b.includes('kotak')) return true;
+      if ((inst.includes('indusind') || name.includes('indusind')) && b.includes('indusind')) return true;
+      if ((inst.includes('idfc') || name.includes('idfc')) && b.includes('idfc')) return true;
+      if ((inst.includes('rbl') || name.includes('rbl')) && b.includes('rbl')) return true;
+      if ((inst.includes('amex') || inst.includes('american express')) && (b.includes('amex') || b.includes('american express'))) return true;
+
+      return (inst && (inst.includes(b) || b.includes(inst))) || name.includes(b);
+    };
+
     // 1. Exact match on last4 digits in account name or institution
     if (last4) {
       const last4Match = candidateAccounts.find((acc) => {
         const name = (acc.name || '').toLowerCase();
-        const inst = (acc.institution || '').toLowerCase();
-        const isInstMatch = inst.includes(bankName) || bankName.includes(inst) || name.includes(bankName);
+        const isInstMatch = isInstitutionMatch(acc, bankName);
         if (!isInstMatch && candidateAccounts.length > 1) return false;
         return name.includes(last4) || name.includes(`••${last4}`) || name.includes(`xx${last4}`) || name.includes(`*${last4}`);
       });
       if (last4Match) return last4Match;
 
-      // Also try last4 match without institution restriction if uniquely matching an account
+      // Also try last4 match without institution restriction if uniquely matching an account AND institution matches
       const anyLast4Matches = candidateAccounts.filter((acc) => {
         const name = (acc.name || '').toLowerCase();
         return name.includes(last4) || name.includes(`••${last4}`) || name.includes(`xx${last4}`) || name.includes(`*${last4}`);
       });
-      if (anyLast4Matches.length === 1) return anyLast4Matches[0];
+      if (anyLast4Matches.length === 1 && isInstitutionMatch(anyLast4Matches[0], bankName)) {
+        return anyLast4Matches[0];
+      }
     }
 
     // 2. Card / Account product or brand keyword matching in email snippet
     const productMatch = candidateAccounts.find((acc) => {
       const name = (acc.name || '').toLowerCase();
-      const inst = (acc.institution || '').toLowerCase();
-      const isInstMatch = inst.includes(bankName) || bankName.includes(inst);
+      const isInstMatch = isInstitutionMatch(acc, bankName);
       if (!isInstMatch && candidateAccounts.length > 1) return false;
 
       if (name.includes('flipkart') && text.includes('flipkart')) return true;
@@ -674,11 +722,7 @@ export class GoogleGmailService {
     if (productMatch) return productMatch;
 
     // 3. Institution match
-    const instMatches = candidateAccounts.filter((acc) => {
-      const inst = (acc.institution || '').toLowerCase();
-      const name = (acc.name || '').toLowerCase();
-      return (inst && (inst.includes(bankName) || bankName.includes(inst))) || name.includes(bankName);
-    });
+    const instMatches = candidateAccounts.filter((acc) => isInstitutionMatch(acc, bankName));
 
     if (instMatches.length === 1) {
       return instMatches[0];
@@ -690,7 +734,8 @@ export class GoogleGmailService {
       return instMatches[0];
     }
 
-    if (candidateAccounts.length === 1) {
+    // Only return candidateAccounts[0] if bankName is generic non-conflicting placeholder
+    if (candidateAccounts.length === 1 && (bankName === 'bank alert' || bankName === 'mutual fund')) {
       return candidateAccounts[0];
     }
 

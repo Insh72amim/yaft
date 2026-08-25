@@ -58,7 +58,7 @@ export const PROMOTIONAL_OR_NON_TRANSACTION_REGEX = new RegExp([
   // OTPs & Authentication emails
   '(?:one time password|\\botp\\b|authentication code|secret code)',
   // Statement notifications & monthly summary bills
-  '(?:monthly statement|e-statement|your.*statement for|statement summary|total amount due|minimum amount due|payment due date|consolidated account statement)',
+  '(?:monthly statement|e-statement|your.*statement for|statement summary|total amount due|minimum amount due|payment due date|consolidated account statement|attached herewith is the monthly statement|statement of your.*credit card)',
   // Declined & Failed
   '(?:declined|transaction declined|payment failed|unsuccessful transaction)'
 ].join('|'), 'i');
