@@ -1,6 +1,6 @@
 'use client';
 import { AlertTriangle, ArrowLeft, ArrowUpRight, BadgeIndianRupee, BriefcaseBusiness, Building2, Calendar, Check, CreditCard, Eye, FileSpreadsheet, KeyRound, Landmark,
-  Mail, RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud, X } from 'lucide-react';
+  Mail, RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud, X, TrendingUp, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
@@ -91,6 +91,41 @@ const SOURCE_URLS: Record<string, string> = {
   PHONEPE: 'https://www.phonepe.com/',
   PAYTM: 'https://paytm.com/',
 };
+
+const PORTAL_CATEGORIES = [
+  {
+    title: 'NetBanking & Cards',
+    icon: Landmark,
+    color: '#3b82f6',
+    portals: [
+      { name: 'HDFC Bank', url: 'https://netbanking.hdfcbank.com/', sub: 'NetBanking & Cards' },
+      { name: 'ICICI Bank', url: 'https://infinity.icicibank.com/', sub: 'Infinity Retail' },
+      { name: 'SBI Online', url: 'https://yonoretail.sbi.bank.in/registration/welcome', sub: 'YONO NetBanking' },
+      { name: 'Axis Bank', url: 'https://omni.axis.bank.in/axisretailbanking/', sub: 'Omni Retail' },
+      { name: 'SBI Card', url: 'https://www.sbicard.com/creditcards/app/user/login', sub: 'Cards Portal' },
+      { name: 'Kotak Bank', url: 'https://netbanking.kotak.com/knb2/', sub: 'NetBanking' },
+    ],
+  },
+  {
+    title: 'Brokers & Investments',
+    icon: TrendingUp,
+    color: '#10b981',
+    portals: [
+      { name: 'Groww', url: 'https://groww.in/user/profile/report', sub: 'Reports & P&L' },
+      { name: 'Zerodha', url: 'https://console.zerodha.com/portfolio/holdings', sub: 'Console Holdings' },
+      { name: 'INDmoney', url: 'https://www.indmoney.com/login', sub: 'Portfolio' },
+    ],
+  },
+  {
+    title: 'Retirement & Taxes',
+    icon: ShieldCheck,
+    color: '#f59e0b',
+    portals: [
+      { name: 'EPFO Passbook', url: 'https://passbook.epfindia.gov.in/MemberPassBook/Login', sub: 'UAN Member' },
+      { name: 'Income Tax', url: 'https://eportal.incometax.gov.in/iec/foservices/#/login', sub: 'AIS / TIS Portal' },
+    ],
+  },
+];
 
 import { ImportSourceType } from "@/lib/constants";
 
@@ -1359,22 +1394,169 @@ function ImportWorkspace() {
       {syncWarning && <p className="notice refresh-warning" role="status"><AlertTriangle/>{syncWarning}</p>}
       <button className="primary wide" disabled={busy || !files.length || (sourceOption.accountRequired && !accountId)}>{busy ? <><RefreshCw className="spin"/>Validating…</> : kind === 'BROKER_HOLDINGS' ? 'Validate and replace snapshot' : files.length > 1 ? 'Validate and create reviews' : 'Validate and create review'}</button>
       </form>
-      <aside>
-        <ShieldCheck/><h2>Source-specific safety</h2><p>{kind === 'BROKER_HOLDINGS'
-          ? 'Zerodha holdings replace the selected account’s prior snapshot immediately, but only inside one atomic operation after every supported sheet and printed total reconciles.'
-          : 'This file creates a pending review. Nothing enters your ledger or salary history until you approve the reconciled rows below.'}</p>
-        <ul><li>Original files are not retained</li><li>Unknown or changed layouts fail closed</li><li>Passwords never apply to holdings</li></ul>
-        
-        <div style={{ marginTop: '32px' }}>
-          <h2 style={{ fontSize: '14px', marginBottom: '12px' }}>Quick Access Portals</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <a href="https://netbanking.hdfcbank.com/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>HDFC Bank</a>
-            <a href="https://infinity.icicibank.com/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>ICICI Bank</a>
-            <a href="https://yonoretail.sbi.bank.in/registration/welcome" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>SBI Online</a>
-            <a href="https://omni.axis.bank.in/axisretailbanking/" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Axis Bank</a>
-            <a href="https://groww.in/user/profile/report" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Groww</a>
-            <a href="https://console.zerodha.com/portfolio/holdings" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>Zerodha</a>
-            <a href="https://passbook.epfindia.gov.in/MemberPassBook/Login" target="_blank" rel="noopener noreferrer" className="secondary compact" style={{ display: 'flex', justifyContent: 'center' }}>EPFO Passbook</a>
+      <aside
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          padding: '22px',
+          background: 'var(--background-alt)',
+          borderRadius: '16px',
+          border: '1px solid var(--line)',
+        }}
+      >
+        {/* Source-specific safety card */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'rgba(16, 185, 129, 0.12)',
+                color: '#10b981',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <ShieldCheck size={18} />
+            </div>
+            <h2 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--ink)' }}>
+              Source-specific safety
+            </h2>
+          </div>
+          <p style={{ fontSize: '12.5px', color: 'var(--muted)', lineHeight: 1.5, margin: '0 0 14px 0' }}>
+            {kind === 'BROKER_HOLDINGS'
+              ? 'Zerodha holdings replace the selected account’s prior snapshot immediately, but only inside one atomic operation after every supported sheet and printed total reconciles.'
+              : 'This file creates a pending review. Nothing enters your ledger or salary history until you approve the reconciled rows below.'}
+          </p>
+          <ul
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+            }}
+          >
+            {[
+              'Original files are not retained',
+              'Unknown or changed layouts fail closed',
+              'Passwords never apply to holdings',
+            ].map((text, i) => (
+              <li
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '12px',
+                  color: 'var(--ink)',
+                }}
+              >
+                <div
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#10b981',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Check size={10} strokeWidth={3} />
+                </div>
+                <span>{text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div style={{ height: '1px', background: 'var(--line)' }} />
+
+        {/* Categorized Quick Access Portals */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              Quick Access Portals
+            </span>
+            <small style={{ fontSize: '11px', color: 'var(--muted)' }}>Official Portals</small>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {PORTAL_CATEGORIES.map((category) => {
+              const Icon = category.icon;
+              return (
+                <div key={category.title}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '6px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      color: category.color,
+                    }}
+                  >
+                    <Icon size={13} />
+                    <span>{category.title}</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    {category.portals.map((portal) => (
+                      <a
+                        key={portal.name}
+                        href={portal.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '1px',
+                          padding: '7px 10px',
+                          borderRadius: '8px',
+                          background: 'var(--card)',
+                          border: '1px solid var(--line)',
+                          textDecoration: 'none',
+                          color: 'var(--ink)',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = category.color;
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                          e.currentTarget.style.boxShadow = `0 2px 8px ${category.color}20`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'var(--line)';
+                          e.currentTarget.style.transform = 'none';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 600 }}>{portal.name}</span>
+                          <ExternalLink size={10} style={{ color: 'var(--muted)', opacity: 0.7 }} />
+                        </div>
+                        <span style={{ fontSize: '10px', color: 'var(--muted)' }}>{portal.sub}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </aside>
