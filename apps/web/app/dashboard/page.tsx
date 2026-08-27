@@ -902,15 +902,15 @@ function MonthlyFlow({
         </div>
       </div>
 
-      {/* Multi-Bank Direct Cash Flow Sankey Diagram */}
+      {/* Multi-Bank Visual Sankey Diagram */}
       <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px', width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <div>
             <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              DIRECT CASH FLOW SANKEY
+              MULTI-BANK CASH FLOW & HIERARCHICAL SETTLEMENT SANKEY
             </span>
             <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
-              External Inbound → Funding Banks → Final Expense Categories
+              External Inbound → Funding Banks (with Inter-Bank Transfers) → Intermediate Channels (Direct Spends, Credit Cards, UPI Lite, Loans) → Final Expense Categories
             </span>
           </div>
         </div>

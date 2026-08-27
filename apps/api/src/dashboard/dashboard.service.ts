@@ -314,6 +314,97 @@ export class DashboardService {
     const totalSettlementsAndSpends = totalExpenses + totalInvestments + totalOther + totalCreditCardPayments + totalUpiLiteTransfers;
     const totalAllOutbound = totalSettlementsAndSpends + totalInterBankTransfers;
 
+    // Aggregate actual direct spending categories from Credit Card and UPI Lite accounts
+    const directCcCategoryMap = new Map<string, { name: string; color: string; amount: number }>();
+    let totalDirectCcSpend = 0;
+
+    const directUpiLiteCategoryMap = new Map<string, { name: string; color: string; amount: number }>();
+    let totalDirectUpiLiteSpend = 0;
+
+    monthTransactions.forEach((tx) => {
+      const acc = accounts.find((a) => a.id === tx.accountId);
+      if (!acc) return;
+      const amt = Math.abs(Number(tx.amount));
+      if (isInternalTransfer(tx)) return;
+
+      const catName = tx.category?.name ?? 'Uncategorised';
+      const catColor = tx.category?.color ?? '#94a3b8';
+      const isCcTransferCat = /^\s*cc transfer\s*$/i.test(catName);
+      const isUpiLiteCat = /^\s*upi lite\s*$/i.test(catName);
+
+      if (acc.type === 'CREDIT_CARD' && !isCcTransferCat) {
+        if (tx.amount < 0) {
+          totalDirectCcSpend += amt;
+          const ex = directCcCategoryMap.get(catName) || { name: catName, color: catColor, amount: 0 };
+          directCcCategoryMap.set(catName, { name: catName, color: catColor, amount: ex.amount + amt });
+        } else if (isRefund(tx)) {
+          totalDirectCcSpend = Math.max(0, totalDirectCcSpend - amt);
+          const ex = directCcCategoryMap.get(catName);
+          if (ex) {
+            ex.amount = Math.max(0, ex.amount - amt);
+          }
+        }
+      } else if (acc.type === 'UPI_LITE' && !isUpiLiteCat) {
+        if (tx.amount < 0) {
+          totalDirectUpiLiteSpend += amt;
+          const ex = directUpiLiteCategoryMap.get(catName) || { name: catName, color: catColor, amount: 0 };
+          directUpiLiteCategoryMap.set(catName, { name: catName, color: catColor, amount: ex.amount + amt });
+        } else if (isRefund(tx)) {
+          totalDirectUpiLiteSpend = Math.max(0, totalDirectUpiLiteSpend - amt);
+          const ex = directUpiLiteCategoryMap.get(catName);
+          if (ex) {
+            ex.amount = Math.max(0, ex.amount - amt);
+          }
+        }
+      }
+    });
+
+    // Helper to distribute a settlement amount across true categories
+    const distributeCategories = (
+      settlementAmount: number,
+      sourceCategories: Map<string, { name: string; color: string; amount: number }>,
+      totalSourceSpend: number,
+      fallbackName: string,
+      fallbackColor: string,
+    ) => {
+      if (settlementAmount <= 0) return [];
+      if (totalSourceSpend > 0) {
+        const list: Array<{ name: string; color: string; amount: number }> = [];
+        let allocated = 0;
+        const entries = [...sourceCategories.values()].sort((a, b) => b.amount - a.amount);
+        entries.forEach((cat, idx) => {
+          if (idx === entries.length - 1) {
+            const remainder = settlementAmount - allocated;
+            if (remainder > 0) list.push({ name: cat.name, color: cat.color, amount: remainder });
+          } else {
+            const share = Math.round(settlementAmount * (cat.amount / totalSourceSpend));
+            if (share > 0) {
+              list.push({ name: cat.name, color: cat.color, amount: share });
+              allocated += share;
+            }
+          }
+        });
+        return list.filter((c) => c.amount > 0);
+      }
+      return [{ name: fallbackName, color: fallbackColor, amount: settlementAmount }];
+    };
+
+    const overallDistributedCcCategories = distributeCategories(
+      totalCreditCardPayments,
+      directCcCategoryMap,
+      totalDirectCcSpend,
+      'Card Living Expenses',
+      '#10b981',
+    );
+
+    const overallDistributedUpiLiteCategories = distributeCategories(
+      totalUpiLiteTransfers,
+      directUpiLiteCategoryMap,
+      totalDirectUpiLiteSpend,
+      'Daily Micro-Spends',
+      '#06b6d4',
+    );
+
     const overallSupergroups = [
       {
         id: 'EXPENSES',
@@ -345,7 +436,7 @@ export class DashboardService {
         kind: 'TRANSFER',
         color: '#10b981',
         amount: totalCreditCardPayments,
-        categories: [...overallCcCategories.values()].sort((a, b) => b.amount - a.amount),
+        categories: overallDistributedCcCategories,
       },
       ...(totalUpiLiteTransfers > 0
         ? [
@@ -355,7 +446,7 @@ export class DashboardService {
               kind: 'TRANSFER',
               color: '#06b6d4',
               amount: totalUpiLiteTransfers,
-              categories: [...overallUpiLiteCategories.values()].sort((a, b) => b.amount - a.amount),
+              categories: overallDistributedUpiLiteCategories,
             },
           ]
         : []),
@@ -364,6 +455,22 @@ export class DashboardService {
     const accountDetailedFlows = [...savingsMap.values()].map((acc) => {
       const accountSpendingAndSettlements = acc.expenses + acc.investments + acc.other + acc.creditCardPayments + acc.upiLiteTransfers;
       const totalOutboundAmt = accountSpendingAndSettlements + acc.interbankOutbound;
+
+      const bankDistributedCcCategories = distributeCategories(
+        acc.creditCardPayments,
+        directCcCategoryMap,
+        totalDirectCcSpend,
+        'Card Living Expenses',
+        '#10b981',
+      );
+
+      const bankDistributedUpiLiteCategories = distributeCategories(
+        acc.upiLiteTransfers,
+        directUpiLiteCategoryMap,
+        totalDirectUpiLiteSpend,
+        'Daily Micro-Spends',
+        '#06b6d4',
+      );
 
       const accountSupergroups = [
         {
@@ -396,7 +503,7 @@ export class DashboardService {
           kind: 'TRANSFER',
           color: '#10b981',
           amount: acc.creditCardPayments,
-          categories: [...acc.ccCategories.values()].sort((a, b) => b.amount - a.amount),
+          categories: bankDistributedCcCategories,
         },
         ...(acc.upiLiteTransfers > 0
           ? [
@@ -406,7 +513,7 @@ export class DashboardService {
                 kind: 'TRANSFER',
                 color: '#06b6d4',
                 amount: acc.upiLiteTransfers,
-                categories: [...acc.upiLiteCategories.values()].sort((a, b) => b.amount - a.amount),
+                categories: bankDistributedUpiLiteCategories,
               },
             ]
           : []),
@@ -417,6 +524,8 @@ export class DashboardService {
         ...acc.expenseCategories.values(),
         ...acc.investmentCategories.values(),
         ...acc.otherCategories.values(),
+        ...bankDistributedCcCategories,
+        ...bankDistributedUpiLiteCategories,
       ]
         .filter((c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name))
         .forEach((c) => {
@@ -556,6 +665,8 @@ export class DashboardService {
       ...overallExpenseCategories.values(),
       ...overallInvestmentCategories.values(),
       ...overallOtherCategories.values(),
+      ...overallDistributedCcCategories,
+      ...overallDistributedUpiLiteCategories,
     ]
       .filter((c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name))
       .forEach((c) => {
@@ -652,15 +763,19 @@ export class DashboardService {
             outboundCategories: [
               ...overallExpenseCategories.values(),
               ...overallOtherCategories.values(),
+              ...overallDistributedCcCategories,
+              ...overallDistributedUpiLiteCategories,
             ]
               .filter((c) => !/^\s*(cc transfer|upi lite|internal transfer)\s*$/i.test(c.name))
               .sort((a, b) => b.amount - a.amount),
-            creditCardCategories: [...overallCcCategories.values()].sort((a, b) => b.amount - a.amount),
+            creditCardCategories: overallDistributedCcCategories,
             investmentCategories: [...overallInvestmentCategories.values()].sort((a, b) => b.amount - a.amount),
             overallCategories: [
               ...overallExpenseCategories.values(),
               ...overallInvestmentCategories.values(),
               ...overallOtherCategories.values(),
+              ...overallDistributedCcCategories,
+              ...overallDistributedUpiLiteCategories,
             ]
               .filter((c) => !/^\s*(cc transfer|upi lite|internal transfer)\s*$/i.test(c.name))
               .sort((a, b) => b.amount - a.amount),
