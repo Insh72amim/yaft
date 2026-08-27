@@ -1067,9 +1067,9 @@ function AccountSpendingAndBeneficiariesSection({
             gap: '8px',
             padding: '8px 14px',
             borderRadius: '20px',
-            border: isAll ? '1px solid var(--accent)' : '1px solid var(--line)',
-            background: isAll ? 'rgba(16, 185, 129, 0.1)' : 'var(--background-alt)',
-            color: isAll ? 'var(--accent)' : 'var(--ink)',
+            border: isAll ? '1.5px solid var(--green)' : '1px solid var(--line)',
+            background: isAll ? 'var(--theme-soft-start)' : 'var(--background-alt)',
+            color: isAll ? 'var(--green)' : 'var(--ink)',
             fontWeight: isAll ? 700 : 500,
             fontSize: '12px',
             cursor: 'pointer',
@@ -1078,13 +1078,13 @@ function AccountSpendingAndBeneficiariesSection({
             flexShrink: 0,
           }}
         >
-          <Building2 size={14} color={isAll ? 'var(--accent)' : 'var(--muted)'} />
+          <Building2 size={14} color={isAll ? 'var(--green)' : 'var(--muted)'} />
           <span>All Banks</span>
           <span
             style={{
               fontSize: '10px',
-              background: isAll ? 'var(--accent)' : 'var(--line)',
-              color: isAll ? '#fff' : 'var(--muted)',
+              background: isAll ? 'var(--theme-soft-end)' : 'var(--line)',
+              color: isAll ? 'var(--green)' : 'var(--muted)',
               padding: '1px 6px',
               borderRadius: '10px',
               fontWeight: 600,
@@ -1113,9 +1113,9 @@ function AccountSpendingAndBeneficiariesSection({
                 gap: '8px',
                 padding: '8px 14px',
                 borderRadius: '20px',
-                border: isSelected ? '1px solid var(--accent)' : '1px solid var(--line)',
-                background: isSelected ? 'rgba(16, 185, 129, 0.1)' : 'var(--background-alt)',
-                color: isSelected ? 'var(--accent)' : 'var(--ink)',
+                border: isSelected ? '1.5px solid var(--green)' : '1px solid var(--line)',
+                background: isSelected ? 'var(--theme-soft-start)' : 'var(--background-alt)',
+                color: isSelected ? 'var(--green)' : 'var(--ink)',
                 fontWeight: isSelected ? 700 : 500,
                 fontSize: '12px',
                 cursor: 'pointer',
@@ -1124,13 +1124,13 @@ function AccountSpendingAndBeneficiariesSection({
                 flexShrink: 0,
               }}
             >
-              <Landmark size={14} color={isSelected ? 'var(--accent)' : 'var(--muted)'} />
+              <Landmark size={14} color={isSelected ? 'var(--green)' : 'var(--muted)'} />
               <span>{acc.name}</span>
               <span
                 style={{
                   fontSize: '10px',
-                  background: isSelected ? 'var(--accent)' : 'var(--line)',
-                  color: isSelected ? '#fff' : 'var(--muted)',
+                  background: isSelected ? 'var(--theme-soft-end)' : 'var(--line)',
+                  color: isSelected ? 'var(--green)' : 'var(--muted)',
                   padding: '1px 6px',
                   borderRadius: '10px',
                   fontWeight: 600,
@@ -1251,9 +1251,9 @@ function AccountSpendingAndBeneficiariesSection({
                 style={{
                   padding: '4px 10px',
                   borderRadius: '6px',
-                  border: 'none',
-                  background: outboundTab === 'EXTERNAL' ? 'var(--accent)' : 'transparent',
-                  color: outboundTab === 'EXTERNAL' ? '#fff' : 'var(--muted)',
+                  border: outboundTab === 'EXTERNAL' ? '1px solid var(--green)' : '1px solid transparent',
+                  background: outboundTab === 'EXTERNAL' ? 'var(--theme-soft-start)' : 'transparent',
+                  color: outboundTab === 'EXTERNAL' ? 'var(--green)' : 'var(--muted)',
                   fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -1268,9 +1268,9 @@ function AccountSpendingAndBeneficiariesSection({
                 style={{
                   padding: '4px 10px',
                   borderRadius: '6px',
-                  border: 'none',
-                  background: outboundTab === 'INTERNAL' ? '#3b82f6' : 'transparent',
-                  color: outboundTab === 'INTERNAL' ? '#fff' : 'var(--muted)',
+                  border: outboundTab === 'INTERNAL' ? '1px solid #3b82f6' : '1px solid transparent',
+                  background: outboundTab === 'INTERNAL' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+                  color: outboundTab === 'INTERNAL' ? '#60a5fa' : 'var(--muted)',
                   fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -1285,8 +1285,8 @@ function AccountSpendingAndBeneficiariesSection({
                 style={{
                   padding: '4px 10px',
                   borderRadius: '6px',
-                  border: 'none',
-                  background: outboundTab === 'ALL' ? 'var(--line)' : 'transparent',
+                  border: outboundTab === 'ALL' ? '1px solid var(--line)' : '1px solid transparent',
+                  background: outboundTab === 'ALL' ? 'var(--card)' : 'transparent',
                   color: outboundTab === 'ALL' ? 'var(--ink)' : 'var(--muted)',
                   fontSize: '11px',
                   fontWeight: 600,

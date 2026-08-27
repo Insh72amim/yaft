@@ -75,8 +75,8 @@ export function EnvelopeFilterBar({
                   fontSize: '11px',
                   padding: '1px 6px',
                   borderRadius: '10px',
-                  background: isActive ? 'var(--green)' : 'var(--background-alt)',
-                  color: isActive ? '#fff' : 'var(--muted)',
+                  background: isActive ? 'var(--theme-soft-end)' : 'var(--background-alt)',
+                  color: isActive ? 'var(--green)' : 'var(--muted)',
                   fontWeight: 700,
                 }}>
                 {opt.count}

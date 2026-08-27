@@ -26,6 +26,8 @@
   --sidebar-bg: #f4f6f4;
   --background-alt: #edf3ef;
   --background: var(--paper);
+  --accent: var(--green);
+  --accent-contrast: #ffffff;
 }
 
 /* Color Theme Overrides (Light Mode) */
@@ -674,6 +676,8 @@ html[data-theme='dark'] .holding-sector-tag {
 
 html[data-theme='dark']{color-scheme:dark;--ink:#edf4f0;--muted:#9caca3;--line:#2b3a33;--paper:#0c1411;--card:#14201a;--green:#76cfa5;--mint:#193729;--orange:#f3a06c;--red:#ff8f88;--shadow:0 18px 50px rgba(0,0,0,.3);
   /* Green Theme Defaults (Dark Mode) */
+  --accent: var(--green);
+  --accent-contrast: #091711;
   --grad-start: #1e5641;
   --grad-end: #091711;
   --grad-start-trans: rgba(30, 86, 65, 0.95);
@@ -692,6 +696,8 @@ html[data-theme='dark']{color-scheme:dark;--ink:#edf4f0;--muted:#9caca3;--line:#
 /* Color Theme Overrides (Dark Mode) */
 html[data-theme='dark'][data-color-theme="blue"] {
   --green: #60a5fa;
+  --accent: #60a5fa;
+  --accent-contrast: #090d16;
   --mint: #1e293b;
   --grad-start: #1d4ed8;
   --grad-end: #090d16;
@@ -714,6 +720,8 @@ html[data-theme='dark'][data-color-theme="blue"] {
 }
 html[data-theme='dark'][data-color-theme="yellow"] {
   --green: #fbbf24;
+  --accent: #fbbf24;
+  --accent-contrast: #0f0a05;
   --mint: #451a03;
   --grad-start: #b45309;
   --grad-end: #0f0a05;
@@ -736,6 +744,8 @@ html[data-theme='dark'][data-color-theme="yellow"] {
 }
 html[data-theme='dark'][data-color-theme="teal"] {
   --green: #2dd4bf;
+  --accent: #2dd4bf;
+  --accent-contrast: #021616;
   --mint: #042f2e;
   --grad-start: #0f766e;
   --grad-end: #021616;
@@ -758,6 +768,8 @@ html[data-theme='dark'][data-color-theme="teal"] {
 }
 html[data-theme='dark'][data-color-theme="rose"] {
   --green: #fb7185;
+  --accent: #fb7185;
+  --accent-contrast: #130307;
   --mint: #4c0519;
   --grad-start: #be123c;
   --grad-end: #130307;
@@ -780,6 +792,8 @@ html[data-theme='dark'][data-color-theme="rose"] {
 }
 html[data-theme='dark'][data-color-theme="purple"] {
   --green: #a78bfa;
+  --accent: #a78bfa;
+  --accent-contrast: #0a0712;
   --mint: #2e1065;
   --grad-start: #6d28d9;
   --grad-end: #0a0712;
@@ -801,13 +815,13 @@ html[data-theme='dark'][data-color-theme="purple"] {
   --background-alt: #211936;
 }
 html[data-theme='dark'] .sidebar{background:var(--sidebar-bg)}
-html[data-theme='dark'] .brand-mark,html[data-theme='dark'] .primary{background:var(--green);color:#fff}
+html[data-theme='dark'] .brand-mark,html[data-theme='dark'] .primary{background:var(--green);color:var(--accent-contrast,#091711);font-weight:700}
 html[data-theme='dark'] .brand-muted{color:#93a39b}
 html[data-theme='dark'] .sidebar nav a,html[data-theme='dark'] .logout{color:#9caca4}
 html[data-theme='dark'] .sidebar nav a:hover,html[data-theme='dark'] .sidebar nav a.active{background:var(--theme-soft-start);color:var(--green)}
 html[data-theme='dark'] .privacy-note,html[data-theme='dark'] .secondary,html[data-theme='dark'] .mobile-menu,html[data-theme='dark'] .theme-toggle{background:var(--card);border-color:var(--line)}
-html[data-theme='dark'] .secondary.active,html[data-theme='dark'] button.secondary.active,html[data-theme='dark'] a.secondary.active{background:var(--green)!important;color:#ffffff!important;border-color:var(--green)!important;box-shadow:0 4px 16px var(--theme-shadow-color)!important}
-html[data-theme='dark'] .secondary.active svg,html[data-theme='dark'] button.secondary.active svg,html[data-theme='dark'] a.secondary.active svg{color:#ffffff!important}
+html[data-theme='dark'] .secondary.active,html[data-theme='dark'] button.secondary.active,html[data-theme='dark'] a.secondary.active{background:var(--green)!important;color:var(--accent-contrast,#091711)!important;border-color:var(--green)!important;box-shadow:0 4px 16px var(--theme-shadow-color)!important}
+html[data-theme='dark'] .secondary.active svg,html[data-theme='dark'] button.secondary.active svg,html[data-theme='dark'] a.secondary.active svg{color:var(--accent-contrast,#091711)!important}
 html[data-theme='dark'] .privacy-note{color:#8ad9b2}
 html[data-theme='dark'] .logout:hover{color:#ff9a94;background:#321d1d}
 html[data-theme='dark'] .eyebrow{color:#8db7a2}

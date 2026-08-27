@@ -1110,13 +1110,13 @@ function ImportWorkspace() {
                                   alignItems: 'center',
                                   gap: '5px',
                                   fontWeight: isActive ? 700 : 500,
-                                  background: isActive ? 'var(--accent, #3b82f6)' : 'var(--background-alt)',
-                                  color: isActive ? '#ffffff' : 'var(--ink)',
-                                  border: `1px solid ${isActive ? 'var(--accent, #3b82f6)' : 'var(--line)'}`,
+                                  background: isActive ? 'var(--theme-soft-start)' : 'var(--background-alt)',
+                                  color: isActive ? 'var(--green)' : 'var(--ink)',
+                                  border: `1.5px solid ${isActive ? 'var(--green)' : 'var(--line)'}`,
                                   cursor: 'pointer',
                                   transition: 'all 0.12s ease',
                                 }}>
-                                <Icon size={12} color={isActive ? '#ffffff' : 'var(--muted)'} />
+                                <Icon size={12} color={isActive ? 'var(--green)' : 'var(--muted)'} />
                                 <span>{scope.label}</span>
                               </button>
                             );
