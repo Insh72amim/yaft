@@ -10,7 +10,6 @@ import {
   Sparkles,
   Download,
   Move,
-  Landmark,
   Pin,
   PinOff,
 } from 'lucide-react';
@@ -102,23 +101,18 @@ export function MultiBankSankey({
 }) {
   const { accounts, internalTransfers, overall } = accountFlow;
 
-  // ── Pan & Zoom State ──────────────────────────────────────────────────────
-  const [zoom, setZoom] = useState(1.0);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showAnimations, setShowAnimations] = useState(true);
-
-  // ── Highlighting & Pinning State ──────────────────────────────────────────
-  const [hoverTarget, setHoverTarget] = useState<HoverTarget>(null);
-  const [pinnedTarget, setPinnedTarget] = useState<HoverTarget>(null);
-  const [hoveredFlow, setHoveredFlow] = useState<{ title: string; amount: string; color: string; subtitle?: string } | null>(null);
-
-  const activeHighlight = hoverTarget || pinnedTarget;
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
+  // ── Layout Constants ──────────────────────────────────────────────────────
+  const SVG_W = 1420;
+  const PAD_TOP = 80;
+  const PAD_BOTTOM = 50;
+  const NODE_W = 16;
+  const NODE_GAP = 28;
+  const MIN_BANK_H = 48;
+  const LEFT_X = 140;
+  const MID_X = 440;
+  const HUB_X = 770;
+  const CAT_X = 1110;
+  const ARC_X = MID_X + NODE_W + 36;
 
   // ── Bank Colors ───────────────────────────────────────────────────────────
   const getBankColor = useCallback((index: number, name: string): string => {
@@ -158,19 +152,6 @@ export function MultiBankSankey({
     }
     return [...map.values()];
   }, [internalTransfers]);
-
-  // ── Layout Dimensions ─────────────────────────────────────────────────────
-  const SVG_W = 1420;
-  const PAD_TOP = 80;
-  const PAD_BOTTOM = 50;
-  const NODE_W = 16;
-  const NODE_GAP = 28;
-  const MIN_BANK_H = 48;
-  const LEFT_X = 140;
-  const MID_X = 440;
-  const HUB_X = 770;
-  const CAT_X = 1110;
-  const ARC_X = MID_X + NODE_W + 36;
 
   // 1. Determine active supergroups
   const activeSupergroups: SupergroupData[] = useMemo(() => {
@@ -382,7 +363,7 @@ export function MultiBankSankey({
 
     const list = Array.from(map.values());
 
-    // Barycentric sort to minimize crossing
+    // Barycentric sort to minimize crossings
     return list.sort((a, b) => {
       const weightA =
         a.sources.reduce((sum, s) => {
@@ -430,16 +411,44 @@ export function MultiBankSankey({
     usableH + PAD_TOP,
   );
 
-  const finalSvgH = maxColumnBottom + PAD_BOTTOM;
+  const finalSvgH = Math.max(maxColumnBottom + PAD_BOTTOM, 620);
   const totalOutboundSum = activeSupergroups.reduce((s, sg) => s + sg.amount, 0) || 1;
 
-  // 8. Ribbon Path Helper
+  // ── Pan & Zoom State (ViewBox Matrix) ────────────────────────────────────
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: SVG_W, h: finalSvgH });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ clientX: 0, clientY: 0, startX: 0, startY: 0 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showAnimations, setShowAnimations] = useState(true);
+
+  // Sync initial viewBox when finalSvgH changes
+  useEffect(() => {
+    setViewBox((prev) => {
+      // Only reset if at default zoom
+      if (prev.x === 0 && prev.y === 0 && prev.w === SVG_W) {
+        return { x: 0, y: 0, w: SVG_W, h: finalSvgH };
+      }
+      return prev;
+    });
+  }, [finalSvgH]);
+
+  // ── Highlighting & Pinning State ──────────────────────────────────────────
+  const [hoverTarget, setHoverTarget] = useState<HoverTarget>(null);
+  const [pinnedTarget, setPinnedTarget] = useState<HoverTarget>(null);
+  const [hoveredFlow, setHoveredFlow] = useState<{ title: string; amount: string; color: string; subtitle?: string } | null>(null);
+
+  const activeHighlight = hoverTarget || pinnedTarget;
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  // Ribbon Path Helper
   const ribbon = (x1: number, yT1: number, yB1: number, x2: number, yT2: number, yB2: number) => {
     const cp = (x2 - x1) * 0.42;
     return `M ${x1} ${yT1} C ${x1 + cp} ${yT1},${x2 - cp} ${yT2},${x2} ${yT2} L ${x2} ${yB2} C ${x2 - cp} ${yB2},${x1 + cp} ${yB1},${x1} ${yB1} Z`;
   };
 
-  // 9. Build Stage 1 -> Stage 2 Ribbons (Inbound -> Banks)
+  // Build Stage 1 -> Stage 2 Ribbons (Inbound -> Banks)
   const inSlices = useMemo(() => {
     let currInSrcY = inStartY;
     const bankInboundOffset = new Map<string, number>();
@@ -468,7 +477,7 @@ export function MultiBankSankey({
     return slices;
   }, [bankNodesWithY, flowH, inStartY]);
 
-  // 10. Build Stage 2 -> Stage 3 Ribbons (Banks -> Supergroups)
+  // Build Stage 2 -> Stage 3 Ribbons (Banks -> Supergroups)
   const bankToSgRibbons = useMemo(() => {
     type SgRibbon = {
       bank: (typeof bankNodesWithY)[0];
@@ -513,7 +522,7 @@ export function MultiBankSankey({
     return ribbons;
   }, [bankNodesWithY, supergroupNodesWithY, flowH]);
 
-  // 11. Build Stage 3 -> Stage 4 Ribbons (Supergroups -> Consolidated Categories)
+  // Build Stage 3 -> Stage 4 Ribbons (Supergroups -> Consolidated Categories)
   const sgToCatRibbons = useMemo(() => {
     type CatRibbon = {
       sg: (typeof supergroupNodesWithY)[0];
@@ -558,7 +567,7 @@ export function MultiBankSankey({
     return ribbons;
   }, [supergroupNodesWithY, categoryNodesWithY, flowH]);
 
-  // ── Interactive Highlighting Helpers ─────────────────────────────────────
+  // Highlighting Helpers
   const isBankActive = useCallback((bankId: string) => {
     if (!activeHighlight) return true;
     if (activeHighlight.kind === 'inbound') return true;
@@ -633,22 +642,35 @@ export function MultiBankSankey({
     return false;
   }, [activeHighlight, bankNodesWithY, categoryNodesWithY]);
 
-  // ── Pan & Zoom Interaction Handlers ──────────────────────────────────────
+  // ── Drag & Pan Handlers ──────────────────────────────────────────────────
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     setIsDragging(true);
-    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    setDragStart({
+      clientX: e.clientX,
+      clientY: e.clientY,
+      startX: viewBox.x,
+      startY: viewBox.y,
+    });
     if (containerRef.current) {
       containerRef.current.setPointerCapture(e.pointerId);
     }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging) return;
-    setPan({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    });
+    if (!isDragging || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const scaleX = viewBox.w / rect.width;
+    const scaleY = viewBox.h / rect.height;
+
+    const dx = e.clientX - dragStart.clientX;
+    const dy = e.clientY - dragStart.clientY;
+
+    setViewBox((prev) => ({
+      ...prev,
+      x: dragStart.startX - dx * scaleX,
+      y: dragStart.startY - dy * scaleY,
+    }));
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -659,27 +681,35 @@ export function MultiBankSankey({
     }
   };
 
-  const handleWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
+  // ── Zoom Handler (Mouse Wheel anchored at cursor) ─────────────────────────
+  const zoomAtPoint = useCallback((factor: number, clientX?: number, clientY?: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const normX = clientX !== undefined ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0.5;
+    const normY = clientY !== undefined ? Math.max(0, Math.min(1, (clientY - rect.top) / rect.height)) : 0.5;
 
-    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
-    setZoom((prevZoom) => {
-      const nextZoom = Math.min(Math.max(prevZoom * zoomFactor, 0.45), 3.2);
-      if (nextZoom === prevZoom) return prevZoom;
+    setViewBox((prev) => {
+      const cursorSvgX = prev.x + normX * prev.w;
+      const cursorSvgY = prev.y + normY * prev.h;
 
-      setPan((prevPan) => ({
-        x: mouseX - ((mouseX - prevPan.x) / prevZoom) * nextZoom,
-        y: mouseY - ((mouseY - prevPan.y) / prevZoom) * nextZoom,
-      }));
+      const minW = SVG_W / 3.2; // 320% max zoom in
+      const maxW = SVG_W * 2.2; // 45% max zoom out
+      const newW = Math.max(minW, Math.min(maxW, prev.w / factor));
+      const newH = newW * (finalSvgH / SVG_W);
 
-      return nextZoom;
+      const newX = cursorSvgX - normX * newW;
+      const newY = cursorSvgY - normY * newH;
+
+      return { x: newX, y: newY, w: newW, h: newH };
     });
-  }, []);
+  }, [finalSvgH]);
+
+  const handleWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.12 : 0.88;
+    zoomAtPoint(factor, e.clientX, e.clientY);
+  }, [zoomAtPoint]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -689,17 +719,11 @@ export function MultiBankSankey({
   }, [handleWheel]);
 
   // Zoom Button Controls
-  const handleZoomIn = () => {
-    setZoom((z) => Math.min(z * 1.2, 3.2));
-  };
-
-  const handleZoomOut = () => {
-    setZoom((z) => Math.max(z * 0.8, 0.45));
-  };
+  const handleZoomIn = () => zoomAtPoint(1.2);
+  const handleZoomOut = () => zoomAtPoint(0.8);
 
   const handleResetView = () => {
-    setZoom(1.0);
-    setPan({ x: 0, y: 0 });
+    setViewBox({ x: 0, y: 0, w: SVG_W, h: finalSvgH });
     setPinnedTarget(null);
     setHoverTarget(null);
     setHoveredFlow(null);
@@ -739,6 +763,8 @@ export function MultiBankSankey({
       setPinnedTarget(target);
     }
   };
+
+  const currentZoomPercent = Math.round((SVG_W / viewBox.w) * 100);
 
   return (
     <div
@@ -811,7 +837,7 @@ export function MultiBankSankey({
         onDoubleClick={handleResetView}
         style={{
           width: '100%',
-          height: isFullscreen ? 'calc(100vh - 65px)' : '620px',
+          height: isFullscreen ? 'calc(100vh - 65px)' : 'auto',
           position: 'relative',
           overflow: 'hidden',
           cursor: isDragging ? 'grabbing' : 'grab',
@@ -820,6 +846,8 @@ export function MultiBankSankey({
           background: 'var(--background-alt)',
           borderRadius: isFullscreen ? '0' : '10px',
           border: isFullscreen ? 'none' : '1px solid var(--line)',
+          display: 'flex',
+          justifyContent: 'center',
         }}
       >
         {/* ── Floating Info / Hover / Pin Banner ───────────────────────── */}
@@ -930,7 +958,7 @@ export function MultiBankSankey({
               padding: '0 4px',
             }}
           >
-            {Math.round(zoom * 100)}%
+            {currentZoomPercent}%
           </div>
 
           {/* Zoom In */}
@@ -1060,495 +1088,490 @@ export function MultiBankSankey({
           <span>Click &amp; drag to pan • Scroll to zoom • Click nodes to pin path</span>
         </div>
 
-        {/* ── The Transformable SVG Surface ─────────────────────────────── */}
-        <div
+        {/* ── The Dynamic ViewBox SVG Canvas ────────────────────────────── */}
+        <svg
+          ref={svgRef}
+          viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
           style={{
             width: '100%',
-            height: '100%',
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: '0 0',
-            transition: isDragging ? 'none' : 'transform 0.08s ease-out',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            height: 'auto',
+            maxHeight: isFullscreen ? 'calc(100vh - 65px)' : '720px',
+            display: 'block',
+            overflow: 'hidden',
           }}
         >
-          <svg
-            ref={svgRef}
-            viewBox={`0 0 ${SVG_W} ${finalSvgH}`}
-            style={{
-              width: `${SVG_W}px`,
-              height: `${finalSvgH}px`,
-              display: 'block',
-              overflow: 'visible',
-            }}
-          >
-            <defs>
-              {/* Animated Current Keyframes */}
-              <style>{`
-                @keyframes flowCurrentPulse {
-                  0% { stroke-dashoffset: 60; }
-                  100% { stroke-dashoffset: 0; }
-                }
-                .flowing-stream {
-                  stroke-dasharray: 6, 12;
-                  animation: flowCurrentPulse 1.8s linear infinite;
-                }
-              `}</style>
+          <defs>
+            {/* Animated Current Keyframes */}
+            <style>{`
+              @keyframes flowCurrentPulse {
+                0% { stroke-dashoffset: 60; }
+                100% { stroke-dashoffset: 0; }
+              }
+              .flowing-stream {
+                stroke-dasharray: 6, 12;
+                animation: flowCurrentPulse 1.8s linear infinite;
+              }
+            `}</style>
 
-              {/* Bank Inbound Gradients */}
-              {bankNodesWithY.map((b) => (
-                <linearGradient key={`gi-${b.id}`} id={`gi-${b.id}`} x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#10b981" />
-                  <stop offset="100%" stopColor={b.color} />
+            {/* Bank Inbound Gradients */}
+            {bankNodesWithY.map((b) => (
+              <linearGradient key={`gi-${b.id}`} id={`gi-${b.id}`} x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#10b981" />
+                <stop offset="100%" stopColor={b.color} />
+              </linearGradient>
+            ))}
+
+            {/* Bank to Supergroup Gradients */}
+            {bankNodesWithY.flatMap((b) =>
+              supergroupNodesWithY.map((sg) => (
+                <linearGradient key={`g-bs-${b.id}-${sg.id}`} id={`g-bs-${b.id}-${sg.id}`} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={b.color} />
+                  <stop offset="100%" stopColor={sg.color} />
                 </linearGradient>
-              ))}
+              )),
+            )}
 
-              {/* Bank to Supergroup Gradients */}
-              {bankNodesWithY.flatMap((b) =>
-                supergroupNodesWithY.map((sg) => (
-                  <linearGradient key={`g-bs-${b.id}-${sg.id}`} id={`g-bs-${b.id}-${sg.id}`} x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={b.color} />
-                    <stop offset="100%" stopColor={sg.color} />
-                  </linearGradient>
-                )),
-              )}
-
-              {/* Supergroup to Consolidated Category Gradients */}
-              {supergroupNodesWithY.flatMap((sg) =>
-                categoryNodesWithY.map((c) => (
-                  <linearGradient key={`g-sc-${sg.id}-${c.id}`} id={`g-sc-${sg.id}-${c.id}`} x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={sg.color} />
-                    <stop offset="100%" stopColor={c.color} />
-                  </linearGradient>
-                )),
-              )}
-            </defs>
-
-            {/* ── Stage Column Headers ─────────────────────────────────── */}
-            <g className="stage-headers" opacity="0.9">
-              {/* Stage 1 Header */}
-              <g transform={`translate(${LEFT_X - 12}, 26)`}>
-                <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px" textAnchor="end">
-                  1. INFLOW
-                </text>
-                <text x="0" y="14" fill="#059669" fontSize="11" fontWeight="700" textAnchor="end">
-                  External Income
-                </text>
-              </g>
-
-              {/* Stage 2 Header */}
-              <g transform={`translate(${MID_X - 12}, 26)`}>
-                <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px" textAnchor="end">
-                  2. FUNDING ACCOUNTS
-                </text>
-                <text x="0" y="14" fill="var(--ink)" fontSize="11" fontWeight="700" textAnchor="end">
-                  Banks &amp; Transfers
-                </text>
-              </g>
-
-              {/* Stage 3 Header */}
-              <g transform={`translate(${HUB_X}, 26)`}>
-                <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px">
-                  3. PAYMENT CHANNELS
-                </text>
-                <text x="0" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">
-                  Direct, Cards &amp; Micro
-                </text>
-              </g>
-
-              {/* Stage 4 Header */}
-              <g transform={`translate(${CAT_X}, 26)`}>
-                <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px">
-                  4. FINAL EXPENSES
-                </text>
-                <text x="0" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">
-                  Consolidated Destinations
-                </text>
-              </g>
-            </g>
-
-            {/* ── Stage 1 -> Stage 2: Inbound Ribbons ─────────────────── */}
-            {inSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
-              const act = isBankActive(bank.id);
-              const pathD = ribbon(LEFT_X + NODE_W, srcT, srcB, MID_X, dstT, dstB);
-              const midRibbonPath = `M ${LEFT_X + NODE_W} ${(srcT + srcB) / 2} C ${LEFT_X + NODE_W + 120} ${(srcT + srcB) / 2}, ${MID_X - 120} ${(dstT + dstB) / 2}, ${MID_X} ${(dstT + dstB) / 2}`;
-
-              return (
-                <g key={`in-group-${bank.id}`}>
-                  <path
-                    d={pathD}
-                    fill={`url(#gi-${bank.id})`}
-                    opacity={act ? 0.55 : 0.05}
-                    style={{ transition: 'opacity .18s', cursor: 'pointer' }}
-                    onClick={() => togglePin({ kind: 'bank', id: bank.id })}
-                    onMouseEnter={() => {
-                      setHoverTarget({ kind: 'bank', id: bank.id });
-                      setHoveredFlow({
-                        title: `Inbound → ${bank.name}`,
-                        amount: `+${money(bank.inTotal)}`,
-                        color: '#10b981',
-                      });
-                    }}
-                    onMouseLeave={() => {
-                      setHoverTarget(null);
-                      setHoveredFlow(null);
-                    }}
-                  />
-                  {showAnimations && act && (
-                    <path
-                      d={midRibbonPath}
-                      fill="none"
-                      stroke="#10b981"
-                      strokeWidth="2.5"
-                      strokeOpacity="0.85"
-                      className="flowing-stream"
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  )}
-                </g>
-              );
-            })}
-
-            {/* ── Stage 2 -> Stage 3: Bank to Supergroup Ribbons ─────── */}
-            {bankToSgRibbons.map((r, idx) => {
-              const act = isBankToSgRibbonActive(r.bank.id, r.sg.id);
-              const pathD = ribbon(MID_X + NODE_W, r.srcT, r.srcB, HUB_X, r.dstT, r.dstB);
-              const midRibbonPath = `M ${MID_X + NODE_W} ${(r.srcT + r.srcB) / 2} C ${MID_X + NODE_W + 130} ${(r.srcT + r.srcB) / 2}, ${HUB_X - 130} ${(r.dstT + r.dstB) / 2}, ${HUB_X} ${(r.dstT + r.dstB) / 2}`;
-
-              return (
-                <g key={`bs-ribbon-group-${idx}`}>
-                  <path
-                    d={pathD}
-                    fill={`url(#g-bs-${r.bank.id}-${r.sg.id})`}
-                    opacity={act ? 0.55 : 0.05}
-                    style={{ transition: 'opacity .18s', cursor: 'pointer' }}
-                    onClick={() => togglePin({ kind: 'bank', id: r.bank.id })}
-                    onMouseEnter={() => {
-                      setHoverTarget({ kind: 'bank', id: r.bank.id });
-                      setHoveredFlow({
-                        title: `${r.bank.name} → ${r.sg.name}`,
-                        amount: `-${money(r.amount)}`,
-                        color: r.sg.color,
-                      });
-                    }}
-                    onMouseLeave={() => {
-                      setHoverTarget(null);
-                      setHoveredFlow(null);
-                    }}
-                  />
-                  {showAnimations && act && (
-                    <path
-                      d={midRibbonPath}
-                      fill="none"
-                      stroke={r.sg.color}
-                      strokeWidth="2"
-                      strokeOpacity="0.75"
-                      className="flowing-stream"
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  )}
-                </g>
-              );
-            })}
-
-            {/* ── Stage 3 -> Stage 4: Supergroup to Category Ribbons ──── */}
-            {sgToCatRibbons.map((r, idx) => {
-              const act = isSgToCatRibbonActive(r.sg.id, r.cat.id);
-              const pathD = ribbon(HUB_X + NODE_W, r.srcT, r.srcB, CAT_X, r.dstT, r.dstB);
-              const midRibbonPath = `M ${HUB_X + NODE_W} ${(r.srcT + r.srcB) / 2} C ${HUB_X + NODE_W + 130} ${(r.srcT + r.srcB) / 2}, ${CAT_X - 130} ${(r.dstT + r.dstB) / 2}, ${CAT_X} ${(r.dstT + r.dstB) / 2}`;
-
-              return (
-                <g key={`sc-ribbon-group-${idx}`}>
-                  <path
-                    d={pathD}
-                    fill={`url(#g-sc-${r.sg.id}-${r.cat.id})`}
-                    opacity={act ? 0.55 : 0.05}
-                    style={{ transition: 'opacity .18s', cursor: 'pointer' }}
-                    onClick={() => togglePin({ kind: 'category', id: r.cat.id })}
-                    onMouseEnter={() => {
-                      setHoverTarget({ kind: 'category', id: r.cat.id });
-                      setHoveredFlow({
-                        title: `${r.sg.name} → ${r.cat.name}`,
-                        amount: money(r.amount),
-                        color: r.cat.color,
-                      });
-                    }}
-                    onMouseLeave={() => {
-                      setHoverTarget(null);
-                      setHoveredFlow(null);
-                    }}
-                  />
-                  {showAnimations && act && (
-                    <path
-                      d={midRibbonPath}
-                      fill="none"
-                      stroke={r.cat.color}
-                      strokeWidth="2"
-                      strokeOpacity="0.85"
-                      className="flowing-stream"
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  )}
-                </g>
-              );
-            })}
-
-            {/* ── Stage 2 Internal Bank-to-Bank Arcs ─────────────────── */}
-            {aggregatedBankTransfers.map((it, idx) => {
-              const fromNode = bankNodesWithY.find((b) => b.id === it.fromAccountId);
-              const toNode = bankNodesWithY.find((b) => b.id === it.toAccountId);
-              if (!fromNode || !toNode) return null;
-
-              const fromY = fromNode.y + fromNode.height * 0.72;
-              const toY = toNode.y + toNode.height * 0.28;
-              const peakX = ARC_X + idx * 16;
-              const midY = (fromY + toY) / 2;
-              const sw = Math.max(2, Math.min(6, Math.round(flowH(it.totalAmount))));
-              const act =
-                !activeHighlight ||
-                (activeHighlight.kind === 'bank' && (activeHighlight.id === fromNode.id || activeHighlight.id === toNode.id)) ||
-                (activeHighlight.kind === 'interbank' && activeHighlight.fromId === fromNode.id && activeHighlight.toId === toNode.id);
-              const arcPath = `M ${MID_X + NODE_W} ${fromY} C ${peakX} ${fromY},${peakX} ${toY},${MID_X + NODE_W} ${toY}`;
-              const fromShort = fromNode.name.split(/[\s–-]/)[0];
-              const toShort = toNode.name.split(/[\s–-]/)[0];
-              const label = `${fromShort} → ${toShort}  ${money(it.totalAmount)}`;
-
-              return (
-                <g
-                  key={`arc-${idx}`}
-                  style={{ opacity: act ? 1 : 0.08, transition: 'opacity .18s', cursor: 'pointer' }}
-                  onClick={() => togglePin({ kind: 'interbank', fromId: fromNode.id, toId: toNode.id })}
-                  onMouseEnter={() => {
-                    setHoverTarget({ kind: 'interbank', fromId: fromNode.id, toId: toNode.id });
-                    setHoveredFlow({
-                      title: `Inter-Bank Transfer: ${it.fromAccountName} → ${it.toAccountName}`,
-                      amount: money(it.totalAmount),
-                      color: fromNode.color,
-                    });
-                  }}
-                  onMouseLeave={() => {
-                    setHoverTarget(null);
-                    setHoveredFlow(null);
-                  }}
+            {/* Supergroup to Consolidated Category Gradients */}
+            {supergroupNodesWithY.flatMap((sg) =>
+              categoryNodesWithY.map((c) => (
+                <linearGradient
+                  key={`g-sc-${sg.id}-${c.id}`}
+                  id={`g-sc-${sg.id}-${c.id}`}
+                  x1="0"
+                  y1="0"
+                  x2="1"
+                  y2="0"
                 >
-                  <path d={arcPath} fill="none" stroke={fromNode.color} strokeWidth={sw} strokeOpacity={0.8} />
-                  <polygon
-                    points={`${MID_X + NODE_W},${toY} ${MID_X + NODE_W - 6},${toY - 4} ${MID_X + NODE_W - 6},${toY + 4}`}
-                    fill={fromNode.color}
-                    opacity={0.9}
-                  />
-                  <g transform={`translate(${peakX + 4}, ${midY - 9})`}>
-                    <rect
-                      x="0"
-                      y="0"
-                      width={label.length * 6.2 + 10}
-                      height="18"
-                      rx="4"
-                      fill="var(--card)"
-                      stroke={fromNode.color}
-                      strokeWidth="1"
-                      style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.12))' }}
-                    />
-                    <rect
-                      x="0"
-                      y="0"
-                      width={label.length * 6.2 + 10}
-                      height="18"
-                      rx="4"
-                      fill={fromNode.color}
-                      fillOpacity={0.08}
-                    />
-                    <text x="5" y="12.5" fill={fromNode.color} fontSize="9.5" fontWeight="700">
-                      {label}
-                    </text>
-                  </g>
-                </g>
-              );
-            })}
+                  <stop offset="0%" stopColor={sg.color} />
+                  <stop offset="100%" stopColor={c.color} />
+                </linearGradient>
+              )),
+            )}
+          </defs>
 
-            {/* ── Stage 1 Node: External Inbound ────────────────────── */}
-            <g
-              style={{ cursor: 'pointer' }}
-              onClick={() => togglePin({ kind: 'inbound' })}
-              onMouseEnter={() => {
-                setHoverTarget({ kind: 'inbound' });
-                setHoveredFlow({
-                  title: 'External Inbound (Total Income)',
-                  amount: `+${money(overall.totalExternalInbound)}`,
-                  color: '#10b981',
-                });
-              }}
-              onMouseLeave={() => {
-                setHoverTarget(null);
-                setHoveredFlow(null);
-              }}
-            >
-              <rect x={LEFT_X} y={inStartY} width={NODE_W} height={inboundH} fill="#10b981" rx="4" />
-              <text x={LEFT_X - 12} y={inStartY + inboundH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="end">
-                External Inbound
+          {/* ── Stage Column Headers ─────────────────────────────────── */}
+          <g className="stage-headers" opacity="0.9">
+            {/* Stage 1 Header */}
+            <g transform={`translate(${LEFT_X - 12}, 26)`}>
+              <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px" textAnchor="end">
+                1. INFLOW
               </text>
-              <text x={LEFT_X - 12} y={inStartY + inboundH / 2 + 10} fill="#059669" fontSize="12" fontWeight="700" textAnchor="end">
-                +{money(overall.totalExternalInbound)}
+              <text x="0" y="14" fill="#059669" fontSize="11" fontWeight="700" textAnchor="end">
+                External Income
               </text>
             </g>
 
-            {/* ── Stage 2 Nodes: Bank Funding Accounts ───────────────── */}
-            {bankNodesWithY.map((bank) => {
-              const act = isBankActive(bank.id);
-              const midY = bank.y + bank.height / 2;
-              const isPinned = pinnedTarget?.kind === 'bank' && pinnedTarget.id === bank.id;
+            {/* Stage 2 Header */}
+            <g transform={`translate(${MID_X - 12}, 26)`}>
+              <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px" textAnchor="end">
+                2. FUNDING ACCOUNTS
+              </text>
+              <text x="0" y="14" fill="var(--ink)" fontSize="11" fontWeight="700" textAnchor="end">
+                Banks &amp; Transfers
+              </text>
+            </g>
 
-              return (
-                <g
-                  key={`node-${bank.id}`}
-                  style={{ opacity: act ? 1 : 0.22, transition: 'opacity .18s', cursor: 'pointer' }}
+            {/* Stage 3 Header */}
+            <g transform={`translate(${HUB_X}, 26)`}>
+              <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px">
+                3. PAYMENT CHANNELS
+              </text>
+              <text x="0" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">
+                Direct, Cards &amp; Micro
+              </text>
+            </g>
+
+            {/* Stage 4 Header */}
+            <g transform={`translate(${CAT_X}, 26)`}>
+              <text x="0" y="0" fill="var(--muted)" fontSize="9.5" fontWeight="800" letterSpacing="0.8px">
+                4. FINAL EXPENSES
+              </text>
+              <text x="0" y="14" fill="var(--ink)" fontSize="11" fontWeight="700">
+                Consolidated Destinations
+              </text>
+            </g>
+          </g>
+
+          {/* ── Stage 1 -> Stage 2: Inbound Ribbons ─────────────────── */}
+          {inSlices.map(({ bank, srcT, srcB, dstT, dstB }) => {
+            const act = isBankActive(bank.id);
+            const pathD = ribbon(LEFT_X + NODE_W, srcT, srcB, MID_X, dstT, dstB);
+            const midRibbonPath = `M ${LEFT_X + NODE_W} ${(srcT + srcB) / 2} C ${LEFT_X + NODE_W + 120} ${(srcT + srcB) / 2}, ${MID_X - 120} ${(dstT + dstB) / 2}, ${MID_X} ${(dstT + dstB) / 2}`;
+
+            return (
+              <g key={`in-group-${bank.id}`}>
+                <path
+                  d={pathD}
+                  fill={`url(#gi-${bank.id})`}
+                  opacity={act ? 0.55 : 0.05}
+                  style={{ transition: 'opacity .18s', cursor: 'pointer' }}
                   onClick={() => togglePin({ kind: 'bank', id: bank.id })}
                   onMouseEnter={() => {
                     setHoverTarget({ kind: 'bank', id: bank.id });
                     setHoveredFlow({
-                      title: `${bank.name} (Flow Balance)`,
-                      amount: `+${money(bank.inTotal)} in / -${money(bank.outTotal)} out`,
-                      color: bank.color,
+                      title: `Inbound → ${bank.name}`,
+                      amount: `+${money(bank.inTotal)}`,
+                      color: '#10b981',
                     });
                   }}
                   onMouseLeave={() => {
                     setHoverTarget(null);
                     setHoveredFlow(null);
                   }}
-                >
+                />
+                {showAnimations && act && (
+                  <path
+                    d={midRibbonPath}
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth="2.5"
+                    strokeOpacity="0.85"
+                    className="flowing-stream"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
+              </g>
+            );
+          })}
+
+          {/* ── Stage 2 -> Stage 3: Bank to Supergroup Ribbons ─────── */}
+          {bankToSgRibbons.map((r, idx) => {
+            const act = isBankToSgRibbonActive(r.bank.id, r.sg.id);
+            const pathD = ribbon(MID_X + NODE_W, r.srcT, r.srcB, HUB_X, r.dstT, r.dstB);
+            const midRibbonPath = `M ${MID_X + NODE_W} ${(r.srcT + r.srcB) / 2} C ${MID_X + NODE_W + 130} ${(r.srcT + r.srcB) / 2}, ${HUB_X - 130} ${(r.dstT + r.dstB) / 2}, ${HUB_X} ${(r.dstT + r.dstB) / 2}`;
+
+            return (
+              <g key={`bs-ribbon-group-${idx}`}>
+                <path
+                  d={pathD}
+                  fill={`url(#g-bs-${r.bank.id}-${r.sg.id})`}
+                  opacity={act ? 0.55 : 0.05}
+                  style={{ transition: 'opacity .18s', cursor: 'pointer' }}
+                  onClick={() => togglePin({ kind: 'bank', id: r.bank.id })}
+                  onMouseEnter={() => {
+                    setHoverTarget({ kind: 'bank', id: r.bank.id });
+                    setHoveredFlow({
+                      title: `${r.bank.name} → ${r.sg.name}`,
+                      amount: `-${money(r.amount)}`,
+                      color: r.sg.color,
+                    });
+                  }}
+                  onMouseLeave={() => {
+                    setHoverTarget(null);
+                    setHoveredFlow(null);
+                  }}
+                />
+                {showAnimations && act && (
+                  <path
+                    d={midRibbonPath}
+                    fill="none"
+                    stroke={r.sg.color}
+                    strokeWidth="2"
+                    strokeOpacity="0.75"
+                    className="flowing-stream"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
+              </g>
+            );
+          })}
+
+          {/* ── Stage 3 -> Stage 4: Supergroup to Category Ribbons ──── */}
+          {sgToCatRibbons.map((r, idx) => {
+            const act = isSgToCatRibbonActive(r.sg.id, r.cat.id);
+            const pathD = ribbon(HUB_X + NODE_W, r.srcT, r.srcB, CAT_X, r.dstT, r.dstB);
+            const midRibbonPath = `M ${HUB_X + NODE_W} ${(r.srcT + r.srcB) / 2} C ${HUB_X + NODE_W + 130} ${(r.srcT + r.srcB) / 2}, ${CAT_X - 130} ${(r.dstT + r.dstB) / 2}, ${CAT_X} ${(r.dstT + r.dstB) / 2}`;
+
+            return (
+              <g key={`sc-ribbon-group-${idx}`}>
+                <path
+                  d={pathD}
+                  fill={`url(#g-sc-${r.sg.id}-${r.cat.id})`}
+                  opacity={act ? 0.55 : 0.05}
+                  style={{ transition: 'opacity .18s', cursor: 'pointer' }}
+                  onClick={() => togglePin({ kind: 'category', id: r.cat.id })}
+                  onMouseEnter={() => {
+                    setHoverTarget({ kind: 'category', id: r.cat.id });
+                    setHoveredFlow({
+                      title: `${r.sg.name} → ${r.cat.name}`,
+                      amount: money(r.amount),
+                      color: r.cat.color,
+                    });
+                  }}
+                  onMouseLeave={() => {
+                    setHoverTarget(null);
+                    setHoveredFlow(null);
+                  }}
+                />
+                {showAnimations && act && (
+                  <path
+                    d={midRibbonPath}
+                    fill="none"
+                    stroke={r.cat.color}
+                    strokeWidth="2"
+                    strokeOpacity="0.85"
+                    className="flowing-stream"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
+              </g>
+            );
+          })}
+
+          {/* ── Stage 2 Internal Bank-to-Bank Arcs ─────────────────── */}
+          {aggregatedBankTransfers.map((it, idx) => {
+            const fromNode = bankNodesWithY.find((b) => b.id === it.fromAccountId);
+            const toNode = bankNodesWithY.find((b) => b.id === it.toAccountId);
+            if (!fromNode || !toNode) return null;
+
+            const fromY = fromNode.y + fromNode.height * 0.72;
+            const toY = toNode.y + toNode.height * 0.28;
+            const peakX = ARC_X + idx * 16;
+            const midY = (fromY + toY) / 2;
+            const sw = Math.max(2, Math.min(6, Math.round(flowH(it.totalAmount))));
+            const act =
+              !activeHighlight ||
+              (activeHighlight.kind === 'bank' && (activeHighlight.id === fromNode.id || activeHighlight.id === toNode.id)) ||
+              (activeHighlight.kind === 'interbank' && activeHighlight.fromId === fromNode.id && activeHighlight.toId === toNode.id);
+            const arcPath = `M ${MID_X + NODE_W} ${fromY} C ${peakX} ${fromY},${peakX} ${toY},${MID_X + NODE_W} ${toY}`;
+            const fromShort = fromNode.name.split(/[\s–-]/)[0];
+            const toShort = toNode.name.split(/[\s–-]/)[0];
+            const label = `${fromShort} → ${toShort}  ${money(it.totalAmount)}`;
+
+            return (
+              <g
+                key={`arc-${idx}`}
+                style={{ opacity: act ? 1 : 0.08, transition: 'opacity .18s', cursor: 'pointer' }}
+                onClick={() => togglePin({ kind: 'interbank', fromId: fromNode.id, toId: toNode.id })}
+                onMouseEnter={() => {
+                  setHoverTarget({ kind: 'interbank', fromId: fromNode.id, toId: toNode.id });
+                  setHoveredFlow({
+                    title: `Inter-Bank Transfer: ${it.fromAccountName} → ${it.toAccountName}`,
+                    amount: money(it.totalAmount),
+                    color: fromNode.color,
+                  });
+                }}
+                onMouseLeave={() => {
+                  setHoverTarget(null);
+                  setHoveredFlow(null);
+                }}
+              >
+                <path d={arcPath} fill="none" stroke={fromNode.color} strokeWidth={sw} strokeOpacity={0.8} />
+                <polygon
+                  points={`${MID_X + NODE_W},${toY} ${MID_X + NODE_W - 6},${toY - 4} ${MID_X + NODE_W - 6},${toY + 4}`}
+                  fill={fromNode.color}
+                  opacity={0.9}
+                />
+                <g transform={`translate(${peakX + 4}, ${midY - 9})`}>
                   <rect
-                    x={bank.x}
-                    y={bank.y}
-                    width={NODE_W}
-                    height={bank.height}
-                    fill={bank.color}
+                    x="0"
+                    y="0"
+                    width={label.length * 6.2 + 10}
+                    height="18"
                     rx="4"
+                    fill="var(--card)"
+                    stroke={fromNode.color}
+                    strokeWidth="1"
+                    style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.12))' }}
+                  />
+                  <rect
+                    x="0"
+                    y="0"
+                    width={label.length * 6.2 + 10}
+                    height="18"
+                    rx="4"
+                    fill={fromNode.color}
+                    fillOpacity={0.08}
+                  />
+                  <text x="5" y="12.5" fill={fromNode.color} fontSize="9.5" fontWeight="700">
+                    {label}
+                  </text>
+                </g>
+              </g>
+            );
+          })}
+
+          {/* ── Stage 1 Node: External Inbound ────────────────────── */}
+          <g
+            style={{ cursor: 'pointer' }}
+            onClick={() => togglePin({ kind: 'inbound' })}
+            onMouseEnter={() => {
+              setHoverTarget({ kind: 'inbound' });
+              setHoveredFlow({
+                title: 'External Inbound (Total Income)',
+                amount: `+${money(overall.totalExternalInbound)}`,
+                color: '#10b981',
+              });
+            }}
+            onMouseLeave={() => {
+              setHoverTarget(null);
+              setHoveredFlow(null);
+            }}
+          >
+            <rect x={LEFT_X} y={inStartY} width={NODE_W} height={inboundH} fill="#10b981" rx="4" />
+            <text x={LEFT_X - 12} y={inStartY + inboundH / 2 - 8} fill="var(--ink)" fontSize="13" fontWeight="700" textAnchor="end">
+              External Inbound
+            </text>
+            <text x={LEFT_X - 12} y={inStartY + inboundH / 2 + 10} fill="#059669" fontSize="12" fontWeight="700" textAnchor="end">
+              +{money(overall.totalExternalInbound)}
+            </text>
+          </g>
+
+          {/* ── Stage 2 Nodes: Bank Funding Accounts ───────────────── */}
+          {bankNodesWithY.map((bank) => {
+            const act = isBankActive(bank.id);
+            const midY = bank.y + bank.height / 2;
+            const isPinned = pinnedTarget?.kind === 'bank' && pinnedTarget.id === bank.id;
+
+            return (
+              <g
+                key={`node-${bank.id}`}
+                style={{ opacity: act ? 1 : 0.22, transition: 'opacity .18s', cursor: 'pointer' }}
+                onClick={() => togglePin({ kind: 'bank', id: bank.id })}
+                onMouseEnter={() => {
+                  setHoverTarget({ kind: 'bank', id: bank.id });
+                  setHoveredFlow({
+                    title: `${bank.name} (Flow Balance)`,
+                    amount: `+${money(bank.inTotal)} in / -${money(bank.outTotal)} out`,
+                    color: bank.color,
+                  });
+                }}
+                onMouseLeave={() => {
+                  setHoverTarget(null);
+                  setHoveredFlow(null);
+                }}
+              >
+                <rect
+                  x={bank.x}
+                  y={bank.y}
+                  width={NODE_W}
+                  height={bank.height}
+                  fill={bank.color}
+                  rx="4"
+                  style={{
+                    filter: (activeHighlight?.kind === 'bank' && activeHighlight.id === bank.id) || isPinned
+                      ? `drop-shadow(0 0 10px ${bank.color})`
+                      : 'none',
+                  }}
+                />
+                <rect x={MID_X - 6} y={midY - 3} width={4} height={4} rx="2" fill={bank.color} />
+                <text x={MID_X - 12} y={midY - 2} fill="var(--ink)" fontSize="12.5" fontWeight="700" textAnchor="end">
+                  {bank.name} {isPinned ? '📌' : ''}
+                </text>
+                <text x={MID_X - 12} y={midY + 13} fontSize="10.5" textAnchor="end">
+                  <tspan fill="#059669" fontWeight="700">+{money(bank.inTotal)}</tspan>
+                  <tspan fill="var(--muted)"> / </tspan>
+                  <tspan fill="#dc2626" fontWeight="700">-{money(bank.outTotal)}</tspan>
+                </text>
+              </g>
+            );
+          })}
+
+          {/* ── Stage 3 Nodes: Supergroup Hubs ───────────────────── */}
+          {supergroupNodesWithY.map((sgNode) => {
+            const act = isSupergroupActive(sgNode.id);
+            const midY = sgNode.y + sgNode.height / 2;
+            const isPinned = pinnedTarget?.kind === 'supergroup' && pinnedTarget.id === sgNode.id;
+
+            return (
+              <g
+                key={`sg-node-${sgNode.id}`}
+                style={{ opacity: act ? 1 : 0.22, transition: 'opacity .18s', cursor: 'pointer' }}
+                onClick={() => togglePin({ kind: 'supergroup', id: sgNode.id })}
+                onMouseEnter={() => {
+                  setHoverTarget({ kind: 'supergroup', id: sgNode.id });
+                  setHoveredFlow({
+                    title: `${sgNode.name} (Channel Total)`,
+                    amount: money(sgNode.amount),
+                    color: sgNode.color,
+                  });
+                }}
+                onMouseLeave={() => {
+                  setHoverTarget(null);
+                  setHoveredFlow(null);
+                }}
+              >
+                <rect x={sgNode.x} y={sgNode.y} width={NODE_W} height={sgNode.height} fill={sgNode.color} rx="4" />
+                <g transform={`translate(${HUB_X + NODE_W + 10}, ${midY - 17})`}>
+                  <rect
+                    x="0"
+                    y="0"
+                    width={156}
+                    height={34}
+                    rx={6}
+                    fill="var(--card)"
+                    stroke={sgNode.color}
+                    strokeWidth={isPinned ? '2' : '1.2'}
                     style={{
-                      filter: (activeHighlight?.kind === 'bank' && activeHighlight.id === bank.id) || isPinned
-                        ? `drop-shadow(0 0 10px ${bank.color})`
-                        : 'none',
+                      filter: (activeHighlight?.kind === 'supergroup' && activeHighlight.id === sgNode.id) || isPinned
+                        ? `drop-shadow(0 0 10px ${sgNode.color})`
+                        : 'drop-shadow(0 2px 8px rgba(0,0,0,0.07))',
                     }}
                   />
-                  <rect x={MID_X - 6} y={midY - 3} width={4} height={4} rx="2" fill={bank.color} />
-                  <text x={MID_X - 12} y={midY - 2} fill="var(--ink)" fontSize="12.5" fontWeight="700" textAnchor="end">
-                    {bank.name} {isPinned ? '📌' : ''}
+                  <rect x="0" y="0" width={156} height={34} rx={6} fill={sgNode.color} fillOpacity={0.09} />
+                  <text x="10" y="14" fill="var(--ink)" fontSize="11.5" fontWeight="700">
+                    {sgNode.name} {isPinned ? '📌' : ''}
                   </text>
-                  <text x={MID_X - 12} y={midY + 13} fontSize="10.5" textAnchor="end">
-                    <tspan fill="#059669" fontWeight="700">+{money(bank.inTotal)}</tspan>
-                    <tspan fill="var(--muted)"> / </tspan>
-                    <tspan fill="#dc2626" fontWeight="700">-{money(bank.outTotal)}</tspan>
+                  <text x="10" y="27" fill={sgNode.color} fontSize="11" fontWeight="800">
+                    {money(sgNode.amount)}
                   </text>
                 </g>
-              );
-            })}
+              </g>
+            );
+          })}
 
-            {/* ── Stage 3 Nodes: Supergroup Hubs ───────────────────── */}
-            {supergroupNodesWithY.map((sgNode) => {
-              const act = isSupergroupActive(sgNode.id);
-              const midY = sgNode.y + sgNode.height / 2;
-              const isPinned = pinnedTarget?.kind === 'supergroup' && pinnedTarget.id === sgNode.id;
+          {/* ── Stage 4 Nodes: Consolidated Unified Categories ──── */}
+          {categoryNodesWithY.map((catNode, idx) => {
+            const act = isCategoryActive(catNode.id);
+            const midY = catNode.y + catNode.height / 2;
+            const pct = ((catNode.totalAmount / totalOutboundSum) * 100).toFixed(1);
+            const isPinned = pinnedTarget?.kind === 'category' && pinnedTarget.id === catNode.id;
 
-              return (
-                <g
-                  key={`sg-node-${sgNode.id}`}
-                  style={{ opacity: act ? 1 : 0.22, transition: 'opacity .18s', cursor: 'pointer' }}
-                  onClick={() => togglePin({ kind: 'supergroup', id: sgNode.id })}
-                  onMouseEnter={() => {
-                    setHoverTarget({ kind: 'supergroup', id: sgNode.id });
-                    setHoveredFlow({
-                      title: `${sgNode.name} (Channel Total)`,
-                      amount: money(sgNode.amount),
-                      color: sgNode.color,
-                    });
+            return (
+              <g
+                key={`cat-node-${idx}-${catNode.name}`}
+                style={{ opacity: act ? 1 : 0.22, transition: 'opacity .18s', cursor: 'pointer' }}
+                onClick={() => togglePin({ kind: 'category', id: catNode.id })}
+                onMouseEnter={() => {
+                  const breakdown = catNode.sources.map((s) => `${s.superGroupName}: ${money(s.amount)}`).join(' • ');
+                  setHoverTarget({ kind: 'category', id: catNode.id });
+                  setHoveredFlow({
+                    title: `${catNode.name}`,
+                    amount: `${money(catNode.totalAmount)} (${pct}%)`,
+                    color: catNode.color,
+                    subtitle: breakdown,
+                  });
+                }}
+                onMouseLeave={() => {
+                  setHoverTarget(null);
+                  setHoveredFlow(null);
+                }}
+              >
+                <rect
+                  x={catNode.x}
+                  y={catNode.y}
+                  width={NODE_W}
+                  height={catNode.height}
+                  fill={catNode.color}
+                  rx="4"
+                  style={{
+                    filter: (activeHighlight?.kind === 'category' && activeHighlight.id === catNode.id) || isPinned
+                      ? `drop-shadow(0 0 10px ${catNode.color})`
+                      : 'none',
                   }}
-                  onMouseLeave={() => {
-                    setHoverTarget(null);
-                    setHoveredFlow(null);
-                  }}
-                >
-                  <rect x={sgNode.x} y={sgNode.y} width={NODE_W} height={sgNode.height} fill={sgNode.color} rx="4" />
-                  <g transform={`translate(${HUB_X + NODE_W + 10}, ${midY - 17})`}>
-                    <rect
-                      x="0"
-                      y="0"
-                      width={156}
-                      height={34}
-                      rx={6}
-                      fill="var(--card)"
-                      stroke={sgNode.color}
-                      strokeWidth={isPinned ? '2' : '1.2'}
-                      style={{
-                        filter: (activeHighlight?.kind === 'supergroup' && activeHighlight.id === sgNode.id) || isPinned
-                          ? `drop-shadow(0 0 10px ${sgNode.color})`
-                          : 'drop-shadow(0 2px 8px rgba(0,0,0,0.07))',
-                      }}
-                    />
-                    <rect x="0" y="0" width={156} height={34} rx={6} fill={sgNode.color} fillOpacity={0.09} />
-                    <text x="10" y="14" fill="var(--ink)" fontSize="11.5" fontWeight="700">
-                      {sgNode.name} {isPinned ? '📌' : ''}
-                    </text>
-                    <text x="10" y="27" fill={sgNode.color} fontSize="11" fontWeight="800">
-                      {money(sgNode.amount)}
-                    </text>
-                  </g>
-                </g>
-              );
-            })}
-
-            {/* ── Stage 4 Nodes: Consolidated Unified Categories ──── */}
-            {categoryNodesWithY.map((catNode, idx) => {
-              const act = isCategoryActive(catNode.id);
-              const midY = catNode.y + catNode.height / 2;
-              const pct = ((catNode.totalAmount / totalOutboundSum) * 100).toFixed(1);
-              const isPinned = pinnedTarget?.kind === 'category' && pinnedTarget.id === catNode.id;
-
-              return (
-                <g
-                  key={`cat-node-${idx}-${catNode.name}`}
-                  style={{ opacity: act ? 1 : 0.22, transition: 'opacity .18s', cursor: 'pointer' }}
-                  onClick={() => togglePin({ kind: 'category', id: catNode.id })}
-                  onMouseEnter={() => {
-                    const breakdown = catNode.sources.map((s) => `${s.superGroupName}: ${money(s.amount)}`).join(' • ');
-                    setHoverTarget({ kind: 'category', id: catNode.id });
-                    setHoveredFlow({
-                      title: `${catNode.name}`,
-                      amount: `${money(catNode.totalAmount)} (${pct}%)`,
-                      color: catNode.color,
-                      subtitle: breakdown,
-                    });
-                  }}
-                  onMouseLeave={() => {
-                    setHoverTarget(null);
-                    setHoveredFlow(null);
-                  }}
-                >
-                  <rect
-                    x={catNode.x}
-                    y={catNode.y}
-                    width={NODE_W}
-                    height={catNode.height}
-                    fill={catNode.color}
-                    rx="4"
-                    style={{
-                      filter: (activeHighlight?.kind === 'category' && activeHighlight.id === catNode.id) || isPinned
-                        ? `drop-shadow(0 0 10px ${catNode.color})`
-                        : 'none',
-                    }}
-                  />
-                  <rect x={CAT_X + NODE_W + 8} y={midY - 5} width={6} height={6} rx="3" fill={catNode.color} />
-                  <text x={CAT_X + NODE_W + 18} y={midY - 1} fill="var(--ink)" fontSize="12" fontWeight="700">
-                    {catNode.name} {isPinned ? '📌' : ''}
-                  </text>
-                  <text x={CAT_X + NODE_W + 18} y={midY + 13} fontSize="10.5" fontWeight="600">
-                    <tspan fill="var(--ink)" fontWeight="600">{money(catNode.totalAmount)}</tspan>
-                    <tspan fill="var(--muted)"> · {pct}%</tspan>
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-        </div>
+                />
+                <rect x={CAT_X + NODE_W + 8} y={midY - 5} width={6} height={6} rx="3" fill={catNode.color} />
+                <text x={CAT_X + NODE_W + 18} y={midY - 1} fill="var(--ink)" fontSize="12" fontWeight="700">
+                  {catNode.name} {isPinned ? '📌' : ''}
+                </text>
+                <text x={CAT_X + NODE_W + 18} y={midY + 13} fontSize="10.5" fontWeight="600">
+                  <tspan fill="var(--ink)" fontWeight="600">{money(catNode.totalAmount)}</tspan>
+                  <tspan fill="var(--muted)"> · {pct}%</tspan>
+                </text>
+              </g>
+            );
+          })}
+        </svg>
       </div>
     </div>
   );
