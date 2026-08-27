@@ -1005,49 +1005,185 @@ function MonthlyFlow({
       </div>
 
       {/* Per Account Spending & Top Outbound Beneficiaries Section */}
-      <AccountSpendingAndBeneficiariesSection accounts={accounts} dateRangeText={dateRangeText} />
+      <AccountSpendingAndBeneficiariesSection accounts={accounts} overall={overall} dateRangeText={dateRangeText} />
     </div>
   );
 }
 
 function AccountSpendingAndBeneficiariesSection({
   accounts,
+  overall,
   dateRangeText,
 }: {
   accounts: AccountFlow['accounts'];
+  overall?: AccountFlow['overall'];
   dateRangeText?: string;
 }) {
-  const [selectedAccId, setSelectedAccId] = useState<string>(accounts[0]?.id || '');
+  const [selectedAccId, setSelectedAccId] = useState<string>('ALL');
   const [outboundTab, setOutboundTab] = useState<'EXTERNAL' | 'INTERNAL' | 'ALL'>('EXTERNAL');
 
-  const activeAcc = accounts.find((a) => a.id === selectedAccId) || accounts[0];
+  // Aggregated data for "All Banks"
+  const allCategories = useMemo(() => {
+    const map = new Map<string, { name: string; color: string; amount: number }>();
+    for (const acc of accounts) {
+      const accCats = (acc.categories || acc.cleanCategories || []).filter(
+        (c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name),
+      );
+      for (const c of accCats) {
+        if (c.amount <= 0) continue;
+        const key = c.name.trim().toLowerCase();
+        const ex = map.get(key);
+        if (ex) {
+          ex.amount += c.amount;
+        } else {
+          map.set(key, { name: c.name.trim(), color: c.color || '#3b82f6', amount: c.amount });
+        }
+      }
+    }
+    const list = Array.from(map.values()).sort((a, b) => b.amount - a.amount);
+    const sum = list.reduce((s, c) => s + c.amount, 0) || 1;
+    return list.map((c) => ({
+      ...c,
+      percentage: Math.round((c.amount / sum) * 100),
+    }));
+  }, [accounts]);
 
-  if (!activeAcc) return null;
+  const allTotalSpent = allCategories.reduce((sum, c) => sum + c.amount, 0) || (overall?.totalExternalOutbound ? (overall.totalExternalOutbound + (overall.totalInvestments || 0)) : 0);
+  const allTotalInbound = overall?.totalExternalInbound || accounts.reduce((sum, a) => sum + a.externalInbound, 0);
+  const allInvestmentsTotal = overall?.totalInvestments !== undefined ? overall.totalInvestments : accounts.reduce((sum, a) => sum + (a.investments || 0), 0);
+  const allInternalInbound = accounts.reduce((sum, a) => sum + (a.internalInbound || 0), 0);
+  const allInternalOutbound = accounts.reduce((sum, a) => sum + (a.internalOutbound || 0), 0);
 
-  const categories = (activeAcc.categories || activeAcc.cleanCategories || []).filter(
-    (c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name),
-  );
-  const totalSpent = categories.reduce((sum, c) => sum + c.amount, 0) || Number((activeAcc as any).spendingAndSettlements ?? activeAcc.cleanOutbound ?? (activeAcc.expenses ? (activeAcc.expenses + (activeAcc.investments ?? 0) + (activeAcc.other ?? 0) + (activeAcc.creditCardPayments ?? 0)) : activeAcc.externalOutbound));
+  const allTopRecipients = useMemo(() => {
+    const aggregate = (getter: (acc: (typeof accounts)[0]) => Array<{ name: string; amount: number; count: number; isInternal?: boolean }> | undefined) => {
+      const map = new Map<string, { name: string; amount: number; count: number; isInternal?: boolean }>();
+      for (const acc of accounts) {
+        const list = getter(acc) || [];
+        for (const item of list) {
+          const key = item.name.trim().toLowerCase();
+          const ex = map.get(key);
+          if (ex) {
+            ex.amount += item.amount;
+            ex.count += item.count;
+          } else {
+            map.set(key, { name: item.name.trim(), amount: item.amount, count: item.count, isInternal: item.isInternal });
+          }
+        }
+      }
+      return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
+    };
 
-  let displayRecipients = activeAcc.topExternalRecipients || [];
-  let otherBound = activeAcc.otherExternalOutbound;
+    const external = aggregate((a) => a.topExternalRecipients);
+    const internal = aggregate((a) => a.topInternalRecipients);
+    const all = aggregate((a) => a.topRecipients || a.topExternalRecipients);
 
-  if (outboundTab === 'INTERNAL') {
-    displayRecipients = activeAcc.topInternalRecipients || [];
-    otherBound = activeAcc.otherInternalOutbound;
-  } else if (outboundTab === 'ALL') {
-    displayRecipients = activeAcc.topRecipients || [];
-    const totalOtherAmt = (activeAcc.otherExternalOutbound?.amount || 0) + (activeAcc.otherInternalOutbound?.amount || 0);
-    const totalOtherCount = (activeAcc.otherExternalOutbound?.count || 0) + (activeAcc.otherInternalOutbound?.count || 0);
-    otherBound = { amount: totalOtherAmt, count: totalOtherCount };
+    const otherExtAmt = accounts.reduce((s, a) => s + (a.otherExternalOutbound?.amount || 0), 0);
+    const otherExtCount = accounts.reduce((s, a) => s + (a.otherExternalOutbound?.count || 0), 0);
+
+    const otherIntAmt = accounts.reduce((s, a) => s + (a.otherInternalOutbound?.amount || 0), 0);
+    const otherIntCount = accounts.reduce((s, a) => s + (a.otherInternalOutbound?.count || 0), 0);
+
+    return {
+      external: external.slice(0, 7),
+      internal: internal.slice(0, 7),
+      all: all.slice(0, 7),
+      otherExternal: { amount: otherExtAmt, count: otherExtCount },
+      otherInternal: { amount: otherIntAmt, count: otherIntCount },
+      otherAll: { amount: otherExtAmt + otherIntAmt, count: otherExtCount + otherIntCount },
+    };
+  }, [accounts]);
+
+  const isAll = selectedAccId === 'ALL';
+  const activeAcc = isAll ? null : (accounts.find((a) => a.id === selectedAccId) || accounts[0]);
+
+  const categories = isAll
+    ? allCategories
+    : (activeAcc?.categories || activeAcc?.cleanCategories || []).filter(
+        (c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name),
+      );
+
+  const totalSpent = isAll
+    ? allTotalSpent
+    : categories.reduce((sum, c) => sum + c.amount, 0) || Number((activeAcc as any)?.spendingAndSettlements ?? activeAcc?.cleanOutbound ?? (activeAcc?.expenses ? (activeAcc.expenses + (activeAcc.investments ?? 0) + (activeAcc.other ?? 0) + (activeAcc.creditCardPayments ?? 0)) : activeAcc?.externalOutbound));
+
+  const totalInbound = isAll ? allTotalInbound : (activeAcc?.totalInbound || 0);
+  const internalInbound = isAll ? allInternalInbound : (activeAcc?.internalInbound || 0);
+  const internalOutbound = isAll ? allInternalOutbound : (activeAcc?.internalOutbound || 0);
+  const investments = isAll ? allInvestmentsTotal : (activeAcc?.investments ?? 0);
+
+  let displayRecipients: Array<{ name: string; amount: number; count: number; isInternal?: boolean }> = [];
+  let otherBound: { amount: number; count: number } | undefined = undefined;
+
+  if (isAll) {
+    if (outboundTab === 'EXTERNAL') {
+      displayRecipients = allTopRecipients.external;
+      otherBound = allTopRecipients.otherExternal;
+    } else if (outboundTab === 'INTERNAL') {
+      displayRecipients = allTopRecipients.internal;
+      otherBound = allTopRecipients.otherInternal;
+    } else {
+      displayRecipients = allTopRecipients.all;
+      otherBound = allTopRecipients.otherAll;
+    }
+  } else if (activeAcc) {
+    if (outboundTab === 'INTERNAL') {
+      displayRecipients = activeAcc.topInternalRecipients || [];
+      otherBound = activeAcc.otherInternalOutbound;
+    } else if (outboundTab === 'ALL') {
+      displayRecipients = activeAcc.topRecipients || [];
+      const totalOtherAmt = (activeAcc.otherExternalOutbound?.amount || 0) + (activeAcc.otherInternalOutbound?.amount || 0);
+      const totalOtherCount = (activeAcc.otherExternalOutbound?.count || 0) + (activeAcc.otherInternalOutbound?.count || 0);
+      otherBound = { amount: totalOtherAmt, count: totalOtherCount };
+    } else {
+      displayRecipients = activeAcc.topExternalRecipients || [];
+      otherBound = activeAcc.otherExternalOutbound;
+    }
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Account Selector Tabs */}
+      {/* Account Selector Tabs (All Banks + Individual Bank Accounts) */}
       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+        {/* All Banks Master Tab */}
+        <button
+          type="button"
+          onClick={() => setSelectedAccId('ALL')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 14px',
+            borderRadius: '20px',
+            border: isAll ? '1px solid var(--accent)' : '1px solid var(--line)',
+            background: isAll ? 'rgba(16, 185, 129, 0.1)' : 'var(--background-alt)',
+            color: isAll ? 'var(--accent)' : 'var(--ink)',
+            fontWeight: isAll ? 700 : 500,
+            fontSize: '12px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
+          <Building2 size={14} color={isAll ? 'var(--accent)' : 'var(--muted)'} />
+          <span>All Banks</span>
+          <span
+            style={{
+              fontSize: '10px',
+              background: isAll ? 'var(--accent)' : 'var(--line)',
+              color: isAll ? '#fff' : 'var(--muted)',
+              padding: '1px 6px',
+              borderRadius: '10px',
+              fontWeight: 600,
+            }}
+          >
+            {allTotalSpent > 0 ? `${money(allTotalSpent, true)} spent` : '₹0 spent'}
+          </span>
+        </button>
+
+        {/* Individual Account Tabs */}
         {accounts.map((acc) => {
-          const isSelected = acc.id === activeAcc.id;
+          const isSelected = selectedAccId === acc.id;
           const accCats = (acc.categories || acc.cleanCategories || []).filter(
             (c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name),
           );
@@ -1056,6 +1192,7 @@ function AccountSpendingAndBeneficiariesSection({
           return (
             <button
               key={acc.id}
+              type="button"
               onClick={() => setSelectedAccId(acc.id)}
               style={{
                 display: 'flex',
@@ -1098,11 +1235,11 @@ function AccountSpendingAndBeneficiariesSection({
         <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', padding: '12px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <small style={{ color: '#10b981', display: 'block', fontSize: '10px', fontWeight: 600 }}>Total Inbound</small>
-            <strong style={{ fontSize: '14px', color: '#10b981' }}>+{money(activeAcc.totalInbound)}</strong>
+            <strong style={{ fontSize: '14px', color: '#10b981' }}>+{money(totalInbound)}</strong>
           </div>
-          {activeAcc.internalInbound > 0 && (
+          {internalInbound > 0 && (
             <span style={{ fontSize: '10px', color: '#3b82f6', background: 'rgba(59,130,246,0.1)', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>
-              +{money(activeAcc.internalInbound)} int.
+              +{money(internalInbound)} int.
             </span>
           )}
         </div>
@@ -1114,9 +1251,9 @@ function AccountSpendingAndBeneficiariesSection({
             </small>
             <strong style={{ fontSize: '14px', color: '#ef4444' }}>-{money(totalSpent)}</strong>
           </div>
-          {activeAcc.internalOutbound > 0 && (
+          {internalOutbound > 0 && (
             <span style={{ fontSize: '10px', color: '#3b82f6', background: 'rgba(59,130,246,0.1)', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>
-              -{money(activeAcc.internalOutbound)} int.
+              -{money(internalOutbound)} int.
             </span>
           )}
         </div>
@@ -1124,7 +1261,7 @@ function AccountSpendingAndBeneficiariesSection({
         <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', padding: '12px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <small style={{ color: '#8b5cf6', display: 'block', fontSize: '10px', fontWeight: 600 }}>Investments & SIPs</small>
-            <strong style={{ fontSize: '14px', color: '#8b5cf6' }}>{money(activeAcc.investments ?? 0)}</strong>
+            <strong style={{ fontSize: '14px', color: '#8b5cf6' }}>{money(investments)}</strong>
           </div>
           <span style={{ fontSize: '10px', color: 'var(--muted)', background: 'var(--line)', padding: '2px 6px', borderRadius: '6px', fontWeight: 600 }}>
             Portfolio
@@ -1143,7 +1280,7 @@ function AccountSpendingAndBeneficiariesSection({
               </span>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink)' }}>Where it went</h3>
             </div>
-            <span className="month-pill" style={{ fontSize: '11px' }}>{dateRangeText || activeAcc.name}</span>
+            <span className="month-pill" style={{ fontSize: '11px' }}>{dateRangeText || (isAll ? 'All Accounts' : activeAcc?.name)}</span>
           </div>
 
           <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1155,14 +1292,14 @@ function AccountSpendingAndBeneficiariesSection({
               {categories.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <span style={{ fontSize: '12.5px', color: 'var(--ink)', fontWeight: 600 }}>
-                    {activeAcc.totalInbound > 0 ? `Received ${money(activeAcc.totalInbound)} in transfers` : 'No transactions recorded'}
+                    {totalInbound > 0 ? `Received ${money(totalInbound)} in transfers` : 'No transactions recorded'}
                   </span>
                   <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                    {activeAcc.totalInbound > 0 ? 'No expenditures or outflows recorded for this account.' : 'Import a statement for this account to see spending breakdowns.'}
+                    {totalInbound > 0 ? 'No expenditures or outflows recorded.' : 'Import a statement to see spending breakdowns.'}
                   </span>
                 </div>
               ) : (
-                categories.slice(0, 7).map((cat, idx) => (
+                categories.slice(0, 8).map((cat, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', gap: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: cat.color || '#94a3b8', flexShrink: 0 }} />
