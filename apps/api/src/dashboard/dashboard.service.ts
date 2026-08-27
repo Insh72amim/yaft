@@ -1132,7 +1132,9 @@ export class DashboardService {
 
       while (cur <= endDay) {
         const key = cur.toISOString().slice(0, 10);
-        const label = cur.toLocaleString('en-US', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+        const dayNum = cur.getUTCDate();
+        const monthShort = cur.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+        const label = `${dayNum} ${monthShort}`;
         const subLabel = cur.toLocaleString('en-US', { weekday: 'short', timeZone: 'UTC' });
 
         bucketMap.set(key, {

@@ -989,7 +989,7 @@ export function ExpenseAnalyticsChart({
                     display: 'flex',
                     alignItems: 'flex-end',
                     gap: data.buckets.length > 20 ? '4px' : data.buckets.length > 10 ? '8px' : '16px',
-                    paddingBottom: '26px',
+                    paddingBottom: '28px',
                     position: 'relative',
                     zIndex: 1,
                     overflowX: 'auto',
@@ -1060,8 +1060,8 @@ export function ExpenseAnalyticsChart({
                         <div
                           style={{
                             position: 'absolute',
-                            bottom: 0,
-                            fontSize: data.buckets.length > 20 ? '9px' : '11px',
+                            bottom: '2px',
+                            fontSize: data.buckets.length > 20 ? '9px' : data.buckets.length > 10 ? '10px' : '11px',
                             fontWeight: isSelected ? 700 : 500,
                             color: isSelected ? 'var(--ink)' : 'var(--muted)',
                             whiteSpace: 'nowrap',
@@ -1073,7 +1073,9 @@ export function ExpenseAnalyticsChart({
                           }}
                         >
                           {granularity === 'day'
-                            ? bucket.label.split(' ')[0]
+                            ? data.buckets.length <= 14
+                              ? bucket.label
+                              : bucket.label.split(' ')[0]
                             : granularity === 'week'
                             ? bucket.label.split(' ')[0]
                             : bucket.label.split(' ')[0]}
