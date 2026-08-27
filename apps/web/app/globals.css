@@ -232,6 +232,10 @@ html[data-theme='dark'] .sidebar-color-dot.active {
   padding: 0;
   overflow: hidden;
 }
+.account-ledger-panel:has(.has-popover-open),
+.account-ledger-panel:has(.category-picker-popover) {
+  overflow: visible !important;
+}
 .account-ledger-panel > .panel-title {
   padding: 24px 25px 0;
 }

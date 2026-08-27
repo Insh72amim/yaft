@@ -29,11 +29,20 @@ export function CategoryPickerPopover({
   align = "left",
 }: CategoryPickerPopoverProps) {
   const [search, setSearch] = useState("");
+  const [openUpwards, setOpenUpwards] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
+
+    // Check if popover extends below viewport bottom and flip upwards if needed
+    if (popoverRef.current) {
+      const rect = popoverRef.current.getBoundingClientRect();
+      if (rect.bottom > window.innerHeight - 20 && rect.top > 300) {
+        setOpenUpwards(true);
+      }
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -80,7 +89,9 @@ export function CategoryPickerPopover({
       className="category-picker-popover"
       style={{
         position: "absolute",
-        top: "calc(100% + 4px)",
+        ...(openUpwards
+          ? { bottom: "calc(100% + 4px)", top: "auto" }
+          : { top: "calc(100% + 4px)", bottom: "auto" }),
         ...(align === "right" ? { right: 0 } : { left: 0 }),
         zIndex: 1000,
         width: "250px",

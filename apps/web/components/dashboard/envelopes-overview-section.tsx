@@ -674,42 +674,67 @@ export function EnvelopesOverviewSection({
                 </div>
 
                 {/* Group Table */}
-                <div
-                  style={{
-                    border: "1px solid var(--line)",
-                    borderRadius: "10px",
-                    overflow: "hidden",
-                    background: "var(--card)",
-                  }}>
-                  {group.transactions.map((tx, idx) => {
-                    const isDebit = tx.amount < 0 || (tx.amountMinor ?? 0) < 0;
-                    const absAmt = Math.abs(tx.amount || (tx.amountMinor ? tx.amountMinor / 100 : 0));
-                    const cleanMerchant = formatCleanMerchant(tx.merchant, tx.description);
-                    const cleanNarration = formatCleanNarration(tx.rawDescription, cleanMerchant);
-                    const catColor = tx.categoryColor || "#3b82f6";
-                    const isPopoverOpen = activePopoverTxId === tx.id;
+                {(() => {
+                  const isAnyPopoverOpen = group.transactions.some(
+                    (t) => t.id === activePopoverTxId,
+                  );
+                  return (
+                    <div
+                      style={{
+                        border: "1px solid var(--line)",
+                        borderRadius: "10px",
+                        overflow: isAnyPopoverOpen ? "visible" : "hidden",
+                        background: "var(--card)",
+                        position: "relative",
+                        zIndex: isAnyPopoverOpen ? 25 : 1,
+                      }}>
+                      {group.transactions.map((tx, idx) => {
+                        const isDebit = tx.amount < 0 || (tx.amountMinor ?? 0) < 0;
+                        const absAmt = Math.abs(
+                          tx.amount || (tx.amountMinor ? tx.amountMinor / 100 : 0),
+                        );
+                        const cleanMerchant = formatCleanMerchant(
+                          tx.merchant,
+                          tx.description,
+                        );
+                        const cleanNarration = formatCleanNarration(
+                          tx.rawDescription,
+                          cleanMerchant,
+                        );
+                        const catColor = tx.categoryColor || "#3b82f6";
+                        const isPopoverOpen = activePopoverTxId === tx.id;
 
-                    return (
-                      <div
-                        key={tx.id}
-                        onClick={() => setInspectedTx(tx)}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 180px 180px 120px",
-                          alignItems: "center",
-                          padding: "12px 16px",
-                          gap: "16px",
-                          borderBottom:
-                            idx === group.transactions.length - 1 ? "none" : "1px solid var(--line)",
-                          cursor: "pointer",
-                          transition: "background 0.12s ease",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "var(--background-alt)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                        }}>
+                        return (
+                          <div
+                            key={tx.id}
+                            onClick={() => setInspectedTx(tx)}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr 180px 180px 120px",
+                              alignItems: "center",
+                              padding: "12px 16px",
+                              gap: "16px",
+                              borderBottom:
+                                idx === group.transactions.length - 1
+                                  ? "none"
+                                  : "1px solid var(--line)",
+                              cursor: "pointer",
+                              transition: "background 0.12s ease",
+                              position: "relative",
+                              zIndex: isPopoverOpen ? 100 : 1,
+                              borderTopLeftRadius: idx === 0 ? "9px" : 0,
+                              borderTopRightRadius: idx === 0 ? "9px" : 0,
+                              borderBottomLeftRadius:
+                                idx === group.transactions.length - 1 ? "9px" : 0,
+                              borderBottomRightRadius:
+                                idx === group.transactions.length - 1 ? "9px" : 0,
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "var(--background-alt)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "transparent";
+                            }}>
                         {/* Col 1: Avatar + Clean Merchant + Narration */}
                         <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
                           <div
@@ -876,7 +901,9 @@ export function EnvelopesOverviewSection({
                       </div>
                     );
                   })}
-                </div>
+                    </div>
+                  );
+                })()}
               </div>
             ))}
 
