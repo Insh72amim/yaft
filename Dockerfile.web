@@ -1,5 +1,6 @@
 FROM node:22-alpine AS build
 WORKDIR /app
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 ARG YAFT_API_INTERNAL_URL=http://api:4000
 ENV YAFT_API_INTERNAL_URL=$YAFT_API_INTERNAL_URL
 COPY package*.json ./

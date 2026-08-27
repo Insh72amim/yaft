@@ -13,7 +13,11 @@ echo "Current branch: $CURRENT_BRANCH"
 
 # 1. Update production branch to match main
 echo "Syncing 'production' branch with 'main'..."
-git branch -f production main
+if [ "$CURRENT_BRANCH" = "production" ]; then
+  git merge main --ff-only || git merge main -m "sync main into production"
+else
+  git branch -f production main
+fi
 
 # 2. Sync marketing folder if standalone directory exists
 if [ -d "/Users/yaft/Code/yaft-mkt" ] && [ -d "$ROOT_DIR/marketing" ]; then
