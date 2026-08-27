@@ -104,24 +104,38 @@ export function EnvelopesTab({
 
   // Filtered expense categories based on search and status
   const filteredExpenseCategories = useMemo(() => {
-    return expenseCategories.filter((cat) => {
-      if (!cat) return false;
-      const matchesSearch =
-        !searchTerm.trim() ||
-        cat.name.toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
-        (cat.superCategory?.name &&
-          cat.superCategory.name.toLowerCase().includes(searchTerm.toLowerCase().trim()));
-      if (!matchesSearch) return false;
+    return expenseCategories
+      .filter((cat) => {
+        if (!cat) return false;
+        const matchesSearch =
+          !searchTerm.trim() ||
+          cat.name.toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
+          (cat.superCategory?.name &&
+            cat.superCategory.name.toLowerCase().includes(searchTerm.toLowerCase().trim()));
+        if (!matchesSearch) return false;
 
-      const b = (budgets || []).find((item) => item?.categoryId === cat.id);
-      const hasBudget = b && b.hasBudget && b.monthlyLimit > 0;
+        const b = (budgets || []).find((item) => item?.categoryId === cat.id);
+        const hasBudget = Boolean(b && b.hasBudget && b.monthlyLimit > 0);
 
-      if (statusFilter === 'HAS_TARGET') return hasBudget;
-      if (statusFilter === 'NO_TARGET') return !hasBudget;
-      if (statusFilter === 'OVER_BUDGET') return hasBudget && b?.status === 'EXCEEDED';
+        if (statusFilter === 'HAS_TARGET') return hasBudget;
+        if (statusFilter === 'NO_TARGET') return !hasBudget;
+        if (statusFilter === 'OVER_BUDGET') return hasBudget && b?.status === 'EXCEEDED';
 
-      return true;
-    });
+        return true;
+      })
+      .sort((a, b) => {
+        const budgetA = (budgets || []).find((item) => item?.categoryId === a.id);
+        const budgetB = (budgets || []).find((item) => item?.categoryId === b.id);
+        const hasBudgetA = Boolean(budgetA && budgetA.hasBudget && budgetA.monthlyLimit > 0);
+        const hasBudgetB = Boolean(budgetB && budgetB.hasBudget && budgetB.monthlyLimit > 0);
+
+        // Categories with limit set come first
+        if (hasBudgetA && !hasBudgetB) return -1;
+        if (!hasBudgetA && hasBudgetB) return 1;
+
+        // Within each group, keep clean alphabetical order by name
+        return a.name.localeCompare(b.name);
+      });
   }, [expenseCategories, budgets, searchTerm, statusFilter]);
 
   // Handle saving an inline limit directly
