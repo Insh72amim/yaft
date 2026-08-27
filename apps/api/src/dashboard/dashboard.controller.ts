@@ -22,4 +22,15 @@ export class DashboardController {
   async getAssetsHistory(@CurrentUser() user: { id: string }) {
     return this.dashboardService.getAssetsHistory(user.id);
   }
+
+  @Get('expense-analytics')
+  async getExpenseAnalytics(
+    @CurrentUser() user: { id: string },
+    @Query('granularity') granularity?: 'month' | 'week' | 'day',
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('categoryId') categoryId?: string,
+  ) {
+    return this.dashboardService.getExpenseAnalytics(user.id, granularity, startDate, endDate, categoryId);
+  }
 }

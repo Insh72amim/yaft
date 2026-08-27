@@ -30,6 +30,7 @@ import { Shell } from '@/components/shell';
 import { SpendRulesModal } from '@/components/spend-rules-modal';
 import { CategoryBudgetsModal } from '@/components/category-budgets-modal';
 import { EnvelopesOverviewSection } from '@/components/dashboard/envelopes-overview-section';
+import { ExpenseAnalyticsChart } from '@/components/dashboard/expense-analytics-chart';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 
 type Account = { id: string; name: string; type: string; balance: number; creditLimit: number | null; dueDay: number | null };
@@ -538,6 +539,13 @@ export default function DashboardPage() {
           dateRangeText={dateRangeLabel}
         />
       </section>
+
+      {/* Expense Analytics & Stacked Subcategory Bar Chart */}
+      <ExpenseAnalyticsChart
+        startDate={startDate}
+        endDate={endDate}
+        onRefreshNeeded={() => void load()}
+      />
 
       <section className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px', marginBottom: '24px' }}>
         <article className="panel spending-panel">

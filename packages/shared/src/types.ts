@@ -92,3 +92,64 @@ export interface AccountItem {
   cardNetwork?: CardNetwork | null;
   archived?: boolean;
 }
+
+export type ExpenseGranularity = 'month' | 'week' | 'day';
+
+export interface ExpenseCategoryContribution {
+  id: string;
+  name: string;
+  color: string;
+  superCategoryId?: string | null;
+  superCategoryName?: string | null;
+  superCategoryColor?: string | null;
+  amount: number;
+  percentage: number;
+  count: number;
+}
+
+export interface ExpenseAnalyticsBucket {
+  intervalKey: string;
+  label: string;
+  subLabel?: string;
+  startDate: string;
+  endDate: string;
+  totalAmount: number;
+  categories: ExpenseCategoryContribution[];
+}
+
+export interface ExpenseAnalyticsLegendItem {
+  id: string;
+  name: string;
+  color: string;
+  superCategoryName?: string | null;
+  totalAmount: number;
+  percentage: number;
+  count: number;
+}
+
+export interface ExpenseAnalyticsSummary {
+  totalExpense: number;
+  averagePerInterval: number;
+  peakInterval: {
+    key: string;
+    label: string;
+    amount: number;
+  } | null;
+  topCategory: {
+    name: string;
+    color: string;
+    amount: number;
+    percentage: number;
+  } | null;
+  totalTransactionsCount: number;
+  intervalCount: number;
+}
+
+export interface ExpenseAnalyticsResponse {
+  granularity: ExpenseGranularity;
+  startDate: string;
+  endDate: string;
+  buckets: ExpenseAnalyticsBucket[];
+  summary: ExpenseAnalyticsSummary;
+  categoryLegend: ExpenseAnalyticsLegendItem[];
+}
