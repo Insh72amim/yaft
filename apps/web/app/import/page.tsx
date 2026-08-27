@@ -1,6 +1,6 @@
 'use client';
 import { AlertTriangle, ArrowLeft, ArrowUpRight, BadgeIndianRupee, BriefcaseBusiness, Building2, Calendar, Check, CreditCard, Eye, FileSpreadsheet, KeyRound, Landmark,
-  Mail, RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud, X, TrendingUp, ExternalLink } from 'lucide-react';
+  Mail, RefreshCw, ShieldCheck, Smartphone, Trash2, UploadCloud, X, TrendingUp, ExternalLink, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
@@ -512,7 +512,7 @@ function ImportWorkspace() {
     } finally { setBusy(false); }
   }
 
-  async function updateBank(item: BankPending, row: BankRow, changes: { include?: boolean; categoryId?: string }) {
+  async function updateBank(item: BankPending, row: BankRow, changes: { include?: boolean; categoryId?: string; descriptionRaw?: string; merchant?: string }) {
     setBusy(true); setError('');
     try {
       const path = item.actions.updateRow.replace('{rowId}', row.id);
@@ -1576,7 +1576,7 @@ function ImportWorkspace() {
 }
 
 function BankReviewPanel({ item, accounts, busy, update, finish }: { item: BankPending; accounts?: Account[]; busy: boolean;
-  update: (item: BankPending, row: BankRow, changes: { include?: boolean; categoryId?: string }) => void;
+  update: (item: BankPending, row: BankRow, changes: { include?: boolean; categoryId?: string; descriptionRaw?: string; merchant?: string }) => void;
   finish: (item: PendingImport, action: 'commit' | 'discard') => void }) {
   const [selectedEmailRef, setSelectedEmailRef] = useState<{
     row: BankRow;
@@ -1592,102 +1592,16 @@ function BankReviewPanel({ item, accounts, busy, update, finish }: { item: BankP
       {item.review.statementBalance != null && <span><strong>{money(item.review.statementBalance)}</strong><small>predicted closing balance</small></span>}
     </div></section>
     <section className="review-table panel"><div className="review-head"><span>Include</span><span>Date &amp; description</span><span>Category</span><span>Amount</span><span style={{ textAlign: 'center' }}>Proof</span></div>
-      {item.review.staged.map((row) => {
-        const hasMailProof = Boolean(row.emailReference && (row.emailReference.snippet || row.emailReference.subject || row.emailReference.messageId));
-        return (
-          <div className={`review-row ${!row.include ? 'excluded' : ''}`} key={row.id}><label className="check"><input type="checkbox" checked={row.include}
-            disabled={busy || row.isDuplicate} aria-label={`Include ${row.merchant || row.descriptionRaw}`} onChange={(event) => void update(item, row, { include: event.target.checked })}/><span><Check/></span></label>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <strong>{row.merchant || row.descriptionRaw}</strong>
-                {hasMailProof && (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '3px',
-                      fontSize: '10px',
-                      fontWeight: 600,
-                      padding: '1px 6px',
-                      borderRadius: '12px',
-                      background: 'rgba(59, 130, 246, 0.12)',
-                      color: '#3b82f6',
-                      border: '1px solid rgba(59, 130, 246, 0.25)',
-                    }}
-                  >
-                    <Mail style={{ width: '10px', height: '10px' }} />
-                    <span>Gmail Ingested</span>
-                  </span>
-                )}
-              </div>
-              <small>Value {new Date(row.transactionDate).toLocaleDateString('en-IN')}{row.postedDate ? ` · Posted ${new Date(row.postedDate).toLocaleDateString('en-IN')}` : ''} · {row.descriptionRaw}</small>
-              {row.isDuplicate && <em><AlertTriangle size={12}/>Likely duplicate</em>}
-            </div>
-            <select aria-label={`Category for ${row.merchant || row.descriptionRaw}`} value={row.categoryId ?? ''}
-              disabled={busy} onChange={(event) => void update(item, row, { categoryId: event.target.value })}><option value="">Uncategorised</option>{item.review.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
-            <b className={row.amount > 0 ? 'positive' : ''}>{money(row.amount)}</b>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              {hasMailProof ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedEmailRef({ row, ref: row.emailReference! });
-                  }}
-                  title="View original email proof"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    padding: '5px 10px',
-                    borderRadius: '8px',
-                    background: 'rgba(59, 130, 246, 0.12)',
-                    color: '#3b82f6',
-                    border: '1px solid rgba(59, 130, 246, 0.35)',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    width: '100%',
-                    maxWidth: '95px',
-                  }}
-                >
-                  <Eye size={13} />
-                  <span>View Mail</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  title="No email proof attached to this record"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px',
-                    fontSize: '11px',
-                    fontWeight: 500,
-                    padding: '5px 10px',
-                    borderRadius: '8px',
-                    background: 'var(--bg-subtle, rgba(0,0,0,0.03))',
-                    color: 'var(--muted)',
-                    border: '1px solid var(--line)',
-                    cursor: 'not-allowed',
-                    opacity: 0.45,
-                    whiteSpace: 'nowrap',
-                    width: '100%',
-                    maxWidth: '95px',
-                  }}
-                >
-                  <Eye size={13} />
-                  <span>View Mail</span>
-                </button>
-              )}
-            </div>
-          </div>
-        );
-      })}</section>
+      {item.review.staged.map((row) => (
+        <BankReviewRowItem
+          key={row.id}
+          item={item}
+          row={row}
+          busy={busy}
+          update={update}
+          onViewMail={(ref) => setSelectedEmailRef({ row, ref })}
+        />
+      ))}</section>
     <div className="commit-bar"><div><ShieldCheck/><span><strong>{included.length} transactions ready</strong><small>Duplicates and unchecked rows will be skipped.</small></span></div>
       <div className="review-actions"><button type="button" className="ghost" disabled={busy} onClick={() => void finish(item, 'discard')}>Discard</button>
         <button type="button" className="primary" disabled={busy || !included.length} onClick={() => void finish(item, 'commit')}>{busy ? 'Working…' : 'Approve & import'}</button></div></div>
@@ -1879,6 +1793,282 @@ function BankReviewPanel({ item, accounts, busy, update, finish }: { item: BankP
       </div>
     )}
   </>;
+}
+
+function BankReviewRowItem({
+  item,
+  row,
+  busy,
+  update,
+  onViewMail,
+}: {
+  item: BankPending;
+  row: BankRow;
+  busy: boolean;
+  update: (item: BankPending, row: BankRow, changes: { include?: boolean; categoryId?: string; descriptionRaw?: string; merchant?: string }) => void;
+  onViewMail?: (ref: NonNullable<BankRow['emailReference']>) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [descValue, setDescValue] = useState(row.merchant || row.descriptionRaw);
+
+  useEffect(() => {
+    setDescValue(row.merchant || row.descriptionRaw);
+  }, [row.merchant, row.descriptionRaw]);
+
+  const handleSave = () => {
+    setIsEditing(false);
+    const trimmed = descValue.trim();
+    if (trimmed && trimmed !== (row.merchant || row.descriptionRaw)) {
+      update(item, row, {
+        descriptionRaw: trimmed,
+        merchant: trimmed,
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    setDescValue(row.merchant || row.descriptionRaw);
+    setIsEditing(false);
+  };
+
+  const hasMailProof = Boolean(row.emailReference && (row.emailReference.snippet || row.emailReference.subject || row.emailReference.messageId));
+
+  return (
+    <div className={`review-row ${!row.include ? 'excluded' : ''}`}>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={row.include}
+          disabled={busy || row.isDuplicate}
+          aria-label={`Include ${row.merchant || row.descriptionRaw}`}
+          onChange={(event) => void update(item, row, { include: event.target.checked })}
+        />
+        <span><Check /></span>
+      </label>
+
+      <div style={{ minWidth: 0, overflow: 'hidden' }}>
+        {isEditing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', maxWidth: '420px', padding: '4px 0' }}>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={descValue}
+                onChange={(e) => setDescValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSave();
+                  if (e.key === 'Escape') handleCancel();
+                }}
+                placeholder="Edit transaction description"
+                autoFocus
+                style={{
+                  fontSize: '12.5px',
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  border: '1.5px solid var(--accent)',
+                  background: 'var(--card)',
+                  color: 'var(--ink)',
+                  fontWeight: 600,
+                  width: '100%',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleSave}
+                title="Save description (Enter)"
+                style={{
+                  padding: '5px 8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: 'var(--accent)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Check size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                title="Cancel (Esc)"
+                style={{
+                  padding: '5px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--background-alt)',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <small style={{ fontSize: '10.5px', color: 'var(--muted)' }}>
+              Original: {row.descriptionRaw} · Press Enter to save
+            </small>
+          </div>
+        ) : (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <strong
+                onDoubleClick={() => setIsEditing(true)}
+                title="Double click or click pencil to edit description"
+                style={{ cursor: 'pointer' }}
+              >
+                {row.merchant || row.descriptionRaw}
+              </strong>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                title="Edit description"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '2px 5px',
+                  borderRadius: '4px',
+                  border: '1px solid transparent',
+                  background: 'transparent',
+                  color: 'var(--muted)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  opacity: 0.7,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.color = 'var(--accent)';
+                  e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '0.7';
+                  e.currentTarget.style.color = 'var(--muted)';
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = 'transparent';
+                }}
+              >
+                <Pencil size={11} />
+              </button>
+              {hasMailProof && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '1px 6px',
+                    borderRadius: '12px',
+                    background: 'rgba(59, 130, 246, 0.12)',
+                    color: '#3b82f6',
+                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                  }}
+                >
+                  <Mail style={{ width: '10px', height: '10px' }} />
+                  <span>Gmail Ingested</span>
+                </span>
+              )}
+            </div>
+            <small>
+              Value {new Date(row.transactionDate).toLocaleDateString('en-IN')}
+              {row.postedDate ? ` · Posted ${new Date(row.postedDate).toLocaleDateString('en-IN')}` : ''}
+              {row.merchant && row.merchant !== row.descriptionRaw ? ` · Original: ${row.descriptionRaw}` : ''}
+            </small>
+            {row.isDuplicate && (
+              <em>
+                <AlertTriangle size={12} />
+                Likely duplicate
+              </em>
+            )}
+          </div>
+        )}
+      </div>
+
+      <select
+        aria-label={`Category for ${row.merchant || row.descriptionRaw}`}
+        value={row.categoryId ?? ''}
+        disabled={busy}
+        onChange={(event) => void update(item, row, { categoryId: event.target.value })}
+      >
+        <option value="">Uncategorised</option>
+        {item.review.categories.map((category) => (
+          <option key={category.id} value={category.id}>
+            {category.name}
+          </option>
+        ))}
+      </select>
+
+      <b className={row.amount > 0 ? 'positive' : ''}>{money(row.amount)}</b>
+
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        {hasMailProof && onViewMail ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewMail(row.emailReference!);
+            }}
+            title="View original email proof"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '5px',
+              fontSize: '11px',
+              fontWeight: 600,
+              padding: '5px 10px',
+              borderRadius: '8px',
+              background: 'rgba(59, 130, 246, 0.12)',
+              color: '#3b82f6',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              width: '100%',
+              maxWidth: '95px',
+            }}
+          >
+            <Eye size={13} />
+            <span>View Mail</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            title="No email proof attached to this record"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '5px',
+              fontSize: '11px',
+              fontWeight: 500,
+              padding: '5px 10px',
+              borderRadius: '8px',
+              background: 'var(--bg-subtle, rgba(0,0,0,0.03))',
+              color: 'var(--muted)',
+              border: '1px solid var(--line)',
+              cursor: 'not-allowed',
+              opacity: 0.45,
+              whiteSpace: 'nowrap',
+              width: '100%',
+              maxWidth: '95px',
+            }}
+          >
+            <Eye size={13} />
+            <span>View Mail</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function SalaryReviewPanel({ item, busy, finish, download }: { item: SalaryPending; busy: boolean; finish: (item: PendingImport, action: 'commit' | 'discard') => void; download: (id: string, filename: string) => void }) {

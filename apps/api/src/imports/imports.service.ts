@@ -299,7 +299,15 @@ export class ImportsService {
     const row = await this.prisma.stagedTransaction.findFirst({ where: { id: rowId, batchId, batch: { userId, status: 'REVIEW' } } });
     if (!row) throw new NotFoundException('Review row not found.');
     if (dto.categoryId && !(await this.prisma.category.findFirst({ where: { id: dto.categoryId, userId } }))) throw new ForbiddenException();
-    await this.prisma.stagedTransaction.update({ where: { id: row.id }, data: { include: dto.include, categoryId: dto.categoryId } });
+    await this.prisma.stagedTransaction.update({
+      where: { id: row.id },
+      data: {
+        ...(dto.include !== undefined ? { include: dto.include } : {}),
+        ...(dto.categoryId !== undefined ? { categoryId: dto.categoryId || null } : {}),
+        ...(dto.descriptionRaw !== undefined ? { descriptionRaw: dto.descriptionRaw.trim() } : {}),
+        ...(dto.merchant !== undefined ? { merchant: dto.merchant?.trim() || null } : {}),
+      },
+    });
     return this.get(userId, batchId);
   }
 

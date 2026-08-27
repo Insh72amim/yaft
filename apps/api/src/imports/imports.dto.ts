@@ -13,4 +13,6 @@ export class UploadStatementDto {
 export class UpdateStagedDto {
   @IsOptional() @IsBoolean() include?: boolean;
   @IsOptional() @IsString() categoryId?: string;
+  @IsOptional() @IsString() @MaxLength(500) descriptionRaw?: string;
+  @IsOptional() @IsString() @MaxLength(200) merchant?: string;
 }
