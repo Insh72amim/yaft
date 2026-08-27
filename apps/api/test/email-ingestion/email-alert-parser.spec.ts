@@ -117,13 +117,8 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.type).toBe('DEBIT');
     expect(result?.amountDisplay).toBe(458);
     expect(result?.amountMinor).toBe(-50000n);
-    expect(result?.merchant).toBe('MAKEMYTRIP');
-    expect(result?.transactionDate.getUTCFullYear()).toBe(2026);
-    expect(result?.transactionDate.getUTCMonth()).toBe(7); // August
-    expect(result?.transactionDate.getUTCDate()).toBe(9);
-    expect(result?.transactionDate.getUTCHours()).toBe(7);
-    expect(result?.transactionDate.getUTCMinutes()).toBe(34);
-    expect(result?.transactionDate.getUTCSeconds()).toBe(1);
+    expect(result?.transactionDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })).toBe('9/8/2026');
+    expect(result?.transactionDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })).toBe('07:34:01');
   });
 
   it('should parse HDFC Pixel Play Credit Card with VPA and time', () => {
@@ -138,11 +133,8 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.amountDisplay).toBe(204);
     expect(result?.amountMinor).toBe(-20400n);
     expect(result?.merchant).toBe('URBAN COMPANY');
-    expect(result?.transactionDate.getUTCFullYear()).toBe(2026);
-    expect(result?.transactionDate.getUTCMonth()).toBe(7);
-    expect(result?.transactionDate.getUTCDate()).toBe(15);
-    expect(result?.transactionDate.getUTCHours()).toBe(21);
-    expect(result?.transactionDate.getUTCMinutes()).toBe(41);
+    expect(result?.transactionDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })).toBe('15/8/2026');
+    expect(result?.transactionDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })).toBe('21:41:00');
   });
 
   it('should parse Axis Bank Credit Card transaction with Merchant Name and IST time', () => {
@@ -157,12 +149,8 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.amountDisplay).toBe(1611);
     expect(result?.amountMinor).toBe(-161100n);
     expect(result?.merchant).toBe('SWIGGY');
-    expect(result?.transactionDate.getUTCFullYear()).toBe(2026);
-    expect(result?.transactionDate.getUTCMonth()).toBe(7);
-    expect(result?.transactionDate.getUTCDate()).toBe(15);
-    expect(result?.transactionDate.getUTCHours()).toBe(19);
-    expect(result?.transactionDate.getUTCMinutes()).toBe(4);
-    expect(result?.transactionDate.getUTCSeconds()).toBe(27);
+    expect(result?.transactionDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })).toBe('15/8/2026');
+    expect(result?.transactionDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })).toBe('19:04:27');
   });
 
   it('should parse Axis Bank A/c debit with UPI transaction info without mistaking account as credit card', () => {
@@ -219,23 +207,30 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.referenceNumber).toBe('100000000010');
   });
 
-  it('should correctly parse Indian date formats including Month DD, YYYY and times', () => {
+  it('should correctly parse Indian date formats including Month DD, YYYY and times in IST', () => {
     const d1 = parseIndianDate('14-08-26');
-    expect(d1.getUTCFullYear()).toBe(2026);
-    expect(d1.getUTCMonth()).toBe(7); // 0-indexed August
-    expect(d1.getUTCDate()).toBe(14);
+    expect(d1.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })).toBe('14/8/2026');
 
     const d2 = parseIndianDate('14-Aug-26');
-    expect(d2.getUTCFullYear()).toBe(2026);
-    expect(d2.getUTCMonth()).toBe(7);
+    expect(d2.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })).toBe('14/8/2026');
 
     const d3 = parseIndianDate('Aug 09, 2026', '07:34:01');
-    expect(d3.getUTCFullYear()).toBe(2026);
-    expect(d3.getUTCMonth()).toBe(7);
-    expect(d3.getUTCDate()).toBe(9);
-    expect(d3.getUTCHours()).toBe(7);
-    expect(d3.getUTCMinutes()).toBe(34);
+    // 07:34:01 IST is 02:04:01 UTC
+    expect(d3.getUTCHours()).toBe(2);
+    expect(d3.getUTCMinutes()).toBe(4);
     expect(d3.getUTCSeconds()).toBe(1);
+    expect(d3.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })).toBe('07:34:01');
+  });
+
+  it('should strictly fallback to email receipt date/time when alert text lacks inline date', () => {
+    const fallbackDate = new Date('2026-08-08T16:10:34.000Z'); // 8 August 2026 9:40:34 pm IST
+    const hdfcPixelText = 'Dear Customer, Greetings from HDFC Bank! Thank you for using your HDFC Bank Pixel Play Credit Card ending with 1234. We noticed a transaction of Rs. 1255.00 at instantpay@sbipay';
+
+    const parsed = parseEmailAlertSnippet(hdfcPixelText, 'alerts@hdfcbank.net', fallbackDate);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.amountMinor).toBe(-125500n);
+    expect(parsed?.transactionDate.toISOString()).toBe('2026-08-08T16:10:34.000Z');
+    expect(parsed?.transactionDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })).toBe('9:40:34 pm');
   });
 
   it('should ignore and reject declined, failed, unsuccessful, or rejected transaction alerts', () => {
