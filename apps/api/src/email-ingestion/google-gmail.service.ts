@@ -205,6 +205,9 @@ export class GoogleGmailService {
     const [allUserAccounts, categories, userRules] = await Promise.all([
       this.prisma.account.findMany({
         where: { userId, archived: false },
+        include: {
+          vaultEntry: { select: { last4: true } },
+        },
       }),
       this.prisma.category.findMany({ where: { userId } }),
       this.prisma.categoryRule.findMany({
@@ -398,7 +401,7 @@ export class GoogleGmailService {
           const sampleAlert = groupAlerts[0];
           const targetType = account.type;
           const bankName = account.institution || sampleAlert.bankName;
-          const last4 = sampleAlert.accountLast4;
+          const last4 = account.vaultEntry?.last4 || sampleAlert.accountLast4;
 
           const [existingTxs, existingStagedTxs] = await Promise.all([
             this.prisma.transaction.findMany({
@@ -699,30 +702,42 @@ export class GoogleGmailService {
       return (inst && (inst.includes(b) || b.includes(inst))) || name.includes(b);
     };
 
-    // 1. Exact match on last4 digits in account name or metadata
+    const getAccountLast4 = (acc: any): string | null => {
+      if (acc.vaultEntry?.last4) return String(acc.vaultEntry.last4).trim();
+      const m = (acc.name || '').match(/(?:••|\*\*|xx|\b)(\d{4})\b/i);
+      return m ? m[1] : null;
+    };
+
+    // 1. Exact match on last4 digits in account vaultEntry, name, or metadata
     if (last4) {
       const last4Match = candidateAccounts.find((acc) => {
+        const accLast4 = getAccountLast4(acc);
         const name = (acc.name || '').toLowerCase();
         const isInstMatch = isInstitutionMatch(acc, bankName);
         if (!isInstMatch && candidateAccounts.length > 1) return false;
-        return name.includes(last4) || name.includes(`••${last4}`) || name.includes(`xx${last4}`) || name.includes(`*${last4}`);
+        return (
+          accLast4 === last4 ||
+          name.includes(last4) ||
+          name.includes(`••${last4}`) ||
+          name.includes(`xx${last4}`) ||
+          name.includes(`*${last4}`)
+        );
       });
       if (last4Match) return last4Match;
 
-      // If last4 was uniquely matched among all accounts of that type and institution matches
-      const anyLast4Matches = candidateAccounts.filter((acc) => {
-        const name = (acc.name || '').toLowerCase();
-        return name.includes(last4) || name.includes(`••${last4}`) || name.includes(`xx${last4}`) || name.includes(`*${last4}`);
-      });
-      if (anyLast4Matches.length === 1 && isInstitutionMatch(anyLast4Matches[0], bankName)) {
-        return anyLast4Matches[0];
+      // If candidateAccounts has exactly 1 account (e.g. user selected this account specifically) and institution matches
+      if (candidateAccounts.length === 1 && isInstitutionMatch(candidateAccounts[0], bankName)) {
+        const onlyAcc = candidateAccounts[0];
+        const onlyLast4 = getAccountLast4(onlyAcc);
+        if (!onlyLast4 || onlyLast4 === last4) {
+          return onlyAcc;
+        }
       }
 
       // Check if any candidate account has a known last4 that conflicts with this alert
       const hasConflictingCandidateDigits = candidateAccounts.some((acc) => {
-        const name = (acc.name || '').toLowerCase();
-        const accDigitsMatch = name.match(/(?:••|\*\*|xx|\b)(\d{4})\b/i);
-        return accDigitsMatch && accDigitsMatch[1] !== last4;
+        const accLast4 = getAccountLast4(acc);
+        return accLast4 && accLast4 !== last4;
       });
 
       // If user has multiple accounts under this institution, fail closed to prevent cross-account contamination
@@ -749,9 +764,8 @@ export class GoogleGmailService {
     });
     if (productMatch) {
       if (last4) {
-        const name = (productMatch.name || '').toLowerCase();
-        const accDigitsMatch = name.match(/(?:••|\*\*|xx|\b)(\d{4})\b/i);
-        if (accDigitsMatch && accDigitsMatch[1] !== last4) {
+        const accLast4 = getAccountLast4(productMatch);
+        if (accLast4 && accLast4 !== last4) {
           return null; // Conflicting digits, reject
         }
       }
