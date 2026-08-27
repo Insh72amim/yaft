@@ -484,51 +484,197 @@ export function CreditCardsTab() {
         </div>
       </div>
 
-      {/* Spend Intelligence Section with Time Range & Card Selectors */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", background: "var(--card)", padding: "12px 18px", borderRadius: "12px", border: "1px solid var(--line)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)" }}>Analytics Period:</span>
-          <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-            {[
-              { id: "THIS_MONTH", label: "This Month" },
-              { id: "LAST_MONTH", label: "Last Month" },
-              { id: "3M", label: "Past 3M" },
-              { id: "6M", label: "Past 6M" },
-              { id: "ALL_TIME", label: "All Time" },
-            ].map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                className={`secondary compact ${timeRange === preset.id ? "active" : ""}`}
-                onClick={() => setTimeRange(preset.id)}
-                style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "6px" }}>
-                {preset.label}
-              </button>
-            ))}
+      {/* Spend Intelligence Control Panel: Analytics Period & Card Filter Buttons */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "14px",
+          background: "var(--card)",
+          padding: "16px 20px",
+          borderRadius: "14px",
+          border: "1px solid var(--line)",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+        }}>
+        {/* Row 1: Analytics Period */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: "6px" }}>
+              <Calendar size={14} color="var(--accent)" />
+              Analytics Period:
+            </span>
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              {[
+                { id: "THIS_MONTH", label: "This Month" },
+                { id: "LAST_MONTH", label: "Last Month" },
+                { id: "3M", label: "Past 3M" },
+                { id: "6M", label: "Past 6M" },
+                { id: "ALL_TIME", label: "All Time" },
+              ].map((preset) => {
+                const isActive = timeRange === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => setTimeRange(preset.id)}
+                    style={{
+                      fontSize: "11.5px",
+                      padding: "5px 12px",
+                      borderRadius: "8px",
+                      fontWeight: isActive ? 700 : 500,
+                      cursor: "pointer",
+                      border: isActive ? "1px solid var(--accent)" : "1px solid var(--line)",
+                      background: isActive ? "var(--accent)" : "var(--background-alt)",
+                      color: isActive ? "#ffffff" : "var(--ink)",
+                      transition: "all 0.15s ease-in-out",
+                      boxShadow: isActive ? "0 2px 6px rgba(16, 185, 129, 0.25)" : "none",
+                    }}>
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Quick Active Filter Indicator */}
+          {selectedCardId !== "ALL" && (
+            <button
+              type="button"
+              onClick={() => setSelectedCardId("ALL")}
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                color: "var(--muted)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                transition: "color 0.15s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}>
+              ✕ Reset to All Cards
+            </button>
+          )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)" }}>Card:</span>
-          <select
-            value={selectedCardId}
-            onChange={(e) => setSelectedCardId(e.target.value)}
+        {/* Subtle Divider */}
+        <div style={{ height: "1px", background: "var(--line)", width: "100%", opacity: 0.6 }} />
+
+        {/* Row 2: Cards Selection Button Group */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: "6px" }}>
+              <CreditCard size={14} color="#3b82f6" />
+              Filter by Card:
+            </span>
+            <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 500 }}>
+              {selectedCardId === "ALL"
+                ? `Showing consolidated spends for all ${cards.length} cards`
+                : `Filtered to: ${cards.find((c) => c.id === selectedCardId)?.name || "Selected Card"}`}
+            </span>
+          </div>
+
+          <div
             style={{
-              padding: "4px 10px",
-              borderRadius: "8px",
-              border: "1px solid var(--line)",
-              background: "var(--background-alt)",
-              color: "var(--ink)",
-              fontSize: "12px",
-              fontWeight: 600,
+              display: "flex",
+              gap: "8px",
+              flexWrap: "wrap",
+              alignItems: "center",
+              paddingTop: "2px",
             }}>
-            <option value="ALL">All Credit Cards ({cards.length})</option>
-            {cards.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} {c.cardLast4 ? `(••${c.cardLast4})` : ""}
-              </option>
-            ))}
-          </select>
+            {/* Master "All Cards" button */}
+            <button
+              type="button"
+              onClick={() => setSelectedCardId("ALL")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 14px",
+                borderRadius: "20px",
+                fontSize: "12px",
+                fontWeight: selectedCardId === "ALL" ? 700 : 500,
+                cursor: "pointer",
+                border: selectedCardId === "ALL" ? "1.5px solid var(--accent)" : "1px solid var(--line)",
+                background: selectedCardId === "ALL" ? "rgba(16, 185, 129, 0.12)" : "var(--background-alt)",
+                color: selectedCardId === "ALL" ? "var(--accent)" : "var(--ink)",
+                transition: "all 0.15s ease-in-out",
+                flexShrink: 0,
+              }}>
+              <span
+                style={{
+                  width: "7px",
+                  height: "7px",
+                  borderRadius: "50%",
+                  background: selectedCardId === "ALL" ? "var(--accent)" : "var(--muted)",
+                  flexShrink: 0,
+                }}
+              />
+              <span>All Credit Cards</span>
+              <span
+                style={{
+                  fontSize: "10px",
+                  padding: "1px 6px",
+                  borderRadius: "10px",
+                  background: selectedCardId === "ALL" ? "var(--accent)" : "var(--line)",
+                  color: selectedCardId === "ALL" ? "#ffffff" : "var(--muted)",
+                  fontWeight: 700,
+                }}>
+                {cards.length}
+              </span>
+            </button>
+
+            {/* Individual Card Buttons */}
+            {cards.map((c) => {
+              const isSelected = selectedCardId === c.id;
+              const hasLast4 = Boolean(c.cardLast4);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCardId(c.id)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 12px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: isSelected ? 700 : 500,
+                    cursor: "pointer",
+                    border: isSelected ? "1.5px solid #3b82f6" : "1px solid var(--line)",
+                    background: isSelected ? "rgba(59, 130, 246, 0.12)" : "var(--background-alt)",
+                    color: isSelected ? "#3b82f6" : "var(--ink)",
+                    transition: "all 0.15s ease-in-out",
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                  }}>
+                  <CreditCard size={13} color={isSelected ? "#3b82f6" : "var(--muted)"} />
+                  <span>{c.name}</span>
+                  {hasLast4 && (
+                    <span
+                      style={{
+                        fontSize: "10.5px",
+                        fontFamily: "monospace",
+                        letterSpacing: "0.5px",
+                        padding: "1px 5px",
+                        borderRadius: "6px",
+                        background: isSelected ? "rgba(59, 130, 246, 0.2)" : "var(--line)",
+                        color: isSelected ? "#3b82f6" : "var(--muted)",
+                        fontWeight: 600,
+                      }}>
+                      ••{c.cardLast4}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
