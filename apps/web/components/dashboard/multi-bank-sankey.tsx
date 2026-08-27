@@ -706,10 +706,12 @@ export function MultiBankSankey({
   }, [finalSvgH]);
 
   const handleWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.12 : 0.88;
-    zoomAtPoint(factor, e.clientX, e.clientY);
-  }, [zoomAtPoint]);
+    if (e.ctrlKey || e.metaKey || isFullscreen) {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.12 : 0.88;
+      zoomAtPoint(factor, e.clientX, e.clientY);
+    }
+  }, [zoomAtPoint, isFullscreen]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -906,186 +908,181 @@ export function MultiBankSankey({
           </div>
         ) : null}
 
-        {/* ── Floating Controls HUD ────────────────────────────────────── */}
+        {/* ── Subtle Floating Side Controls ────────────────────────────── */}
         <div
           style={{
             position: 'absolute',
-            bottom: 16,
-            right: 16,
+            top: 14,
+            right: 14,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            gap: 6,
+            gap: 3,
             background: 'var(--card)',
             border: '1px solid var(--line)',
-            borderRadius: 12,
-            padding: '6px 8px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+            borderRadius: 8,
+            padding: '3px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+            backdropFilter: 'blur(8px)',
+            opacity: 0.75,
+            transition: 'opacity 0.2s ease, box-shadow 0.2s ease',
             zIndex: 40,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = '1';
+            e.currentTarget.style.boxShadow = '0 4px 18px rgba(0,0,0,0.12)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '0.75';
+            e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)';
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Zoom Out */}
-          <button
-            onClick={handleZoomOut}
-            title="Zoom Out"
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              border: '1px solid var(--line)',
-              background: 'var(--background-alt)',
-              color: 'var(--ink)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-          >
-            <ZoomOut size={15} />
-          </button>
-
-          {/* Zoom % Indicator */}
-          <div
-            onClick={handleResetView}
-            title="Click to Reset 100%"
-            style={{
-              minWidth: 46,
-              textAlign: 'center',
-              fontSize: 11,
-              fontWeight: 700,
-              color: 'var(--ink)',
-              cursor: 'pointer',
-              padding: '0 4px',
-            }}
-          >
-            {currentZoomPercent}%
-          </div>
-
           {/* Zoom In */}
           <button
+            type="button"
             onClick={handleZoomIn}
-            title="Zoom In"
+            title="Zoom In (Ctrl + Scroll)"
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              border: '1px solid var(--line)',
-              background: 'var(--background-alt)',
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              border: 'none',
+              background: 'transparent',
               color: 'var(--ink)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
+              transition: 'background 0.15s ease',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--background-alt)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           >
-            <ZoomIn size={15} />
+            <ZoomIn size={14} />
           </button>
 
-          {/* Divider */}
-          <div style={{ width: 1, height: 18, background: 'var(--line)', margin: '0 2px' }} />
-
-          {/* Reset / Fit to Screen */}
+          {/* Zoom Out */}
           <button
-            onClick={handleResetView}
-            title="Reset View / Fit to Screen"
+            type="button"
+            onClick={handleZoomOut}
+            title="Zoom Out (Ctrl + Scroll)"
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              border: '1px solid var(--line)',
-              background: 'var(--background-alt)',
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              border: 'none',
+              background: 'transparent',
               color: 'var(--ink)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
+              transition: 'background 0.15s ease',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--background-alt)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           >
-            <RotateCcw size={14} />
+            <ZoomOut size={14} />
           </button>
+
+          {/* Reset / 100% Fit */}
+          <button
+            type="button"
+            onClick={handleResetView}
+            title={`Reset 100% View (${currentZoomPercent}%)`}
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              border: 'none',
+              background: 'transparent',
+              color: viewBox.w !== SVG_W || viewBox.h !== finalSvgH || viewBox.x !== 0 || viewBox.y !== 0 ? 'var(--accent)' : 'var(--muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--background-alt)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <RotateCcw size={13} />
+          </button>
+
+          <div style={{ width: 14, height: 1, background: 'var(--line)', margin: '2px 0' }} />
 
           {/* Live Flow Currents Toggle */}
           <button
+            type="button"
             onClick={() => setShowAnimations(!showAnimations)}
-            title={showAnimations ? 'Disable Flow Currents' : 'Enable Flow Currents'}
+            title={showAnimations ? 'Disable Animated Stream Particles' : 'Enable Animated Stream Particles'}
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              border: showAnimations ? '1px solid var(--accent)' : '1px solid var(--line)',
-              background: showAnimations ? 'rgba(16, 185, 129, 0.15)' : 'var(--background-alt)',
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              border: 'none',
+              background: showAnimations ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
               color: showAnimations ? 'var(--accent)' : 'var(--muted)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
+            onMouseEnter={(e) => { if (!showAnimations) e.currentTarget.style.background = 'var(--background-alt)'; }}
+            onMouseLeave={(e) => { if (!showAnimations) e.currentTarget.style.background = 'transparent'; }}
           >
-            <Sparkles size={14} />
+            <Sparkles size={13} />
           </button>
 
           {/* Export SVG */}
           <button
+            type="button"
             onClick={handleExportSvg}
-            title="Download SVG Diagram"
+            title="Download Diagram as SVG"
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              border: '1px solid var(--line)',
-              background: 'var(--background-alt)',
-              color: 'var(--ink)',
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--muted)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
+              transition: 'background 0.15s ease',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--background-alt)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           >
-            <Download size={14} />
+            <Download size={13} />
           </button>
 
           {/* Fullscreen Toggle */}
           <button
+            type="button"
             onClick={() => setIsFullscreen(!isFullscreen)}
-            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Immersion'}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen View'}
             style={{
-              width: 30,
-              height: 30,
-              borderRadius: 8,
-              border: '1px solid var(--line)',
-              background: isFullscreen ? 'var(--accent)' : 'var(--background-alt)',
-              color: isFullscreen ? '#fff' : 'var(--ink)',
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              border: 'none',
+              background: isFullscreen ? 'var(--accent)' : 'transparent',
+              color: isFullscreen ? '#fff' : 'var(--muted)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
+              transition: 'background 0.15s ease',
             }}
+            onMouseEnter={(e) => { if (!isFullscreen) e.currentTarget.style.background = 'var(--background-alt)'; }}
+            onMouseLeave={(e) => { if (!isFullscreen) e.currentTarget.style.background = 'transparent'; }}
           >
-            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           </button>
-        </div>
-
-        {/* ── Hint Pill ─────────────────────────────────────────────────── */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 16,
-            left: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 11,
-            color: 'var(--muted)',
-            background: 'var(--card)',
-            border: '1px solid var(--line)',
-            padding: '4px 10px',
-            borderRadius: 8,
-            pointerEvents: 'none',
-            opacity: 0.85,
-          }}
-        >
-          <Move size={12} />
-          <span>Click &amp; drag to pan • Scroll to zoom • Click nodes to pin path</span>
         </div>
 
         {/* ── The Dynamic ViewBox SVG Canvas ────────────────────────────── */}
