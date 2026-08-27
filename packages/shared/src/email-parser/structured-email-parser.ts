@@ -101,7 +101,7 @@ export function parseStructuredEmailAlert(
   // Parse Date & Time
   let transactionDate = fallbackDate ? new Date(fallbackDate) : new Date();
   if (tokens.dateStr) {
-    transactionDate = parseIndianDate(tokens.dateStr, tokens.timeStr);
+    transactionDate = parseIndianDate(tokens.dateStr, tokens.timeStr, fallbackDate);
   }
 
   return {

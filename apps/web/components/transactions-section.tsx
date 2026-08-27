@@ -1759,7 +1759,7 @@ export function TransactionsSection({
                               day: "2-digit",
                               month: "short",
                               year: "numeric",
-                              timeZone: "UTC",
+                              timeZone: "Asia/Kolkata",
                             },
                           )}
                         </span>
@@ -1770,7 +1770,7 @@ export function TransactionsSection({
                               hour: "2-digit",
                               minute: "2-digit",
                               hour12: true,
-                              timeZone: "UTC",
+                              timeZone: "Asia/Kolkata",
                             },
                           )}
                         </span>

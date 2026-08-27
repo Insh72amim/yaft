@@ -17,10 +17,14 @@ export const MONTH_MAP: Record<string, number> = {
   dec: 11, december: 11,
 };
 
-export function parseIndianDate(dateStr: string, timeStr?: string): Date {
-  if (!dateStr) return new Date();
+export const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+
+export function parseIndianDate(dateStr: string, timeStr?: string, fallbackDate?: Date): Date {
+  if (!dateStr) return fallbackDate ? new Date(fallbackDate) : new Date();
 
   let hours = 0, minutes = 0, seconds = 0;
+  let hasExplicitTime = false;
+
   if (timeStr) {
     const tMatch = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(am|pm))?/i);
     if (tMatch) {
@@ -29,10 +33,30 @@ export function parseIndianDate(dateStr: string, timeStr?: string): Date {
       if (tMatch[3]) seconds = parseInt(tMatch[3], 10);
       if (tMatch[4]?.toLowerCase() === 'pm' && hours < 12) hours += 12;
       if (tMatch[4]?.toLowerCase() === 'am' && hours === 12) hours = 0;
+      hasExplicitTime = true;
     }
   }
 
   const cleanDate = dateStr.trim();
+
+  const constructDate = (year: number, month: number, day: number): Date => {
+    if (hasExplicitTime) {
+      // Convert explicit Indian Standard Time (IST) into UTC
+      return new Date(Date.UTC(year, month, day, hours, minutes, seconds) - IST_OFFSET_MS);
+    }
+    if (fallbackDate && !isNaN(fallbackDate.getTime())) {
+      // Preserve the exact receipt time of the email alert on that date
+      const fb = new Date(fallbackDate);
+      const fbHours = fb.getUTCHours();
+      const fbMin = fb.getUTCMinutes();
+      const fbSec = fb.getUTCSeconds();
+      const fbMs = fb.getUTCMilliseconds();
+      // If the email date month/year matches, use the exact UTC timestamp
+      return new Date(Date.UTC(year, month, day, fbHours, fbMin, fbSec, fbMs));
+    }
+    // Midday IST (06:30 UTC) to ensure consistent date display across timezones
+    return new Date(Date.UTC(year, month, day, 6, 30, 0));
+  };
 
   // 1. Match Month DD, YYYY e.g. "Aug 09, 2026", "August 9 2026"
   const monthFirstMatch = cleanDate.match(/^([a-zA-Z]{3,9})\s+(\d{1,2}),?\s+(\d{2,4})$/);
@@ -41,7 +65,7 @@ export function parseIndianDate(dateStr: string, timeStr?: string): Date {
     const day = parseInt(monthFirstMatch[2], 10);
     let year = parseInt(monthFirstMatch[3], 10);
     if (year < 100) year += 2000;
-    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+    return constructDate(year, month, day);
   }
 
   // 2. Match DD-Mon-YYYY or DD Mon YYYY e.g. "09-Aug-2026", "09 Aug 2026"
@@ -51,7 +75,7 @@ export function parseIndianDate(dateStr: string, timeStr?: string): Date {
     const month = MONTH_MAP[alphaMatch[2].toLowerCase()] ?? 0;
     let year = parseInt(alphaMatch[3], 10);
     if (year < 100) year += 2000;
-    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+    return constructDate(year, month, day);
   }
 
   // 3. Match DD-MM-YY or DD/MM/YYYY
@@ -61,7 +85,7 @@ export function parseIndianDate(dateStr: string, timeStr?: string): Date {
     const month = parseInt(numMatch[2], 10) - 1;
     let year = parseInt(numMatch[3], 10);
     if (year < 100) year += 2000;
-    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+    return constructDate(year, month, day);
   }
 
   // 4. Match YYYY-MM-DD
@@ -70,9 +94,9 @@ export function parseIndianDate(dateStr: string, timeStr?: string): Date {
     const year = parseInt(isoMatch[1], 10);
     const month = parseInt(isoMatch[2], 10) - 1;
     const day = parseInt(isoMatch[3], 10);
-    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+    return constructDate(year, month, day);
   }
 
   const parsed = new Date(cleanDate);
-  return isNaN(parsed.getTime()) ? new Date() : parsed;
+  return isNaN(parsed.getTime()) ? (fallbackDate ? new Date(fallbackDate) : new Date()) : parsed;
 }
