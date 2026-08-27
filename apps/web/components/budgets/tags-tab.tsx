@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Plus,
   Sparkles,
@@ -126,6 +126,22 @@ export function TagsTab({
   setTagModalOpen,
 }: TagsTabProps) {
   const [autoApplyModalOpen, setAutoApplyModalOpen] = useState(false);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
+
+  // Reset category filter when inspected tag changes or closes
+  useEffect(() => {
+    setSelectedCategoryFilter(null);
+  }, [inspectedTagId]);
+
+  // Filtered transactions by selected category
+  const displayedTransactions = useMemo(() => {
+    if (!tagAnalytics?.transactions) return [];
+    if (!selectedCategoryFilter) return tagAnalytics.transactions;
+    return tagAnalytics.transactions.filter(
+      (tx) => tx.category.trim().toLowerCase() === selectedCategoryFilter.trim().toLowerCase()
+    );
+  }, [tagAnalytics?.transactions, selectedCategoryFilter]);
+
   const totalSpentAcrossTags = tags.reduce((sum, t) => sum + t.totalSpent, 0);
   const activeTripsCount = tags.filter((t) => t.startDate || t.budgetLimit).length;
 
@@ -533,13 +549,100 @@ export function TagsTab({
               {/* Category distribution badges */}
               {tagAnalytics.categories.length > 0 && (
                 <div>
-                  <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>Category Distribution</span>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                    {tagAnalytics.categories.map((c) => (
-                      <span key={c.id} style={{ padding: "5px 12px", borderRadius: "8px", background: `${c.color}20`, color: c.color, fontSize: "12px", fontWeight: 700, border: `1px solid ${c.color}40` }}>
-                        {c.name}: {money(c.amount * 100)} ({c.percentage}%)
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                        Category Distribution
                       </span>
-                    ))}
+                      {selectedCategoryFilter && (
+                        <span style={{ fontSize: "11px", color: "var(--ink)", fontWeight: 600 }}>
+                          • Filtered to <strong>{selectedCategoryFilter}</strong> ({displayedTransactions.length} row{displayedTransactions.length === 1 ? '' : 's'})
+                        </span>
+                      )}
+                    </div>
+                    {selectedCategoryFilter && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategoryFilter(null)}
+                        style={{
+                          background: "var(--background-alt)",
+                          border: "1px solid var(--line)",
+                          color: "var(--ink)",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          padding: "3px 8px",
+                          borderRadius: "6px",
+                        }}>
+                        <X size={12} />
+                        <span>Clear Filter</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                    {/* All Categories Button */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCategoryFilter(null)}
+                      style={{
+                        padding: "5px 12px",
+                        borderRadius: "8px",
+                        background: selectedCategoryFilter === null ? "var(--ink)" : "var(--background-alt)",
+                        color: selectedCategoryFilter === null ? "#ffffff" : "var(--muted)",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        border: selectedCategoryFilter === null ? "1px solid var(--ink)" : "1px solid var(--line)",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}>
+                      <span>All</span>
+                      <span style={{ opacity: selectedCategoryFilter === null ? 0.85 : 0.6, fontSize: "11px" }}>
+                        ({tagAnalytics.transactions.length})
+                      </span>
+                    </button>
+
+                    {tagAnalytics.categories.map((c) => {
+                      const isSelected = selectedCategoryFilter?.toLowerCase() === c.name.toLowerCase();
+                      const isMuted = selectedCategoryFilter !== null && !isSelected;
+
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setSelectedCategoryFilter(isSelected ? null : c.name)}
+                          style={{
+                            padding: "5px 12px",
+                            borderRadius: "8px",
+                            background: isSelected ? c.color : `${c.color}18`,
+                            color: isSelected ? "#ffffff" : c.color,
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            border: `1px solid ${isSelected ? c.color : `${c.color}40`}`,
+                            cursor: "pointer",
+                            opacity: isMuted ? 0.45 : 1,
+                            transform: isSelected ? "scale(1.02)" : "none",
+                            boxShadow: isSelected ? `0 2px 8px ${c.color}44` : "none",
+                            transition: "all 0.15s ease",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                          }}>
+                          {isSelected && <Check size={12} style={{ strokeWidth: 3 }} />}
+                          <span>{c.name}:</span>
+                          <span>{money(c.amount * 100)}</span>
+                          <span style={{ opacity: isSelected ? 0.9 : 0.75, fontSize: "11px", fontWeight: 600 }}>
+                            ({c.percentage}%)
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -558,50 +661,58 @@ export function TagsTab({
                     </tr>
                   </thead>
                   <tbody>
-                    {tagAnalytics.transactions.map((tx) => (
-                      <tr key={tx.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                        <td style={{ padding: "10px 8px", color: "var(--muted)" }}>{new Date(tx.transactionDate).toLocaleDateString("en-IN")}</td>
-                        <td style={{ padding: "10px 8px", fontWeight: 600 }}>{tx.merchant || tx.description}</td>
-                        <td style={{ padding: "10px 8px" }}>
-                          <span style={{ padding: "3px 8px", borderRadius: "6px", background: `${tx.categoryColor}20`, color: tx.categoryColor, fontWeight: 700, fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                            {tx.superCategory && <span style={{ opacity: 0.72 }}>{tx.superCategory} &rsaquo;</span>}
-                            <span>{tx.category}</span>
-                          </span>
-                        </td>
-                        <td style={{ padding: "10px 8px", color: "var(--muted)" }}>{tx.accountName}</td>
-                        <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, fontSize: "13px", color: tx.amount < 0 ? "#ef4444" : "#10b981" }}>
-                          {tx.amount < 0 ? `-${money(Math.abs(tx.amount * 100))}` : `+${money(Math.abs(tx.amount * 100))}`}
-                        </td>
-                        <td style={{ padding: "10px 8px", textAlign: "center" }}>
-                          <button
-                            type="button"
-                            title="Remove tag from transaction"
-                            style={{
-                              background: "transparent",
-                              border: "none",
-                              borderRadius: "6px",
-                              padding: "5px",
-                              color: "var(--muted)",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              cursor: "pointer",
-                              transition: "color 0.15s ease, background-color 0.15s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = "#ef4444";
-                              e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = "var(--muted)";
-                              e.currentTarget.style.background = "transparent";
-                            }}
-                            onClick={() => handleRemoveTagFromTx(tx.id, tagAnalytics.tag.id)}>
-                            <X size={13} />
-                          </button>
+                    {displayedTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ padding: "28px", textAlign: "center", color: "var(--muted)" }}>
+                          No transactions found in "{selectedCategoryFilter}" for this tag.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      displayedTransactions.map((tx) => (
+                        <tr key={tx.id} style={{ borderBottom: "1px solid var(--line)" }}>
+                          <td style={{ padding: "10px 8px", color: "var(--muted)" }}>{new Date(tx.transactionDate).toLocaleDateString("en-IN")}</td>
+                          <td style={{ padding: "10px 8px", fontWeight: 600 }}>{tx.merchant || tx.description}</td>
+                          <td style={{ padding: "10px 8px" }}>
+                            <span style={{ padding: "3px 8px", borderRadius: "6px", background: `${tx.categoryColor}20`, color: tx.categoryColor, fontWeight: 700, fontSize: "11px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                              {tx.superCategory && <span style={{ opacity: 0.72 }}>{tx.superCategory} &rsaquo;</span>}
+                              <span>{tx.category}</span>
+                            </span>
+                          </td>
+                          <td style={{ padding: "10px 8px", color: "var(--muted)" }}>{tx.accountName}</td>
+                          <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, fontSize: "13px", color: tx.amount < 0 ? "#ef4444" : "#10b981" }}>
+                            {tx.amount < 0 ? `-${money(Math.abs(tx.amount * 100))}` : `+${money(Math.abs(tx.amount * 100))}`}
+                          </td>
+                          <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                            <button
+                              type="button"
+                              title="Remove tag from transaction"
+                              style={{
+                                background: "transparent",
+                                border: "none",
+                                borderRadius: "6px",
+                                padding: "5px",
+                                color: "var(--muted)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                transition: "color 0.15s ease, background-color 0.15s ease",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = "#ef4444";
+                                e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = "var(--muted)";
+                                e.currentTarget.style.background = "transparent";
+                              }}
+                              onClick={() => handleRemoveTagFromTx(tx.id, tagAnalytics.tag.id)}>
+                              <X size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
