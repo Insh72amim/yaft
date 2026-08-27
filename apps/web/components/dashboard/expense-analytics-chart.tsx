@@ -211,7 +211,7 @@ export function ExpenseAnalyticsChart({
   startDate: parentStartDate,
   endDate: parentEndDate,
 }: ExpenseAnalyticsChartProps) {
-  const [granularity, setGranularity] = useState<ExpenseGranularity>('month');
+  const [granularity, setGranularity] = useState<ExpenseGranularity>('day');
 
   // Multi-select Category Kinds: strictly default to ['EXPENSE'] only!
   const [selectedCategoryTypes, setSelectedCategoryTypes] = useState<string[]>(['EXPENSE']);
@@ -219,7 +219,7 @@ export function ExpenseAnalyticsChart({
   // Specific presets for each granularity
   const [monthPreset, setMonthPreset] = useState<MonthPreset>('6_MONTHS');
   const [weekPreset, setWeekPreset] = useState<WeekPreset>('THIS_MONTH');
-  const [dayPreset, setDayPreset] = useState<DayPreset>('FULL_MONTH');
+  const [dayPreset, setDayPreset] = useState<DayPreset>('14_DAYS');
 
   // Reference date anchor used for shifting (defaults to current date)
   const [refDate, setRefDate] = useState<Date>(() => new Date());

@@ -968,7 +968,7 @@ export class DashboardService {
 
   async getExpenseAnalytics(
     userId: string,
-    granularity: 'month' | 'week' | 'day' = 'month',
+    granularity: 'month' | 'week' | 'day' = 'day',
     startDateStr?: string,
     endDateStr?: string,
     categoryId?: string,
