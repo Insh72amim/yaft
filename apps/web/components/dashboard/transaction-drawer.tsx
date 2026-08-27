@@ -60,16 +60,12 @@ export function TransactionDrawer({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [editingMerchant, setEditingMerchant] = useState(false);
   const [merchantDraft, setMerchantDraft] = useState('');
-  const [editingNarration, setEditingNarration] = useState(false);
-  const [narrationDraft, setNarrationDraft] = useState('');
   const [savingField, setSavingField] = useState<string | null>(null);
 
   useEffect(() => {
     if (transaction) {
       setMerchantDraft(transaction.merchant || transaction.description || '');
-      setNarrationDraft(transaction.rawDescription || '');
       setEditingMerchant(false);
-      setEditingNarration(false);
     }
   }, [transaction?.id]);
 
@@ -92,27 +88,6 @@ export function TransactionDrawer({
       setEditingMerchant(false);
     } catch (err) {
       alert(errorMessage(err, 'Failed to update merchant name.'));
-    } finally {
-      setSavingField(null);
-    }
-  };
-
-  const handleSaveNarration = async () => {
-    if (!transaction) return;
-    setSavingField('narration');
-    try {
-      await api(`/transactions/${transaction.accountId}/${transaction.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          descriptionRaw: narrationDraft.trim(),
-        }),
-      });
-      onTransactionUpdated?.(transaction.id, {
-        rawDescription: narrationDraft.trim(),
-      });
-      setEditingNarration(false);
-    } catch (err) {
-      alert(errorMessage(err, 'Failed to update narration.'));
     } finally {
       setSavingField(null);
     }
@@ -564,80 +539,17 @@ export function TransactionDrawer({
                 </button>
               </div>
 
-              {editingNarration ? (
-                <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <textarea
-                    autoFocus
-                    rows={3}
-                    value={narrationDraft}
-                    onChange={(e) => setNarrationDraft(e.target.value)}
-                    placeholder="Enter statement narration..."
-                    style={{
-                      fontSize: '12px',
-                      fontFamily: "'SF Mono', monospace",
-                      padding: '6px 8px',
-                      borderRadius: '6px',
-                      border: '1px solid var(--line)',
-                      background: 'var(--card)',
-                      color: 'var(--ink)',
-                      outline: 'none',
-                      resize: 'vertical',
-                      width: '100%',
-                    }}
-                  />
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setEditingNarration(false)}
-                      style={{
-                        padding: '3px 8px',
-                        fontSize: '11px',
-                        borderRadius: '5px',
-                        border: '1px solid var(--line)',
-                        background: 'var(--card)',
-                        color: 'var(--muted)',
-                        cursor: 'pointer',
-                      }}>
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleSaveNarration()}
-                      disabled={savingField === 'narration'}
-                      style={{
-                        padding: '3px 10px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        borderRadius: '5px',
-                        border: 'none',
-                        background: 'var(--green)',
-                        color: '#ffffff',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}>
-                      {savingField === 'narration' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                      Save
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p
-                  onClick={() => setEditingNarration(true)}
-                  title="Click to edit narration"
-                  style={{
-                    margin: 0,
-                    fontSize: '12px',
-                    color: 'var(--ink)',
-                    fontFamily: "'SF Mono', monospace",
-                    wordBreak: 'break-word',
-                    lineHeight: '1.4',
-                    cursor: 'pointer',
-                  }}>
-                  {transaction.rawDescription}
-                </p>
-              )}
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '12px',
+                  color: 'var(--ink)',
+                  fontFamily: "'SF Mono', monospace",
+                  wordBreak: 'break-word',
+                  lineHeight: '1.4',
+                }}>
+                {transaction.rawDescription}
+              </p>
             </div>
           )}
 

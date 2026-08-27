@@ -449,9 +449,7 @@ export class TransactionsService {
     userId: string,
     transactionId: string,
     dto: {
-      descriptionRaw?: string;
       merchant?: string;
-      description?: string;
       categoryId?: string | null;
     },
     accountId?: string,
@@ -487,12 +485,6 @@ export class TransactionsService {
     if (!transaction) throw new NotFoundException('Transaction not found.');
 
     const dataToUpdate: any = {};
-
-    if (dto.descriptionRaw !== undefined) {
-      dataToUpdate.descriptionRaw = dto.descriptionRaw.trim();
-    } else if (dto.description !== undefined && dto.merchant === undefined) {
-      dataToUpdate.descriptionRaw = dto.description.trim();
-    }
 
     if (dto.merchant !== undefined) {
       dataToUpdate.merchant = dto.merchant ? dto.merchant.trim() : null;

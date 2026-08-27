@@ -71,7 +71,7 @@ export class TransactionsController {
     @CurrentUser() user: { id: string },
     @Param('accountId') accountId: string,
     @Param('transactionId') transactionId: string,
-    @Body() dto: { descriptionRaw?: string; merchant?: string; description?: string; categoryId?: string | null },
+    @Body() dto: { merchant?: string; categoryId?: string | null },
   ) {
     return this.transactionsService.updateTransaction(user.id, transactionId, dto, accountId);
   }
@@ -80,7 +80,7 @@ export class TransactionsController {
   async updateTransactionDirect(
     @CurrentUser() user: { id: string },
     @Param('transactionId') transactionId: string,
-    @Body() dto: { descriptionRaw?: string; merchant?: string; description?: string; categoryId?: string | null },
+    @Body() dto: { merchant?: string; categoryId?: string | null },
   ) {
     return this.transactionsService.updateTransaction(user.id, transactionId, dto);
   }

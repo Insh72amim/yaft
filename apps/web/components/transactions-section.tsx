@@ -158,38 +158,28 @@ export function TransactionsSection({
   const [editingTxCatId, setEditingTxCatId] = useState<string | null>(null);
   const [editingTxTagId, setEditingTxTagId] = useState<string | null>(null);
   const [editingTxDescId, setEditingTxDescId] = useState<string | null>(null);
-  const [editDescDraft, setEditDescDraft] = useState<{ merchant: string; details: string }>({
-    merchant: "",
-    details: "",
-  });
+  const [editMerchantDraft, setEditMerchantDraft] = useState<string>("");
   const [savingTxDescId, setSavingTxDescId] = useState<string | null>(null);
   const [updatingCatId, setUpdatingCatId] = useState<string | null>(null);
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [selectedEmailTx, setSelectedEmailTx] = useState<Transaction | null>(null);
 
-  const startEditingTxDescription = (tx: Transaction) => {
+  const startEditingTxMerchant = (tx: Transaction) => {
     setEditingTxDescId(tx.id);
-    setEditDescDraft({
-      merchant: tx.description || "",
-      details: tx.details || "",
-    });
+    setEditMerchantDraft(tx.description || "");
   };
 
-  const cancelEditingTxDescription = () => {
+  const cancelEditingTxMerchant = () => {
     setEditingTxDescId(null);
-    setEditDescDraft({ merchant: "", details: "" });
+    setEditMerchantDraft("");
   };
 
-  const handleSaveTxDescription = async (tx: Transaction) => {
-    const newMerchant = editDescDraft.merchant.trim();
-    const newDetails = editDescDraft.details.trim();
-    if (!newMerchant && !newDetails) {
+  const handleSaveTxMerchant = async (tx: Transaction) => {
+    const newMerchant = editMerchantDraft.trim();
+    if (!newMerchant) {
       return;
     }
-
-    const newDescription = newMerchant || newDetails;
-    const newDetailsFinal = newMerchant ? newDetails : null;
 
     // Optimistic UI update
     setData((prev) => {
@@ -200,8 +190,7 @@ export function TransactionsSection({
           t.id === tx.id
             ? {
                 ...t,
-                description: newDescription,
-                details: newDetailsFinal,
+                description: newMerchant,
               }
             : t
         ),
@@ -215,12 +204,11 @@ export function TransactionsSection({
       await api(`/transactions/${tx.accountId}/${tx.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          merchant: newMerchant || null,
-          descriptionRaw: newDetails || newMerchant,
+          merchant: newMerchant,
         }),
       });
     } catch (err) {
-      setError(errorMessage(err, "Failed to update transaction description."));
+      setError(errorMessage(err, "Failed to update merchant name."));
       void fetchTransactions();
     } finally {
       setSavingTxDescId(null);
@@ -1949,222 +1937,180 @@ export function TransactionsSection({
                         <div
                           style={{
                             display: "flex",
-                            flexDirection: "column",
+                            alignItems: "center",
                             gap: "6px",
-                            padding: "8px",
-                            background: "var(--background-alt)",
-                            border: "1.5px solid var(--green)",
-                            borderRadius: "8px",
-                            minWidth: "260px",
-                            maxWidth: "420px",
+                            padding: "4px 0",
+                            flexWrap: "wrap",
                           }}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <label style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
-                              Merchant Name
-                            </label>
-                            <input
-                              type="text"
-                              autoFocus
-                              value={editDescDraft.merchant}
-                              onChange={(e) => setEditDescDraft((prev) => ({ ...prev, merchant: e.target.value }))}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") void handleSaveTxDescription(tx);
-                                if (e.key === "Escape") cancelEditingTxDescription();
-                              }}
-                              placeholder="Merchant title (e.g. ZOMATO)"
-                              style={{
-                                fontSize: "12px",
-                                fontWeight: 700,
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                                border: "1px solid var(--line)",
-                                background: "var(--card)",
-                                color: "var(--ink)",
-                                outline: "none",
-                              }}
-                            />
-                          </div>
-
-                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <label style={{ fontSize: "10px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase" }}>
-                              Narration / Description
-                            </label>
-                            <input
-                              type="text"
-                              value={editDescDraft.details}
-                              onChange={(e) => setEditDescDraft((prev) => ({ ...prev, details: e.target.value }))}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") void handleSaveTxDescription(tx);
-                                if (e.key === "Escape") cancelEditingTxDescription();
-                              }}
-                              placeholder="Raw bank narration / details"
-                              style={{
-                                fontSize: "11px",
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                                border: "1px solid var(--line)",
-                                background: "var(--card)",
-                                color: "var(--ink)",
-                                outline: "none",
-                              }}
-                            />
-                          </div>
-
-                          <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px", marginTop: "2px" }}>
-                            <button
-                              type="button"
-                              onClick={cancelEditingTxDescription}
-                              style={{
-                                padding: "3px 8px",
-                                fontSize: "11px",
-                                borderRadius: "5px",
-                                border: "1px solid var(--line)",
-                                background: "var(--card)",
-                                color: "var(--muted)",
-                                cursor: "pointer",
-                              }}>
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleSaveTxDescription(tx)}
-                              disabled={savingTxDescId === tx.id}
-                              style={{
-                                padding: "3px 10px",
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                borderRadius: "5px",
-                                border: "none",
-                                background: "var(--green)",
-                                color: "#ffffff",
-                                cursor: "pointer",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}>
-                              {savingTxDescId === tx.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                              Save
-                            </button>
-                          </div>
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editMerchantDraft}
+                            onChange={(e) => setEditMerchantDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") void handleSaveTxMerchant(tx);
+                              if (e.key === "Escape") cancelEditingTxMerchant();
+                            }}
+                            placeholder="Merchant name (e.g. ZOMATO)"
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              padding: "4px 8px",
+                              borderRadius: "6px",
+                              border: "1.5px solid var(--green)",
+                              background: "var(--card)",
+                              color: "var(--ink)",
+                              outline: "none",
+                              minWidth: "160px",
+                              maxWidth: "260px",
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void handleSaveTxMerchant(tx)}
+                            disabled={savingTxDescId === tx.id}
+                            title="Save merchant name"
+                            style={{
+                              padding: "4px 8px",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              borderRadius: "5px",
+                              border: "none",
+                              background: "var(--green)",
+                              color: "#ffffff",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                            }}>
+                            {savingTxDescId === tx.id ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditingTxMerchant}
+                            title="Cancel"
+                            style={{
+                              padding: "4px 7px",
+                              fontSize: "11px",
+                              borderRadius: "5px",
+                              border: "1px solid var(--line)",
+                              background: "var(--card)",
+                              color: "var(--muted)",
+                              cursor: "pointer",
+                            }}>
+                            Cancel
+                          </button>
                         </div>
                       ) : (
-                        <>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                            <strong
-                              onClick={() => startEditingTxDescription(tx)}
-                              title="Click to edit description or merchant"
-                              style={{ cursor: "pointer" }}>
-                              {tx.description}
-                            </strong>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <strong
+                            onClick={() => startEditingTxMerchant(tx)}
+                            title="Click to edit merchant name"
+                            style={{ cursor: "pointer" }}>
+                            {tx.description}
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() => startEditingTxMerchant(tx)}
+                            title="Edit merchant name"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "var(--muted)",
+                              padding: "0 2px",
+                              opacity: 0.6,
+                              display: "inline-flex",
+                              alignItems: "center",
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}>
+                            <Pencil size={11} />
+                          </button>
+                          {tx.tags && tx.tags.length > 0 && (
+                            <div style={{ display: "inline-flex", gap: "4px", flexWrap: "wrap" }}>
+                              {tx.tags.map((t) => (
+                                <span
+                                  key={t.id}
+                                  title="Click to remove tag"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleSingleTxTagAssign(tx.id, t.id, tx.tags);
+                                  }}
+                                  style={{
+                                    fontSize: "10px",
+                                    padding: "1px 6px",
+                                    borderRadius: "4px",
+                                    background: `${t.color}20`,
+                                    color: t.color,
+                                    fontWeight: 700,
+                                    border: `1px solid ${t.color}40`,
+                                    cursor: "pointer",
+                                  }}>
+                                  #{t.name} ×
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Inline Tag Assignment Dropdown / Button */}
+                          {editingTxTagId === tx.id ? (
+                            <select
+                              autoFocus
+                              value=""
+                              onBlur={() => setEditingTxTagId(null)}
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  void handleSingleTxTagAssign(tx.id, e.target.value, tx.tags);
+                                }
+                                setEditingTxTagId(null);
+                              }}
+                              style={{
+                                fontSize: "10px",
+                                padding: "1px 4px",
+                                borderRadius: "4px",
+                                background: "var(--card)",
+                                border: "1px solid var(--line)",
+                                color: "var(--ink)",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                outline: "none",
+                              }}>
+                              <option value="">Select tag...</option>
+                              {(data?.tags || []).map((t) => {
+                                const isAssigned = tx.tags?.some((existing) => existing.id === t.id);
+                                return (
+                                  <option key={t.id} value={t.id}>
+                                    {isAssigned ? "✓ Remove #" : "+ Add #"}{t.name}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          ) : (
                             <button
                               type="button"
-                              onClick={() => startEditingTxDescription(tx)}
-                              title="Edit description or merchant"
+                              onClick={() => setEditingTxTagId(tx.id)}
+                              title="Add or remove tag for this transaction"
                               style={{
                                 background: "none",
                                 border: "none",
                                 cursor: "pointer",
+                                fontSize: "10px",
                                 color: "var(--muted)",
-                                padding: "0 2px",
-                                opacity: 0.6,
+                                padding: "0 4px",
+                                opacity: 0.75,
                                 display: "inline-flex",
                                 alignItems: "center",
-                              }}
-                              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}>
-                              <Pencil size={11} />
+                                gap: "2px",
+                              }}>
+                              <Tag size={10} />
+                              <span>+ tag</span>
                             </button>
-                            {tx.tags && tx.tags.length > 0 && (
-                              <div style={{ display: "inline-flex", gap: "4px", flexWrap: "wrap" }}>
-                                {tx.tags.map((t) => (
-                                  <span
-                                    key={t.id}
-                                    title="Click to remove tag"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void handleSingleTxTagAssign(tx.id, t.id, tx.tags);
-                                    }}
-                                    style={{
-                                      fontSize: "10px",
-                                      padding: "1px 6px",
-                                      borderRadius: "4px",
-                                      background: `${t.color}20`,
-                                      color: t.color,
-                                      fontWeight: 700,
-                                      border: `1px solid ${t.color}40`,
-                                      cursor: "pointer",
-                                    }}>
-                                    #{t.name} ×
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Inline Tag Assignment Dropdown / Button */}
-                            {editingTxTagId === tx.id ? (
-                              <select
-                                autoFocus
-                                value=""
-                                onBlur={() => setEditingTxTagId(null)}
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    void handleSingleTxTagAssign(tx.id, e.target.value, tx.tags);
-                                  }
-                                  setEditingTxTagId(null);
-                                }}
-                                style={{
-                                  fontSize: "10px",
-                                  padding: "1px 4px",
-                                  borderRadius: "4px",
-                                  background: "var(--card)",
-                                  border: "1px solid var(--line)",
-                                  color: "var(--ink)",
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                  outline: "none",
-                                }}>
-                                <option value="">Select tag...</option>
-                                {(data?.tags || []).map((t) => {
-                                  const isAssigned = tx.tags?.some((existing) => existing.id === t.id);
-                                  return (
-                                    <option key={t.id} value={t.id}>
-                                      {isAssigned ? "✓ Remove #" : "+ Add #"}{t.name}
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setEditingTxTagId(tx.id)}
-                                title="Add or remove tag for this transaction"
-                                style={{
-                                  background: "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  fontSize: "10px",
-                                  color: "var(--muted)",
-                                  padding: "0 4px",
-                                  opacity: 0.75,
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "2px",
-                                }}>
-                                <Tag size={10} />
-                                <span>+ tag</span>
-                              </button>
-                            )}
-                          </div>
-                          {tx.details && (
-                            <small
-                              onClick={() => startEditingTxDescription(tx)}
-                              title="Click to edit narration"
-                              style={{ cursor: "pointer" }}>
-                              {tx.details}
-                            </small>
                           )}
-                        </>
+                        </div>
                       )}
+                      {tx.details && <small style={{ color: "var(--muted)" }}>{tx.details}</small>}
                     </div>
 
                     <div className="transaction-category-cell" style={{ position: "relative", zIndex: isPopoverOpen ? 100 : 1 }}>
