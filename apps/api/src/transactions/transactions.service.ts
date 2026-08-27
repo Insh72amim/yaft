@@ -445,6 +445,126 @@ export class TransactionsService {
     };
   }
 
+  async updateTransaction(
+    userId: string,
+    transactionId: string,
+    dto: {
+      descriptionRaw?: string;
+      merchant?: string;
+      description?: string;
+      categoryId?: string | null;
+    },
+    accountId?: string,
+  ) {
+    const whereAccount: any = { userId, archived: false };
+    if (accountId) {
+      whereAccount.id = accountId;
+    }
+
+    const transaction = await this.prisma.transaction.findFirst({
+      where: {
+        id: transactionId,
+        account: whereAccount,
+      },
+      include: {
+        account: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            institution: true,
+            vaultEntry: { select: { last4: true } },
+          },
+        },
+        tags: {
+          include: {
+            tag: { select: { id: true, name: true, color: true } },
+          },
+        },
+      },
+    });
+
+    if (!transaction) throw new NotFoundException('Transaction not found.');
+
+    const dataToUpdate: any = {};
+
+    if (dto.descriptionRaw !== undefined) {
+      dataToUpdate.descriptionRaw = dto.descriptionRaw.trim();
+    } else if (dto.description !== undefined && dto.merchant === undefined) {
+      dataToUpdate.descriptionRaw = dto.description.trim();
+    }
+
+    if (dto.merchant !== undefined) {
+      dataToUpdate.merchant = dto.merchant ? dto.merchant.trim() : null;
+    }
+
+    if (dto.categoryId !== undefined) {
+      if (dto.categoryId) {
+        const category = await this.prisma.category.findFirst({
+          where: { id: dto.categoryId, userId },
+        });
+        if (!category) throw new NotFoundException('Category not found.');
+        dataToUpdate.categoryId = category.id;
+      } else {
+        dataToUpdate.categoryId = null;
+      }
+    }
+
+    const updated = await this.prisma.transaction.update({
+      where: { id: transaction.id },
+      data: dataToUpdate,
+      include: {
+        account: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            institution: true,
+            vaultEntry: { select: { last4: true } },
+          },
+        },
+        tags: {
+          include: {
+            tag: { select: { id: true, name: true, color: true } },
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            color: true,
+            type: true,
+            superCategory: { select: { id: true, name: true, color: true, kind: true } },
+          },
+        },
+      },
+    });
+
+    return {
+      id: updated.id,
+      accountId: updated.accountId,
+      accountName: updated.account.name,
+      accountType: updated.account.type,
+      institution: updated.account.institution,
+      cardLast4: updated.account.vaultEntry?.last4 ?? null,
+      transactionDate: updated.transactionDate,
+      postedDate: updated.postedDate,
+      description: updated.merchant || updated.descriptionRaw,
+      details: updated.merchant ? updated.descriptionRaw : null,
+      merchant: updated.merchant,
+      descriptionRaw: updated.descriptionRaw,
+      amount: Number(updated.amount),
+      categoryId: updated.categoryId,
+      category: updated.category?.name ?? 'Uncategorised',
+      categoryColor: updated.category?.color ?? '#94a3b8',
+      superCategory: updated.category?.superCategory?.name ?? null,
+      superCategoryColor: updated.category?.superCategory?.color ?? null,
+      superCategoryKind: updated.category?.superCategory?.kind ?? null,
+      isTransfer: Boolean(updated.transferGroupId),
+      tags: updated.tags?.map((t) => ({ id: t.tag.id, name: t.tag.name, color: t.tag.color })) ?? [],
+    };
+  }
+
   async addEpfoTransaction(userId: string, accountId: string, dto: { description: string; amount: number; transactionDate: string }) {
     const account = await this.prisma.account.findFirst({
       where: { id: accountId, userId, archived: false }

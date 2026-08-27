@@ -66,6 +66,25 @@ export class TransactionsController {
     return this.transactionsService.updateTransactionCategory(user.id, accountId, transactionId, dto.categoryId);
   }
 
+  @Patch(':accountId/:transactionId')
+  async updateTransaction(
+    @CurrentUser() user: { id: string },
+    @Param('accountId') accountId: string,
+    @Param('transactionId') transactionId: string,
+    @Body() dto: { descriptionRaw?: string; merchant?: string; description?: string; categoryId?: string | null },
+  ) {
+    return this.transactionsService.updateTransaction(user.id, transactionId, dto, accountId);
+  }
+
+  @Patch(':transactionId')
+  async updateTransactionDirect(
+    @CurrentUser() user: { id: string },
+    @Param('transactionId') transactionId: string,
+    @Body() dto: { descriptionRaw?: string; merchant?: string; description?: string; categoryId?: string | null },
+  ) {
+    return this.transactionsService.updateTransaction(user.id, transactionId, dto);
+  }
+
   @Post(':accountId/epfo')
   async addEpfoTransaction(
     @CurrentUser() user: { id: string },

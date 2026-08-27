@@ -446,6 +446,37 @@ export function EnvelopesOverviewSection({
     }
   };
 
+  // Handle in-place transaction description/merchant update from drawer
+  const handleTransactionUpdated = (
+    transactionId: string,
+    updates: { merchant?: string; rawDescription?: string; description?: string }
+  ) => {
+    setTransactions((prev) =>
+      prev.map((t) =>
+        t.id === transactionId
+          ? {
+              ...t,
+              merchant: updates.merchant !== undefined ? updates.merchant : t.merchant,
+              rawDescription: updates.rawDescription !== undefined ? updates.rawDescription : t.rawDescription,
+              description: updates.description !== undefined ? updates.description : t.description,
+            }
+          : t
+      )
+    );
+    if (inspectedTx && inspectedTx.id === transactionId) {
+      setInspectedTx((prev) =>
+        prev
+          ? {
+              ...prev,
+              merchant: updates.merchant !== undefined ? updates.merchant : prev.merchant,
+              rawDescription: updates.rawDescription !== undefined ? updates.rawDescription : prev.rawDescription,
+              description: updates.description !== undefined ? updates.description : prev.description,
+            }
+          : null
+      );
+    }
+  };
+
   // Pagination slice
   const totalPages = Math.max(1, Math.ceil(transactions.length / pageSize));
   const paginatedTransactions = useMemo(() => {
@@ -974,6 +1005,7 @@ export function EnvelopesOverviewSection({
         categories={pickerCategories}
         onClose={() => setInspectedTx(null)}
         onCategoryChange={handleCategoryChange}
+        onTransactionUpdated={handleTransactionUpdated}
       />
     </div>
   );

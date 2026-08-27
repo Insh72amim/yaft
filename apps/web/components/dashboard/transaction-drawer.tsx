@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   CreditCard,
@@ -14,8 +14,10 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownLeft,
+  Pencil,
+  Loader2,
 } from 'lucide-react';
-import { money } from '@/lib/api';
+import { api, errorMessage, money } from '@/lib/api';
 import { CategoryItem } from '@/components/category-picker-popover';
 
 export interface DrawerTransactionItem {
@@ -42,6 +44,10 @@ interface TransactionDrawerProps {
   categories: CategoryItem[];
   onClose: () => void;
   onCategoryChange: (transactionId: string, categoryId: string) => void;
+  onTransactionUpdated?: (
+    transactionId: string,
+    updates: { merchant?: string; rawDescription?: string; description?: string }
+  ) => void;
 }
 
 export function TransactionDrawer({
@@ -49,10 +55,68 @@ export function TransactionDrawer({
   categories,
   onClose,
   onCategoryChange,
+  onTransactionUpdated,
 }: TransactionDrawerProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [editingMerchant, setEditingMerchant] = useState(false);
+  const [merchantDraft, setMerchantDraft] = useState('');
+  const [editingNarration, setEditingNarration] = useState(false);
+  const [narrationDraft, setNarrationDraft] = useState('');
+  const [savingField, setSavingField] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (transaction) {
+      setMerchantDraft(transaction.merchant || transaction.description || '');
+      setNarrationDraft(transaction.rawDescription || '');
+      setEditingMerchant(false);
+      setEditingNarration(false);
+    }
+  }, [transaction?.id]);
 
   if (!transaction) return null;
+
+  const handleSaveMerchant = async () => {
+    if (!transaction) return;
+    setSavingField('merchant');
+    try {
+      await api(`/transactions/${transaction.accountId}/${transaction.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          merchant: merchantDraft.trim() || null,
+        }),
+      });
+      onTransactionUpdated?.(transaction.id, {
+        merchant: merchantDraft.trim() || undefined,
+        description: merchantDraft.trim() || transaction.description,
+      });
+      setEditingMerchant(false);
+    } catch (err) {
+      alert(errorMessage(err, 'Failed to update merchant name.'));
+    } finally {
+      setSavingField(null);
+    }
+  };
+
+  const handleSaveNarration = async () => {
+    if (!transaction) return;
+    setSavingField('narration');
+    try {
+      await api(`/transactions/${transaction.accountId}/${transaction.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          descriptionRaw: narrationDraft.trim(),
+        }),
+      });
+      onTransactionUpdated?.(transaction.id, {
+        rawDescription: narrationDraft.trim(),
+      });
+      setEditingNarration(false);
+    } catch (err) {
+      alert(errorMessage(err, 'Failed to update narration.'));
+    } finally {
+      setSavingField(null);
+    }
+  };
 
   const isDebit = transaction.amount < 0 || (transaction.amountMinor ?? 0) < 0;
   const absAmtMinor = Math.abs(
@@ -201,15 +265,96 @@ export function TransactionDrawer({
               {isDebit ? `-${money(absAmtMinor)}` : `+${money(absAmtMinor)}`}
             </span>
 
-            <h4
-              style={{
-                margin: '4px 0 0 0',
-                fontSize: '16px',
-                fontWeight: 700,
-                color: 'var(--ink)',
-              }}>
-              {transaction.merchant || transaction.description}
-            </h4>
+            {editingMerchant ? (
+              <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                <input
+                  type="text"
+                  autoFocus
+                  value={merchantDraft}
+                  onChange={(e) => setMerchantDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleSaveMerchant();
+                    if (e.key === 'Escape') setEditingMerchant(false);
+                  }}
+                  placeholder="Merchant name (e.g. ZOMATO)"
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: 'var(--background-alt)',
+                    color: 'var(--ink)',
+                    outline: 'none',
+                    width: '100%',
+                  }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingMerchant(false)}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--line)',
+                      background: 'var(--card)',
+                      color: 'var(--muted)',
+                      cursor: 'pointer',
+                    }}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveMerchant()}
+                    disabled={savingField === 'merchant'}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: 'var(--green)',
+                      color: '#ffffff',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}>
+                    {savingField === 'merchant' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                <h4
+                  style={{
+                    margin: 0,
+                    fontSize: '16px',
+                    fontWeight: 700,
+                    color: 'var(--ink)',
+                  }}>
+                  {transaction.merchant || transaction.description}
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setEditingMerchant(true)}
+                  title="Edit merchant name"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--muted)',
+                    cursor: 'pointer',
+                    padding: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    opacity: 0.7,
+                  }}>
+                  <Pencil size={13} />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Key Metadata Sections */}
@@ -418,17 +563,81 @@ export function TransactionDrawer({
                   )}
                 </button>
               </div>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: '12px',
-                  color: 'var(--ink)',
-                  fontFamily: "'SF Mono', monospace",
-                  wordBreak: 'break-word',
-                  lineHeight: '1.4',
-                }}>
-                {transaction.rawDescription}
-              </p>
+
+              {editingNarration ? (
+                <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <textarea
+                    autoFocus
+                    rows={3}
+                    value={narrationDraft}
+                    onChange={(e) => setNarrationDraft(e.target.value)}
+                    placeholder="Enter statement narration..."
+                    style={{
+                      fontSize: '12px',
+                      fontFamily: "'SF Mono', monospace",
+                      padding: '6px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--line)',
+                      background: 'var(--card)',
+                      color: 'var(--ink)',
+                      outline: 'none',
+                      resize: 'vertical',
+                      width: '100%',
+                    }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setEditingNarration(false)}
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '11px',
+                        borderRadius: '5px',
+                        border: '1px solid var(--line)',
+                        background: 'var(--card)',
+                        color: 'var(--muted)',
+                        cursor: 'pointer',
+                      }}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleSaveNarration()}
+                      disabled={savingField === 'narration'}
+                      style={{
+                        padding: '3px 10px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        borderRadius: '5px',
+                        border: 'none',
+                        background: 'var(--green)',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}>
+                      {savingField === 'narration' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p
+                  onClick={() => setEditingNarration(true)}
+                  title="Click to edit narration"
+                  style={{
+                    margin: 0,
+                    fontSize: '12px',
+                    color: 'var(--ink)',
+                    fontFamily: "'SF Mono', monospace",
+                    wordBreak: 'break-word',
+                    lineHeight: '1.4',
+                    cursor: 'pointer',
+                  }}>
+                  {transaction.rawDescription}
+                </p>
+              )}
             </div>
           )}
 
