@@ -482,12 +482,13 @@ export function isDuplicateTransaction(
   const targetAmountMinor = typeof rowAmountMinor === 'bigint' ? rowAmountMinor : BigInt(Math.round(rowAmountMinor));
   const rowCanonical = rowDescriptionOrMerchant ? canonicalizeMerchantName(rowDescriptionOrMerchant) : null;
   const rowCleanRef = rowReference?.trim().toLowerCase();
+  const rowDescAlphaNum = rowDescriptionOrMerchant?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? null;
 
   for (const tx of existingTxns) {
     const txAmountMinor = typeof tx.amount === 'bigint' ? tx.amount : BigInt(Math.round(tx.amount));
     if (txAmountMinor !== targetAmountMinor) continue;
 
-    // 1. Reference number match
+    // 1. Exact reference number match
     if (rowCleanRef && tx.reference) {
       const txCleanRef = tx.reference.trim().toLowerCase();
       if (rowCleanRef === txCleanRef) {
@@ -495,7 +496,22 @@ export function isDuplicateTransaction(
       }
     }
 
-    // 2. Date proximity (within 2 days) + matching canonical merchant / description
+    // 2. Cross-format reference match: reference embedded in the other side's descriptionRaw
+    if (rowCleanRef && rowCleanRef.length >= 6 && tx.descriptionRaw) {
+      const txDescAlpha = tx.descriptionRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const refAlpha = rowCleanRef.replace(/[^a-z0-9]/g, '');
+      if (refAlpha.length >= 6 && txDescAlpha.includes(refAlpha)) {
+        return true;
+      }
+    }
+    if (tx.reference && tx.reference.trim().length >= 6 && rowDescAlphaNum) {
+      const txRefAlpha = tx.reference.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (txRefAlpha.length >= 6 && rowDescAlphaNum.includes(txRefAlpha)) {
+        return true;
+      }
+    }
+
+    // 3. Date proximity (within 2.5 days) + matching canonical merchant / description
     const txTime = tx.transactionDate instanceof Date ? tx.transactionDate.getTime() : new Date(tx.transactionDate).getTime();
     const rowTime = rowDate instanceof Date ? rowDate.getTime() : new Date(rowDate).getTime();
     const diffDays = Math.abs(rowTime - txTime) / 86_400_000;
@@ -508,11 +524,24 @@ export function isDuplicateTransaction(
         }
       }
       if (rowDescriptionOrMerchant && tx.descriptionRaw) {
-        const d1 = rowDescriptionOrMerchant.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const d1 = rowDescAlphaNum!;
         const d2 = tx.descriptionRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
         if (d1.length >= 4 && (d1.includes(d2) || d2.includes(d1))) {
           return true;
         }
+      }
+    }
+
+    // 4. Same-day + "General Merchant" cross-source dedup
+    //    If either side canonicalizes to "General Merchant" (vague bank narration like
+    //    NEFT/IMPS/UPI self-transfers) and dates are within 1 day, treat as duplicate.
+    //    This catches cross-source dupes where email alert has a real merchant name
+    //    but the bank statement description is too generic to match.
+    if (diffDays <= 1) {
+      const txCanonical = tx.merchant ? canonicalizeMerchantName(tx.merchant) : 'General Merchant';
+      const eitherGeneral = rowCanonical === 'General Merchant' || txCanonical === 'General Merchant';
+      if (eitherGeneral) {
+        return true;
       }
     }
   }
