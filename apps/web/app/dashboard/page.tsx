@@ -282,18 +282,6 @@ export default function DashboardPage() {
 
   const monthLabel = dateRangeLabel;
 
-  const totalSpend = (data.categories || []).reduce((sum, category) => sum + category.amount, 0);
-  let angle = 0;
-  const gradient = (data.categories || []).length
-    ? data.categories
-        .map((category) => {
-          const start = angle;
-          angle += totalSpend ? (category.amount / totalSpend) * 360 : 0;
-          return `${category.color} ${start}deg ${angle}deg`;
-        })
-        .join(',')
-    : '#e2e8f0 0deg 360deg';
-
   const assetCategories = [
     { name: 'Savings Accounts', types: ['BANK', 'SAVINGS'], color: '#3b82f6' },
     { name: 'Fixed Deposits', types: ['FIXED_DEPOSIT'], color: '#0ea5e9' },
@@ -547,81 +535,6 @@ export default function DashboardPage() {
         endDate={endDate}
         onRefreshNeeded={() => void load()}
       />
-
-      <section className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px', marginBottom: '24px' }}>
-        <article className="panel spending-panel">
-          <div className="panel-title">
-            <div>
-              <span className="eyebrow">Spending</span>
-              <h2>Where it went</h2>
-            </div>
-            <span className="month-pill">
-              <CalendarDays size={14} />
-              {monthLabel}
-            </span>
-          </div>
-          {data.categories.length ? (
-            <div className="spending-body">
-              <div className="donut" style={{ background: `conic-gradient(${gradient})` }}>
-                <div>
-                  <strong>{money(data.expenses, true)}</strong>
-                  <span>total</span>
-                </div>
-              </div>
-              <div className="legend">
-                {data.categories.slice(0, 8).map((category) => (
-                  <div key={category.name}>
-                    <i style={{ background: category.color }} />
-                    <span>{category.name}</span>
-                    <strong>{money(category.amount)}</strong>
-                    <small>{totalSpend ? Math.round((category.amount / totalSpend) * 100) : 0}%</small>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <Empty text="Import a statement to see your spending pattern." />
-          )}
-        </article>
-
-        <article className="panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column' }}>
-          <div className="panel-title" style={{ marginBottom: '16px' }}>
-            <div>
-              <span className="eyebrow">Payees & Merchants</span>
-              <h2>Top Outbound Beneficiaries</h2>
-            </div>
-            <span className="month-pill">
-              <Send size={14} color="#f59e0b" />
-              P2P & Vendors
-            </span>
-          </div>
-
-          {data.topOutboundRecipients && data.topOutboundRecipients.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, justifyContent: 'center' }}>
-              {data.topOutboundRecipients.slice(0, 5).map((rec) => {
-                const pct = data.expenses > 0 ? Math.min(100, Math.round((rec.amount / data.expenses) * 100)) : 0;
-                return (
-                  <div key={rec.name} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '12px' }}>
-                      <strong style={{ color: 'var(--ink)', fontWeight: 700 }}>{rec.name}</strong>
-                      <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                        <strong style={{ color: 'var(--ink)' }}>{money(rec.amount)}</strong> ({rec.count} txn{rec.count === 1 ? '' : 's'})
-                      </span>
-                    </div>
-                    <div style={{ height: '6px', width: '100%', background: 'var(--background-alt)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: '#f59e0b', borderRadius: '3px', transition: 'width 0.3s ease' }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ padding: '20px', textAlign: 'center', background: 'var(--background-alt)', borderRadius: '10px', color: 'var(--muted)', fontSize: '12px', marginTop: 'auto', marginBottom: 'auto' }}>
-              No major merchant or P2P outbound transactions recorded for {monthLabel}.
-            </div>
-          )}
-        </article>
-      </section>
 
       {/* Real-time Expense Categories & Envelopes + All Expense Transactions Ledger */}
       <EnvelopesOverviewSection
