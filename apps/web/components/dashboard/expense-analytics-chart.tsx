@@ -7,19 +7,21 @@ import {
   BarChart3,
   Layers,
   Sparkles,
+  ChevronLeft,
   ChevronRight,
   Info,
   Calendar,
   Clock,
   ArrowUpRight,
   Filter,
+  Check,
+  RotateCcw,
 } from 'lucide-react';
 import { api, money } from '@/lib/api';
 import type {
   ExpenseAnalyticsResponse,
   ExpenseGranularity,
   ExpenseAnalyticsBucket,
-  ExpenseCategoryContribution,
 } from '@yaft/shared';
 
 interface ExpenseAnalyticsChartProps {
@@ -28,11 +30,162 @@ interface ExpenseAnalyticsChartProps {
   onRefreshNeeded?: () => void;
 }
 
+type MonthPreset = '6_MONTHS' | '12_MONTHS' | 'THIS_FY' | 'THIS_YEAR';
+type WeekPreset = 'THIS_MONTH' | '4_WEEKS' | '8_WEEKS' | '12_WEEKS';
+type DayPreset = 'FULL_MONTH' | '7_DAYS' | '14_DAYS' | '30_DAYS';
+
+function computeDateRangeForGranularity(
+  granularity: ExpenseGranularity,
+  preset: string,
+  refDate: Date,
+): { startDate: string; endDate: string; label: string } {
+  const y = refDate.getUTCFullYear();
+  const m = refDate.getUTCMonth(); // 0-11
+  const d = refDate.getUTCDate();
+
+  if (granularity === 'month') {
+    if (preset === '12_MONTHS') {
+      const start = new Date(Date.UTC(y, m - 11, 1));
+      const end = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999));
+      const startLabel = start.toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      const endLabel = end.toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `${startLabel} – ${endLabel} (12 Months)`,
+      };
+    } else if (preset === 'THIS_FY') {
+      const startYear = m >= 3 ? y : y - 1;
+      const start = new Date(Date.UTC(startYear, 3, 1)); // Apr 1
+      const end = new Date(Date.UTC(startYear + 1, 2, 31, 23, 59, 59, 999)); // Mar 31
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `FY ${startYear}–${String(startYear + 1).slice(2)} (Apr–Mar)`,
+      };
+    } else if (preset === 'THIS_YEAR') {
+      const start = new Date(Date.UTC(y, 0, 1));
+      const end = new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999));
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `Year ${y} (Jan–Dec)`,
+      };
+    } else {
+      // Default: '6_MONTHS'
+      const start = new Date(Date.UTC(y, m - 5, 1));
+      const end = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999));
+      const startLabel = start.toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      const endLabel = end.toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `${startLabel} – ${endLabel} (6 Months)`,
+      };
+    }
+  } else if (granularity === 'week') {
+    if (preset === 'THIS_MONTH') {
+      const start = new Date(Date.UTC(y, m, 1));
+      const end = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999));
+      const monthStr = start.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `${monthStr} (Weeks)`,
+      };
+    } else if (preset === '4_WEEKS') {
+      const end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
+      const start = new Date(end.getTime() - 27 * 24 * 60 * 60 * 1000);
+      const startStr = start.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      const endStr = end.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `${startStr} – ${endStr} (4 Weeks)`,
+      };
+    } else if (preset === '12_WEEKS') {
+      const end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
+      const start = new Date(end.getTime() - 83 * 24 * 60 * 60 * 1000);
+      const startStr = start.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      const endStr = end.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `${startStr} – ${endStr} (12 Weeks)`,
+      };
+    } else {
+      // Default: '8_WEEKS'
+      const end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
+      const start = new Date(end.getTime() - 55 * 24 * 60 * 60 * 1000);
+      const startStr = start.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      const endStr = end.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `${startStr} – ${endStr} (8 Weeks)`,
+      };
+    }
+  } else {
+    // granularity === 'day'
+    if (preset === '7_DAYS') {
+      const end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
+      const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000);
+      const startStr = start.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      const endStr = end.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `${startStr} – ${endStr} (7 Days)`,
+      };
+    } else if (preset === '14_DAYS') {
+      const end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
+      const start = new Date(end.getTime() - 13 * 24 * 60 * 60 * 1000);
+      const startStr = start.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      const endStr = end.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `${startStr} – ${endStr} (14 Days)`,
+      };
+    } else if (preset === '30_DAYS') {
+      const end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
+      const start = new Date(end.getTime() - 29 * 24 * 60 * 60 * 1000);
+      const startStr = start.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      const endStr = end.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `${startStr} – ${endStr} (30 Days)`,
+      };
+    } else {
+      // Default: 'FULL_MONTH'
+      const start = new Date(Date.UTC(y, m, 1));
+      const end = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999));
+      const monthStr = start.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      const daysCount = end.getUTCDate();
+      return {
+        startDate: start.toISOString().slice(0, 10),
+        endDate: end.toISOString().slice(0, 10),
+        label: `${monthStr} (${daysCount} Days)`,
+      };
+    }
+  }
+}
+
 export function ExpenseAnalyticsChart({
-  startDate,
-  endDate,
+  startDate: parentStartDate,
+  endDate: parentEndDate,
 }: ExpenseAnalyticsChartProps) {
   const [granularity, setGranularity] = useState<ExpenseGranularity>('month');
+
+  // Specific presets for each granularity
+  const [monthPreset, setMonthPreset] = useState<MonthPreset>('6_MONTHS');
+  const [weekPreset, setWeekPreset] = useState<WeekPreset>('THIS_MONTH');
+  const [dayPreset, setDayPreset] = useState<DayPreset>('FULL_MONTH');
+
+  // Reference date anchor used for shifting (defaults to current date)
+  const [refDate, setRefDate] = useState<Date>(() => new Date());
+
   const [data, setData] = useState<ExpenseAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,14 +193,68 @@ export function ExpenseAnalyticsChart({
   const [activeBucket, setActiveBucket] = useState<ExpenseAnalyticsBucket | null>(null);
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
 
+  // Active preset string based on active granularity
+  const activePreset = useMemo(() => {
+    if (granularity === 'month') return monthPreset;
+    if (granularity === 'week') return weekPreset;
+    return dayPreset;
+  }, [granularity, monthPreset, weekPreset, dayPreset]);
+
+  // Compute computed active date bounds
+  const rangeInfo = useMemo(() => {
+    return computeDateRangeForGranularity(granularity, activePreset, refDate);
+  }, [granularity, activePreset, refDate]);
+
+  // Period shifting logic
+  const shiftPeriod = (direction: -1 | 1) => {
+    setRefDate((prev) => {
+      const next = new Date(prev.getTime());
+      if (granularity === 'month') {
+        if (monthPreset === '6_MONTHS') {
+          next.setUTCMonth(next.getUTCMonth() + direction * 6);
+        } else {
+          next.setUTCFullYear(next.getUTCFullYear() + direction);
+        }
+      } else if (granularity === 'week') {
+        if (weekPreset === 'THIS_MONTH') {
+          next.setUTCMonth(next.getUTCMonth() + direction);
+        } else if (weekPreset === '4_WEEKS') {
+          next.setUTCDate(next.getUTCDate() + direction * 28);
+        } else if (weekPreset === '8_WEEKS') {
+          next.setUTCDate(next.getUTCDate() + direction * 56);
+        } else {
+          next.setUTCDate(next.getUTCDate() + direction * 84);
+        }
+      } else {
+        // day
+        if (dayPreset === 'FULL_MONTH') {
+          next.setUTCMonth(next.getUTCMonth() + direction);
+        } else if (dayPreset === '7_DAYS') {
+          next.setUTCDate(next.getUTCDate() + direction * 7);
+        } else if (dayPreset === '14_DAYS') {
+          next.setUTCDate(next.getUTCDate() + direction * 14);
+        } else {
+          next.setUTCDate(next.getUTCDate() + direction * 30);
+        }
+      }
+      return next;
+    });
+    setActiveBucket(null);
+  };
+
+  const resetToToday = () => {
+    setRefDate(new Date());
+    setActiveBucket(null);
+  };
+
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
       params.set('granularity', granularity);
-      if (startDate) params.set('startDate', startDate);
-      if (endDate) params.set('endDate', endDate);
+      params.set('startDate', rangeInfo.startDate);
+      params.set('endDate', rangeInfo.endDate);
 
       const res = await api<ExpenseAnalyticsResponse>(`/dashboard/expense-analytics?${params.toString()}`);
       setData(res);
@@ -56,7 +263,7 @@ export function ExpenseAnalyticsChart({
     } finally {
       setLoading(false);
     }
-  }, [granularity, startDate, endDate]);
+  }, [granularity, rangeInfo.startDate, rangeInfo.endDate]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -110,7 +317,7 @@ export function ExpenseAnalyticsChart({
 
   return (
     <section className="panel" style={{ marginBottom: '24px', overflow: 'hidden' }}>
-      {/* Header with Title & Granularity Switcher */}
+      {/* Header Row: Title & Granularity Tabs */}
       <div
         className="panel-title"
         style={{
@@ -119,9 +326,7 @@ export function ExpenseAnalyticsChart({
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '14px',
-          borderBottom: '1px solid var(--line)',
-          paddingBottom: '16px',
-          marginBottom: '18px',
+          paddingBottom: '14px',
         }}
       >
         <div>
@@ -194,12 +399,229 @@ export function ExpenseAnalyticsChart({
         </div>
       </div>
 
+      {/* Sub-Header: Granularity-Specific Range Presets & Period Stepper Navigation */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          borderTop: '1px solid var(--line)',
+          borderBottom: '1px solid var(--line)',
+          padding: '12px 0',
+          marginBottom: '20px',
+        }}
+      >
+        {/* Granularity-Specific Presets Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginRight: '4px' }}>
+            Range:
+          </span>
+
+          {granularity === 'month' && (
+            <>
+              {[
+                { key: '6_MONTHS', label: 'Last 6 Months' },
+                { key: '12_MONTHS', label: 'Last 12 Months' },
+                { key: 'THIS_FY', label: 'This FY (Apr–Mar)' },
+                { key: 'THIS_YEAR', label: 'Current Year' },
+              ].map((p) => {
+                const active = monthPreset === p.key;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => {
+                      setMonthPreset(p.key as MonthPreset);
+                      setActiveBucket(null);
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      border: active ? '1px solid var(--green)' : '1px solid var(--line)',
+                      background: active ? 'var(--mint)' : 'var(--card)',
+                      color: active ? 'var(--green)' : 'var(--muted)',
+                      fontSize: '11px',
+                      fontWeight: active ? 700 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </>
+          )}
+
+          {granularity === 'week' && (
+            <>
+              {[
+                { key: 'THIS_MONTH', label: 'This Month' },
+                { key: '4_WEEKS', label: 'Last 4 Weeks' },
+                { key: '8_WEEKS', label: 'Last 8 Weeks' },
+                { key: '12_WEEKS', label: 'Last 12 Weeks' },
+              ].map((p) => {
+                const active = weekPreset === p.key;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => {
+                      setWeekPreset(p.key as WeekPreset);
+                      setActiveBucket(null);
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      border: active ? '1px solid var(--green)' : '1px solid var(--line)',
+                      background: active ? 'var(--mint)' : 'var(--card)',
+                      color: active ? 'var(--green)' : 'var(--muted)',
+                      fontSize: '11px',
+                      fontWeight: active ? 700 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </>
+          )}
+
+          {granularity === 'day' && (
+            <>
+              {[
+                { key: 'FULL_MONTH', label: 'Full Month' },
+                { key: '7_DAYS', label: 'Last 7 Days' },
+                { key: '14_DAYS', label: 'Last 14 Days' },
+                { key: '30_DAYS', label: 'Last 30 Days' },
+              ].map((p) => {
+                const active = dayPreset === p.key;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => {
+                      setDayPreset(p.key as DayPreset);
+                      setActiveBucket(null);
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      border: active ? '1px solid var(--green)' : '1px solid var(--line)',
+                      background: active ? 'var(--mint)' : 'var(--card)',
+                      color: active ? 'var(--green)' : 'var(--muted)',
+                      fontSize: '11px',
+                      fontWeight: active ? 700 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </>
+          )}
+        </div>
+
+        {/* Period Stepper Controls (`<` `Active Period Range Badge` `>`) */}
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            background: 'var(--background-alt)',
+            border: '1px solid var(--line)',
+            borderRadius: '10px',
+            padding: '3px 6px',
+            gap: '6px',
+          }}
+        >
+          <button
+            type="button"
+            title="Navigate to Previous Period Interval"
+            onClick={() => shiftPeriod(-1)}
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: '6px',
+              width: '26px',
+              height: '26px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'var(--ink)',
+            }}
+          >
+            <ChevronLeft size={14} />
+          </button>
+
+          <span
+            style={{
+              fontSize: '12px',
+              fontWeight: 700,
+              color: 'var(--ink)',
+              padding: '0 4px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {rangeInfo.label}
+          </span>
+
+          <button
+            type="button"
+            title="Navigate to Next Period Interval"
+            onClick={() => shiftPeriod(1)}
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: '6px',
+              width: '26px',
+              height: '26px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'var(--ink)',
+            }}
+          >
+            <ChevronRight size={14} />
+          </button>
+
+          <button
+            type="button"
+            title="Reset Range to Current Date / Today"
+            onClick={resetToToday}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '2px 6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer',
+              color: 'var(--muted)',
+              fontSize: '11px',
+              fontWeight: 600,
+            }}
+          >
+            <RotateCcw size={11} />
+            Today
+          </button>
+        </div>
+      </div>
+
       {loading ? (
         <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--muted)' }}>
           <div className="loading" style={{ margin: '0 auto 12px' }}>
             <span />
           </div>
-          <p style={{ fontSize: '13px' }}>Analyzing {granularityLabel.toLowerCase()} expenses…</p>
+          <p style={{ fontSize: '13px' }}>Analyzing {granularityLabel.toLowerCase()} expenses for {rangeInfo.label}…</p>
         </div>
       ) : error ? (
         <div style={{ padding: '24px', textAlign: 'center', color: 'var(--red)', fontSize: '13px' }}>
@@ -208,9 +630,9 @@ export function ExpenseAnalyticsChart({
       ) : !data || data.buckets.length === 0 || data.summary.totalExpense === 0 ? (
         <div style={{ padding: '50px 20px', textAlign: 'center', color: 'var(--muted)' }}>
           <BarChart3 size={36} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-          <h4 style={{ margin: '0 0 6px', color: 'var(--ink)', fontSize: '14px' }}>No Expense Data in this Period</h4>
+          <h4 style={{ margin: '0 0 6px', color: 'var(--ink)', fontSize: '14px' }}>No Expense Data for {rangeInfo.label}</h4>
           <p style={{ margin: 0, fontSize: '12px' }}>
-            Import statements or select a date range with recorded debit transactions.
+            Use the range buttons or stepper above to explore periods with recorded transactions.
           </p>
         </div>
       ) : (
