@@ -6,7 +6,7 @@
 export function extractBeneficiaryName(description: string): string | null {
   if (!description) return null;
 
-  // 1. UPI Slash Tokens e.g. "UPI/12345/SWIGGY/PAYMENT", "UPI/REV/67890/ZOMATO"
+  // 1. UPI Slash Tokens e.g. "UPI/12345/SWIGGY/PAYMENT", "UPI/REV/67890/ZOMATO", "UPI/P2A/12345/SAMPLE MERCHANT"
   const upiParts = description.split('/');
   if (upiParts[0]?.toUpperCase().includes('UPI') && upiParts.length >= 3) {
     for (let i = 1; i < upiParts.length; i++) {
@@ -14,7 +14,7 @@ export function extractBeneficiaryName(description: string): string | null {
       if (
         token &&
         !/^[0-9]+$/.test(token) &&
-        !/^(PAYMENT|PAY|REV|UPI|OKAXIS|YBL|ICICI|HDFC|PAYTM|AXIS|SBI|YES)$/i.test(token)
+        !/^(PAYMENT|PAY|REV|UPI|OKAXIS|YBL|ICICI|HDFC|PAYTM|AXIS|SBI|YES|P2A|P2M|P2P|DR|CR|NA|NO|TPV|IPAY)$/i.test(token)
       ) {
         return cleanBeneficiaryToken(token);
       }

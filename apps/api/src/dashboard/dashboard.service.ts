@@ -675,6 +675,50 @@ export class DashboardService {
       isTransfer: Boolean(t.transferGroupId),
     }));
 
+    // Overall Top Outbound Beneficiaries (Merchants, Payees, P2P recipients)
+    const outboundRecipientMap = new Map<string, { name: string; amount: number; count: number }>();
+    monthTransactions
+      .filter((t) => t.amount < 0)
+      .forEach((t) => {
+        // Exclude internal transfers between user's own accounts
+        let destAccountId: string | undefined;
+        if (t.transferGroupId) {
+          const opposite = monthTransactions.find(
+            (other) => other.transferGroupId === t.transferGroupId && other.id !== t.id,
+          );
+          if (opposite) destAccountId = opposite.accountId;
+        } else {
+          for (const v of activeVaults) {
+            if (v.last4 && v.accountId !== t.accountId && t.descriptionRaw.includes(v.last4)) {
+              destAccountId = v.accountId;
+              break;
+            }
+          }
+        }
+        const destAcc = destAccountId ? accounts.find((a) => a.id === destAccountId) : undefined;
+        const isCCCategory = Boolean(t.category?.name && /^\s*cc transfer\s*$/i.test(t.category.name));
+        const internalFlow = isInternalTransfer(t) || destAcc !== undefined || isCCCategory;
+
+        if (internalFlow) return;
+
+        const amt = Math.abs(Number(t.amount));
+        const extracted = extractBeneficiaryName(t.descriptionRaw);
+        let name = extracted || t.merchant || t.descriptionRaw;
+        name = name.replace(/\s+/g, ' ').trim();
+        if (!name) return;
+
+        const curr = outboundRecipientMap.get(name) || { name, amount: 0, count: 0 };
+        outboundRecipientMap.set(name, {
+          name,
+          amount: curr.amount + amt,
+          count: curr.count + 1,
+        });
+      });
+
+    const topOutboundRecipients = [...outboundRecipientMap.values()]
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10);
+
     return {
       month: labelMonth,
       startDate: start.toISOString().split('T')[0],
@@ -689,6 +733,7 @@ export class DashboardService {
       accounts: mappedAccounts,
       categories,
       recent,
+      topOutboundRecipients,
       accountFlow: {
         accounts: accountDetailedFlows,
         internalTransfers: internalTransfersList,
