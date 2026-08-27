@@ -48,7 +48,9 @@ export interface CategoryBudgetItem {
 
 export interface BudgetSummary {
   totalBudgeted: number;
+  totalBudgetedSpent?: number;
   totalSpent: number;
+  totalAllExpensesSpent?: number;
   totalRemaining: number;
   overallPercentage: number;
   totalTransactionsCount?: number;

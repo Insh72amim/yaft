@@ -79,7 +79,7 @@ export function EnvelopeMetrics({ summary, monthLabel }: EnvelopeMetricsProps) {
             alignItems: 'center',
             gap: '6px',
           }}>
-          <ArrowUpRight size={13} color="#ef4444" /> Total Expenses Spent
+          <ArrowUpRight size={13} color="#ef4444" /> Spent in Envelopes
         </span>
         <strong
           style={{
@@ -98,7 +98,9 @@ export function EnvelopeMetrics({ summary, monthLabel }: EnvelopeMetricsProps) {
             marginTop: '4px',
             display: 'block',
           }}>
-          Actual debits minus refunds for {monthLabel}
+          {summary.totalAllExpensesSpent
+            ? `${money(summary.totalAllExpensesSpent * 100, true)} total across all categories`
+            : `Debits in budgeted envelopes for ${monthLabel}`}
         </small>
       </div>
 
@@ -119,7 +121,7 @@ export function EnvelopeMetrics({ summary, monthLabel }: EnvelopeMetricsProps) {
             alignItems: 'center',
             gap: '6px',
           }}>
-          <ArrowDownLeft size={13} color="var(--green)" /> Total Remaining In Budget
+          <ArrowDownLeft size={13} color="var(--green)" /> Total Remaining in Budget
         </span>
         <strong
           style={{
@@ -138,7 +140,11 @@ export function EnvelopeMetrics({ summary, monthLabel }: EnvelopeMetricsProps) {
             marginTop: '4px',
             display: 'block',
           }}>
-          Remaining allowance for {monthLabel}
+          {totalRemaining > 0
+            ? `Allowance remaining for ${monthLabel}`
+            : totalSpent > totalBudgeted
+            ? `${money((totalSpent - totalBudgeted) * 100, true)} exceeded`
+            : `₹0 remaining allowance`}
         </small>
       </div>
 
@@ -189,7 +195,7 @@ export function EnvelopeMetrics({ summary, monthLabel }: EnvelopeMetricsProps) {
             display: 'block',
           }}>
           {overallPercentage > 100
-            ? 'Budget ceiling exceeded'
+            ? `${money((totalSpent - totalBudgeted) * 100, true)} over target ceiling`
             : overallPercentage > 85
             ? 'Approaching envelope ceiling'
             : 'Spending comfortably within targets'}

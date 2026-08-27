@@ -203,16 +203,19 @@ export class BudgetsService {
     });
 
     const totalBudgetedNum = Number(totalBudgetedMinor) / 100;
-    const totalSpentNum = Number(totalAllExpensesSpentMinor) / 100;
-    const totalRemainingNum = Math.max(0, totalBudgetedNum - (Number(totalBudgetedSpentMinor) / 100));
-    const overallPercentage = totalBudgetedNum > 0 ? Math.round(((Number(totalBudgetedSpentMinor) / 100) / totalBudgetedNum) * 100) : 0;
+    const totalBudgetedSpentNum = Number(totalBudgetedSpentMinor) / 100;
+    const totalAllExpensesSpentNum = Number(totalAllExpensesSpentMinor) / 100;
+    const totalRemainingNum = Math.max(0, totalBudgetedNum - totalBudgetedSpentNum);
+    const overallPercentage = totalBudgetedNum > 0 ? Math.round((totalBudgetedSpentNum / totalBudgetedNum) * 100) : 0;
 
     return {
       month,
       year,
       summary: {
         totalBudgeted: totalBudgetedNum,
-        totalSpent: totalSpentNum,
+        totalBudgetedSpent: totalBudgetedSpentNum,
+        totalSpent: totalBudgetedSpentNum,
+        totalAllExpensesSpent: totalAllExpensesSpentNum,
         totalRemaining: totalRemainingNum,
         overallPercentage,
         totalTransactionsCount: totalExpenseTxCount,
