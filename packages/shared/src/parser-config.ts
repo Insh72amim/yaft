@@ -189,7 +189,7 @@ export const EMAIL_ALERT_PATTERNS = {
   BOILERPLATE_WARNINGS_REGEX: /(?:Trxn\.?\s*not\s*done\s*by\s*you|Safe\s*Banking\s*Tip|If\s*you\s*have\s*not\s*authorized|Report\s*at\s*https?:\/\/[^\s]+|Caution:\s*Be\s*Alert|Exclusive\s*offer\*?!|If (?:this )?transaction was not (?:done|initiated) by you|To block UPI|Please SMS BLOCK|We care about your security|Call us at:|Always open to help you|Warm Regards|This is an auto-generated (?:email|message)|Please do not reply to this (?:email|message)|For any queries,?\s*(?:please\s*)?contact|RBI Disclaimer|DICGC)[\s\S]*/i,
 
   EXPLICIT_CREDIT_CARD_REGEX: /credit\s*card|creditcard|pixel\s*play|card\s*ending|card\s*no\.?\s*(?:xx|\d)|card\s*xx\d|amazon\s*pay|card\s+4[xX]+|sbi\s*card/i,
-  EXPLICIT_BANK_ACCOUNT_REGEX: /(?:debited\s+from\s+your\s+A\/c|debited\s+from\s+A\/c|Account\s*Number:\s*XX|from\s+account\s*[\*xX\d]+|savings\s*a\/c|bank\s*a\/c)/i,
+  EXPLICIT_BANK_ACCOUNT_REGEX: /(?:debited\s+from|credited\s+to|transferred\s+from|transferred\s+to|deposited\s+in|received\s+in)\s+(?:your\s+)?(?:A\/c|account|savings\s*a\/c|bank\s*a\/c)|\bAccount\s*Number:\s*XX|\bA\/c\s*no\.?|\bA\/c\s*(?:is|was)?\s*(?:credited|debited)|\bA\/c\s*(?:ending\s+(?:with|in)\s+)?(?:XX|\*+|\d{4})|\bto\s+your\s+A\/c|\bfrom\s+account\s*[\*xX\d]+|\bsavings\s*a\/c|\bbank\s*a\/c/i,
   EXPLICIT_INVESTMENT_REGEX: /mutual\s*fund|sip\s*(?:debit|installment|transaction|amount)|folio\s*no\.?|units\s*allotted|nav\s*:\s*|camsonline|kfintech|mfcentral|zerodha\s*coin|groww\s*invest|amc\b|uti\s*mf|hdfc\s*mf|sbi\s*mf|icici\s*pru(?:dential)?\s*mf|axis\s*mf|mirae\s*asset|nippon\s*india|parag\s*parikh/i,
 
   CREDIT_TXN_REGEX: /credited|received|deposited|refund/i,

@@ -84,16 +84,21 @@ export function extractSemanticTokens(
   }
 
   // 3. Extract Account Instrument Token
-  let accountType = AccountType.BANK;
-  if (intent === 'INVESTMENT_DEBIT' || EMAIL_ALERT_PATTERNS.EXPLICIT_INVESTMENT_REGEX.test(fullContext)) {
-    accountType = AccountType.MUTUAL_FUND;
-  } else if (
+  const isExplicitInvestment =
+    intent === 'INVESTMENT_DEBIT' || EMAIL_ALERT_PATTERNS.EXPLICIT_INVESTMENT_REGEX.test(fullContext);
+  const isExplicitCreditCard =
     intent === 'CARD_SPEND' ||
     intent === 'CARD_BILL_PAYMENT' ||
-    EMAIL_ALERT_PATTERNS.EXPLICIT_CREDIT_CARD_REGEX.test(fullContext) ||
-    config?.accountType === AccountType.CREDIT_CARD
-  ) {
+    EMAIL_ALERT_PATTERNS.EXPLICIT_CREDIT_CARD_REGEX.test(fullContext);
+  const isExplicitBankAccount = EMAIL_ALERT_PATTERNS.EXPLICIT_BANK_ACCOUNT_REGEX.test(fullContext);
+
+  let accountType = AccountType.BANK;
+  if (isExplicitInvestment) {
+    accountType = AccountType.MUTUAL_FUND;
+  } else if (isExplicitCreditCard && !isExplicitBankAccount) {
     accountType = AccountType.CREDIT_CARD;
+  } else if (isExplicitBankAccount) {
+    accountType = AccountType.BANK;
   } else if (config?.accountType) {
     accountType = config.accountType;
   }

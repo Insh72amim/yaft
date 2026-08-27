@@ -180,6 +180,20 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.merchant).toBe('YOUTUBE GOOGLE');
   });
 
+  it('should parse Axis Bank A/c credit alert as BANK account type and never CREDIT_CARD', () => {
+    const text = "09-05-2026 Dear Test User, Here's the summary of your transaction: Amount Credited: INR 125.00 Account Number: XX1234 Date & Time: 09-05-26, 14:15:00 IST Transaction Info: UPI/P2A/1234567890/MERCHANT THREE. If this transaction was not initiated by you: Call us at: 18001035577";
+    const result = parseEmailAlertSnippet(text, 'alerts@axis.bank.in');
+
+    expect(result).not.toBeNull();
+    expect(result?.bankName).toBe('Axis Bank');
+    expect(result?.accountType).toBe('BANK');
+    expect(result?.accountLast4).toBe('6785');
+    expect(result?.type).toBe('CREDIT');
+    expect(result?.amountDisplay).toBe(125);
+    expect(result?.amountMinor).toBe(12500n);
+    expect(result?.merchant).toBe('MERCHANT THREE');
+  });
+
   it('should parse ICICI Credit Card with spaced merchant ZE PTO', () => {
     const text = 'Dear Customer, Your ICICI Bank Credit Card XX0001 has been used for a transaction of INR 41.00 on Aug 02, 2026 at 20:30:00. Info: ZE PTO. The Available Credit Limit on your card is INR 95,000.00 and Total Credit Limit is INR 1,25,000.00.';
     const result = parseEmailAlertSnippet(text, 'credit_cards@icici.bank.in');

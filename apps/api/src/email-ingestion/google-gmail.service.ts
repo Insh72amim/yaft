@@ -636,7 +636,7 @@ export class GoogleGmailService {
     const last4 = alert.accountLast4 ? alert.accountLast4.toLowerCase() : '';
     const text = (rawSnippetText || '').toLowerCase();
 
-    // Filter candidate user accounts matching the alert type
+    // 1. Strict Instrument / Account Type Filtering
     let candidateAccounts: any[] = [];
     if (alert.accountType === AccountType.CREDIT_CARD) {
       candidateAccounts = userAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
@@ -699,7 +699,7 @@ export class GoogleGmailService {
       return (inst && (inst.includes(b) || b.includes(inst))) || name.includes(b);
     };
 
-    // 1. Exact match on last4 digits in account name or institution
+    // 1. Exact match on last4 digits in account name or metadata
     if (last4) {
       const last4Match = candidateAccounts.find((acc) => {
         const name = (acc.name || '').toLowerCase();
@@ -709,13 +709,26 @@ export class GoogleGmailService {
       });
       if (last4Match) return last4Match;
 
-      // Also try last4 match without institution restriction if uniquely matching an account AND institution matches
+      // If last4 was uniquely matched among all accounts of that type and institution matches
       const anyLast4Matches = candidateAccounts.filter((acc) => {
         const name = (acc.name || '').toLowerCase();
         return name.includes(last4) || name.includes(`••${last4}`) || name.includes(`xx${last4}`) || name.includes(`*${last4}`);
       });
       if (anyLast4Matches.length === 1 && isInstitutionMatch(anyLast4Matches[0], bankName)) {
         return anyLast4Matches[0];
+      }
+
+      // Check if any candidate account has a known last4 that conflicts with this alert
+      const hasConflictingCandidateDigits = candidateAccounts.some((acc) => {
+        const name = (acc.name || '').toLowerCase();
+        const accDigitsMatch = name.match(/(?:••|\*\*|xx|\b)(\d{4})\b/i);
+        return accDigitsMatch && accDigitsMatch[1] !== last4;
+      });
+
+      // If user has multiple accounts under this institution, fail closed to prevent cross-account contamination
+      const instAccounts = candidateAccounts.filter((acc) => isInstitutionMatch(acc, bankName));
+      if (instAccounts.length > 1 || hasConflictingCandidateDigits) {
+        return null;
       }
     }
 
@@ -734,33 +747,33 @@ export class GoogleGmailService {
       if (name.length > 3 && text.includes(name)) return true;
       return false;
     });
-    if (productMatch) return productMatch;
-
-    // 3. Institution match
-    const instMatches = candidateAccounts.filter((acc) => {
-      if (!isInstitutionMatch(acc, bankName)) return false;
+    if (productMatch) {
       if (last4) {
-        const accName = (acc.name || '').toLowerCase();
-        const accDigitsMatch = accName.match(/(?:••|\*\*|xx|\b)(\d{4})\b/i);
+        const name = (productMatch.name || '').toLowerCase();
+        const accDigitsMatch = name.match(/(?:••|\*\*|xx|\b)(\d{4})\b/i);
         if (accDigitsMatch && accDigitsMatch[1] !== last4) {
-          return false;
+          return null; // Conflicting digits, reject
         }
       }
-      return true;
-    });
+      return productMatch;
+    }
 
-    if (instMatches.length === 1) {
-      return instMatches[0];
-    } else if (instMatches.length > 1) {
-      if (text.includes('rupay') || text.includes('upi')) {
-        const rupayAcc = instMatches.find((a) => a.name.toLowerCase().includes('rupay') || a.type === AccountType.UPI_LITE);
-        if (rupayAcc) return rupayAcc;
+    // 3. Institution match ONLY if no specific last4 is in the alert
+    if (!last4) {
+      const instMatches = candidateAccounts.filter((acc) => isInstitutionMatch(acc, bankName));
+      if (instMatches.length === 1) {
+        return instMatches[0];
+      } else if (instMatches.length > 1) {
+        if (text.includes('rupay') || text.includes('upi')) {
+          const rupayAcc = instMatches.find((a) => a.name.toLowerCase().includes('rupay') || a.type === AccountType.UPI_LITE);
+          if (rupayAcc) return rupayAcc;
+        }
+        return instMatches[0];
       }
-      return instMatches[0];
     }
 
     // Only return candidateAccounts[0] if bankName is generic non-conflicting placeholder
-    if (candidateAccounts.length === 1 && (bankName === 'bank alert' || bankName === 'mutual fund')) {
+    if (!last4 && candidateAccounts.length === 1 && (bankName === 'bank alert' || bankName === 'mutual fund')) {
       return candidateAccounts[0];
     }
 
