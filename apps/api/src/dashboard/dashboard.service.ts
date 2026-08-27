@@ -519,16 +519,26 @@ export class DashboardService {
           : []),
       ].filter((sg) => sg.amount > 0);
 
-      const accountCategories = [
+      const accountFinalCategoriesMap = new Map<string, { name: string; color: string; amount: number }>();
+      [
         ...acc.expenseCategories.values(),
         ...acc.investmentCategories.values(),
         ...acc.otherCategories.values(),
-        ...acc.ccCategories.values(),
-        ...acc.upiLiteCategories.values(),
+        ...bankDistributedCcCategories,
+        ...bankDistributedUpiLiteCategories,
       ]
+        .filter((c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name))
+        .forEach((c) => {
+          const ex = accountFinalCategoriesMap.get(c.name) || { name: c.name, color: c.color, amount: 0 };
+          accountFinalCategoriesMap.set(c.name, { ...ex, amount: ex.amount + c.amount });
+        });
+
+      const totalAccountFinalSpend = [...accountFinalCategoriesMap.values()].reduce((sum, c) => sum + c.amount, 0);
+
+      const accountCategories = [...accountFinalCategoriesMap.values()]
         .map((c) => ({
           ...c,
-          percentage: accountSpendingAndSettlements > 0 ? Math.round((c.amount / accountSpendingAndSettlements) * 100) : 0,
+          percentage: totalAccountFinalSpend > 0 ? Math.round((c.amount / totalAccountFinalSpend) * 100) : 0,
         }))
         .sort((a, b) => b.amount - a.amount);
 
@@ -658,7 +668,7 @@ export class DashboardService {
       ...overallDistributedCcCategories,
       ...overallDistributedUpiLiteCategories,
     ]
-      .filter((c) => !/^\s*(cc transfer|upi lite|internal transfer)\s*$/i.test(c.name))
+      .filter((c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name))
       .forEach((c) => {
         const ex = categoriesMap.get(c.name) || { name: c.name, color: c.color, amount: 0, superGroup: (c as any).superGroup };
         categoriesMap.set(c.name, { ...ex, amount: ex.amount + c.amount });
