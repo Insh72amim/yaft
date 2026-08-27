@@ -1023,8 +1023,10 @@ function AccountSpendingAndBeneficiariesSection({
 
   if (!activeAcc) return null;
 
-  const categories = activeAcc.categories || activeAcc.cleanCategories || [];
-  const totalSpent = (activeAcc as any).spendingAndSettlements ?? activeAcc.cleanOutbound ?? (activeAcc.expenses ? (activeAcc.expenses + (activeAcc.investments ?? 0) + (activeAcc.other ?? 0) + (activeAcc.creditCardPayments ?? 0)) : activeAcc.externalOutbound);
+  const categories = (activeAcc.categories || activeAcc.cleanCategories || []).filter(
+    (c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name),
+  );
+  const totalSpent = categories.reduce((sum, c) => sum + c.amount, 0) || Number((activeAcc as any).spendingAndSettlements ?? activeAcc.cleanOutbound ?? (activeAcc.expenses ? (activeAcc.expenses + (activeAcc.investments ?? 0) + (activeAcc.other ?? 0) + (activeAcc.creditCardPayments ?? 0)) : activeAcc.externalOutbound));
 
   let displayRecipients = activeAcc.topExternalRecipients || [];
   let otherBound = activeAcc.otherExternalOutbound;
@@ -1045,7 +1047,10 @@ function AccountSpendingAndBeneficiariesSection({
       <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
         {accounts.map((acc) => {
           const isSelected = acc.id === activeAcc.id;
-          const accSpendAmt = (acc as any).spendingAndSettlements ?? acc.cleanOutbound ?? acc.externalOutbound;
+          const accCats = (acc.categories || acc.cleanCategories || []).filter(
+            (c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name),
+          );
+          const accSpendAmt = accCats.reduce((sum, c) => sum + c.amount, 0) || Number((acc as any).spendingAndSettlements ?? acc.cleanOutbound ?? acc.externalOutbound);
           const pillLabel = accSpendAmt > 0 ? `${money(accSpendAmt, true)} spent` : acc.totalInbound > 0 ? `+${money(acc.totalInbound, true)} in` : '₹0 spent';
           return (
             <button
@@ -1104,7 +1109,7 @@ function AccountSpendingAndBeneficiariesSection({
         <div style={{ background: 'var(--background-alt)', border: '1px solid var(--line)', padding: '12px 14px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <small style={{ color: '#ef4444', display: 'block', fontSize: '10px', fontWeight: 600 }}>
-              Spends & Settlements
+              Actual Spending
             </small>
             <strong style={{ fontSize: '14px', color: '#ef4444' }}>-{money(totalSpent)}</strong>
           </div>
@@ -1133,7 +1138,7 @@ function AccountSpendingAndBeneficiariesSection({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                SPENDING & SETTLEMENTS
+                SPENDING BY CATEGORY
               </span>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--ink)' }}>Where it went</h3>
             </div>
