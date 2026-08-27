@@ -118,7 +118,7 @@ describe('ExpenseAnalytics & Stacked Subcategory Buckets', () => {
     expect(res.buckets[2].totalAmount).toBe(0);
   });
 
-  it('filters out CC bill payments and internal transfers from expense analytics', async () => {
+  it('filters out CC bill payments and internal transfers from expense analytics by default', async () => {
     const mockTxns = [
       {
         id: 'tx-1',
@@ -158,5 +158,77 @@ describe('ExpenseAnalytics & Stacked Subcategory Buckets', () => {
 
     expect(res.buckets[0].totalAmount).toBe(100000);
     expect(res.summary.totalExpense).toBe(100000);
+    expect(res.availableCategoryTypes).toBeDefined();
+    expect(res.availableCategoryTypes?.find((t) => t.type === 'TRANSFER')?.totalAmount).toBe(2500000);
+  });
+
+  it('supports multi-select category types (e.g. EXPENSE + OTHER)', async () => {
+    const mockTxns = [
+      {
+        id: 'tx-1',
+        amount: -200000n, // Direct Expense 2000
+        transactionDate: new Date('2026-08-10T10:00:00Z'),
+        descriptionRaw: 'GROCERY STORE',
+        categoryId: 'cat-groceries',
+        category: { id: 'cat-groceries', name: 'Groceries', color: '#10b981', type: 'EXPENSE' },
+        account: { id: 'acc-1', name: 'Axis Bank', type: 'SAVINGS' },
+        transferGroupId: null,
+      },
+      {
+        id: 'tx-2',
+        amount: -500000n, // Indirect / Loan EMI 5000
+        transactionDate: new Date('2026-08-10T11:00:00Z'),
+        descriptionRaw: 'HOME LOAN EMI',
+        categoryId: 'cat-loan',
+        category: { id: 'cat-loan', name: 'Home Loan EMI', color: '#64748b', type: 'OTHER' },
+        account: { id: 'acc-1', name: 'Axis Bank', type: 'SAVINGS' },
+        transferGroupId: null,
+      },
+      {
+        id: 'tx-3',
+        amount: -1000000n, // Investment 10000
+        transactionDate: new Date('2026-08-10T12:00:00Z'),
+        descriptionRaw: 'ZERODHA STOCKS',
+        categoryId: 'cat-invest',
+        category: { id: 'cat-invest', name: 'Stocks', color: '#8b5cf6', type: 'INVESTMENT' },
+        account: { id: 'acc-1', name: 'Axis Bank', type: 'SAVINGS' },
+        transferGroupId: null,
+      },
+    ];
+
+    const prisma = {
+      transaction: { findMany: jest.fn().mockResolvedValue(mockTxns) },
+    } as unknown as PrismaService;
+
+    const service = new DashboardService(prisma);
+    const controller = new DashboardController(service);
+
+    // 1. Default (EXPENSE only)
+    const defRes = await controller.getExpenseAnalytics({ id: 'user-1' }, 'day', '2026-08-10', '2026-08-10');
+    expect(defRes.summary.totalExpense).toBe(200000);
+
+    // 2. Multi-select: EXPENSE + OTHER
+    const multiRes = await controller.getExpenseAnalytics(
+      { id: 'user-1' },
+      'day',
+      '2026-08-10',
+      '2026-08-10',
+      undefined,
+      'EXPENSE,OTHER',
+    );
+    expect(multiRes.summary.totalExpense).toBe(700000); // 2000 + 5000
+    expect(multiRes.categoryLegend).toHaveLength(2);
+
+    // 3. ALL
+    const allRes = await controller.getExpenseAnalytics(
+      { id: 'user-1' },
+      'day',
+      '2026-08-10',
+      '2026-08-10',
+      undefined,
+      'ALL',
+    );
+    expect(allRes.summary.totalExpense).toBe(1700000); // 2000 + 5000 + 10000
+    expect(allRes.categoryLegend).toHaveLength(3);
   });
 });

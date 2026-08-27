@@ -145,6 +145,13 @@ export interface ExpenseAnalyticsSummary {
   intervalCount: number;
 }
 
+export interface AvailableCategoryType {
+  type: string;
+  label: string;
+  count: number;
+  totalAmount: number;
+}
+
 export interface ExpenseAnalyticsResponse {
   granularity: ExpenseGranularity;
   startDate: string;
@@ -152,4 +159,5 @@ export interface ExpenseAnalyticsResponse {
   buckets: ExpenseAnalyticsBucket[];
   summary: ExpenseAnalyticsSummary;
   categoryLegend: ExpenseAnalyticsLegendItem[];
+  availableCategoryTypes?: AvailableCategoryType[];
 }

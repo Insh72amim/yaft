@@ -972,6 +972,7 @@ export class DashboardService {
     startDateStr?: string,
     endDateStr?: string,
     categoryId?: string,
+    categoryTypes?: string[],
   ): Promise<ExpenseAnalyticsResponse> {
     const now = new Date();
     let startDate: Date;
@@ -1003,7 +1004,6 @@ export class DashboardService {
       account: { userId, archived: false },
       transactionDate: { gte: startDate, lte: endDate },
       amount: { lt: 0n },
-      transferGroupId: null,
     };
 
     if (categoryId && categoryId !== 'all') {
@@ -1023,15 +1023,57 @@ export class DashboardService {
       orderBy: { transactionDate: 'asc' },
     });
 
-    const expenseTxns = transactions.filter((tx) => {
-      if (tx.category?.type === 'TRANSFER' || tx.category?.superCategory?.kind === 'TRANSFER') return false;
-      if (tx.category?.type === 'INVESTMENT' || tx.category?.superCategory?.kind === 'INVESTMENT') return false;
+    const classifyTxnType = (tx: (typeof transactions)[0]): 'EXPENSE' | 'OTHER' | 'INVESTMENT' | 'TRANSFER' => {
+      if (tx.transferGroupId) return 'TRANSFER';
+      if (tx.category?.type === 'TRANSFER' || tx.category?.superCategory?.kind === 'TRANSFER') return 'TRANSFER';
+      if (tx.category?.name && /^\s*(?:self\s*transfer|internal\s*transfer|transfer|trf)\s*$/i.test(tx.category.name)) return 'TRANSFER';
+
       const desc = tx.descriptionRaw.toLowerCase();
-      if (/self\s*tra|tcd\s*no|firdftfr|own\s*acc|self\s*transfer|trf\s*to/i.test(desc)) return false;
+      if (/self\s*tra|tcd\s*no|firdftfr|own\s*acc|self\s*transfer|trf\s*to/i.test(desc)) return 'TRANSFER';
       if (tx.account.type !== 'CREDIT_CARD' && /cred\.club|cred\s+rent|cred\s+pay|credit\s*card\s*payment|cc\s*bill|billdesk.*card|payment\s*to\s*card/i.test(desc)) {
-        return false;
+        return 'TRANSFER';
       }
-      return true;
+
+      if (tx.category?.type === 'INVESTMENT' || tx.category?.superCategory?.kind === 'INVESTMENT') return 'INVESTMENT';
+      if (tx.category?.name && /invest|mutual|sip|stock|broker|equity|zerodha|groww|etmoney/i.test(tx.category.name)) return 'INVESTMENT';
+      if (/mutual|fund|zerodha|groww|bse|nse|sgb|nps|indiabulls|icici\s*prudential|mf\s*central|razorpay\s*mf|cams|kfintech/i.test(desc)) return 'INVESTMENT';
+
+      if (tx.category?.type === 'OTHER' || tx.category?.superCategory?.kind === 'OTHER') return 'OTHER';
+      if (tx.category?.name && /loan|emi|tax|penalty|bank\s*charge|annual\s*fee/i.test(tx.category.name)) return 'OTHER';
+
+      return 'EXPENSE';
+    };
+
+    // Calculate available category types summary across the date range
+    const typeSummaries = {
+      EXPENSE: { type: 'EXPENSE', label: 'Direct Expenses', count: 0, totalAmount: 0 },
+      OTHER: { type: 'OTHER', label: 'Indirect / Others', count: 0, totalAmount: 0 },
+      INVESTMENT: { type: 'INVESTMENT', label: 'Investments', count: 0, totalAmount: 0 },
+      TRANSFER: { type: 'TRANSFER', label: 'Transfers & CC', count: 0, totalAmount: 0 },
+    };
+
+    for (const tx of transactions) {
+      const t = classifyTxnType(tx);
+      const absAmount = Math.abs(Number(tx.amount));
+      typeSummaries[t].count += 1;
+      typeSummaries[t].totalAmount += absAmount;
+    }
+
+    const availableCategoryTypes = Object.values(typeSummaries);
+
+    // Determine active filter types (defaults strictly to EXPENSE only if not specified)
+    let activeTypes: Set<string>;
+    if (!categoryTypes || categoryTypes.length === 0) {
+      activeTypes = new Set(['EXPENSE']);
+    } else if (categoryTypes.includes('ALL')) {
+      activeTypes = new Set(['EXPENSE', 'OTHER', 'INVESTMENT', 'TRANSFER']);
+    } else {
+      activeTypes = new Set(categoryTypes);
+    }
+
+    const expenseTxns = transactions.filter((tx) => {
+      const t = classifyTxnType(tx);
+      return activeTypes.has(t);
     });
 
     const bucketMap = new Map<string, ExpenseAnalyticsBucket>();
@@ -1244,6 +1286,7 @@ export class DashboardService {
         intervalCount,
       },
       categoryLegend,
+      availableCategoryTypes,
     };
   }
 }

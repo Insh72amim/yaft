@@ -30,7 +30,11 @@ export class DashboardController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('categoryId') categoryId?: string,
+    @Query('categoryTypes') categoryTypesStr?: string,
   ) {
-    return this.dashboardService.getExpenseAnalytics(user.id, granularity, startDate, endDate, categoryId);
+    const categoryTypes = categoryTypesStr
+      ? categoryTypesStr.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
+      : undefined;
+    return this.dashboardService.getExpenseAnalytics(user.id, granularity, startDate, endDate, categoryId, categoryTypes);
   }
 }

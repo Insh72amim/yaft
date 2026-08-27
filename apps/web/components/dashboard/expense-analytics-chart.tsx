@@ -16,12 +16,15 @@ import {
   Filter,
   Check,
   RotateCcw,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { api, money } from '@/lib/api';
 import type {
   ExpenseAnalyticsResponse,
   ExpenseGranularity,
   ExpenseAnalyticsBucket,
+  AvailableCategoryType,
 } from '@yaft/shared';
 
 interface ExpenseAnalyticsChartProps {
@@ -33,6 +36,38 @@ interface ExpenseAnalyticsChartProps {
 type MonthPreset = '6_MONTHS' | '12_MONTHS' | 'THIS_FY' | 'THIS_YEAR';
 type WeekPreset = 'THIS_MONTH' | '4_WEEKS' | '8_WEEKS' | '12_WEEKS';
 type DayPreset = 'FULL_MONTH' | '7_DAYS' | '14_DAYS' | '30_DAYS';
+
+const CATEGORY_TYPE_CONFIG: Record<
+  string,
+  { label: string; shortLabel: string; color: string; description: string }
+> = {
+  EXPENSE: {
+    label: 'Direct Expenses',
+    shortLabel: 'Expense (Direct)',
+    color: '#ef4444',
+    description: 'Everyday consumption, dining, groceries, shopping, bills',
+  },
+  OTHER: {
+    label: 'Indirect / Others',
+    shortLabel: 'Indirect & Other',
+    color: '#64748b',
+    description: 'Loan EMIs, bank charges, taxes, penalties, fees',
+  },
+  INVESTMENT: {
+    label: 'Investments',
+    shortLabel: 'Investments',
+    color: '#8b5cf6',
+    description: 'SIPs, mutual funds, stocks, wealth building',
+  },
+  TRANSFER: {
+    label: 'Transfers & CC',
+    shortLabel: 'Transfers & CC',
+    color: '#3b82f6',
+    description: 'Self transfers, credit card bill payments, internal moves',
+  },
+};
+
+const ALL_CATEGORY_TYPES = ['EXPENSE', 'OTHER', 'INVESTMENT', 'TRANSFER'];
 
 function computeDateRangeForGranularity(
   granularity: ExpenseGranularity,
@@ -178,6 +213,9 @@ export function ExpenseAnalyticsChart({
 }: ExpenseAnalyticsChartProps) {
   const [granularity, setGranularity] = useState<ExpenseGranularity>('month');
 
+  // Multi-select Category Kinds: strictly default to ['EXPENSE'] only!
+  const [selectedCategoryTypes, setSelectedCategoryTypes] = useState<string[]>(['EXPENSE']);
+
   // Specific presets for each granularity
   const [monthPreset, setMonthPreset] = useState<MonthPreset>('6_MONTHS');
   const [weekPreset, setWeekPreset] = useState<WeekPreset>('THIS_MONTH');
@@ -200,10 +238,35 @@ export function ExpenseAnalyticsChart({
     return dayPreset;
   }, [granularity, monthPreset, weekPreset, dayPreset]);
 
-  // Compute computed active date bounds
+  // Compute active date bounds
   const rangeInfo = useMemo(() => {
     return computeDateRangeForGranularity(granularity, activePreset, refDate);
   }, [granularity, activePreset, refDate]);
+
+  // Multi-select toggle handler
+  const handleToggleCategoryType = (typeKey: string) => {
+    if (typeKey === 'ALL') {
+      if (selectedCategoryTypes.length === ALL_CATEGORY_TYPES.length) {
+        // Reset to default Expense only
+        setSelectedCategoryTypes(['EXPENSE']);
+      } else {
+        // Select all
+        setSelectedCategoryTypes([...ALL_CATEGORY_TYPES]);
+      }
+      return;
+    }
+
+    setSelectedCategoryTypes((prev) => {
+      if (prev.includes(typeKey)) {
+        if (prev.length === 1) return prev; // Keep at least one selected
+        return prev.filter((t) => t !== typeKey);
+      } else {
+        return [...prev, typeKey];
+      }
+    });
+  };
+
+  const isAllSelected = selectedCategoryTypes.length === ALL_CATEGORY_TYPES.length;
 
   // Period shifting logic
   const shiftPeriod = (direction: -1 | 1) => {
@@ -255,6 +318,7 @@ export function ExpenseAnalyticsChart({
       params.set('granularity', granularity);
       params.set('startDate', rangeInfo.startDate);
       params.set('endDate', rangeInfo.endDate);
+      params.set('categoryTypes', selectedCategoryTypes.join(','));
 
       const res = await api<ExpenseAnalyticsResponse>(`/dashboard/expense-analytics?${params.toString()}`);
       setData(res);
@@ -263,7 +327,7 @@ export function ExpenseAnalyticsChart({
     } finally {
       setLoading(false);
     }
-  }, [granularity, rangeInfo.startDate, rangeInfo.endDate]);
+  }, [granularity, rangeInfo.startDate, rangeInfo.endDate, selectedCategoryTypes]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -399,7 +463,109 @@ export function ExpenseAnalyticsChart({
         </div>
       </div>
 
-      {/* Sub-Header: Granularity-Specific Range Presets & Period Stepper Navigation */}
+      {/* Row 2: Category Kinds Multi-Select Filter Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '8px',
+          padding: '10px 14px',
+          background: 'var(--background-alt)',
+          borderRadius: '10px',
+          border: '1px solid var(--line)',
+          marginBottom: '14px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '4px' }}>
+          <Filter size={13} color="var(--muted)" />
+          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Category Types:
+          </span>
+        </div>
+
+        {/* Master "All" Toggle */}
+        <button
+          type="button"
+          onClick={() => handleToggleCategoryType('ALL')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            border: isAllSelected ? '1px solid var(--ink)' : '1px solid var(--line)',
+            background: isAllSelected ? 'var(--ink)' : 'var(--card)',
+            color: isAllSelected ? '#ffffff' : 'var(--ink)',
+            fontSize: '11px',
+            fontWeight: isAllSelected ? 700 : 500,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          {isAllSelected ? <CheckSquare size={12} /> : <Square size={12} />}
+          All Outflows
+        </button>
+
+        {/* Individual Multi-Select Category Types */}
+        {ALL_CATEGORY_TYPES.map((typeKey) => {
+          const cfg = CATEGORY_TYPE_CONFIG[typeKey];
+          const isSelected = selectedCategoryTypes.includes(typeKey);
+          const typeSummary = data?.availableCategoryTypes?.find((t) => t.type === typeKey);
+
+          return (
+            <button
+              key={typeKey}
+              type="button"
+              title={cfg.description}
+              onClick={() => handleToggleCategoryType(typeKey)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                border: isSelected ? `1.5px solid ${cfg.color}` : '1px solid var(--line)',
+                background: isSelected ? 'var(--card)' : 'transparent',
+                color: isSelected ? 'var(--ink)' : 'var(--muted)',
+                fontSize: '11px',
+                fontWeight: isSelected ? 700 : 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: isSelected ? '0 1px 4px rgba(0,0,0,0.05)' : 'none',
+              }}
+            >
+              <span
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: isSelected ? cfg.color : 'var(--muted)',
+                  opacity: isSelected ? 1 : 0.4,
+                  flexShrink: 0,
+                }}
+              />
+              <span>{cfg.shortLabel}</span>
+              {typeSummary && typeSummary.totalAmount > 0 && (
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: isSelected ? cfg.color : 'var(--muted)',
+                    background: isSelected ? 'var(--background-alt)' : 'transparent',
+                    padding: '1px 5px',
+                    borderRadius: '4px',
+                  }}
+                >
+                  {money(typeSummary.totalAmount, true)}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Row 3: Granularity-Specific Range Presets & Period Stepper Navigation */}
       <div
         style={{
           display: 'flex',
@@ -630,9 +796,9 @@ export function ExpenseAnalyticsChart({
       ) : !data || data.buckets.length === 0 || data.summary.totalExpense === 0 ? (
         <div style={{ padding: '50px 20px', textAlign: 'center', color: 'var(--muted)' }}>
           <BarChart3 size={36} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-          <h4 style={{ margin: '0 0 6px', color: 'var(--ink)', fontSize: '14px' }}>No Expense Data for {rangeInfo.label}</h4>
+          <h4 style={{ margin: '0 0 6px', color: 'var(--ink)', fontSize: '14px' }}>No Data for Selected Categories in {rangeInfo.label}</h4>
           <p style={{ margin: 0, fontSize: '12px' }}>
-            Use the range buttons or stepper above to explore periods with recorded transactions.
+            Try toggling additional category types above or adjusting the date range.
           </p>
         </div>
       ) : (
@@ -655,7 +821,7 @@ export function ExpenseAnalyticsChart({
               }}
             >
               <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Total {granularityLabel} Spend
+                Total Selected Spend
               </div>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--ink)', marginTop: '4px' }}>
                 {money(data.summary.totalExpense)}
@@ -1004,7 +1170,7 @@ export function ExpenseAnalyticsChart({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--ink)' }}>
-                Subcategories in this Period ({data.categoryLegend.length})
+                Subcategories in Selected Outflows ({data.categoryLegend.length})
               </span>
               <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
                 Hover a category to highlight across bars
