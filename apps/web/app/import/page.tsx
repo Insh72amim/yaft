@@ -567,19 +567,6 @@ function ImportWorkspace() {
 
       <button
         type="button"
-        className={`secondary ${activeTab === 'HISTORY' ? 'active' : ''}`}
-        onClick={() => {
-          setActiveTab('HISTORY');
-          if (!historyLoaded) loadHistory();
-        }}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', fontWeight: 600 }}>
-        <RefreshCw size={16} color="var(--green)" />
-        <span>Past Uploads & Timeline</span>
-        {historyItems.length > 0 && <span style={{ background: 'var(--card-hover)', color: 'var(--ink)', fontSize: '11px', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>{historyItems.length}</span>}
-      </button>
-
-      <button
-        type="button"
         className={`secondary ${activeTab === 'EMAIL_SYNC' ? 'active' : ''}`}
         onClick={() => {
           setActiveTab('EMAIL_SYNC');
@@ -589,6 +576,19 @@ function ImportWorkspace() {
         <Mail size={16} color="#3b82f6" />
         <span>Email Auto-Sync & Alert Ingestion</span>
         <span style={{ background: '#3b82f6', color: '#ffffff', fontSize: '10px', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>NEW</span>
+      </button>
+
+      <button
+        type="button"
+        className={`secondary ${activeTab === 'HISTORY' ? 'active' : ''}`}
+        onClick={() => {
+          setActiveTab('HISTORY');
+          if (!historyLoaded) loadHistory();
+        }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', fontWeight: 600 }}>
+        <RefreshCw size={16} color="var(--green)" />
+        <span>Past Uploads & Timeline</span>
+        {historyItems.length > 0 && <span style={{ background: 'var(--card-hover)', color: 'var(--ink)', fontSize: '11px', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>{historyItems.length}</span>}
       </button>
     </div>
 
