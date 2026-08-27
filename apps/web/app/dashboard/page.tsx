@@ -31,6 +31,7 @@ import { SpendRulesModal } from '@/components/spend-rules-modal';
 import { CategoryBudgetsModal } from '@/components/category-budgets-modal';
 import { EnvelopesOverviewSection } from '@/components/dashboard/envelopes-overview-section';
 import { ExpenseAnalyticsChart } from '@/components/dashboard/expense-analytics-chart';
+import { MultiBankSankey } from '@/components/dashboard/multi-bank-sankey';
 import { api, errorMessage, isUnauthorized, money } from '@/lib/api';
 
 type Account = { id: string; name: string; type: string; balance: number; creditLimit: number | null; dueDay: number | null };
@@ -899,6 +900,21 @@ function MonthlyFlow({
           <small style={{ color: '#ef4444', display: 'block', fontSize: '11px', fontWeight: 600 }}>Living Spends & Loans</small>
           <strong style={{ fontSize: '16px', color: 'var(--ink)' }}>{money(overall.totalExternalOutbound)}</strong>
         </div>
+      </div>
+
+      {/* Multi-Bank Direct Cash Flow Sankey Diagram */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: '14px', padding: '20px', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+          <div>
+            <span className="eyebrow" style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              DIRECT CASH FLOW SANKEY
+            </span>
+            <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
+              External Inbound → Funding Banks → Final Expense Categories
+            </span>
+          </div>
+        </div>
+        <MultiBankSankey accountFlow={accountFlow} income={income} expenses={expenses} savings={savings} />
       </div>
 
       {/* Per Account Spending & Top Outbound Beneficiaries Section */}
