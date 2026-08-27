@@ -98,15 +98,6 @@ interface TagsTabProps {
   setTagModalOpen: (open: boolean) => void;
 }
 
-const QUICK_PRESETS = [
-  { name: "✈️ Vacation / Trip", color: "#3b82f6", desc: "Track flight, hotel & travel spends" },
-  { name: "🏠 Home & Renovation", color: "#10b981", desc: "Furniture, repairs & decor" },
-  { name: "💼 Business Expense", color: "#8b5cf6", desc: "Reimbursable work expenses" },
-  { name: "🎁 Festival / Gifting", color: "#f59e0b", desc: "Diwali, birthdays & celebrations" },
-  { name: "🚗 Road Trip", color: "#ec4899", desc: "Fuel, tolls & food on the road" },
-  { name: "🩺 Medical & Care", color: "#ef4444", desc: "Doctor visits & health expenses" },
-];
-
 export function TagsTab({
   tags,
   inspectedTagId,
@@ -138,11 +129,11 @@ export function TagsTab({
   const totalSpentAcrossTags = tags.reduce((sum, t) => sum + t.totalSpent, 0);
   const activeTripsCount = tags.filter((t) => t.startDate || t.budgetLimit).length;
 
-  const openNewTagModal = (preset?: typeof QUICK_PRESETS[0]) => {
+  const openNewTagModal = () => {
     setEditingTag(null);
-    setTagName(preset ? preset.name : "");
-    setTagColor(preset ? preset.color : "#3b82f6");
-    setTagDesc(preset ? preset.desc : "");
+    setTagName("");
+    setTagColor("#3b82f6");
+    setTagDesc("");
     setTagStart("");
     setTagEnd("");
     setTagBudget("");
@@ -225,26 +216,6 @@ export function TagsTab({
               <strong style={{ fontSize: "1.3rem", fontWeight: 800, color: "var(--ink)" }}>{activeTripsCount} Configured</strong>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Quick Presets Bar (Always visible below header if tags exist) */}
-      {tags.length > 0 && (
-        <div style={{ background: "var(--card)", padding: "12px 16px", borderRadius: "12px", border: "1px solid var(--line)", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-            <Sparkles size={14} color="#3b82f6" /> Quick Presets:
-          </span>
-          {QUICK_PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              type="button"
-              className="secondary compact"
-              onClick={() => openNewTagModal(preset)}
-              style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "7px", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-              <span>{preset.name}</span>
-              <Plus size={12} style={{ color: preset.color }} />
-            </button>
-          ))}
         </div>
       )}
 
@@ -401,20 +372,67 @@ export function TagsTab({
                         )}
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: "4px" }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: "flex", gap: "2px", alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        className="icon-button"
                         title="Edit Tag"
-                        onClick={() => { setEditingTag(tag); setTagName(tag.name); setTagColor(tag.color); setTagDesc(tag.description || ""); setTagStart(tag.startDate ? tag.startDate.slice(0, 10) : ""); setTagEnd(tag.endDate ? tag.endDate.slice(0, 10) : ""); setTagBudget(tag.budgetLimit ? String(tag.budgetLimit) : ""); setTagModalOpen(true); }}>
-                        <Pencil size={14} />
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          borderRadius: "6px",
+                          padding: "6px",
+                          color: "var(--muted)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          transition: "color 0.15s ease, background-color 0.15s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = "var(--ink)";
+                          e.currentTarget.style.background = "var(--background-alt)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = "var(--muted)";
+                          e.currentTarget.style.background = "transparent";
+                        }}
+                        onClick={() => {
+                          setEditingTag(tag);
+                          setTagName(tag.name);
+                          setTagColor(tag.color);
+                          setTagDesc(tag.description || "");
+                          setTagStart(tag.startDate ? tag.startDate.slice(0, 10) : "");
+                          setTagEnd(tag.endDate ? tag.endDate.slice(0, 10) : "");
+                          setTagBudget(tag.budgetLimit ? String(tag.budgetLimit) : "");
+                          setTagModalOpen(true);
+                        }}>
+                        <Pencil size={13} />
                       </button>
                       <button
                         type="button"
-                        className="icon-button danger"
                         title="Delete Tag"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          borderRadius: "6px",
+                          padding: "6px",
+                          color: "var(--muted)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          transition: "color 0.15s ease, background-color 0.15s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = "#ef4444";
+                          e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = "var(--muted)";
+                          e.currentTarget.style.background = "transparent";
+                        }}
                         onClick={() => handleDeleteTag(tag.id, tag.name)}>
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </div>
@@ -557,10 +575,29 @@ export function TagsTab({
                         <td style={{ padding: "10px 8px", textAlign: "center" }}>
                           <button
                             type="button"
-                            className="icon-button danger"
                             title="Remove tag from transaction"
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              borderRadius: "6px",
+                              padding: "5px",
+                              color: "var(--muted)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              transition: "color 0.15s ease, background-color 0.15s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = "#ef4444";
+                              e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = "var(--muted)";
+                              e.currentTarget.style.background = "transparent";
+                            }}
                             onClick={() => handleRemoveTagFromTx(tx.id, tagAnalytics.tag.id)}>
-                            <X size={14} />
+                            <X size={13} />
                           </button>
                         </td>
                       </tr>

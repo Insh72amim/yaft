@@ -164,7 +164,6 @@ function BudgetsContent() {
       if (!selectedCatId && catList.length > 0) setSelectedCatId(catList[0].id);
       if (!ruleCategoryId && catList.length > 0) setRuleCategoryId(catList[0].id);
       if (!selectedTagForAuto && tagRes.length > 0) setSelectedTagForAuto(tagRes[0].id);
-      if (!inspectedTagId && tagRes.length > 0) setInspectedTagId(tagRes[0].id);
     } catch (err) {
       setError(errorMessage(err, "Could not load budgets or categories."));
     } finally {
