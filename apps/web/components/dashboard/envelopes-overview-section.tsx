@@ -552,15 +552,14 @@ export function EnvelopesOverviewSection({
           </div>
         </div>
 
-        {/* Category Filter Pills */}
+        {/* Category Filter Pills (Static Multi-Line Wrapping) */}
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             gap: "8px",
-            overflowX: "auto",
-            paddingBottom: "8px",
+            alignItems: "center",
             marginBottom: "16px",
-            scrollbarWidth: "none",
           }}>
           <button
             type="button"
@@ -578,7 +577,6 @@ export function EnvelopesOverviewSection({
               color: inspectedCategoryId === "all" ? "#ffffff" : "var(--ink)",
               cursor: "pointer",
               whiteSpace: "nowrap",
-              flexShrink: 0,
               transition: "all 0.15s ease",
             }}>
             All Expenses ({formatMoney((summary?.totalSpent ?? 0) * 100, { compact: true })})
@@ -607,7 +605,6 @@ export function EnvelopesOverviewSection({
                   color: isSelected ? cat.color : "var(--ink)",
                   cursor: "pointer",
                   whiteSpace: "nowrap",
-                  flexShrink: 0,
                   transition: "all 0.15s ease",
                 }}>
                 <span
