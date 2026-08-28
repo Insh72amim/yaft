@@ -328,17 +328,18 @@ export function CategoryRulesTab({
               <button
                 key={type}
                 type="button"
-                className={`secondary compact ${selectedTypeFilter === type ? "active" : ""}`}
+                className="compact"
                 onClick={() => setSelectedTypeFilter(type)}
                 style={{
                   fontSize: "11px",
                   fontWeight: 700,
                   padding: "6px 12px",
                   borderRadius: "8px",
-                  background: selectedTypeFilter === type ? "var(--ink)" : "var(--background-alt)",
-                  color: selectedTypeFilter === type ? "var(--background)" : "var(--muted)",
-                  border: "1px solid var(--line)",
+                  background: selectedTypeFilter === type ? "var(--theme-soft-start)" : "var(--background-alt)",
+                  color: selectedTypeFilter === type ? "var(--green)" : "var(--muted)",
+                  border: selectedTypeFilter === type ? "1.5px solid var(--green)" : "1px solid var(--line)",
                   cursor: "pointer",
+                  transition: "all 0.15s ease",
                 }}>
                 {type === "ALL" ? `All (${rules.length})` : type}
               </button>

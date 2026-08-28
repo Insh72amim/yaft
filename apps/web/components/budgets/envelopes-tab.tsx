@@ -457,7 +457,7 @@ export function EnvelopesTab({
                             style={{
                               background: 'var(--green)',
                               border: 'none',
-                              color: '#ffffff',
+                              color: 'var(--accent-contrast, #ffffff)',
                               borderRadius: '6px',
                               padding: '6px',
                               cursor: 'pointer',

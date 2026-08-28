@@ -844,15 +844,12 @@ export function TransactionsSection({
             {selectedTxIds.length > 0 && (
               <button
                 type="button"
-                className="secondary compact"
+                className="primary compact"
                 onClick={() => setShowTagAssignModal(true)}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "6px",
-                  background: "var(--green)",
-                  color: "#ffffff",
-                  border: "none",
                   fontWeight: 700,
                 }}>
                 <Tag size={14} />
@@ -1912,7 +1909,7 @@ export function TransactionsSection({
                               borderRadius: "5px",
                               border: "none",
                               background: "var(--green)",
-                              color: "#ffffff",
+                              color: "var(--accent-contrast, #ffffff)",
                               cursor: "pointer",
                               display: "inline-flex",
                               alignItems: "center",
@@ -2298,11 +2295,11 @@ export function TransactionsSection({
                   Remove Tag
                 </button>
                 <button
-                  type="button"
-                  className="secondary compact"
+                  type="submit"
+                  className="primary compact"
                   disabled={assigningTags || !selectedTagToAssign}
                   onClick={() => handleAssignTagToSelected("ADD")}
-                  style={{ background: "var(--green)", color: "#ffffff", border: "none", fontWeight: 700 }}>
+                  style={{ fontWeight: 700 }}>
                   {assigningTags ? "Applying..." : "Apply Tag"}
                 </button>
               </div>

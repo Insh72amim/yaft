@@ -331,8 +331,8 @@ export function CategoryBudgetsModal({
               <button
                 type="submit"
                 disabled={saving}
-                className="secondary compact"
-                style={{ height: '38px', padding: '0 1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--green)', color: '#ffffff', border: 'none', fontWeight: 600 }}
+                className="primary compact"
+                style={{ height: '38px', padding: '0 1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
               >
                 {saving ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
                 <span>Save</span>

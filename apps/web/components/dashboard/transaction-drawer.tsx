@@ -290,7 +290,7 @@ export function TransactionDrawer({
                       borderRadius: '6px',
                       border: 'none',
                       background: 'var(--green)',
-                      color: '#ffffff',
+                      color: 'var(--accent-contrast, #ffffff)',
                       cursor: 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
