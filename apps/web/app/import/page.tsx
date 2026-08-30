@@ -1817,7 +1817,10 @@ function BankReviewRowItem({
   const hasMailProof = Boolean(row.emailReference && (row.emailReference.snippet || row.emailReference.subject || row.emailReference.messageId));
 
   return (
-    <div className={`review-row ${!row.include ? 'excluded' : ''}`}>
+    <div
+      className={`review-row ${!row.include ? 'excluded' : ''}`}
+      style={{ position: 'relative', zIndex: isCatOpen ? 50 : 1 }}
+    >
       <label className="check">
         <input
           type="checkbox"
