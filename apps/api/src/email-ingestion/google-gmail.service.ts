@@ -216,11 +216,11 @@ export class GoogleGmailService {
       }),
     ]);
 
-    // Filter to only accounts supported by email ingestion (exclude UPI_LITE, EPFO, FIXED_DEPOSIT, LOAN)
+    // Filter to only accounts supported by email ingestion (exclude UPI_LITE, EPFO, FIXED_DEPOSIT, LOAN, MUTUAL_FUND, STOCKS)
     const emailSupportedAccounts = allUserAccounts.filter((a) => {
-      if (a.type === 'UPI_LITE' || a.type === 'FIXED_DEPOSIT' || a.type === 'LOAN' || a.type === 'EPFO') return false;
+      if (a.type === 'UPI_LITE' || a.type === 'FIXED_DEPOSIT' || a.type === 'LOAN' || a.type === 'EPFO' || a.type === 'MUTUAL_FUND' || a.type === 'STOCKS') return false;
       if (a.name.toLowerCase().includes('epfo') || a.institution?.toLowerCase().includes('epfo')) return false;
-      if (a.name.toLowerCase().includes('-fd-') || a.name.toLowerCase().includes('loan')) return false;
+      if (a.name.toLowerCase().includes('-fd-') || a.name.toLowerCase().includes('loan') || a.name.toLowerCase().includes('groww') || a.name.toLowerCase().includes('zerodha') || a.name.toLowerCase().includes('mutual') || a.name.toLowerCase().includes('sip') || a.name.toLowerCase().includes('coin')) return false;
       return true;
     });
 
@@ -232,15 +232,6 @@ export class GoogleGmailService {
       );
     } else if (accountScope === 'ALL_CARDS') {
       candidateAccounts = emailSupportedAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
-    } else if (accountScope === 'ALL_INVESTMENTS') {
-      candidateAccounts = emailSupportedAccounts.filter((acc) =>
-        acc.type === AccountType.MUTUAL_FUND ||
-        acc.type === AccountType.STOCKS ||
-        acc.name.toLowerCase().includes('mutual') ||
-        acc.name.toLowerCase().includes('sip') ||
-        acc.name.toLowerCase().includes('coin') ||
-        acc.name.toLowerCase().includes('groww')
-      );
     } else if (accountScope === 'CUSTOM' && targetAccountIds.length > 0) {
       candidateAccounts = emailSupportedAccounts.filter((acc) => targetAccountIds.includes(acc.id));
     }
@@ -282,10 +273,6 @@ export class GoogleGmailService {
           const bankConfigs = INSTITUTION_EMAIL_CONFIGS.filter((c) => c.accountType === AccountType.BANK);
           const senders = Array.from(new Set(bankConfigs.flatMap((c) => c.senders)));
           query = `from:(${senders.join(' OR ')}) (debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs." OR "UPI" OR "NEFT" OR "IMPS") after:${afterDateStr}`;
-        } else if (accountScope === 'ALL_INVESTMENTS') {
-          const sipConfigs = INSTITUTION_EMAIL_CONFIGS.filter((c) => c.accountType === AccountType.MUTUAL_FUND);
-          const senders = Array.from(new Set(sipConfigs.flatMap((c) => c.senders)));
-          query = `from:(${senders.join(' OR ')}) (SIP OR "Mutual Fund" OR "allotted" OR "Folio" OR "NAV" OR "Purchase" OR "debited" OR "transaction") after:${afterDateStr}`;
         } else if (accountScope === 'CUSTOM') {
           const matchedConfigs = getEmailConfigsForAccounts(candidateAccounts);
           const allSenders = Array.from(new Set(matchedConfigs.flatMap((c) => c.senders)));
@@ -300,9 +287,9 @@ export class GoogleGmailService {
             query = `(debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.") after:${afterDateStr}`;
           }
         } else {
-          // Default ALL
+          // Default ALL (Bank accounts and Credit cards only)
           const allSenders = Array.from(new Set(INSTITUTION_EMAIL_CONFIGS.flatMap((c) => c.senders)));
-          query = `from:(${allSenders.join(' OR ')}) (debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs." OR "SIP" OR "Mutual Fund") after:${afterDateStr}`;
+          query = `from:(${allSenders.join(' OR ')}) (debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.") after:${afterDateStr}`;
         }
 
         let pageToken: string | undefined = undefined;
@@ -640,23 +627,16 @@ export class GoogleGmailService {
     const text = (rawSnippetText || '').toLowerCase();
 
     // 1. Strict Instrument / Account Type Filtering
+    // 1. Strict Instrument / Account Type Filtering (Credit Cards and Bank Accounts only)
     let candidateAccounts: any[] = [];
     if (alert.accountType === AccountType.CREDIT_CARD) {
       candidateAccounts = userAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
-    } else if (alert.accountType === AccountType.MUTUAL_FUND) {
-      candidateAccounts = userAccounts.filter((acc) =>
-        acc.type === AccountType.MUTUAL_FUND ||
-        acc.type === AccountType.STOCKS ||
-        acc.name.toLowerCase().includes('mutual') ||
-        acc.name.toLowerCase().includes('sip') ||
-        acc.name.toLowerCase().includes('coin') ||
-        acc.name.toLowerCase().includes('groww') ||
-        acc.name.toLowerCase().includes('zerodha')
-      );
     } else {
       candidateAccounts = userAccounts.filter((acc) =>
         [AccountType.BANK, AccountType.SAVINGS, AccountType.CASH].includes(acc.type as any) &&
-        acc.type !== AccountType.UPI_LITE
+        acc.type !== AccountType.UPI_LITE &&
+        acc.type !== AccountType.MUTUAL_FUND &&
+        acc.type !== AccountType.STOCKS
       );
     }
 

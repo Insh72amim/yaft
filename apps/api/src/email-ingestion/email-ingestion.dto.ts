@@ -33,7 +33,7 @@ export class SyncGmailDto {
 
   @IsString()
   @IsOptional()
-  accountScope?: 'ALL' | 'ALL_BANKS' | 'ALL_CARDS' | 'ALL_INVESTMENTS' | 'CUSTOM';
+  accountScope?: 'ALL' | 'ALL_BANKS' | 'ALL_CARDS' | 'CUSTOM';
 
   @IsArray()
   @IsString({ each: true })

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
+import { CategoryPickerPopover } from '@/components/category-picker-popover';
 import { api, downloadFile, errorMessage, isUnauthorized, money } from '@/lib/api';
 
 type ImportKind = 'BANK_STATEMENT' | 'SALARY_PAYSLIP' | 'BROKER_HOLDINGS' | 'UPI_STATEMENT';
@@ -183,7 +184,7 @@ function ImportWorkspace() {
   const [syncingGmail, setSyncingGmail] = useState(false);
   const [connectingGoogle, setConnectingGoogle] = useState(false);
   const [syncDays, setSyncDays] = useState(90);
-  const [syncAccountScope, setSyncAccountScope] = useState<'ALL' | 'ALL_BANKS' | 'ALL_CARDS' | 'ALL_INVESTMENTS' | 'CUSTOM'>('ALL');
+  const [syncAccountScope, setSyncAccountScope] = useState<'ALL' | 'ALL_BANKS' | 'ALL_CARDS' | 'CUSTOM'>('ALL');
   const [selectedSyncAccountIds, setSelectedSyncAccountIds] = useState<string[]>([]);
   const [lastSyncMeta, setLastSyncMeta] = useState<any>(null);
 
@@ -929,8 +930,6 @@ function ImportWorkspace() {
                           ? `Sync Bank Accounts (${syncDays}D)`
                           : syncAccountScope === 'ALL_CARDS'
                           ? `Sync Credit Cards (${syncDays}D)`
-                          : syncAccountScope === 'ALL_INVESTMENTS'
-                          ? `Sync SIP & Mutual Funds (${syncDays}D)`
                           : syncAccountScope === 'CUSTOM'
                           ? `Sync (${selectedSyncAccountIds.length}) Selected`
                           : `Sync All Inboxes (${syncDays}D)`}
@@ -1033,18 +1032,8 @@ function ImportWorkspace() {
                     !a.name.toLowerCase().includes('epfo')
                   );
                   const creditCards = (catalog?.accounts || []).filter((a) => a.type === 'CREDIT_CARD');
-                  const investments = (catalog?.accounts || []).filter((a) =>
-                    !a.name.toLowerCase().includes('epfo') &&
-                    a.type !== 'EPFO' &&
-                    (['MUTUAL_FUND', 'STOCKS'].includes(a.type) ||
-                      a.name.toLowerCase().includes('sip') ||
-                      a.name.toLowerCase().includes('mutual') ||
-                      a.name.toLowerCase().includes('coin') ||
-                      a.name.toLowerCase().includes('groww') ||
-                      a.name.toLowerCase().includes('zerodha'))
-                  );
 
-                  const allSupportedAccounts = [...bankAccounts, ...creditCards, ...investments];
+                  const allSupportedAccounts = [...bankAccounts, ...creditCards];
                   const allSupportedAccountIds = allSupportedAccounts.map((a) => a.id);
 
                   const categoriesList = [
@@ -1061,13 +1050,6 @@ function ImportWorkspace() {
                       icon: CreditCard,
                       color: '#3b82f6',
                       accounts: creditCards,
-                    },
-                    {
-                      key: 'INVESTMENTS',
-                      title: 'SIP & Mutual Funds / Demat',
-                      icon: BriefcaseBusiness,
-                      color: '#10b981',
-                      accounts: investments,
                     },
                   ].filter((cat) => cat.accounts.length > 0);
 
@@ -1087,7 +1069,6 @@ function ImportWorkspace() {
                             { id: 'ALL', label: `All (${allSupportedAccounts.length})`, icon: Landmark },
                             { id: 'ALL_BANKS', label: `Banks (${bankAccounts.length})`, icon: Landmark },
                             { id: 'ALL_CARDS', label: `Cards (${creditCards.length})`, icon: CreditCard },
-                            { id: 'ALL_INVESTMENTS', label: `SIP / MF (${investments.length})`, icon: BriefcaseBusiness },
                             { id: 'CUSTOM', label: `Custom ${selectedSupportedCount > 0 ? `(${selectedSupportedCount})` : ''}`, icon: Check },
                           ].map((scope) => {
                             const Icon = scope.icon;
@@ -1129,6 +1110,7 @@ function ImportWorkspace() {
                             <Calendar size={12} />
                           </span>
                           {[
+                            { days: 1, label: '1D (Today)' },
                             { days: 7, label: '7D' },
                             { days: 30, label: '30D' },
                             { days: 90, label: '90D (3M)' },
@@ -1809,6 +1791,7 @@ function BankReviewRowItem({
   onViewMail?: (ref: NonNullable<BankRow['emailReference']>) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isCatOpen, setIsCatOpen] = useState(false);
   const [descValue, setDescValue] = useState(row.merchant || row.descriptionRaw);
 
   useEffect(() => {
@@ -1992,19 +1975,44 @@ function BankReviewRowItem({
         )}
       </div>
 
-      <select
-        aria-label={`Category for ${row.merchant || row.descriptionRaw}`}
-        value={row.categoryId ?? ''}
-        disabled={busy}
-        onChange={(event) => void update(item, row, { categoryId: event.target.value })}
-      >
-        <option value="">Uncategorised</option>
-        {item.review.categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </select>
+      {/* Category Cell */}
+      {(() => {
+        const categoryObj = item.review.categories.find((c) => c.id === row.categoryId);
+        return (
+          <div className="transaction-category-cell" style={{ position: 'relative', zIndex: isCatOpen ? 100 : 1 }}>
+            <button
+              type="button"
+              className="transaction-cat-btn"
+              disabled={busy}
+              onClick={() => setIsCatOpen(!isCatOpen)}
+              title="Click to change category"
+              style={{ width: '100%' }}
+            >
+              <div className="transaction-cat-primary">
+                <span
+                  className="transaction-cat-dot"
+                  style={{ background: categoryObj?.color || (row.categoryId ? '#3b82f6' : '#94a3b8') }}
+                />
+                <span className={`transaction-cat-name ${!row.categoryId ? 'uncategorised' : ''}`}>
+                  {categoryObj?.name || 'Uncategorised'}
+                </span>
+              </div>
+            </button>
+
+            {isCatOpen && (
+              <CategoryPickerPopover
+                categories={item.review.categories}
+                currentCategoryId={row.categoryId ?? null}
+                onSelect={(newCatId) => {
+                  void update(item, row, { categoryId: newCatId });
+                  setIsCatOpen(false);
+                }}
+                onClose={() => setIsCatOpen(false)}
+              />
+            )}
+          </div>
+        );
+      })()}
 
       <b className={row.amount > 0 ? 'positive' : ''}>{money(row.amount)}</b>
 

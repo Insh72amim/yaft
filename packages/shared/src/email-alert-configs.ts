@@ -243,12 +243,28 @@ export const INSTITUTION_EMAIL_CONFIGS: InstitutionEmailConfig[] = [
     institutionId: 'pnb',
     displayName: 'Punjab National Bank',
     accountType: AccountType.BANK,
-    senders: ['alerts@pnb.co.in', 'pnb.co.in', 'pnbindia.in', 'pnb.bank.in'],
+    senders: [
+      'alerts@pnb.co.in',
+      'pnbealert@pnbmail.bank.in',
+      'pnbmail.bank.in',
+      'pnb.bank.in',
+      'pnb.co.in',
+      'pnbindia.in',
+      'pnbmail.in',
+      'punjabnationalbank.in',
+      'pnbbank.in',
+      'alerts@pnbindia.in',
+      'donotreply@pnb.co.in',
+    ],
     subjectPatterns: [
       /pnb\s*debit\s*alert/i,
       /pnb\s*transaction\s*alert/i,
+      /transaction\s*alert/i,
+      /credit\s*alert/i,
+      /debit\s*alert/i,
+      /punjab\s*national/i,
     ],
-    queryKeywords: ['PNB A/C', 'debited', 'credited', 'UPI', 'NEFT'],
+    queryKeywords: ['PNB', 'Punjab National Bank', 'A/c', 'debited', 'credited', 'UPI', 'NEFT', 'IMPS'],
   },
 
   // ---------------------------------------------------------------------------
@@ -293,43 +309,6 @@ export const INSTITUTION_EMAIL_CONFIGS: InstitutionEmailConfig[] = [
     ],
     queryKeywords: ['refund', 'processed', 'credited', 'successful', 'PayU', 'Razorpay', 'Myntra'],
   },
-
-  // ---------------------------------------------------------------------------
-  // Investment Platforms & AMCs (Groww, Zerodha, CAMS, KFintech, MF Central)
-  // ---------------------------------------------------------------------------
-  {
-    id: 'cams-kfin-sip',
-    institutionId: 'groww',
-    displayName: 'Mutual Fund',
-    accountType: AccountType.MUTUAL_FUND,
-    senders: [
-      'donotreply@camsonline.com',
-      'corporateservices@kfintech.com',
-      'alerts@groww.in',
-      'donotreply@zerodha.com',
-      'camsonline.com',
-      'kfintech.com',
-      'mfcentral.com',
-      'groww.in',
-      'zerodha.com',
-      'sbimf.com',
-      'hdfcfund.com',
-      'icicipruamc.com',
-      'axismf.com',
-      'miraeasset.com',
-      'nipponindiamf.com',
-      'ppfas.com',
-    ],
-    subjectPatterns: [
-      /sip\s*(?:installment|debit|processed|transaction)/i,
-      /mutual\s*fund\s*(?:purchase|allotment|confirmation)/i,
-      /units\s*allotted/i,
-      /groww.*order/i,
-      /zerodha\s*coin/i,
-    ],
-    queryKeywords: ['SIP', 'Mutual Fund', 'Folio', 'allotted', 'NAV', 'units', 'Groww', 'Zerodha', 'Coin'],
-    defaultCategoryName: 'Mutual Fund SIP',
-  },
 ];
 
 /**
@@ -340,19 +319,17 @@ export function findEmailConfigForSender(fromOrContext?: string | null, fullCont
   if (!fromOrContext && !fullContext) return null;
   const targetStr = `${fromOrContext || ''} ${fullContext || ''}`.toLowerCase().trim();
 
-  // Check whether context suggests a Credit Card vs Bank Account vs Investment
+  // Check whether context suggests a Credit Card vs Bank Account
   const isCreditCard = EMAIL_ALERT_PATTERNS.EXPLICIT_CREDIT_CARD_REGEX.test(targetStr);
   const isBankAccount = EMAIL_ALERT_PATTERNS.EXPLICIT_BANK_ACCOUNT_REGEX.test(targetStr);
-  const isInvestment = EMAIL_ALERT_PATTERNS.EXPLICIT_INVESTMENT_REGEX.test(targetStr);
 
   // 1. Exact sender match with account-type affinity
   for (const config of INSTITUTION_EMAIL_CONFIGS) {
     const senderMatched = config.senders.some((s) => targetStr.includes(s.toLowerCase()));
     if (senderMatched) {
-      if (isInvestment && config.accountType === AccountType.MUTUAL_FUND) return config;
       if (isCreditCard && !isBankAccount && config.accountType === AccountType.CREDIT_CARD) return config;
       if (isBankAccount && config.accountType === AccountType.BANK) return config;
-      if (!isCreditCard && !isInvestment && config.accountType === AccountType.BANK) return config;
+      if (!isCreditCard && config.accountType === AccountType.BANK) return config;
       if (isCreditCard && config.accountType === AccountType.CREDIT_CARD) return config;
     }
   }
@@ -387,7 +364,6 @@ export function getEmailConfigsForAccounts(accounts: Array<{ institution?: strin
     const nameStr = (acc.name || '').toLowerCase();
     const isCard = acc.type === AccountType.CREDIT_CARD;
     const isBank = [AccountType.BANK, AccountType.SAVINGS, AccountType.CASH].includes(acc.type as any);
-    const isInvest = acc.type === AccountType.MUTUAL_FUND || acc.type === AccountType.STOCKS || nameStr.includes('groww') || nameStr.includes('zerodha') || nameStr.includes('sip');
 
     for (const config of INSTITUTION_EMAIL_CONFIGS) {
       const instMatches = instStr.includes(config.institutionId) || nameStr.includes(config.institutionId);
@@ -407,8 +383,6 @@ export function getEmailConfigsForAccounts(accounts: Array<{ institution?: strin
       } else if (config.id === 'hdfc-card' && (instStr.includes('hdfc') || nameStr.includes('hdfc') || nameStr.includes('pixel')) && isCard) {
         matchedConfigIds.add(config.id);
       } else if (config.id === 'hdfc-bank' && (instStr.includes('hdfc') || nameStr.includes('hdfc')) && isBank) {
-        matchedConfigIds.add(config.id);
-      } else if (config.id === 'cams-kfin-sip' && isInvest) {
         matchedConfigIds.add(config.id);
       } else if (instMatches && config.accountType === (acc.type as any)) {
         matchedConfigIds.add(config.id);
