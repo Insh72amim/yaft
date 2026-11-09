@@ -39,6 +39,12 @@ import { CategoryPickerPopover } from "@/components/category-picker-popover";
 import { useTransactionMutations } from "@/hooks/useTransactionMutations";
 import { useTransactionFilters } from "@/hooks/useTransactionFilters";
 import { EmailProofModal } from "@/components/email-proof-modal";
+import { TransactionFilterBar } from "@/components/ledger/transaction-filter-bar";
+import { BatchCategoryFloatingBar } from "@/components/ledger/batch-category-floating-bar";
+import {
+  TransactionCategoryCell,
+  TransactionTimeWithEmailCell,
+} from "@/components/ledger/transaction-cells";
 
 type Mode = "CREDIT_CARD" | "BANK" | "UPI" | "UPI_LITE" | "ALL";
 
@@ -787,783 +793,71 @@ const [editingTxTagId, setEditingTxTagId] = useState<string | null>(null);
 
         {/* Toggleable Search & Filter Control Center */}
         {(showFilters || activeFilterCount > 0) && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "14px",
-              margin: "0 0 20px 0",
-              padding: "16px",
-              background: "var(--background-alt)",
-              borderRadius: "14px",
-              border: "1px solid var(--line)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
-            }}>
-            {/* Category Group Filter Pills */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Group:
-              </span>
-              {[
-                { id: "ALL", label: "All Groups" },
-                { id: "EXPENSE", label: "Expense" },
-                { id: "INCOME", label: "Income" },
-                { id: "INVESTMENT", label: "Investment" },
-                { id: "TRANSFER", label: "Transfer" },
-              ].map((grp) => (
-                <button
-                  key={grp.id}
-                  type="button"
-                  className={`secondary compact ${categoryGroup === grp.id ? "active" : ""}`}
-                  onClick={() => {
-                    setCategoryGroup(grp.id as any);
-                    setCategoryId("all");
-                    setPage(1);
-                  }}
-                  style={{ fontSize: "11px", padding: "3px 9px", borderRadius: "6px", fontWeight: 600 }}>
-                  {grp.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Top Row: Account Select & Category Group & Category Select & Search & Type Toggle & Reset */}
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                flexWrap: "wrap",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}>
-              {/* Account Dropdown */}
-              <div style={{ flex: "1 1 150px", minWidth: "140px" }}>
-                <select
-                  value={accountId}
-                  onChange={(e) => {
-                    setAccountId(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{
-                    width: "100%",
-                    height: "38px",
-                    fontSize: "13px",
-                    padding: "0 10px",
-                    borderRadius: "8px",
-                    border: "1px solid var(--line)",
-                    background: "var(--background)",
-                    color: "var(--ink)",
-                    fontWeight: 600,
-                  }}>
-                  <option value="all">
-                    {mode === "CREDIT_CARD"
-                      ? "All Credit Cards"
-                      : mode === "BANK"
-                        ? "All Bank Accounts"
-                        : "All Accounts"}
-                  </option>
-                  {filteredAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name}{" "}
-                      {acc.cardLast4
-                        ? `(••••${acc.cardLast4})`
-                        : acc.institution
-                          ? `· ${acc.institution}`
-                          : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Streamlined Grouped Category Filter Dropdown */}
-              <div style={{ flex: "1 1 180px", minWidth: "160px" }}>
-                <select
-                  value={categoryId}
-                  onChange={(e) => {
-                    setCategoryId(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{
-                    width: "100%",
-                    height: "38px",
-                    fontSize: "13px",
-                    padding: "0 10px",
-                    borderRadius: "8px",
-                    border: "1px solid var(--line)",
-                    background: "var(--background)",
-                    color: "var(--ink)",
-                    fontWeight: 600,
-                  }}>
-                  <option value="all">
-                    {categoryGroup === "ALL"
-                      ? "All Categories"
-                      : `All ${categoryGroup.charAt(0) + categoryGroup.slice(1).toLowerCase()} Categories`}
-                  </option>
-                  <option value="uncategorised">Uncategorised</option>
-                  {(() => {
-                    const rawCats = data?.categories || [];
-                    const filtered = rawCats.filter((cat) => {
-                      if (categoryGroup === "ALL") return true;
-                      const kind = cat.superCategoryKind || (cat.type ? cat.type : "EXPENSE");
-                      return kind === categoryGroup;
-                    });
-                    const groups: { [key: string]: typeof filtered } = {};
-                    filtered.forEach((c) => {
-                      const grp =
-                        c.superCategoryName ||
-                        (c.type ? `${c.type.charAt(0) + c.type.slice(1).toLowerCase()}` : "General");
-                      if (!groups[grp]) groups[grp] = [];
-                      groups[grp].push(c);
-                    });
-                    return Object.entries(groups).map(([grp, items]) => (
-                      <optgroup key={grp} label={grp}>
-                        {items.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ));
-                  })()}
-                </select>
-              </div>
-
-              {/* Tag / Event Filter Dropdown */}
-              <div style={{ flex: "1 1 150px", minWidth: "140px" }}>
-                <select
-                  value={tagId}
-                  onChange={(e) => {
-                    setTagId(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{
-                    width: "100%",
-                    height: "38px",
-                    fontSize: "13px",
-                    padding: "0 10px",
-                    borderRadius: "8px",
-                    border: "1px solid var(--line)",
-                    background: "var(--background)",
-                    color: "var(--ink)",
-                    fontWeight: 600,
-                  }}>
-                  <option value="all">All Tags & Events</option>
-                  {data?.tags?.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      #{t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Search Bar */}
-              <div
-                style={{
-                  position: "relative",
-                  flex: "1 1 200px",
-                  minWidth: "180px",
-                }}>
-                <Search
-                  size={16}
-                  color="var(--muted)"
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    pointerEvents: "none",
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder="Search description or merchant..."
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  style={{
-                    width: "100%",
-                    height: "38px",
-                    fontSize: "13px",
-                    paddingLeft: "36px",
-                    paddingRight: search ? "32px" : "12px",
-                    borderRadius: "8px",
-                    border: "1px solid var(--line)",
-                    background: "var(--background)",
-                    color: "var(--ink)",
-                  }}
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch("");
-                      setPage(1);
-                    }}
-                    style={{
-                      position: "absolute",
-                      right: "10px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "2px",
-                      color: "var(--muted)",
-                      display: "flex",
-                      alignItems: "center",
-                    }}>
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              {/* Type Filter Segmented Controls */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: "4px",
-                  background: "var(--background)",
-                  padding: "3px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--line)",
-                }}>
-                <button
-                  type="button"
-                  className={`secondary compact ${typeFilter === "ALL" ? "active" : ""}`}
-                  onClick={() => {
-                    setTypeFilter("ALL");
-                    setPage(1);
-                  }}
-                  style={{
-                    height: "32px",
-                    padding: "0 12px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    border: "none",
-                    borderRadius: "6px",
-                  }}>
-                  All
-                </button>
-                <button
-                  type="button"
-                  className={`secondary compact ${typeFilter === "EXPENSE" ? "active" : ""}`}
-                  onClick={() => {
-                    setTypeFilter("EXPENSE");
-                    setPage(1);
-                  }}
-                  style={{
-                    height: "32px",
-                    padding: "0 12px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    border: "none",
-                    borderRadius: "6px",
-                    color: typeFilter === "EXPENSE" ? "#ef4444" : undefined,
-                  }}>
-                  Debits
-                </button>
-                <button
-                  type="button"
-                  className={`secondary compact ${typeFilter === "INCOME" ? "active" : ""}`}
-                  onClick={() => {
-                    setTypeFilter("INCOME");
-                    setPage(1);
-                  }}
-                  style={{
-                    height: "32px",
-                    padding: "0 12px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    border: "none",
-                    borderRadius: "6px",
-                    color: typeFilter === "INCOME" ? "#10b981" : undefined,
-                  }}>
-                  Credits
-                </button>
-              </div>
-
-              {/* Reset Filters Chip */}
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  className="ghost compact"
-                  onClick={resetFilters}
-                  style={{
-                    height: "38px",
-                    fontSize: "12px",
-                    color: "#ef4444",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "0 12px",
-                    borderRadius: "8px",
-                    border: "1px solid rgba(239, 68, 68, 0.2)",
-                  }}>
-                  <RotateCcw size={14} /> Reset ({activeFilterCount})
-                </button>
-              )}
-            </div>
-
-            {/* Bottom Grid: Date Range Card & Amount Range Card */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                gap: "12px",
-              }}>
-              {/* 📅 Date Range Card */}
-              <div
-                style={{
-                  background: "var(--background)",
-                  borderRadius: "10px",
-                  padding: "12px 14px",
-                  border: "1px solid var(--line)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "8px",
-                }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}>
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      color: "var(--muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    }}>
-                    Date Range
-                  </span>
-                  {(startDate || endDate) && (
-                    <small
-                      style={{
-                        fontSize: "11px",
-                        color: "#8b5cf6",
-                        fontWeight: 600,
-                      }}>
-                      Filter active
-                    </small>
-                  )}
-                </div>
-
-                {/* Quick Date Range Presets */}
-                <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    className="secondary compact"
-                    style={{ fontSize: "10px", padding: "2px 8px" }}
-                    onClick={() => {
-                      const now = new Date();
-                      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-                      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-                      setStartDate(firstDay);
-                      setEndDate(lastDay);
-                      setPage(1);
-                    }}>
-                    This Month
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary compact"
-                    style={{ fontSize: "10px", padding: "2px 8px" }}
-                    onClick={() => {
-                      const end = new Date().toISOString().slice(0, 10);
-                      const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-                      setStartDate(start);
-                      setEndDate(end);
-                      setPage(1);
-                    }}>
-                    Last 30 Days
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary compact"
-                    style={{ fontSize: "10px", padding: "2px 8px" }}
-                    onClick={() => {
-                      const end = new Date().toISOString().slice(0, 10);
-                      const start = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-                      setStartDate(start);
-                      setEndDate(end);
-                      setPage(1);
-                    }}>
-                    Last 90 Days
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary compact"
-                    style={{ fontSize: "10px", padding: "2px 8px" }}
-                    onClick={() => {
-                      setStartDate("");
-                      setEndDate("");
-                      setPage(1);
-                    }}>
-                    All Time
-                  </button>
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "8px",
-                  }}>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "11px",
-                        color: "var(--muted)",
-                        marginBottom: "3px",
-                      }}>
-                      From
-                    </label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => {
-                        setStartDate(e.target.value);
-                        setPage(1);
-                      }}
-                      style={{
-                        width: "100%",
-                        height: "34px",
-                        fontSize: "12px",
-                        padding: "0 8px",
-                        borderRadius: "6px",
-                        border: "1px solid var(--line)",
-                        background: "var(--background-alt)",
-                        color: "var(--ink)",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "11px",
-                        color: "var(--muted)",
-                        marginBottom: "3px",
-                      }}>
-                      To
-                    </label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => {
-                        setEndDate(e.target.value);
-                        setPage(1);
-                      }}
-                      style={{
-                        width: "100%",
-                        height: "34px",
-                        fontSize: "12px",
-                        padding: "0 8px",
-                        borderRadius: "6px",
-                        border: "1px solid var(--line)",
-                        background: "var(--background-alt)",
-                        color: "var(--ink)",
-                      }}
-                    />
-                  </div>
-                </div>
-                {/* Presets */}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "6px",
-                    flexWrap: "wrap",
-                    marginTop: "2px",
-                  }}>
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    style={{
-                      fontSize: "11px",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                    }}
-                    onClick={() => {
-                      const now = new Date();
-                      const y = now.getUTCFullYear();
-                      const m = String(now.getUTCMonth() + 1).padStart(2, "0");
-                      setStartDate(`${y}-${m}-01`);
-                      setEndDate("");
-                      setPage(1);
-                    }}>
-                    This Month
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    style={{
-                      fontSize: "11px",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                    }}
-                    onClick={() => {
-                      const now = new Date();
-                      let y = now.getUTCFullYear();
-                      let m = now.getUTCMonth();
-                      if (m === 0) {
-                        m = 12;
-                        y -= 1;
-                      }
-                      const mStr = String(m).padStart(2, "0");
-                      setStartDate(`${y}-${mStr}-01`);
-                      setEndDate(`${y}-${mStr}-31`);
-                      setPage(1);
-                    }}>
-                    Last Month
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    style={{
-                      fontSize: "11px",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                    }}
-                    onClick={() => {
-                      const now = new Date();
-                      const today = now.toISOString().split("T")[0];
-                      const d = new Date(now);
-                      d.setMonth(d.getMonth() - 6);
-                      setStartDate(d.toISOString().split("T")[0]);
-                      setEndDate(today);
-                      setPage(1);
-                    }}>
-                    Last 6 Months
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    style={{
-                      fontSize: "11px",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                    }}
-                    onClick={() => {
-                      const now = new Date();
-                      const y = now.getUTCFullYear();
-                      const startYr = now.getUTCMonth() >= 3 ? y : y - 1;
-                      setStartDate(`${startYr}-04-01`);
-                      setEndDate(`${startYr + 1}-03-31`);
-                      setPage(1);
-                    }}>
-                    This FY
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    style={{
-                      fontSize: "11px",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                    }}
-                    onClick={() => {
-                      const now = new Date();
-                      const y = now.getUTCFullYear();
-                      const currentStart = now.getUTCMonth() >= 3 ? y : y - 1;
-                      const prevStart = currentStart - 1;
-                      setStartDate(`${prevStart}-04-01`);
-                      setEndDate(`${currentStart}-03-31`);
-                      setPage(1);
-                    }}>
-                    Previous FY
-                  </button>
-                </div>
-              </div>
-
-              {/* 💰 Amount Range Card */}
-              <div
-                style={{
-                  background: "var(--background)",
-                  borderRadius: "10px",
-                  padding: "12px 14px",
-                  border: "1px solid var(--line)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "8px",
-                }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}>
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      color: "var(--muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    }}>
-                    Amount Range (₹)
-                  </span>
-                  {(minAmount || maxAmount) && (
-                    <small
-                      style={{
-                        fontSize: "11px",
-                        color: "#8b5cf6",
-                        fontWeight: 600,
-                      }}>
-                      Filter active
-                    </small>
-                  )}
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "8px",
-                  }}>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "11px",
-                        color: "var(--muted)",
-                        marginBottom: "3px",
-                      }}>
-                      Min ₹
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={minAmount}
-                      onChange={(e) => {
-                        setMinAmount(e.target.value);
-                        setPage(1);
-                      }}
-                      style={{
-                        width: "100%",
-                        height: "34px",
-                        fontSize: "12px",
-                        padding: "0 8px",
-                        borderRadius: "6px",
-                        border: "1px solid var(--line)",
-                        background: "var(--background-alt)",
-                        color: "var(--ink)",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: "11px",
-                        color: "var(--muted)",
-                        marginBottom: "3px",
-                      }}>
-                      Max ₹
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="No max"
-                      value={maxAmount}
-                      onChange={(e) => {
-                        setMaxAmount(e.target.value);
-                        setPage(1);
-                      }}
-                      style={{
-                        width: "100%",
-                        height: "34px",
-                        fontSize: "12px",
-                        padding: "0 8px",
-                        borderRadius: "6px",
-                        border: "1px solid var(--line)",
-                        background: "var(--background-alt)",
-                        color: "var(--ink)",
-                      }}
-                    />
-                  </div>
-                </div>
-                {/* Presets */}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "6px",
-                    flexWrap: "wrap",
-                    marginTop: "2px",
-                  }}>
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    style={{
-                      fontSize: "11px",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                    }}
-                    onClick={() => {
-                      setMinAmount("0");
-                      setMaxAmount("1000");
-                      setPage(1);
-                    }}>
-                    &lt; ₹1k
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    style={{
-                      fontSize: "11px",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                    }}
-                    onClick={() => {
-                      setMinAmount("1000");
-                      setMaxAmount("10000");
-                      setPage(1);
-                    }}>
-                    ₹1k – ₹10k
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    style={{
-                      fontSize: "11px",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                    }}
-                    onClick={() => {
-                      setMinAmount("10000");
-                      setMaxAmount("50000");
-                      setPage(1);
-                    }}>
-                    ₹10k – ₹50k
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    style={{
-                      fontSize: "11px",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--line)",
-                    }}
-                    onClick={() => {
-                      setMinAmount("50000");
-                      setMaxAmount("");
-                      setPage(1);
-                    }}>
-                    &gt; ₹50k
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <TransactionFilterBar
+            categories={data?.categories || []}
+            categoryId={categoryId}
+            onCategoryChange={(val) => {
+              setCategoryId(val);
+              setPage(1);
+            }}
+            search={search}
+            onSearchChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
+            typeFilter={typeFilter}
+            onTypeFilterChange={(val) => {
+              setTypeFilter(val);
+              setPage(1);
+            }}
+            startDate={startDate}
+            onStartDateChange={(val) => {
+              setStartDate(val);
+              setPage(1);
+            }}
+            endDate={endDate}
+            onEndDateChange={(val) => {
+              setEndDate(val);
+              setPage(1);
+            }}
+            minAmount={minAmount}
+            onMinAmountChange={(val) => {
+              setMinAmount(val);
+              setPage(1);
+            }}
+            maxAmount={maxAmount}
+            onMaxAmountChange={(val) => {
+              setMaxAmount(val);
+              setPage(1);
+            }}
+            activeFilterCount={activeFilterCount}
+            onResetFilters={resetFilters}
+            categoryGroup={categoryGroup}
+            onCategoryGroupChange={(grp) => {
+              setCategoryGroup(grp);
+              setCategoryId("all");
+              setPage(1);
+            }}
+            accounts={filteredAccounts}
+            accountId={accountId}
+            onAccountChange={(val) => {
+              setAccountId(val);
+              setPage(1);
+            }}
+            allAccountsLabel={
+              mode === "CREDIT_CARD"
+                ? "All Credit Cards"
+                : mode === "BANK"
+                  ? "All Bank Accounts"
+                  : "All Accounts"
+            }
+            tags={data?.tags || []}
+            tagId={tagId}
+            onTagChange={(val) => {
+              setTagId(val);
+              setPage(1);
+            }}
+          />
         )}
 
         {/* Transactions Table & Checkboxes */}
@@ -1648,78 +942,11 @@ const [editingTxTagId, setEditingTxTagId] = useState<string | null>(null);
                       </div>
                     )}
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <time className="transaction-time-cell">
-                        <span className="date-text">
-                          {new Date(tx.transactionDate).toLocaleDateString(
-                            "en-IN",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                              timeZone: "Asia/Kolkata",
-                            },
-                          )}
-                        </span>
-                        <span className="time-text">
-                          {new Date(tx.transactionDate).toLocaleTimeString(
-                            "en-IN",
-                            {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: true,
-                              timeZone: "Asia/Kolkata",
-                            },
-                          )}
-                        </span>
-                      </time>
-
-                      {tx.emailReference ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedEmailTx(tx);
-                          }}
-                          title="View source email proof (Gmail alert)"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "22px",
-                            height: "22px",
-                            borderRadius: "6px",
-                            border: "1px solid rgba(59, 130, 246, 0.3)",
-                            background: "rgba(59, 130, 246, 0.1)",
-                            color: "#3b82f6",
-                            cursor: "pointer",
-                            padding: 0,
-                            flexShrink: 0,
-                            transition: "all 0.15s ease",
-                          }}>
-                          <Eye size={12} />
-                        </button>
-                      ) : (
-                        <span
-                          title="No email proof available"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "22px",
-                            height: "22px",
-                            borderRadius: "6px",
-                            border: "1px solid var(--line)",
-                            background: "transparent",
-                            color: "var(--muted)",
-                            opacity: 0.2,
-                            cursor: "not-allowed",
-                            flexShrink: 0,
-                          }}>
-                          <EyeOff size={12} />
-                        </span>
-                      )}
-                    </div>
+                    <TransactionTimeWithEmailCell
+                      transactionDate={tx.transactionDate}
+                      hasEmailProof={Boolean(tx.emailReference)}
+                      onViewEmailProof={() => setSelectedEmailTx(tx)}
+                    />
 
                     <div
                       className="transaction-account-cell"
@@ -1956,64 +1183,22 @@ const [editingTxTagId, setEditingTxTagId] = useState<string | null>(null);
                       {tx.details && <small style={{ color: "var(--muted)" }}>{tx.details}</small>}
                     </div>
 
-                    <div className="transaction-category-cell" style={{ position: "relative", zIndex: isPopoverOpen ? 100 : 1 }}>
-                      <button
-                        type="button"
-                        className="transaction-cat-btn"
-                        onClick={() => setEditingTxCatId(editingTxCatId === tx.id ? null : tx.id)}
-                        title="Click to change category">
-                        <div className="transaction-cat-primary">
-                          <span
-                            className="transaction-cat-dot"
-                            style={{
-                              background:
-                                tx.categoryColor ||
-                                (tx.categoryId ? "#3b82f6" : "#94a3b8"),
-                            }}
-                          />
-                          <span
-                            className={`transaction-cat-name ${
-                              !tx.categoryId ? "uncategorised" : ""
-                            }`}>
-                            {tx.category || "Uncategorised"}
-                          </span>
-                          {tx.isTransfer && (
-                            <span
-                              title="Reconciled Transfer Pair"
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                padding: "0 4px",
-                                borderRadius: "4px",
-                                background: "rgba(59, 130, 246, 0.1)",
-                                color: "#3b82f6",
-                                fontSize: "9px",
-                                fontWeight: 800,
-                                marginLeft: "2px",
-                              }}>
-                              ⇄
-                            </span>
-                          )}
-                        </div>
-                        {tx.superCategory && (
-                          <span className="transaction-super-label">
-                            {tx.superCategory}
-                          </span>
-                        )}
-                      </button>
-
-                      {editingTxCatId === tx.id && (
-                        <CategoryPickerPopover
-                          categories={data?.categories || []}
-                          currentCategoryId={tx.categoryId ?? null}
-                          onSelect={(newCatId) => {
-                            void updateCategory(tx.id, tx.accountId, newCatId);
-                            setEditingTxCatId(null);
-                          }}
-                          onClose={() => setEditingTxCatId(null)}
-                        />
-                      )}
-                    </div>
+                    <TransactionCategoryCell
+                      categoryId={tx.categoryId}
+                      categoryName={tx.category}
+                      categoryColor={tx.categoryColor}
+                      superCategory={tx.superCategory}
+                      isTransfer={tx.isTransfer}
+                      isPopoverOpen={isPopoverOpen}
+                      categories={data?.categories || []}
+                      onTogglePopover={() =>
+                        setEditingTxCatId(editingTxCatId === tx.id ? null : tx.id)
+                      }
+                      onClosePopover={() => setEditingTxCatId(null)}
+                      onSelectCategory={(newCatId) => {
+                        void updateCategory(tx.id, tx.accountId, newCatId);
+                      }}
+                    />
 
                     <b
                       className={`transaction-amount-cell ${
@@ -2026,85 +1211,18 @@ const [editingTxTagId, setEditingTxTagId] = useState<string | null>(null);
               })}
             </div>
 
-            {/* Batch Categorization Floating Bar */}
-            {selectedTxIds.length > 0 && (
-              <div
-                style={{
-                  position: "fixed",
-                  bottom: "24px",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  zIndex: 9999,
-                  background: "var(--card)",
-                  border: "1px solid var(--line)",
-                  borderRadius: "16px",
-                  boxShadow: "0 12px 30px rgba(0,0,0,0.3)",
-                  padding: "10px 18px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "16px",
-                  flexWrap: "wrap",
-                }}>
-                <span
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    color: "var(--ink)",
-                  }}>
-                  {selectedTxIds.length} transaction
-                  {selectedTxIds.length === 1 ? "" : "s"} selected
-                </span>
-                <div
-                  style={{ position: "relative", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <button
-                    type="button"
-                    className="secondary compact"
-                    disabled={batchUpdating}
-                    onClick={() => setBatchCatPickerOpen(!batchCatPickerOpen)}
-                    style={{
-                      height: "34px",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      borderRadius: "8px",
-                      padding: "0 12px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      cursor: "pointer",
-                      background: "var(--background)",
-                      border: "1px solid var(--line)",
-                      color: "var(--ink)",
-                    }}>
-                    <span>{batchUpdating ? "Updating…" : "Set category for all selected…"}</span>
-                    <ChevronDown size={13} style={{ color: "var(--muted)" }} />
-                  </button>
-
-                  {batchCatPickerOpen && (
-                    <CategoryPickerPopover
-                      categories={data.categories || []}
-                      currentCategoryId={null}
-                      onSelect={(newCatId) => {
-                        void bulkUpdateCategory(selectedTxIds, newCatId);
-                        setBatchCatPickerOpen(false);
-                      }}
-                      onClose={() => setBatchCatPickerOpen(false)}
-                    />
-                  )}
-
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    onClick={() => setSelectedTxIds([])}
-                    style={{
-                      height: "34px",
-                      fontSize: "12px",
-                      color: "var(--muted)",
-                    }}>
-                    Deselect
-                  </button>
-                </div>
-              </div>
-            )}
+            <BatchCategoryFloatingBar
+              selectedCount={selectedTxIds.length}
+              batchUpdating={batchUpdating}
+              batchCatPickerOpen={batchCatPickerOpen}
+              onTogglePicker={() => setBatchCatPickerOpen(!batchCatPickerOpen)}
+              onClosePicker={() => setBatchCatPickerOpen(false)}
+              categories={data.categories || []}
+              onSelectCategory={(newCatId) => {
+                void bulkUpdateCategory(selectedTxIds, newCatId);
+              }}
+              onDeselectAll={() => setSelectedTxIds([])}
+            />
 
             {/* Pagination Controls */}
             {data?.pagination && data.pagination.pages > 1 && (
