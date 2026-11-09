@@ -1299,7 +1299,7 @@ export function generateRandomDemoState(): DemoState {
       id: nextTxId(),
       accountId: 'acc-hdfc-salary',
       postedAt: rentDate.toISOString(),
-      description: 'UPI/DR/0000000000/LANDLORD LANDLORD APARTMENT/RENT',
+      description: 'UPI/DR/000000000000/LANDLORD RENT/RENT',
       merchant: 'Apartment Rent',
       category: 'Housing & Rent',
       categoryId: 'cat-housing',
@@ -1684,7 +1684,7 @@ export function generateRandomDemoState(): DemoState {
       registeredEmail: chosenPersona.email,
       statementPassword: 'pass1234',
       notes: 'Priority savings account linked to Axis Atlas card and 12M Recurring Deposit.',
-      customFields: [{ label: 'Debit Card PIN', value: '8821', secret: true }],
+      customFields: [{ label: 'Debit Card PIN', value: '0000', secret: true }],
       updatedAt: now.toISOString(),
     },
   };
