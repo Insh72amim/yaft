@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>YAFT — Private, Self-Hosted Financial Workspace</title>
-  <meta name="description" content="A private, local-first financial ledger for Indian bank statements, credit card utilization, corporate payslips, EPFO passbooks, and broker holdings. Zero cloud exposure." />
-  <meta name="keywords" content="personal finance, self-hosted, private finance, Indian bank parser, SBI statement parser, Axis bank statement, EPFO passbook, credit card tracker, local-first" />
+  <meta name="description" content="A private, local-first financial ledger for Indian bank statements, multi-Gmail bank & credit card alerts, corporate payslips, EPFO passbooks, CAMS mutual funds, and live stock holdings. Zero cloud exposure." />
+  <meta name="keywords" content="personal finance, self-hosted, private finance, Indian bank parser, SBI statement parser, Axis bank statement, EPFO passbook, CAMS CAS parser, AMFI NAV, credit card tracker, local-first" />
   <meta property="og:title" content="YAFT — Private, Self-Hosted Financial Workspace" />
-  <meta property="og:description" content="Consolidate Indian bank statements, credit card swipe alerts, payslips, and broker holdings into an immutable ledger on iron you own." />
+  <meta property="og:description" content="Consolidate Indian bank statements, multi-Gmail bank & swipe alerts, payslips, EPFO, mutual funds, and stock holdings into an immutable ledger on iron you own." />
   <meta property="og:type" content="website" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -132,8 +132,8 @@
 
       <p class="mkt-hero-subtitle">
         A private, local-first workspace designed for sovereign data privacy. Consolidate Indian bank statements,
-        credit card swipe alerts, corporate payslips, EPFO passbooks, and broker holdings into an immutable financial ledger —
-        running strictly on iron you control.
+        multi-Gmail bank &amp; card alerts, corporate payslips, EPFO passbooks, live stock &amp; mutual fund portfolios,
+        and SIP/RD/Loan schedules into an immutable financial ledger — running strictly on iron you control.
       </p>
 
       <div class="mkt-hero-ctas">
@@ -181,7 +181,7 @@
           </div>
           <div>
             <strong>Native Indian Parsers</strong>
-            <span>Axis, SBI, PNB, EPFO & Zerodha</span>
+            <span>Axis, SBI, PNB, EPFO &amp; CAMS CAS</span>
           </div>
         </div>
         <div class="mkt-trust-item">
@@ -218,8 +218,8 @@
             </svg>
           </div>
           <div>
-            <strong>Direct Gmail Sync</strong>
-            <span>Real-time credit card swipe alerts</span>
+            <strong>Multi-Gmail Auto-Sync</strong>
+            <span>Bank, UPI &amp; Credit Card alerts</span>
           </div>
         </div>
       </div>
@@ -296,7 +296,7 @@
                     <span class="mkt-demo-label">Total Liquid Net Worth</span>
                     <strong class="mkt-demo-value maskable" data-real="₹ 18,42,850.00">₹ 18,42,850.00</strong>
                     <small class="mkt-demo-subtext">
-                      <span class="mkt-text-green">✓</span> Reconciled across 4 bank & investment accounts
+                      <span class="mkt-text-green">✓</span> Reconciled across 11 account types (Banks, Cards, Stocks, MF, EPFO, FD/RD &amp; UPI Lite)
                     </small>
                   </div>
                   <div class="mkt-demo-stat-pill">
@@ -336,11 +336,11 @@
                   </div>
                   <div class="mkt-demo-account-card">
                     <div class="mkt-demo-acc-head">
-                      <span class="mkt-acc-badge zerodha">Zerodha Kite</span>
-                      <small>Holdings</small>
+                      <span class="mkt-acc-badge zerodha">Stocks &amp; MF</span>
+                      <small>Live Quotes + NAV</small>
                     </div>
                     <strong class="maskable" data-real="₹ 3,01,000.00">₹ 3,01,000.00</strong>
-                    <span class="mkt-acc-status mkt-text-green">+18.4% Unrealized P&L</span>
+                    <span class="mkt-acc-status mkt-text-green">+18.4% Live P&amp;L (Yahoo/AMFI)</span>
                   </div>
                 </div>
 
@@ -359,7 +359,7 @@
                     </div>
                     <div class="mkt-row-desc">
                       <strong>INFOSYS TECHNOLOGIES / SALARY</strong>
-                      <small>Ref: SAL-20260822-0941 • Parsed Payslip</small>
+                      <small>Ref: SAL-20260822-0941 • Parsed Payslip • #FY26-27</small>
                     </div>
                     <div><span class="mkt-acc-pill axis">Axis ••8492</span></div>
                     <div><span class="mkt-cat-pill income">Income / Salary</span></div>
@@ -374,7 +374,7 @@
                     </div>
                     <div class="mkt-row-desc">
                       <strong>SWIGGY BANGALORE IN</strong>
-                      <small>Gmail Sync • Instant Alert • Card Swipe</small>
+                      <small>Multi-Gmail Sync • Raw Email Proof Verified • #Dining</small>
                     </div>
                     <div><span class="mkt-acc-pill hdfc">HDFC Diners</span></div>
                     <div><span class="mkt-cat-pill expense">Food & Dining</span></div>
@@ -389,7 +389,7 @@
                     </div>
                     <div class="mkt-row-desc">
                       <strong>AMAZON PAY INDIA / REFUND</strong>
-                      <small>Reversal Netting • Rule Applied</small>
+                      <small>Reversal Netting • Auto-Rule Applied • #Shopping</small>
                     </div>
                     <div><span class="mkt-acc-pill sbi">SBI ••1042</span></div>
                     <div><span class="mkt-cat-pill refund">Shopping (Net Refund)</span></div>
@@ -559,10 +559,10 @@
                 <div class="mkt-demo-sankey-wrap">
                   <div class="mkt-sankey-header">
                     <div>
-                      <strong>Multi-Bank Cash Flow Visualization</strong>
-                      <p>Income flows into savings, automatically splitting into investments and budgeted envelopes.</p>
+                      <strong>Zoomable Multi-Bank Sankey &amp; All-Banks Analytics</strong>
+                      <p>Interactive flow canvas with dedicated Credit Card channel layer, Top Beneficiaries, and 14-day spend analytics.</p>
                     </div>
-                    <span class="mkt-badge-netting">✓ Refund Netting Active</span>
+                    <span class="mkt-badge-netting">✓ CC Channel &amp; Refund Netting</span>
                   </div>
                   <div class="mkt-sankey-flow-diagram">
                     <div class="mkt-sankey-column">
@@ -754,14 +754,14 @@
                 <polyline points="16 7 22 7 22 13"></polyline>
               </svg>
             </span>
-            <span class="mkt-acc-badge zerodha">Broker Snapshots</span>
+            <span class="mkt-acc-badge zerodha">Stocks &amp; Mutual Funds</span>
           </div>
-          <h3 class="mkt-eco-title">Zerodha Kite & Groww Holdings</h3>
-          <p class="mkt-eco-desc">One-click import of CSV/XLSX portfolio holdings sheets with sector categorization, purchase price reconciliation, and live unrealized P&L badges.</p>
+          <h3 class="mkt-eco-title">Zerodha, Groww &amp; CAMS CAS Sync</h3>
+          <p class="mkt-eco-desc">Direct Zerodha Kite &amp; Groww session sync, CSV/XLSX snapshot imports, and encrypted CAMS / KFintech CAS PDF parsing with live market valuation.</p>
           <ul class="mkt-eco-list">
-            <li><span class="mkt-text-green">✓</span> Sector tag allocation (IT, Banking, Pharma)</li>
-            <li><span class="mkt-text-green">✓</span> Atomic snapshot replacement</li>
-            <li><span class="mkt-text-green">✓</span> Equity & Mutual Fund asset weighting</li>
+            <li><span class="mkt-text-green">✓</span> Yahoo Finance v8 live stock price quotes</li>
+            <li><span class="mkt-text-green">✓</span> Automated AMFI live NAV matching for MFs</li>
+            <li><span class="mkt-text-green">✓</span> Separate Stocks &amp; Mutual Fund accounts</li>
           </ul>
         </div>
 
@@ -773,14 +773,14 @@
                 <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
               </svg>
             </span>
-            <span class="mkt-acc-badge hdfc">Credit Card Alerts</span>
+            <span class="mkt-acc-badge hdfc">Multi-Gmail Sync</span>
           </div>
-          <h3 class="mkt-eco-title">Direct Gmail Transaction Sync</h3>
-          <p class="mkt-eco-desc">Direct Gmail API OAuth2 integration for real-time credit card swipe notifications across HDFC, ICICI, Axis, and SBI Card without account spawning.</p>
+          <h3 class="mkt-eco-title">Multi-Gmail Bank, UPI &amp; Card Alerts</h3>
+          <p class="mkt-eco-desc">Connect multiple Gmail accounts via OAuth2 with an automated daily scheduler to ingest credit card swipes, bank alerts (Axis, SBI, HDFC, ICICI), and UPI / refund events.</p>
           <ul class="mkt-eco-list">
-            <li><span class="mkt-text-green">✓</span> Parses swipe amounts, merchants & dates</li>
-            <li><span class="mkt-text-green">✓</span> Zero cloud scrapers or third-party bots</li>
-            <li><span class="mkt-text-green">✓</span> Inspect raw reference email anytime</li>
+            <li><span class="mkt-text-green">✓</span> Automated daily background sync scheduler</li>
+            <li><span class="mkt-text-green">✓</span> Bank, UPI Lite, GPay &amp; card swipe parsing</li>
+            <li><span class="mkt-text-green">✓</span> Inline eye-icon modal to view raw email proof</li>
           </ul>
         </div>
       </div>
@@ -855,10 +855,10 @@
           </div>
           <span class="mkt-feature-subtitle">Zero Floating-Point Drift</span>
           <h3 class="mkt-feature-title">Signed Integer Minor-Unit Math</h3>
-          <p class="mkt-feature-desc">Financial software must not suffer from IEEE 754 float imprecision (0.1 + 0.2 ≠ 0.3). Every single currency calculation in YAFT is computed in exact integer minor units (paise) down to the last decimal.</p>
+          <p class="mkt-feature-desc">Financial software must not suffer from IEEE 754 float imprecision (0.1 + 0.2 ≠ 0.3). Every currency calculation across all 11 account types (Banks, Cards, FD, RD, Stocks, MF, EPFO, Loan, Cash, UPI Lite) is computed in exact integer minor units (paise).</p>
           <div class="mkt-feature-highlight">
             <span class="mkt-text-green">✓</span>
-            <span>BigInt paise precision across all DB models</span>
+            <span>BigInt paise precision across all 11 account types</span>
           </div>
         </div>
 
@@ -870,11 +870,11 @@
             </svg>
           </div>
           <span class="mkt-feature-subtitle">Never Hallucinates Missing Numbers</span>
-          <h3 class="mkt-feature-title">Fail-Closed Statement Parsers</h3>
-          <p class="mkt-feature-desc">If a bank statement or corporate payslip is unreadable, ambiguous, or fails balance equations (Opening + Inflows - Outflows = Closing), YAFT fails closed immediately rather than corrupting your ledger.</p>
+          <h3 class="mkt-feature-title">Fail-Closed Parsers &amp; Safeguards</h3>
+          <p class="mkt-feature-desc">If a bank statement or corporate payslip fails balance equations (Opening + Inflows - Outflows = Closing), YAFT fails closed immediately. Includes non-destructive "Clear Ledger" reset that preserves Vault credentials &amp; rules.</p>
           <div class="mkt-feature-highlight">
             <span class="mkt-text-green">✓</span>
-            <span>Strict running-balance verification guarantee</span>
+            <span>Running-balance checks &amp; double-confirm safeguards</span>
           </div>
         </div>
 
@@ -885,12 +885,12 @@
               <line x1="2" x2="22" y1="10" y2="10"></line>
             </svg>
           </div>
-          <span class="mkt-feature-subtitle">Health Gauges & Visual Card Stack</span>
+          <span class="mkt-feature-subtitle">Shared Limits &amp; OCR Card Scanner</span>
           <h3 class="mkt-feature-title">Credit Cards Command Center</h3>
-          <p class="mkt-feature-desc">Monitor aggregated credit utilization rates with color-coded health indicators (Healthy / Moderate / High). Track 6-month spend vs bill payments and preview digital cards with bank branding.</p>
+          <p class="mkt-feature-desc">Monitor aggregated credit utilization with health indicators, parent/child shared credit limits for floater cards, 6-month spend vs repayment bars, and client-side OCR card scanning via browser-local Tesseract.js.</p>
           <div class="mkt-feature-highlight">
             <span class="mkt-text-green">✓</span>
-            <span>Instant 1-click sync via Gmail & statement review</span>
+            <span>Shared card limits, OCR scanner &amp; Gmail swipe sync</span>
           </div>
         </div>
 
@@ -918,12 +918,12 @@
               <path d="M6 21V9a9 9 0 0 0 9 9"></path>
             </svg>
           </div>
-          <span class="mkt-feature-subtitle">Visual Money Streams & Envelopes</span>
-          <h3 class="mkt-feature-title">Multi-Bank Sankey Flows & Budgets</h3>
-          <p class="mkt-feature-desc">Trace money from income sources across bank transfers to category spending envelopes. Automatically nets merchant refunds and cashbacks without breaking individual double-entry ledger rows.</p>
+          <span class="mkt-feature-subtitle">Interactive Flow &amp; Master Analytics</span>
+          <h3 class="mkt-feature-title">Zoomable Sankey &amp; All-Banks View</h3>
+          <p class="mkt-feature-desc">Trace money from income across bank transfers and a dedicated Credit Card channel layer to spending envelopes. Includes an "All Banks" master tab with Top Beneficiaries and 14-day/custom range Expense Analytics.</p>
           <div class="mkt-feature-highlight">
             <span class="mkt-text-green">✓</span>
-            <span>Retroactive regex rule builder with 1-click bulk tagging</span>
+            <span>Barycentric flow ordering &amp; automatic refund netting</span>
           </div>
         </div>
 
@@ -942,12 +942,61 @@
               <path d="M8 18h.01"></path>
             </svg>
           </div>
-          <span class="mkt-feature-subtitle">Principal vs Interest Schedules</span>
-          <h3 class="mkt-feature-title">Loan EMI Amortization Engine</h3>
-          <p class="mkt-feature-desc">Generate complete loan amortization tables tracking remaining principal, interest splits, and payoff timelines. Confirm scheduled EMIs to record transactions directly into the ledger.</p>
+          <span class="mkt-feature-subtitle">Amortization &amp; Systematic Schedules</span>
+          <h3 class="mkt-feature-title">Loan EMI, Active SIP &amp; RD Engine</h3>
+          <p class="mkt-feature-desc">Generate complete Loan EMI amortization tables, track Active Mutual Fund SIPs by execution day and folio number, and monitor Recurring Deposits (RD) with automatic monthly installment progression and maturity projections.</p>
           <div class="mkt-feature-highlight">
             <span class="mkt-text-green">✓</span>
-            <span>Atomic ledger debit upon EMI confirmation</span>
+            <span>Unified schedules for Loans, SIPs, RDs &amp; Fixed Deposits</span>
+          </div>
+        </div>
+
+        <div class="mkt-feature-card">
+          <div class="mkt-feature-icon-wrap text-teal">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <span class="mkt-feature-subtitle">5 Accounting Natures &amp; Regex Rules</span>
+          <h3 class="mkt-feature-title">Super-Categories &amp; Auto-Rule Engine</h3>
+          <p class="mkt-feature-desc">Organize spending into custom Super-Categories with strict accounting natures (Expense, Income, Investment, Transfer, Other). Build priority-ordered auto-categorization rules (Contains, Exact, Starts-With, Regex) with 1-click retroactive execution.</p>
+          <div class="mkt-feature-highlight">
+            <span class="mkt-text-green">✓</span>
+            <span>Monthly category envelope budgets &amp; retroactive rules</span>
+          </div>
+        </div>
+
+        <div class="mkt-feature-card">
+          <div class="mkt-feature-icon-wrap text-purple">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"></path>
+              <path d="M7 7h.01"></path>
+            </svg>
+          </div>
+          <span class="mkt-feature-subtitle">Cross-Category Project &amp; Event Tracking</span>
+          <h3 class="mkt-feature-title">Custom Multi-Tagging &amp; Tag Budgets</h3>
+          <p class="mkt-feature-desc">Slice transactions across categories and accounts with custom tags (e.g., #GoaTrip, #Tax80C, #Medical). Assign date windows and dedicated budget caps to tags, bulk-tag ledger ranges, and analyze tag breakdowns.</p>
+          <div class="mkt-feature-highlight">
+            <span class="mkt-text-green">✓</span>
+            <span>Multi-tag filters, range tagging &amp; dedicated /tags analytics</span>
+          </div>
+        </div>
+
+        <div class="mkt-feature-card">
+          <div class="mkt-feature-icon-wrap text-green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+              <polyline points="16 7 22 7 22 13"></polyline>
+            </svg>
+          </div>
+          <span class="mkt-feature-subtitle">Yahoo Finance v8 &amp; AMFI Live Feeds</span>
+          <h3 class="mkt-feature-title">Live Market Quotes &amp; Auto-NAV Sync</h3>
+          <p class="mkt-feature-desc">Track equity and mutual fund wealth with live stock quotes via Yahoo Finance v8 and automated token-based AMFI NAV matching for Mutual Funds. Sync directly from Zerodha Kite, Groww, or CAMS/KFintech CAS PDFs.</p>
+          <div class="mkt-feature-highlight">
+            <span class="mkt-text-green">✓</span>
+            <span>Real-time unrealized P&amp;L across Stocks &amp; Mutual Funds</span>
           </div>
         </div>
       </div>
@@ -1034,8 +1083,8 @@
               <path d="M10 12h4"></path>
             </svg>
           </div>
-          <h3>1-Click Encrypted Backups</h3>
-          <p>Export your entire instance — PostgreSQL ledger tables, categorization rules, dynamic parser configs, and MinIO document storage — into an encrypted .yaft-backup archive in seconds.</p>
+          <h3>Encrypted Backups &amp; Google Drive Sync</h3>
+          <p>Export your entire PostgreSQL + MinIO instance into an encrypted <code>.yaft-backup</code> archive locally, or enable the automated scheduler to sync encrypted backups to your Google Drive.</p>
         </div>
       </div>
 
@@ -1119,8 +1168,8 @@
             </tr>
             <tr class="odd">
               <td class="mkt-cmp-feat-cell">
-                <strong>Native Indian Bank Statement Parsers (Axis, SBI, PNB)</strong>
-                <small>Parses password-protected bank PDFs with trailing Cr./Dr. balances and reconciliation.</small>
+                <strong>Native Indian Parsers (Axis, SBI, PNB, EPFO, CAMS CAS)</strong>
+                <small>Parses password-protected bank, passbook &amp; mutual fund CAS PDFs with running-balance verification.</small>
               </td>
               <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
               <td><span class="mkt-cmp-badge partial">Partial</span></td>
@@ -1129,7 +1178,7 @@
             </tr>
             <tr class="even">
               <td class="mkt-cmp-feat-cell">
-                <strong>Dynamic JSON Payslip & Tax Engine (TDS, PF, 80C)</strong>
+                <strong>Dynamic JSON Payslip &amp; Tax Engine (TDS, PF, 80C)</strong>
                 <small>Regex-based parser sandbox with math verification: Gross - Deductions = Net Pay.</small>
               </td>
               <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
@@ -1149,8 +1198,8 @@
             </tr>
             <tr class="even">
               <td class="mkt-cmp-feat-cell">
-                <strong>Direct Gmail Swipe Alerts Sync (No Account Spawning)</strong>
-                <small>Fetches credit card notifications directly via official Gmail OAuth2 API.</small>
+                <strong>Multi-Gmail Bank, UPI &amp; Card Sync + Email Proof Modal</strong>
+                <small>Daily auto-sync across multiple Gmail accounts via OAuth2 with inline raw email proof viewer.</small>
               </td>
               <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
               <td><span class="mkt-cmp-badge partial">Cloud Scraper</span></td>
@@ -1160,7 +1209,7 @@
             <tr class="odd">
               <td class="mkt-cmp-feat-cell">
                 <strong>Signed Integer Minor-Unit Math (Paise Precision)</strong>
-                <small>Zero floating-point rounding errors (0.1 + 0.2 ≠ 0.3) in ledger calculations.</small>
+                <small>Zero floating-point rounding errors (0.1 + 0.2 ≠ 0.3) across all 11 account types.</small>
               </td>
               <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
               <td><span class="mkt-cmp-badge no">✗ No</span></td>
@@ -1169,8 +1218,8 @@
             </tr>
             <tr class="even">
               <td class="mkt-cmp-feat-cell">
-                <strong>Credit Utilization Radar & Visual Card Stack</strong>
-                <small>Visual card gallery with bank logos, credit limits, and 6-month cashflow trends.</small>
+                <strong>Credit Utilization Radar, Shared Limits &amp; OCR Scanner</strong>
+                <small>Visual card stack, parent/child shared credit limits for floater cards, and local Tesseract.js OCR.</small>
               </td>
               <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
               <td><span class="mkt-cmp-badge yes">✓ Yes</span></td>
@@ -1179,7 +1228,27 @@
             </tr>
             <tr class="odd">
               <td class="mkt-cmp-feat-cell">
-                <strong>Fail-Closed Statement & Holdings Validation</strong>
+                <strong>Live Stock Quotes, Auto AMFI NAV &amp; SIP/RD Schedules</strong>
+                <small>Yahoo Finance v8 stock prices, AMFI Mutual Fund NAV matching, and Loan/SIP/RD trackers.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge partial">Partial</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+            </tr>
+            <tr class="even">
+              <td class="mkt-cmp-feat-cell">
+                <strong>Super-Categories, Regex Rule Engine &amp; Custom Multi-Tagging</strong>
+                <small>5 accounting natures, retroactive regex rules, and project/event #tags with budget caps.</small>
+              </td>
+              <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge partial">Basic</span></td>
+              <td><span class="mkt-cmp-badge yes">✓ Yes</span></td>
+              <td><span class="mkt-cmp-badge no">✗ No</span></td>
+            </tr>
+            <tr class="odd">
+              <td class="mkt-cmp-feat-cell">
+                <strong>Fail-Closed Statement &amp; Holdings Validation</strong>
                 <small>Rejects malformed or unreconciled statements rather than guessing transactions.</small>
               </td>
               <td class="mkt-cmp-yaft-cell"><span class="mkt-cmp-badge yes">✓ Yes</span></td>
@@ -1338,14 +1407,14 @@ npm run dev
               <div class="mkt-arch-node client">
                 <span class="mkt-arch-tag">Frontend Client</span>
                 <strong>Next.js 15 App Router</strong>
-                <p>React 19, Server Components, DM Sans & Manrope typography, Dark/Light theme token system.</p>
+                <p>React 19, Server Components, 4 custom color themes (Green, Blue, Amber, Purple) + Light/Dark mode, and local Tesseract.js OCR.</p>
                 <small>Port 3000</small>
               </div>
               <div class="mkt-arch-arrow">→</div>
               <div class="mkt-arch-node api">
                 <span class="mkt-arch-tag">Backend Service</span>
                 <strong>NestJS Modular API</strong>
-                <p>Argon2id auth, AES-256-GCM vault, fail-closed parsers, dynamic payslip engine & Gmail OAuth sync.</p>
+                <p>Argon2id auth, AES-256-GCM vault, fail-closed parsers, dynamic payslip engine, Multi-Gmail &amp; Google Drive sync schedulers.</p>
                 <small>Port 4000 /api</small>
               </div>
               <div class="mkt-arch-arrow">→</div>
@@ -1405,7 +1474,7 @@ npm run dev
             </svg>
           </button>
           <div class="mkt-faq-answer">
-            <p>YAFT includes native fail-closed PDF parsers for Axis Bank, State Bank of India (SBI), Punjab National Bank (PNB), and EPFO Passbooks. It also imports Zerodha Kite and Groww portfolio snapshot sheets, plus real-time credit card swipe alert sync for HDFC Bank, ICICI Bank, Axis Bank, and SBI Card via the Gmail API.</p>
+            <p>YAFT supports 11 native account types (Bank, Savings, Fixed Deposit, Recurring Deposit, Credit Card, Cash, Mutual Fund, Stocks, Loan, EPFO, and UPI Lite). It includes fail-closed PDF parsers for Axis Bank, State Bank of India (SBI), Punjab National Bank (PNB), EPFO Passbooks, and CAMS / KFintech Mutual Fund CAS PDFs, plus direct session sync and snapshot imports for Zerodha Kite and Groww with live Yahoo Finance stock quotes and automated AMFI NAV matching.</p>
           </div>
         </div>
 
@@ -1417,7 +1486,7 @@ npm run dev
             </svg>
           </button>
           <div class="mkt-faq-answer">
-            <p>YAFT connects directly to the official Google Workspace / Gmail API using client-controlled OAuth2 tokens. Your credentials remain in your local PostgreSQL database. The worker fetches only credit card transaction alert emails, parses the merchant and amount, and matches them to your pre-existing accounts without spawning extraneous accounts.</p>
+            <p>YAFT connects directly to the official Google Workspace / Gmail API using client-controlled OAuth2 tokens encrypted in your local PostgreSQL vault. You can connect multiple Gmail accounts and run on-demand or automated daily background syncs across 1-day, 7-day, or 30-day windows. It parses credit card swipes, bank debit/credit alerts (Axis, SBI, HDFC, ICICI), and UPI / UPI Lite notifications, and lets you inspect the exact raw email proof via an inline eye-icon modal on every synced transaction.</p>
           </div>
         </div>
 
@@ -1465,7 +1534,7 @@ npm run dev
             </svg>
           </button>
           <div class="mkt-faq-answer">
-            <p>YAFT features a 1-click backup and restore engine under Settings (<code>/me</code>). It packages all PostgreSQL database rows and MinIO S3 statement PDFs into an encrypted <code>.yaft-backup</code> archive file that you can restore to any new machine or container in seconds.</p>
+            <p>YAFT features both a 1-click local backup/restore engine and an optional Google Drive Encrypted Backup Scheduler under Settings (<code>/me</code>). It packages all PostgreSQL database rows and MinIO S3 statement PDFs into a passphrase-encrypted <code>.yaft-backup</code> archive that you can download locally or automatically sync to your personal Google Drive on a recurring schedule.</p>
           </div>
         </div>
 
