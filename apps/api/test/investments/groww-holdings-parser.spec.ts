@@ -40,10 +40,14 @@ describe('Groww Holdings Parser', () => {
     });
   });
 
-  // Private Smoke Test
+  // Optional Local Smoke Test
   const fs = require('fs');
   const path = require('path');
-  const privateSamplePath = '/Users/yaft/Code/YAFT-private-inputs/Mutual_Funds_1234567890_19-07-2026_19-07-2026.xlsx';
+  const privateInputsDir = process.env.YAFT_PRIVATE_INPUTS_DIR ?? path.resolve(process.cwd(), '../yaft-private-inputs');
+  const sampleFiles = fs.existsSync(privateInputsDir)
+    ? fs.readdirSync(privateInputsDir).filter((f: string) => f.startsWith('Mutual_Funds_') && f.endsWith('.xlsx'))
+    : [];
+  const privateSamplePath = sampleFiles.length > 0 ? path.join(privateInputsDir, sampleFiles[0]) : '';
   
   if (fs.existsSync(privateSamplePath)) {
     it('should successfully parse the private Groww smoke test sample', async () => {
