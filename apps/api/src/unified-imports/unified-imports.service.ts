@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { findInstitution } from '@yaft/shared';
 import { PrismaService } from '../common/prisma.service';
 import { ImportsService } from '../imports/imports.service';
 import { UpdateStagedDto } from '../imports/imports.dto';
@@ -7,6 +8,7 @@ import { InvestmentsService } from '../investments/investments.service';
 import { SalaryService } from '../salary/salary.service';
 import { UnifiedImportUploadDto } from './unified-imports.dto';
 import { ImportSourceType, AccountType } from '../common/constants/enums';
+import { assertNever } from '../dashboard/domain/transaction-classifier';
 
 export const UNIFIED_IMPORT_KINDS = ['BANK_STATEMENT', 'SALARY_PAYSLIP', 'BROKER_HOLDINGS', 'UPI_STATEMENT'] as const;
 export type UnifiedImportKind = (typeof UNIFIED_IMPORT_KINDS)[number];
@@ -20,7 +22,7 @@ function orgSource(orgId: string) { return `${ORG_SOURCE_PREFIX}${orgId}`; }
 function isOrgSource(source: string) { return source.startsWith(ORG_SOURCE_PREFIX); }
 function orgIdFromSource(source: string) { return source.slice(ORG_SOURCE_PREFIX.length); }
 
-type SourceSpec = {
+export type SourceSpec = {
   kind: UnifiedImportKind;
   source: UnifiedImportSource;
   label: string;
@@ -28,41 +30,57 @@ type SourceSpec = {
   extensions: readonly string[];
   maxBytes: number;
   accountRequired: boolean;
+  eligibleAccountTypes?: readonly string[];
+  institutionId?: string;
+  pdfPasswordSupported: boolean;
+  rememberPasswordSupported: boolean;
+  autoPasswordCandidateGenerator?: 'AXIS';
   commitMode: 'REVIEW_REQUIRED' | 'IMMEDIATE_ATOMIC_REPLACEMENT';
 };
 
 const MIB = 1024 * 1024;
-const SOURCE_SPECS: readonly SourceSpec[] = [
+export const SOURCE_SPECS: readonly SourceSpec[] = [
   { kind: 'BANK_STATEMENT', source: 'SBI', label: 'State Bank of India',
     description: 'Machine-generated SBI statement PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, eligibleAccountTypes: ['BANK', 'SAVINGS'], institutionId: 'sbi',
+    pdfPasswordSupported: true, rememberPasswordSupported: true, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'BANK_STATEMENT', source: 'PNB', label: 'Punjab National Bank',
     description: 'Machine-generated PNB statement PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, eligibleAccountTypes: ['BANK', 'SAVINGS'], institutionId: 'pnb',
+    pdfPasswordSupported: true, rememberPasswordSupported: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'BANK_STATEMENT', source: 'AXIS', label: 'Axis Bank',
     description: 'Machine-generated Axis statement PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, eligibleAccountTypes: ['BANK', 'SAVINGS'], institutionId: 'axis',
+    pdfPasswordSupported: true, rememberPasswordSupported: false, autoPasswordCandidateGenerator: 'AXIS',
+    commitMode: 'REVIEW_REQUIRED' },
   { kind: 'SALARY_PAYSLIP', source: 'STANDARD_PAYSLIP', label: 'Employer Payslip',
     description: 'Employer payslip PDF.', extensions: ['.pdf'], maxBytes: 8 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, pdfPasswordSupported: true, rememberPasswordSupported: false,
+    commitMode: 'REVIEW_REQUIRED' },
   { kind: 'BROKER_HOLDINGS', source: 'ZERODHA_KITE', label: 'Zerodha / Kite',
     description: 'Zerodha Console holdings XLSX report.', extensions: ['.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
+    accountRequired: true, eligibleAccountTypes: ['MUTUAL_FUND', 'STOCKS'], institutionId: 'zerodha',
+    pdfPasswordSupported: false, rememberPasswordSupported: false, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
   { kind: 'BROKER_HOLDINGS', source: 'GROWW', label: 'Groww',
     description: 'Groww mutual funds XLSX report.', extensions: ['.xlsx'], maxBytes: 5 * MIB,
-    accountRequired: true, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
+    accountRequired: true, eligibleAccountTypes: ['MUTUAL_FUND', 'STOCKS'], institutionId: 'groww',
+    pdfPasswordSupported: false, rememberPasswordSupported: false, commitMode: 'IMMEDIATE_ATOMIC_REPLACEMENT' },
   { kind: 'BANK_STATEMENT', source: 'EPFO', label: 'EPFO India',
     description: 'EPFO member passbook PDF.', extensions: ['.pdf'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, eligibleAccountTypes: ['EPFO'], institutionId: 'epfo',
+    pdfPasswordSupported: true, rememberPasswordSupported: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'UPI_STATEMENT', source: 'GPAY', label: 'GPay (Google Pay)',
     description: 'Exported PDF or CSV statement from Google Pay app.', extensions: ['.pdf', '.csv'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, eligibleAccountTypes: ['BANK', 'SAVINGS', 'UPI_LITE'],
+    pdfPasswordSupported: false, rememberPasswordSupported: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'UPI_STATEMENT', source: 'PHONEPE', label: 'PhonePe',
     description: 'Exported PDF or CSV statement from PhonePe app.', extensions: ['.pdf', '.csv'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, eligibleAccountTypes: ['BANK', 'SAVINGS', 'UPI_LITE'],
+    pdfPasswordSupported: false, rememberPasswordSupported: false, commitMode: 'REVIEW_REQUIRED' },
   { kind: 'UPI_STATEMENT', source: 'PAYTM', label: 'Paytm',
     description: 'Exported PDF or CSV passbook statement from Paytm.', extensions: ['.pdf', '.csv'], maxBytes: 5 * MIB,
-    accountRequired: false, commitMode: 'REVIEW_REQUIRED' },
+    accountRequired: false, eligibleAccountTypes: ['BANK', 'SAVINGS', 'UPI_LITE'],
+    pdfPasswordSupported: false, rememberPasswordSupported: false, commitMode: 'REVIEW_REQUIRED' },
 ];
 
 const KIND_LABELS: Record<UnifiedImportKind, { label: string; description: string }> = {
@@ -134,8 +152,8 @@ export class UnifiedImportsService {
             source: spec.source, label: spec.label, description: spec.description,
             extensions: spec.extensions, maxBytes: spec.maxBytes, accountRequired: spec.accountRequired,
             commitMode: spec.commitMode,
-            pdfPasswordSupported: spec.kind === 'BANK_STATEMENT',
-            rememberPasswordSupported: spec.kind === 'BANK_STATEMENT' && spec.source === 'SBI',
+            pdfPasswordSupported: spec.pdfPasswordSupported,
+            rememberPasswordSupported: spec.rememberPasswordSupported,
             eligibleAccountIds: safeAccounts.filter((account) => this.accountIsEligible(account, spec)).map((account) => account.id),
           })),
         };
@@ -191,15 +209,15 @@ export class UnifiedImportsService {
     const extension = this.extension(file.originalname);
     const passwordWasSent = dto.pdfPassword !== undefined;
     const rememberWasSent = dto.rememberPassword !== undefined;
-    if (spec.kind !== 'BANK_STATEMENT' && spec.kind !== 'SALARY_PAYSLIP' || extension !== '.pdf') {
+    if (!spec.pdfPasswordSupported || extension !== '.pdf') {
       if (passwordWasSent || rememberWasSent) throw new BadRequestException('Password fields do not apply to this import file.');
     } else {
       if (dto.pdfPassword !== undefined && dto.pdfPassword.length > 128) throw new BadRequestException('The PDF password is too long.');
-      if (rememberWasSent && spec.source !== 'SBI') {
+      if (rememberWasSent && !spec.rememberPasswordSupported) {
         throw new BadRequestException('Remembering a statement password is supported only for SBI PDFs.');
       }
       if (dto.rememberPassword && !dto.pdfPassword) {
-        throw new BadRequestException('Enter the SBI PDF password before choosing to remember it.');
+        throw new BadRequestException(`Enter the ${spec.source} PDF password before choosing to remember it.`);
       }
     }
 
@@ -216,34 +234,36 @@ export class UnifiedImportsService {
       throw new BadRequestException('This import type does not use a destination account.');
     }
 
-    if (spec.kind === 'BANK_STATEMENT') {
-      const review = await this.imports.create(userId, account!.id, file,
-        { pdfPassword: dto.pdfPassword, rememberPassword: dto.rememberPassword }, spec.source as BankImportSource);
-      return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
-        review: this.safeBankReview(review), actions: this.bankActions(review.id) };
+    switch (spec.kind) {
+      case 'BANK_STATEMENT': {
+        const review = await this.imports.create(userId, account!.id, file,
+          { pdfPassword: dto.pdfPassword, rememberPassword: dto.rememberPassword }, spec.source as BankImportSource);
+        return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
+          review: this.safeBankReview(review), actions: this.bankActions(review.id) };
+      }
+      case 'SALARY_PAYSLIP': {
+        const payslipSource = resolvedOrgId ?? spec.source;
+        const review = await this.salary.upload(userId, file, payslipSource, dto.pdfPassword, dto.salaryType);
+        return { kind: spec.kind, source: dto.source, mode: spec.commitMode,
+          review: this.safeSalaryReview(review as SalaryReview), actions: this.salaryActions(review.id) };
+      }
+      case 'UPI_STATEMENT': {
+        const review = await this.imports.create(userId, account!.id, file,
+          { pdfPassword: dto.pdfPassword }, spec.source as import('../imports/bank-pdf-parser').BankPdfParser['id']);
+        return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
+          review: this.safeBankReview(review), actions: this.bankActions(review.id) };
+      }
+      case 'BROKER_HOLDINGS': {
+        const result = spec.source === 'GROWW'
+          ? await this.investments.importGrowwHoldings(userId, account!.id, file)
+          : await this.investments.importZerodhaHoldings(userId, account!.id, file);
+        return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
+          message: 'The fully reconciled report replaced this account’s previous holdings snapshot atomically.',
+          result };
+      }
+      default:
+        return assertNever(spec.kind);
     }
-    if (spec.kind === 'SALARY_PAYSLIP') {
-      // Pass the org ID (if an employer was explicitly selected) so the dynamic
-      // payslip parser uses that employer's config.
-      const payslipSource = resolvedOrgId ?? spec.source;
-      const review = await this.salary.upload(userId, file, payslipSource, dto.pdfPassword, dto.salaryType);
-      return { kind: spec.kind, source: dto.source, mode: spec.commitMode,
-        review: this.safeSalaryReview(review as SalaryReview), actions: this.salaryActions(review.id) };
-    }
-    if (spec.kind === 'UPI_STATEMENT') {
-      const review = await this.imports.create(userId, account!.id, file,
-        { pdfPassword: dto.pdfPassword }, spec.source as import('../imports/bank-pdf-parser').BankPdfParser['id']);
-      return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
-        review: this.safeBankReview(review), actions: this.bankActions(review.id) };
-    }
-
-
-    const result = spec.source === 'GROWW'
-      ? await this.investments.importGrowwHoldings(userId, account!.id, file)
-      : await this.investments.importZerodhaHoldings(userId, account!.id, file);
-    return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
-      message: 'The fully reconciled report replaced this account’s previous holdings snapshot atomically.',
-      result };
   }
 
   async updateBankReview(userId: string, batchId: string, rowId: string, dto: UpdateStagedDto) {
@@ -284,23 +304,27 @@ export class UnifiedImportsService {
   }
 
   private accountIsEligible(account: { type: string; institution: string | null; name?: string }, spec: SourceSpec) {
-    if (spec.kind === 'BANK_STATEMENT') {
-      if (spec.source === 'EPFO') return account.type === 'EPFO';
-      return ['BANK', 'SAVINGS'].includes(account.type)
-        && bankInstitutionMatchesSource(account.institution, spec.source as BankImportSource);
+    if (spec.eligibleAccountTypes && !spec.eligibleAccountTypes.includes(account.type)) {
+      return false;
     }
-    if (spec.kind === 'UPI_STATEMENT') {
-      return ['BANK', 'SAVINGS', 'UPI_LITE'].includes(account.type);
-    }
-    if (spec.kind === 'BROKER_HOLDINGS') {
-      const matchInstitution = (account.institution ?? '');
-      const matchName = (account.name ?? '');
-      if (spec.source === 'GROWW') {
-        return ['MUTUAL_FUND', 'STOCKS'].includes(account.type) && (/\bgroww\b/i.test(matchInstitution) || /\bgroww\b/i.test(matchName));
+
+    switch (spec.kind) {
+      case 'BANK_STATEMENT':
+        if (spec.source === 'EPFO') return account.type === 'EPFO';
+        return bankInstitutionMatchesSource(account.institution, spec.source as BankImportSource);
+      case 'UPI_STATEMENT':
+        return true;
+      case 'BROKER_HOLDINGS': {
+        if (!spec.institutionId) return true;
+        const resolvedInst =
+          findInstitution(account.institution) ?? findInstitution(account.name);
+        return resolvedInst?.id === spec.institutionId;
       }
-      return ['MUTUAL_FUND', 'STOCKS'].includes(account.type) && (/\b(?:zerodha|kite)\b/i.test(matchInstitution) || /\b(?:zerodha|kite)\b/i.test(matchName));
+      case 'SALARY_PAYSLIP':
+        return false;
+      default:
+        return assertNever(spec.kind);
     }
-    return false;
   }
 
   private validateFile(file: Express.Multer.File, spec: SourceSpec) {
@@ -405,7 +429,7 @@ export class UnifiedImportsService {
       } else {
         candidates.push(undefined);
       }
-      if (!pdfPassword && (!spec.source || spec.source === 'AXIS')) {
+      if (!pdfPassword && spec.autoPasswordCandidateGenerator === 'AXIS') {
         try {
           const auto = await this.imports.getAxisPasswordCandidates(userId, 'temp', file.originalname);
           for (const c of auto) {

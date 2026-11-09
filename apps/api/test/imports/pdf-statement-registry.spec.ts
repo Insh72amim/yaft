@@ -1,5 +1,12 @@
-import type { PdfStatementDocument } from '../../src/imports/bank-pdf-parser';
-import { bankInstitutionMatchesSource, bankSourceForInstitution, selectBankPdfParser } from '../../src/imports/pdf-statement-registry';
+import { BadRequestException } from '@nestjs/common';
+import type { BankPdfParser, PdfStatementDocument } from '../../src/imports/bank-pdf-parser';
+import {
+  bankInstitutionMatchesSource,
+  bankSourceForInstitution,
+  parseLoadedBankPdfDocument,
+  selectBankPdfParser,
+  UnsupportedPdfLayoutException,
+} from '../../src/imports/pdf-statement-registry';
 
 function axisDocument(): PdfStatementDocument {
   return {
@@ -21,6 +28,7 @@ describe('bank PDF parser registry', () => {
 
   it('rejects unknown and ambiguous content', () => {
     const unknown: PdfStatementDocument = { total: 1, textPages: [{ num: 1, text: 'Unknown scanned content' }], tablePages: [] };
+    expect(() => selectBankPdfParser(unknown)).toThrow(UnsupportedPdfLayoutException);
     expect(() => selectBankPdfParser(unknown)).toThrow('does not match a supported');
 
     const ambiguous = axisDocument();
@@ -33,5 +41,20 @@ describe('bank PDF parser registry', () => {
     expect(bankInstitutionMatchesSource('Punjab National Bank', 'PNB')).toBe(true);
     expect(bankInstitutionMatchesSource('Axis Bank', 'SBI')).toBe(false);
     expect(bankSourceForInstitution('Unrelated bank')).toBeUndefined();
+  });
+
+  it('fails closed when a matched bank parser throws a reconciliation error instead of falling back to generic parser', () => {
+    const failingAxisParser: BankPdfParser = {
+      id: 'AXIS',
+      institutionAliases: ['axis', 'axis bank'],
+      matches: () => true,
+      parse: () => {
+        throw new BadRequestException('Axis running balance reconciliation failed at row 4.');
+      },
+    };
+
+    expect(() =>
+      parseLoadedBankPdfDocument(axisDocument(), { institution: 'Axis Bank' }, [failingAxisParser]),
+    ).toThrow('Axis running balance reconciliation failed at row 4.');
   });
 });

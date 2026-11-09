@@ -107,4 +107,45 @@ describe('DashboardController & DashboardService', () => {
     const catNames = result.categories.map((c) => c.name);
     expect(catNames).not.toContain('CC Transfer');
   });
+
+  it('classifies RECURRING_DEPOSIT and FIXED_DEPOSIT accounts into DEPOSITS asset bucket and includes RD installments', async () => {
+    const accountFindMany = jest.fn().mockResolvedValue([
+      {
+        id: 'rd-acc',
+        name: 'SBI Recurring Deposit',
+        type: 'RECURRING_DEPOSIT',
+        openingBalance: 0n,
+        creditLimit: null,
+        dueDay: null,
+        holdings: [],
+        loans: [],
+        recurringDeposits: [
+          {
+            autoIncrease: false,
+            installments: [
+              { dueDate: new Date('2026-01-10T00:00:00Z'), amount: 5_000n, status: 'PAID' },
+              { dueDate: new Date('2026-02-10T00:00:00Z'), amount: 5_000n, status: 'PAID' },
+              { dueDate: new Date('2026-03-10T00:00:00Z'), amount: 5_000n, status: 'FUTURE' },
+            ],
+          },
+        ],
+      },
+    ]);
+    const prisma = {
+      account: { findMany: accountFindMany },
+    } as unknown as PrismaService;
+    const service = new DashboardService(prisma);
+    const controller = new DashboardController(service);
+
+    const result = await controller.getAssetsHistory({ id: 'owner-a' });
+
+    expect(result.accounts[0]).toMatchObject({
+      id: 'rd-acc',
+      type: 'RECURRING_DEPOSIT',
+      category: 'DEPOSITS',
+      balance: 10_000,
+    });
+    expect(result.depositsTotal).toBe(10_000);
+    expect(result.netWorth).toBe(10_000);
+  });
 });
