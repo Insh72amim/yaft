@@ -39,17 +39,6 @@ module.exports = {
         NODE_ENV: "development",
       },
     },
-    {
-      name: "yaft-mkt",
-      cwd: path.resolve(__dirname, "../yaft-mkt"),
-      script: "npx",
-      args: "-y serve . -l 3002",
-      interpreter: "none",
-      env: {
-        PORT: 3002,
-        NODE_ENV: "development",
-      },
-    },
   ],
 };
 
