@@ -439,8 +439,10 @@ export function MultiBankSankey({
 
   const activeHighlight = hoverTarget || pinnedTarget;
 
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const pointerDownRef = useRef(false);
 
   // Ribbon Path Helper
   const ribbon = (x1: number, yT1: number, yB1: number, x2: number, yT2: number, yB2: number) => {
@@ -645,26 +647,35 @@ export function MultiBankSankey({
   // ── Drag & Pan Handlers ──────────────────────────────────────────────────
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
-    setIsDragging(true);
+    const targetEl = e.target as Element | null;
+    if (targetEl?.closest?.('button, [data-no-pan="true"]')) return;
+    pointerDownRef.current = true;
     setDragStart({
       clientX: e.clientX,
       clientY: e.clientY,
       startX: viewBox.x,
       startY: viewBox.y,
     });
-    if (containerRef.current) {
-      containerRef.current.setPointerCapture(e.pointerId);
-    }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const scaleX = viewBox.w / rect.width;
-    const scaleY = viewBox.h / rect.height;
-
+    if (!pointerDownRef.current || !containerRef.current) return;
     const dx = e.clientX - dragStart.clientX;
     const dy = e.clientY - dragStart.clientY;
+
+    if (!isDragging) {
+      if (Math.hypot(dx, dy) < 4) return;
+      setIsDragging(true);
+      try {
+        containerRef.current.setPointerCapture(e.pointerId);
+      } catch {
+        // Ignore if pointer capture is unavailable
+      }
+    }
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const scaleX = viewBox.w / (rect.width || 1);
+    const scaleY = viewBox.h / (rect.height || 1);
 
     setViewBox((prev) => ({
       ...prev,
@@ -674,20 +685,29 @@ export function MultiBankSankey({
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
+    pointerDownRef.current = false;
     if (!isDragging) return;
     setIsDragging(false);
-    if (containerRef.current && containerRef.current.hasPointerCapture(e.pointerId)) {
-      containerRef.current.releasePointerCapture(e.pointerId);
+    try {
+      if (containerRef.current && containerRef.current.hasPointerCapture(e.pointerId)) {
+        containerRef.current.releasePointerCapture(e.pointerId);
+      }
+    } catch {
+      // Ignore release errors
     }
   };
 
   // ── Zoom Handler (Mouse Wheel anchored at cursor) ─────────────────────────
   const zoomAtPoint = useCallback((factor: number, clientX?: number, clientY?: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const normX = clientX !== undefined ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0.5;
-    const normY = clientY !== undefined ? Math.max(0, Math.min(1, (clientY - rect.top) / rect.height)) : 0.5;
+    const normX =
+      rect && clientX !== undefined && rect.width > 0
+        ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+        : 0.5;
+    const normY =
+      rect && clientY !== undefined && rect.height > 0
+        ? Math.max(0, Math.min(1, (clientY - rect.top) / rect.height))
+        : 0.5;
 
     setViewBox((prev) => {
       const cursorSvgX = prev.x + normX * prev.w;
@@ -721,7 +741,7 @@ export function MultiBankSankey({
   }, [handleWheel]);
 
   // Zoom Button Controls
-  const handleZoomIn = () => zoomAtPoint(1.2);
+  const handleZoomIn = () => zoomAtPoint(1.25);
   const handleZoomOut = () => zoomAtPoint(0.8);
 
   const handleResetView = () => {
@@ -731,21 +751,80 @@ export function MultiBankSankey({
     setHoveredFlow(null);
   };
 
-  // Fullscreen Keyboard Listener (Esc)
+  const handleToggleFullscreen = useCallback(async () => {
+    const nextState = !isFullscreen;
+    setIsFullscreen(nextState);
+    try {
+      if (nextState && wrapperRef.current?.requestFullscreen && !document.fullscreenElement) {
+        await wrapperRef.current.requestFullscreen();
+      } else if (!nextState && document.fullscreenElement && document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // Fallback to CSS fixed fullscreen mode when browser Fullscreen API is unavailable
+    }
+  }, [isFullscreen]);
+
+  // Sync with browser Fullscreen API & Escape key
   useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isFullscreen) {
         setIsFullscreen(false);
       }
     };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isFullscreen]);
 
-  // Export SVG as file
+  // Export SVG as standalone file with resolved CSS theme variables
   const handleExportSvg = () => {
     if (!svgRef.current) return;
-    const svgData = new XMLSerializer().serializeToString(svgRef.current);
+    const clonedSvg = svgRef.current.cloneNode(true) as SVGSVGElement;
+    clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clonedSvg.setAttribute('width', String(SVG_W));
+    clonedSvg.setAttribute('height', String(finalSvgH));
+    clonedSvg.setAttribute('viewBox', `0 0 ${SVG_W} ${finalSvgH}`);
+
+    const computed = window.getComputedStyle(document.documentElement);
+    const ink = computed.getPropertyValue('--ink').trim() || '#e2e8f0';
+    const muted = computed.getPropertyValue('--muted').trim() || '#94a3b8';
+    const card = computed.getPropertyValue('--card').trim() || '#0f172a';
+    const bgAlt = computed.getPropertyValue('--background-alt').trim() || '#0b1310';
+    const line = computed.getPropertyValue('--line').trim() || '#1e293b';
+    const accent = computed.getPropertyValue('--accent').trim() || '#10b981';
+
+    const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    styleEl.textContent = `
+      svg {
+        --ink: ${ink};
+        --muted: ${muted};
+        --card: ${card};
+        --background-alt: ${bgAlt};
+        --line: ${line};
+        --accent: ${accent};
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+    `;
+    clonedSvg.insertBefore(styleEl, clonedSvg.firstChild);
+
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('x', '0');
+    bgRect.setAttribute('y', '0');
+    bgRect.setAttribute('width', String(SVG_W));
+    bgRect.setAttribute('height', String(finalSvgH));
+    bgRect.setAttribute('fill', bgAlt);
+    clonedSvg.insertBefore(bgRect, styleEl.nextSibling);
+
+    const svgData = new XMLSerializer().serializeToString(clonedSvg);
     const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
     const svgUrl = URL.createObjectURL(svgBlob);
     const downloadLink = document.createElement('a');
@@ -770,6 +849,7 @@ export function MultiBankSankey({
 
   return (
     <div
+      ref={wrapperRef}
       style={{
         position: isFullscreen ? 'fixed' : 'relative',
         top: isFullscreen ? 0 : undefined,
@@ -808,7 +888,8 @@ export function MultiBankSankey({
             </div>
           </div>
           <button
-            onClick={() => setIsFullscreen(false)}
+            type="button"
+            onClick={() => void handleToggleFullscreen()}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -883,6 +964,7 @@ export function MultiBankSankey({
           </div>
         ) : pinnedTarget ? (
           <div
+            data-no-pan="true"
             style={{
               position: 'absolute',
               top: 14,
@@ -901,6 +983,7 @@ export function MultiBankSankey({
               alignItems: 'center',
               cursor: 'pointer',
             }}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setPinnedTarget(null)}
           >
             <PinOff size={13} />
@@ -910,6 +993,7 @@ export function MultiBankSankey({
 
         {/* ── Subtle Floating Side Controls ────────────────────────────── */}
         <div
+          data-no-pan="true"
           style={{
             position: 'absolute',
             top: 14,
@@ -921,10 +1005,10 @@ export function MultiBankSankey({
             background: 'var(--card)',
             border: '1px solid var(--line)',
             borderRadius: 8,
-            padding: '3px',
+            padding: '4px 3px',
             boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
             backdropFilter: 'blur(8px)',
-            opacity: 0.75,
+            opacity: 0.9,
             transition: 'opacity 0.2s ease, box-shadow 0.2s ease',
             zIndex: 40,
           }}
@@ -933,9 +1017,11 @@ export function MultiBankSankey({
             e.currentTarget.style.boxShadow = '0 4px 18px rgba(0,0,0,0.12)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = '0.75';
+            e.currentTarget.style.opacity = '0.9';
             e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)';
           }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Zoom In */}
@@ -944,8 +1030,9 @@ export function MultiBankSankey({
             onClick={handleZoomIn}
             title="Zoom In (Ctrl + Scroll)"
             style={{
-              width: 26,
-              height: 26,
+              width: 28,
+              height: 28,
+              padding: 0,
               borderRadius: 6,
               border: 'none',
               background: 'transparent',
@@ -962,14 +1049,29 @@ export function MultiBankSankey({
             <ZoomIn size={14} />
           </button>
 
+          {/* Zoom Level Indicator */}
+          <span
+            style={{
+              fontSize: '9px',
+              fontWeight: 700,
+              color: currentZoomPercent !== 100 ? 'var(--accent)' : 'var(--muted)',
+              lineHeight: 1,
+              padding: '2px 0',
+              userSelect: 'none',
+            }}
+          >
+            {currentZoomPercent}%
+          </span>
+
           {/* Zoom Out */}
           <button
             type="button"
             onClick={handleZoomOut}
             title="Zoom Out (Ctrl + Scroll)"
             style={{
-              width: 26,
-              height: 26,
+              width: 28,
+              height: 28,
+              padding: 0,
               borderRadius: 6,
               border: 'none',
               background: 'transparent',
@@ -992,8 +1094,9 @@ export function MultiBankSankey({
             onClick={handleResetView}
             title={`Reset 100% View (${currentZoomPercent}%)`}
             style={{
-              width: 26,
-              height: 26,
+              width: 28,
+              height: 28,
+              padding: 0,
               borderRadius: 6,
               border: 'none',
               background: 'transparent',
@@ -1015,11 +1118,12 @@ export function MultiBankSankey({
           {/* Live Flow Currents Toggle */}
           <button
             type="button"
-            onClick={() => setShowAnimations(!showAnimations)}
+            onClick={() => setShowAnimations((prev) => !prev)}
             title={showAnimations ? 'Disable Animated Stream Particles' : 'Enable Animated Stream Particles'}
             style={{
-              width: 26,
-              height: 26,
+              width: 28,
+              height: 28,
+              padding: 0,
               borderRadius: 6,
               border: 'none',
               background: showAnimations ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
@@ -1042,12 +1146,13 @@ export function MultiBankSankey({
             onClick={handleExportSvg}
             title="Download Diagram as SVG"
             style={{
-              width: 26,
-              height: 26,
+              width: 28,
+              height: 28,
+              padding: 0,
               borderRadius: 6,
               border: 'none',
               background: 'transparent',
-              color: 'var(--muted)',
+              color: 'var(--ink)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1063,15 +1168,16 @@ export function MultiBankSankey({
           {/* Fullscreen Toggle */}
           <button
             type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
+            onClick={() => void handleToggleFullscreen()}
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen View'}
             style={{
-              width: 26,
-              height: 26,
+              width: 28,
+              height: 28,
+              padding: 0,
               borderRadius: 6,
               border: 'none',
               background: isFullscreen ? 'var(--accent)' : 'transparent',
-              color: isFullscreen ? '#fff' : 'var(--muted)',
+              color: isFullscreen ? '#fff' : 'var(--ink)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
