@@ -17,19 +17,19 @@ Paid by UPI Lite | Axis Bank 1234
 Paid to Sample Pharmacy
 UPI Transaction ID: 100000000102
 Paid by HDFC Bank XX01 | RuPay credit card
-₹500.00
+₹500
 28 Jun, 2026
 09:29 PM
 Paid to Sample Recipient
 UPI Transaction ID: 100000000103
 Paid by Punjab National Bank 5678
-₹12,000
+₹10,000
 29 Jun, 2026
 12:37 AM
 Top-up to UPI Lite
 UPI Transaction ID: 100000000104
 Paid by Axis Bank 1234
-₹3,000
+₹2,000
 `;
 
 function createMockDoc(text: string): PdfStatementDocument {
@@ -69,14 +69,14 @@ describe('GPay PDF Parser', () => {
     // Row 3: Bank payment (Non-UPI-Lite)
     expect(rows[2].description).toBe('Paid to Sample Recipient');
     expect(rows[2].reference).toBe('100000000103');
-    expect(rows[2].amountMinor).toBe(-1200000);
+    expect(rows[2].amountMinor).toBe(-1000000);
     expect(rows[2].paymentMethod).toBe('Paid by Punjab National Bank 5678');
     expect(rows[2].isUpiLite).toBe(false);
 
     // Row 4: Top-up to UPI Lite (isUpiLite: true)
     expect(rows[3].description).toBe('Top-up to UPI Lite');
     expect(rows[3].reference).toBe('100000000104');
-    expect(rows[3].amountMinor).toBe(-300000);
+    expect(rows[3].amountMinor).toBe(-200000);
     expect(rows[3].paymentMethod).toBe('Paid by Axis Bank 1234');
     expect(rows[3].isUpiLite).toBe(true);
   });
@@ -103,13 +103,13 @@ Failed
 Payment declined
 UPI Transaction ID: 888123456789
 Paid by Axis Bank 1234
-₹1,200
+₹1,000
 25 Jun, 2026
 09:32 PM
 Paid to Sample Pharmacy
 UPI Transaction ID: 100000000102
 Paid by HDFC Bank XX01 | RuPay credit card
-₹500.00
+₹500
 `;
     const doc = createMockDoc(textWithFailed);
     const { rows } = parseGpayDocument(doc);

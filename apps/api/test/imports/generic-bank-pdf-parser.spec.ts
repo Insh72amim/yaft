@@ -48,13 +48,13 @@ describe('GenericBankPdfParser', () => {
 
   describe('parseGenericMoney', () => {
     it('parses standard money strings and returns minor units', () => {
-      expect(parseGenericMoney('1,000.50')).toBe(125050);
+      expect(parseGenericMoney('1,000.50')).toBe(100050);
       expect(parseGenericMoney('₹ 5,000.00')).toBe(500000);
       expect(parseGenericMoney('Rs. 100.00')).toBe(10000);
     });
 
     it('parses debit indicators and negative numbers', () => {
-      expect(parseGenericMoney('1,000.00 Dr')).toBe(-125000);
+      expect(parseGenericMoney('1,000.00 Dr')).toBe(-100000);
       expect(parseGenericMoney('-500.00')).toBe(-50000);
       expect(parseGenericMoney('(750.00)')).toBe(-75000);
     });

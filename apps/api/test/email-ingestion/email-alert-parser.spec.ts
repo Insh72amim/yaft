@@ -2,7 +2,7 @@ import { parseEmailAlertSnippet, parseMultipleEmailAlerts, parseIndianDate } fro
 
 describe('EmailAlertParser', () => {
   it('should parse HDFC Bank UPI debit alert', () => {
-    const text = 'Dear Customer, Rs. 2,450.00 has been debited from HDFC Bank account **1234 to VPA zomato@upi on 14-08-26. Ref: 100000000103.';
+    const text = 'Dear Customer, Rs. 2,450.00 has been debited from HDFC Bank account **1234 to VPA zomato@upi on 14-08-26. Ref: 100000000001.';
     const result = parseEmailAlertSnippet(text, 'alerts@hdfcbank.net');
 
     expect(result).not.toBeNull();
@@ -12,28 +12,28 @@ describe('EmailAlertParser', () => {
     expect(result?.amountDisplay).toBe(2450);
     expect(result?.amountMinor).toBe(-245000n);
     expect(result?.merchant).toContain('ZOMATO');
-    expect(result?.referenceNumber).toBe('100000000103');
+    expect(result?.referenceNumber).toBe('100000000001');
   });
 
   it('should parse ICICI Credit Card spend alert', () => {
-    const text = 'INR 1,299.00 spent on ICICI Bank Credit Card XX4321 on 14-Aug-26 at FLIPKART. Ref: 1000000014.';
+    const text = 'INR 1,299.00 spent on ICICI Bank Credit Card XX0002 on 14-Aug-26 at FLIPKART. Ref: 100000000002.';
     const result = parseEmailAlertSnippet(text);
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('ICICI Bank');
-    expect(result?.accountLast4).toBe('4321');
+    expect(result?.accountLast4).toBe('0002');
     expect(result?.type).toBe('DEBIT');
     expect(result?.amountDisplay).toBe(1299);
     expect(result?.merchant).toContain('FLIPKART');
   });
 
   it('should parse SBI UPI credit alert', () => {
-    const text = 'Dear SBI User, your A/C XX7890 credited by Rs 5,000.00 on 14Aug26 thru UPI ref no 100000000104.';
+    const text = 'Dear SBI User, your A/C XX0003 credited by Rs 5,000.00 on 14Aug26 thru UPI ref no 100000000003.';
     const result = parseEmailAlertSnippet(text);
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('State Bank of India');
-    expect(result?.accountLast4).toBe('7890');
+    expect(result?.accountLast4).toBe('0003');
     expect(result?.type).toBe('CREDIT');
     expect(result?.amountDisplay).toBe(5000);
     expect(result?.amountMinor).toBe(500000n);
@@ -41,9 +41,9 @@ describe('EmailAlertParser', () => {
 
   it('should parse multiple alert blocks in single text', () => {
     const multiText = `
-      Dear Customer, Rs. 2,450.00 has been debited from HDFC Bank account **1234 to VPA zomato@upi on 14-08-26. Ref: 100000000103.
+      Dear Customer, Rs. 2,450.00 has been debited from HDFC Bank account **1234 to VPA zomato@upi on 14-08-26. Ref: 100000000001.
       
-      Dear Customer, INR 1,299.00 spent on ICICI Bank Credit Card XX4321 on 14-Aug-26 at FLIPKART. Ref: 1000000014.
+      Dear Customer, INR 1,299.00 spent on ICICI Bank Credit Card XX0002 on 14-Aug-26 at FLIPKART. Ref: 100000000002.
     `;
     const list = parseMultipleEmailAlerts(multiText);
     expect(list.length).toBeGreaterThanOrEqual(2);
@@ -52,13 +52,13 @@ describe('EmailAlertParser', () => {
   });
 
   it('should parse ICICI Credit Card with Available Limit and ending with syntax', () => {
-    const text = 'Dear Customer, INR 2,450.00 has been spent on your ICICI Bank Credit Card ending with 1004 on 12-Aug-26 at AMAZON INDIA. Available Limit: INR 1,47,550.00.';
+    const text = 'Dear Customer, INR 2,450.00 has been spent on your ICICI Bank Credit Card ending with 0006 on 12-Aug-26 at AMAZON INDIA. Available Limit: INR 1,50,000.00.';
     const result = parseEmailAlertSnippet(text, 'credit_cards@icicibank.com');
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('ICICI Bank');
     expect(result?.accountType).toBe('CREDIT_CARD');
-    expect(result?.accountLast4).toBe('1004');
+    expect(result?.accountLast4).toBe('0006');
     expect(result?.type).toBe('DEBIT');
     expect(result?.amountDisplay).toBe(2450);
     expect(result?.amountMinor).toBe(-245000n);
@@ -66,27 +66,27 @@ describe('EmailAlertParser', () => {
   });
 
   it('should parse ICICI Credit Card with Merchant Name label and 16-digit masked card number', () => {
-    const text = 'Dear Customer, Transaction on ICICI Bank Credit Card 4000XXXXXXXX0005 for INR 450.00 on 10-Aug-2026. Merchant Name: STARBUCKS COFFEE. Ref: TXN12345678. Available Credit Limit: INR 1,25,000.00.';
+    const text = 'Dear Customer, Transaction on ICICI Bank Credit Card 4000XXXXXXXX0005 for INR 500.00 on 10-Aug-2026. Merchant Name: STARBUCKS COFFEE. Ref: TXN12345678. Available Credit Limit: INR 1,00,000.00.';
     const result = parseEmailAlertSnippet(text, 'alerts@icicibank.com');
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('ICICI Bank');
     expect(result?.accountType).toBe('CREDIT_CARD');
     expect(result?.accountLast4).toBe('0005');
-    expect(result?.amountDisplay).toBe(450);
+    expect(result?.amountDisplay).toBe(500);
     expect(result?.merchant).toContain('STARBUCKS');
     expect(result?.referenceNumber).toBe('TXN12345678');
   });
 
   it('should parse ICICI Credit Card spend alert with timestamp before merchant', () => {
-    const text = 'Dear Customer, Your ICICI Bank Credit Card XX0005 has been used for a transaction of INR 3,450.00 on 12-Aug-2026 at 15:30:20 at SWIGGY BANGALORE. Total Due: INR 12,000.00.';
+    const text = 'Dear Customer, Your ICICI Bank Credit Card XX0005 has been used for a transaction of INR 3,000.00 on 12-Aug-2026 at 15:30:20 at SWIGGY BANGALORE. Total Due: INR 10,000.00.';
     const result = parseEmailAlertSnippet(text);
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('ICICI Bank');
     expect(result?.accountType).toBe('CREDIT_CARD');
     expect(result?.accountLast4).toBe('0005');
-    expect(result?.amountDisplay).toBe(3450);
+    expect(result?.amountDisplay).toBe(3000);
     expect(result?.merchant).toContain('SWIGGY');
   });
 
@@ -107,7 +107,7 @@ describe('EmailAlertParser', () => {
 
 Your ICICI Bank Credit Card XX0001 has been used for a transaction of INR 500.00 on Aug 09, 2026 at 07:34:01. Info: MAKEMYTRIP INDIA PVT LT.
 
-The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit is INR 1,25,000.00. The above limits are a total of the limits of all the Credit Cards issued to the primary card holder, including any supplementary cards.`;
+The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit is INR 1,00,000.00. The above limits are a total of the limits of all the Credit Cards issued to the primary card holder, including any supplementary cards.`;
     const result = parseEmailAlertSnippet(text, 'credit_cards@icicibank.com');
 
     expect(result).not.toBeNull();
@@ -115,14 +115,14 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.accountType).toBe('CREDIT_CARD');
     expect(result?.accountLast4).toBe('0001');
     expect(result?.type).toBe('DEBIT');
-    expect(result?.amountDisplay).toBe(458);
+    expect(result?.amountDisplay).toBe(500);
     expect(result?.amountMinor).toBe(-50000n);
     expect(result?.transactionDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })).toBe('9/8/2026');
     expect(result?.transactionDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })).toBe('07:34:01');
   });
 
   it('should parse HDFC Pixel Play Credit Card with VPA and time', () => {
-    const text = 'Dear Customer, Greetings from HDFC Bank! Thank you for using your HDFC Bank Pixel Play Credit Card ending with 1234. We noticed a transaction of Rs. 204.00 at paytm-urbancompany@ptybl on 15/08/26 at 21:41. You can view more details of this transaction on the PIXEL Homepage inside your PayZapp App. Important Note: If this transaction was not done by you, please act quickly.';
+    const text = 'Dear Customer, Greetings from HDFC Bank! Thank you for using your HDFC Bank Pixel Play Credit Card ending with 1234. We noticed a transaction of Rs. 200.00 at paytm-urbancompany@ptybl on 15/08/26 at 20:00. You can view more details of this transaction on the PIXEL Homepage inside your PayZapp App. Important Note: If this transaction was not done by you, please act quickly.';
     const result = parseEmailAlertSnippet(text, 'alerts@hdfcbank.net');
 
     expect(result).not.toBeNull();
@@ -130,11 +130,11 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.accountType).toBe('CREDIT_CARD');
     expect(result?.accountLast4).toBe('1234');
     expect(result?.type).toBe('DEBIT');
-    expect(result?.amountDisplay).toBe(204);
-    expect(result?.amountMinor).toBe(-20400n);
+    expect(result?.amountDisplay).toBe(200);
+    expect(result?.amountMinor).toBe(-20000n);
     expect(result?.merchant).toBe('URBAN COMPANY');
     expect(result?.transactionDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })).toBe('15/8/2026');
-    expect(result?.transactionDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })).toBe('21:41:00');
+    expect(result?.transactionDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })).toBe('20:00:00');
   });
 
   it('should parse Axis Bank Credit Card transaction with Merchant Name and IST time', () => {
@@ -195,14 +195,14 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
   });
 
   it('should parse ICICI Credit Card with spaced merchant ZE PTO', () => {
-    const text = 'Dear Customer, Your ICICI Bank Credit Card XX0001 has been used for a transaction of INR 41.00 on Aug 02, 2026 at 20:30:00. Info: ZE PTO. The Available Credit Limit on your card is INR 95,000.00 and Total Credit Limit is INR 1,25,000.00.';
+    const text = 'Dear Customer, Your ICICI Bank Credit Card XX0001 has been used for a transaction of INR 50.00 on Aug 02, 2026 at 20:30:00. Info: ZE PTO. The Available Credit Limit on your card is INR 95,000.00 and Total Credit Limit is INR 1,00,000.00.';
     const result = parseEmailAlertSnippet(text, 'credit_cards@icici.bank.in');
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('ICICI Bank');
     expect(result?.accountType).toBe('CREDIT_CARD');
     expect(result?.accountLast4).toBe('0001');
-    expect(result?.amountDisplay).toBe(41);
+    expect(result?.amountDisplay).toBe(50);
     expect(result?.merchant).toBe('ZEPTO');
   });
 
@@ -257,7 +257,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(parseEmailAlertSnippet(failedUpi, 'alerts@hdfcbank.net')).toBeNull();
 
     // 3. Unsuccessful transaction alert
-    const unsuccessfulTxn = 'We noticed an unsuccessful transaction of INR 2,999.00 on your Axis Bank Credit Card ending 0001 on 10-Aug-26.';
+    const unsuccessfulTxn = 'We noticed an unsuccessful transaction of INR 2,999.00 on your Axis Bank Credit Card ending 0007 on 10-Aug-26.';
     expect(parseEmailAlertSnippet(unsuccessfulTxn, 'alerts@axisbank.com')).toBeNull();
 
     // 4. Rejected transaction alert
@@ -321,7 +321,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(parseEmailAlertSnippet(rewardPoints, 'alerts@icicibank.com')).toBeNull();
 
     // 11. Debit / Credit card benefits and informational announcements
-    const debitCardBenefits = "31-07-2026 Dear Test Customer, We hope that you are enjoying the hand-picked benefits that come with your Online Rewards Debit Card no. XX9012, linked to your A/c no. XX1234. Here's a quick glance at the benefits on your card: • Earn accelerated EDGE REWARD Points on eligible categories • Avail voucher worth Rs. 500";
+    const debitCardBenefits = "31-07-2026 Dear Test Customer, We hope that you are enjoying the hand-picked benefits that come with your Online Rewards Debit Card no. XX0008, linked to your A/c no. XX1234. Here's a quick glance at the benefits on your card: • Earn accelerated EDGE REWARD Points on eligible categories • Avail voucher worth Rs. 500";
     expect(parseEmailAlertSnippet(debitCardBenefits, 'Axis Bank Alerts <alerts@axis.bank.in> Important information regarding your Axis Bank Online Rewards Debit Card')).toBeNull();
   });
 
@@ -341,7 +341,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
   });
 
   it('should parse Kotak Mahindra Bank debit alert', () => {
-    const text = 'Dear Customer, INR 850.00 debited from your Kotak Bank A/c XX4567 on 20/08/26 towards SWIGGY. Available Bal: INR 24,500.00. Ref: 100000000105.';
+    const text = 'Dear Customer, INR 850.00 debited from your Kotak Bank A/c XX4567 on 20/08/26 towards SWIGGY. Available Bal: INR 24,500.00. Ref: 100000000004.';
     const result = parseEmailAlertSnippet(text, 'alerts@kotak.com');
 
     expect(result).not.toBeNull();
@@ -352,11 +352,11 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.amountDisplay).toBe(850);
     expect(result?.amountMinor).toBe(-85000n);
     expect(result?.merchant).toBe('SWIGGY');
-    expect(result?.referenceNumber).toBe('100000000105');
+    expect(result?.referenceNumber).toBe('100000000004');
   });
 
   it('should parse IDFC First Bank transaction alert with BigBasket merchant', () => {
-    const text = 'Transaction alert: INR 2,100.00 debited from IDFC First Bank A/C ending 3456 at BIGBASKET on 18-08-2026. Ref: 100000000106.';
+    const text = 'Transaction alert: INR 2,100.00 debited from IDFC First Bank A/C ending 3456 at BIGBASKET on 18-08-2026. Ref: 100000000005.';
     const result = parseEmailAlertSnippet(text, 'alerts@idfcfirstbank.com');
 
     expect(result).not.toBeNull();
@@ -367,11 +367,11 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.amountDisplay).toBe(2100);
     expect(result?.amountMinor).toBe(-210000n);
     expect(result?.merchant).toBe('BIGBASKET');
-    expect(result?.referenceNumber).toBe('100000000106');
+    expect(result?.referenceNumber).toBe('100000000005');
   });
 
   it('should parse Punjab National Bank debit alert', () => {
-    const text = 'Dear Customer, Rs. 500.00 has been debited from your PNB A/C XX2345 to VPA paytm-urbancompany@ptybl on 19-08-2026. Ref: 100000000107.';
+    const text = 'Dear Customer, Rs. 500.00 has been debited from your PNB A/C XX2345 to VPA paytm-urbancompany@ptybl on 19-08-2026. Ref: 100000000006.';
     const result = parseEmailAlertSnippet(text, 'alerts@pnb.co.in');
 
     expect(result).not.toBeNull();
@@ -382,7 +382,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.amountDisplay).toBe(500);
     expect(result?.amountMinor).toBe(-50000n);
     expect(result?.merchant).toBe('URBAN COMPANY');
-    expect(result?.referenceNumber).toBe('100000000107');
+    expect(result?.referenceNumber).toBe('100000000006');
   });
 
   it('should parse NEFT/IMPS credit transaction with sender name', () => {
@@ -415,7 +415,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
   });
 
   it('should parse HTML entity &#8377; in amount string gracefully', () => {
-    const text = 'Dear Customer, &#8377;1,500.00 has been debited from your HDFC Bank account **1234 to VPA paytm-swiggy@ptybl on 18-08-2026. Ref: 100000000108.';
+    const text = 'Dear Customer, &#8377;1,500.00 has been debited from your HDFC Bank account **1234 to VPA paytm-swiggy@ptybl on 18-08-2026. Ref: 100000000007.';
     const result = parseEmailAlertSnippet(text, 'alerts@hdfcbank.net');
 
     expect(result).not.toBeNull();
@@ -469,7 +469,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
   });
 
   it('should parse SBI Card alert from onlinesbicard@sbicard.com with exact merchant and limit extraction', () => {
-    const text = 'Dear Cardholder, Rs.1,499.00 spent on your SBI Card ending 0004 at BLINKIT on 22/08/26. Total Available Credit Limit is Rs.98,501.00.';
+    const text = 'Dear Cardholder, Rs.1,499.00 spent on your SBI Card ending 0004 at BLINKIT on 22/08/26. Total Available Credit Limit is Rs.95,000.00.';
     const result = parseEmailAlertSnippet(text, 'SBI Card Transaction Alert <onlinesbicard@sbicard.com>');
 
     expect(result).not.toBeNull();
@@ -521,7 +521,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
   });
 
   it('should parse SBI Credit Card cashback alert as positive CREDIT transaction', () => {
-    const text = 'Dear Cardholder, Rs. 500.00 has been credited to your SBI Card ending 8888 on 15-Aug-2026 towards CASHBACK. Ref: REF000001.';
+    const text = 'Dear Cardholder, Rs. 500.00 has been credited to your SBI Card ending 8888 on 15-Aug-2026 towards CASHBACK. Ref: CB100001.';
     const result = parseEmailAlertSnippet(text, 'onlinesbicard@sbicard.com');
 
     expect(result).not.toBeNull();
@@ -533,7 +533,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
   });
 
   it('should parse merchant/gateway refund confirmation email to credit card', () => {
-    const text = 'Hi Test Customer, We have successfully processed your refund of Rs. 1,000.00 for order #100001 to your SBI Card ending with 8888 on 23-Jul-2026. Ref: PAYU000001.';
+    const text = 'Hi Test Customer, We have successfully processed your refund of Rs. 1,000.00 for order #100001 to your SBI Card ending with 8888 on 23-Jul-2026. Ref: PAYU100001.';
     const result = parseEmailAlertSnippet(text, 'Myntra Updates <updates@myntra.com>');
 
     expect(result).not.toBeNull();
@@ -555,29 +555,29 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(result?.accountType).toBe('CREDIT_CARD');
     expect(result?.accountLast4).toBe('0009');
     expect(result?.type).toBe('CREDIT');
-    expect(result?.amountDisplay).toBe(25000.00);
-    expect(result?.amountMinor).toBe(2438464n);
+    expect(result?.amountDisplay).toBe(25000);
+    expect(result?.amountMinor).toBe(2500000n);
     expect(result?.merchant).toBe('PAYMENT RECEIVED');
     expect(result?.suggestedCategoryName).toBe('Credit Card Payment');
   });
 
   it('should use fallbackDate when email has no inline date and extract merchant from AutoPay structure', () => {
-    const text = "Dear Customer, Here's the summary of your successful AutoPay transaction: Transaction Amount: INR 4042.00 Merchant Name: Educative AutoPay ID: AUTOPAY123456 Axis Bank Credit Card No. XX3748 Max Limit: INR 4042.00 To manage your AutoPay facility, click here";
+    const text = "Dear Customer, Here's the summary of your successful AutoPay transaction: Transaction Amount: INR 500.00 Merchant Name: STREAMING SERVICE AutoPay ID: AUTOPAY123456 Axis Bank Credit Card No. XX0010 Max Limit: INR 500.00 To manage your AutoPay facility, click here";
     const emailDate = new Date('2026-05-25T11:42:49.000Z');
-    const result = parseEmailAlertSnippet(text, 'Axis Bank Alerts <alerts@axis.bank.in> AutoPay for Educative: ACTIVATED', emailDate);
+    const result = parseEmailAlertSnippet(text, 'Axis Bank Alerts <alerts@axis.bank.in> AutoPay for Streaming Service: ACTIVATED', emailDate);
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('Axis Bank');
     expect(result?.accountType).toBe('CREDIT_CARD');
-    expect(result?.accountLast4).toBe('3748');
-    expect(result?.amountDisplay).toBe(4042);
-    expect(result?.amountMinor).toBe(-404200n);
-    expect(result?.merchant).toBe('EDUCATIVE');
+    expect(result?.accountLast4).toBe('0010');
+    expect(result?.amountDisplay).toBe(500);
+    expect(result?.amountMinor).toBe(-50000n);
+    expect(result?.merchant).toBe('STREAMING SERVICE');
     expect(result?.transactionDate.toISOString()).toBe(emailDate.toISOString());
   });
 
   it('should reject upcoming AutoPay reminders as non-transactions', () => {
-    const text = "Dear Customer, Here's the summary of your upcoming AutoPay transaction: Transaction Amount: INR 4042.00 Merchant Name: Educative To be debited by: 08-06-2026 Max Limit: INR 4042.00 Axis Bank Credit card No. XX3748 AutoPay ID: AUTOPAY123456 Please keep sufficient limit on the card to process the auto debit";
+    const text = "Dear Customer, Here's the summary of your upcoming AutoPay transaction: Transaction Amount: INR 500.00 Merchant Name: STREAMING SERVICE To be debited by: 08-06-2026 Max Limit: INR 500.00 Axis Bank Credit card No. XX0010 AutoPay ID: AUTOPAY123456 Please keep sufficient limit on the card to process the auto debit";
     const result = parseEmailAlertSnippet(text, 'Axis Bank Alerts <alerts@axis.bank.in> Upcoming AutoPay txn. reminder');
     expect(result).toBeNull();
   });

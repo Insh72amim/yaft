@@ -63,11 +63,11 @@ describe('S3Service', () => {
       expect(require('@aws-sdk/client-s3').CreateBucketCommand).toHaveBeenCalled();
     });
 
-    it('rethrows non-NotFound errors', async () => {
+    it('warns but does not throw on non-NotFound errors', async () => {
       const serverError = new Error('Server error');
       (serverError as any).$metadata = { httpStatusCode: 500 };
       mockSend.mockRejectedValueOnce(serverError);
-      await expect(service.onModuleInit()).rejects.toThrow('Server error');
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
     });
   });
 

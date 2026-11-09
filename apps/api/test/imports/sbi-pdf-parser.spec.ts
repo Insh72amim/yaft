@@ -30,7 +30,7 @@ const finalStatementPage = `
 Balance
 04/04/2026 04/04/2026 DEP TFR
 IMPS/123456789012/SYNTHETIC SOURCE
-- - 250.00 1,000.00
+- - 250.00 1,250.00
 25/06/2026 25/06/2026 INTEREST CREDIT - - 50.00 1,300.00
 Statement Summary : 01-04-2026 To 18-07-2026
 Brought Forward (₹) Dr Count Cr Count Total Debits (₹) Total Credits (₹) Closing Balance (₹)

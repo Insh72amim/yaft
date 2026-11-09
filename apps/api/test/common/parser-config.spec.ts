@@ -109,24 +109,24 @@ describe('Parser Config Registry (@yaft/shared)', () => {
 
   describe('Email Alert Extractor Helpers', () => {
     it('extracts amounts accurately ignoring limits noise', () => {
-      const text1 = 'Transaction Amount: INR 1611.00 at Zomato. Available Limit: INR 50,000.00.';
-      expect(extractAlertAmount(text1)).toBe(1611);
+      const text1 = 'Transaction Amount: INR 1500.00 at Zomato. Available Limit: INR 50,000.00.';
+      expect(extractAlertAmount(text1)).toBe(1500);
 
-      const text2 = 'Rs. 204.00 spent on Card XX1234. Total Due: Rs. 15,000.00.';
-      expect(extractAlertAmount(text2)).toBe(204);
+      const text2 = 'Rs. 200.00 spent on Card XX1234. Total Due: Rs. 15,000.00.';
+      expect(extractAlertAmount(text2)).toBe(200);
 
-      const text3 = 'noticed a transaction of Rs. 608.28 on your account.';
-      expect(extractAlertAmount(text3)).toBe(608.28);
+      const text3 = 'noticed a transaction of Rs. 500.00 on your account.';
+      expect(extractAlertAmount(text3)).toBe(500);
     });
 
     it('extracts account last 4 digits from card / account patterns', () => {
-      expect(extractAlertAccountLast4('spent on ICICI Bank Credit Card ending with 1004')).toBe('1004');
+      expect(extractAlertAccountLast4('spent on ICICI Bank Credit Card ending with 0006')).toBe('0006');
       expect(extractAlertAccountLast4('Card 4000XXXXXXXX0005 used for transaction')).toBe('0005');
       expect(extractAlertAccountLast4('A/C XX7890 credited')).toBe('7890');
     });
 
     it('extracts reference numbers and UPI UTR IDs', () => {
-      expect(extractAlertReferenceNumber('Ref: 100000000103 on 14-08-26')).toBe('100000000103');
+      expect(extractAlertReferenceNumber('Ref: 100000000001 on 14-08-26')).toBe('100000000001');
       expect(extractAlertReferenceNumber('UPI/P2M/100000000001/SWIGGY')).toBe('100000000001');
     });
 

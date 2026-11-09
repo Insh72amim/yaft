@@ -163,7 +163,7 @@ export function canonicalizeMerchantName(raw: string): string {
     s = s.replace(/^upi[-.]?/i, '');
   }
 
-  // 3. If it's a POS / PUR / UPI path e.g. "PUR/YOUTUBEGOOGLE/YOUTUBEGOOGLE/123456" or "UPI/P2A/100000000001/SAMPLE MERCHANT"
+  // 3. If it's a POS / PUR / UPI path e.g. "PUR/ONLINE_STREAMING/000000" or "UPI/P2A/100000000001/SAMPLE MERCHANT"
   if (s.includes('/')) {
     const parts = s.split('/').filter((p) => p && !/^\d+$/.test(p) && !/^(PUR|POS|UPI|P2A|P2M|P2P|INF|NEFT|IMPS)$/i.test(p));
     if (parts.length > 0) {

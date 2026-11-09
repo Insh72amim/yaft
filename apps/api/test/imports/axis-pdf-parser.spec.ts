@@ -105,8 +105,8 @@ describe('Axis Bank PDF parser', () => {
           num: 1,
           tables: [[
             ['Date', 'Transaction Details', 'Amount (INR)', 'Debit/Credit'],
-            ["30 Jun '26", 'EMI Interest - 2/9, Ref# 10000001', '₹ 124.00', 'Debit'],
-            ["21 Jun '26", 'GOOGLECLOUD,MUMBAI', '₹ 200.00', 'Credit'],
+            ["30 Jun '26", 'EMI Interest - 1/6, Ref# 10000001', '₹ 100.00', 'Debit'],
+            ["21 Jun '26", 'SAMPLE CLOUD SERVICE,MUMBAI', '₹ 200.00', 'Credit'],
           ]],
         },
       ],
@@ -117,13 +117,13 @@ describe('Axis Bank PDF parser', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
       date: new Date(Date.UTC(2026, 5, 30)),
-      description: 'EMI Interest - 2/9, Ref# 10000001',
-      amountMinor: -12400,
+      description: 'EMI Interest - 1/6, Ref# 10000001',
+      amountMinor: -10000,
       reference: '10000001',
     });
     expect(rows[1]).toMatchObject({
       date: new Date(Date.UTC(2026, 5, 21)),
-      description: 'GOOGLECLOUD,MUMBAI',
+      description: 'SAMPLE CLOUD SERVICE,MUMBAI',
       amountMinor: 20000,
     });
   });

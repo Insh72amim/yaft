@@ -10,9 +10,9 @@ describe('transaction-utils', () => {
     it('extracts UPI beneficiary names correctly', () => {
       expect(extractBeneficiaryName('UPI/12345/SWIGGY/PAYMENT')).toBe('SWIGGY');
       expect(extractBeneficiaryName('UPI/REV/67890/SWIGGY/PAYMENT')).toBe('SWIGGY');
-      expect(extractBeneficiaryName('UPI/P2A/100000000011/SAMPLE MERCHANT /Rent f/Kotak Mahindra Bank')).toBe('SAMPLE MERCHANT');
-      expect(extractBeneficiaryName('UPI/P2M/100000000013/LENSKART /Paymen/AXIS BANK')).toBe('LENSKART');
-      expect(extractBeneficiaryName('UPI/DR/100000000012/SAMPLE MERCHANT/CBIN/merchant@ok/')).toBe('SAMPLE MERCHANT');
+      expect(extractBeneficiaryName('UPI/P2A/100000000011/SAMPLE VENDOR /Invoice/Kotak Mahindra Bank')).toBe('SAMPLE VENDOR');
+      expect(extractBeneficiaryName('UPI/P2M/100000000012/LENSKART /Paymen/AXIS BANK')).toBe('LENSKART');
+      expect(extractBeneficiaryName('UPI/DR/100000000013/SAMPLE MERCHANT/TEST/merchant@ok/')).toBe('SAMPLE MERCHANT');
     });
 
     it('extracts UPI VPA handles correctly', () => {
