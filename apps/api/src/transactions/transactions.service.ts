@@ -24,8 +24,8 @@ export function buildTransactionWhere(
       where.account.type = AccountType.CREDIT_CARD;
     } else if (mode === 'BANK') {
       where.account.type = { in: [AccountType.SAVINGS, AccountType.BANK] };
-    } else if (mode === 'UPI_LITE') {
-      where.account.type = AccountType.UPI_LITE;
+    } else if (mode === 'ALL') {
+      where.account.type = { not: AccountType.UPI_LITE };
     }
   }
 
