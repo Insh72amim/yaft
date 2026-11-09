@@ -128,7 +128,7 @@ export function OrganizationModal({
               id="orgName"
               className="text-input"
               type="text"
-              placeholder="e.g. Acme Corp, Acme Corp, Google"
+              placeholder="e.g. Acme Corp, Initech, Google"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required

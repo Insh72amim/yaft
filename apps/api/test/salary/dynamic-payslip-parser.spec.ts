@@ -2,9 +2,9 @@ import { parseDynamicPayslip } from '../../src/salary/dynamic-payslip-parser';
 import { SalaryItemType } from '@prisma/client';
 
 const SAMPLE_PAYSLIP = `
-GLOBEX CORP PRIVATE LIMITED
+ACME TECH PRIVATE LIMITED
 PAYSLIP FOR THE MONTH OF May 2026
-Employee Name: TEST USER
+Employee Name: TEST EMPLOYEE
 Employee ID: EMP0001
 Pay Period: May 2026
 
@@ -25,9 +25,9 @@ Net Pay: 142,800.00
 
 describe('parseDynamicPayslip', () => {
   it('parses fields using default matchers when config is empty', () => {
-    const res = parseDynamicPayslip(SAMPLE_PAYSLIP, undefined, 'Acme Corp');
+    const res = parseDynamicPayslip(SAMPLE_PAYSLIP, undefined, 'Acme Tech');
 
-    expect(res.employer).toBe('Acme Corp');
+    expect(res.employer).toBe('Acme Tech');
     expect(res.payPeriod).toEqual(new Date(Date.UTC(2026, 4, 1)));
     expect(res.grossEarnings).toBe(18000000); // minor units
     expect(res.grossDeductions).toBe(3720000);
@@ -45,9 +45,9 @@ describe('parseDynamicPayslip', () => {
       },
     };
 
-    const res = parseDynamicPayslip(SAMPLE_PAYSLIP, config, 'Acme Corp');
+    const res = parseDynamicPayslip(SAMPLE_PAYSLIP, config, 'Acme Tech');
 
-    expect(res.employeeName).toBe('TEST USER');
+    expect(res.employeeName).toBe('TEST EMPLOYEE');
     expect(res.grossEarnings).toBe(18000000);
     expect(res.grossDeductions).toBe(3720000);
     expect(res.netPay).toBe(14280000);
@@ -62,7 +62,7 @@ describe('parseDynamicPayslip', () => {
       ],
     };
 
-    const res = parseDynamicPayslip(SAMPLE_PAYSLIP, config, 'Acme Corp');
+    const res = parseDynamicPayslip(SAMPLE_PAYSLIP, config, 'Acme Tech');
 
     const earnings = res.lineItems.filter((i) => i.type === SalaryItemType.EARNING);
     const deductions = res.lineItems.filter((i) => i.type === SalaryItemType.DEDUCTION);
