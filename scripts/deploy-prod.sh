@@ -19,11 +19,10 @@ else
   git branch -f production main
 fi
 
-# 2. Sync marketing folder if standalone directory exists
+# 2. Sync marketing repository if standalone directory exists
 YAFT_MKT_DIR="${YAFT_MKT_DIR:-$(dirname "$ROOT_DIR")/yaft-mkt}"
-if [ -d "$YAFT_MKT_DIR" ] && [ -d "$ROOT_DIR/marketing" ]; then
-  echo "Syncing marketing site to $YAFT_MKT_DIR..."
-  cp -R "$ROOT_DIR/marketing/"* "$YAFT_MKT_DIR/" 2>/dev/null || true
+if [ -d "$YAFT_MKT_DIR" ]; then
+  echo "Standalone marketing repository detected at $YAFT_MKT_DIR."
 fi
 
 echo "Building and launching Docker containers for Web (Port ${DOCKER_WEB_PORT:-3001}) and API (Port ${DOCKER_API_PORT:-4001})..."

@@ -9,8 +9,9 @@ const webDir = path.join(rootDir, 'apps', 'web');
 const apiRouteDir = path.join(webDir, 'app', 'api');
 const apiBackupDir = path.join(webDir, '.api-route-backup');
 const demoOutDir = path.join(webDir, '.next-demo');
-const marketingDemoDir = path.join(rootDir, 'marketing', 'demo');
-const marketingLogosDir = path.join(rootDir, 'marketing', 'logos');
+const targetMktDir = process.env.YAFT_MKT_DIR || path.resolve(rootDir, '..', 'yaft-mkt');
+const marketingDemoDir = path.join(targetMktDir, 'demo');
+const marketingLogosDir = path.join(targetMktDir, 'logos');
 const webLogosDir = path.join(webDir, 'public', 'logos');
 
 console.log('Building static Guest Demo export of @yaft/web...');

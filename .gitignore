@@ -2,8 +2,6 @@ node_modules
 .next
 .next-dev
 .next-demo
-marketing/demo
-marketing/logos
 dist
 .env
 .env.local
