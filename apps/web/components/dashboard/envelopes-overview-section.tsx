@@ -109,7 +109,7 @@ function formatCleanMerchant(merchant?: string, description?: string): string {
   if (/^googlepay\./i.test(raw) || /^gpay/i.test(raw)) return "Google Pay Merchant";
   if (/^phonepe\./i.test(raw)) return "PhonePe Merchant";
   if (/^hennesnmauritz/i.test(raw)) return "H&M (Hennes & Mauritz)";
-  if (/^elior\s*india/i.test(raw)) return "Corporate Cafeteria";
+  if (/^corporate\s*cafeteria/i.test(raw)) return "Corporate Cafeteria";
   if (/^swiggy/i.test(raw)) return "Swiggy";
   if (/^zomato/i.test(raw)) return "Zomato";
   if (/^blinkit/i.test(raw)) return "Blinkit";
