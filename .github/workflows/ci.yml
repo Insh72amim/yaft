@@ -31,6 +31,9 @@ jobs:
       - name: Generate Prisma Client
         run: npm run db:generate
 
+      - name: Build Shared Packages
+        run: npm run build --workspace @yaft/shared
+
       - name: Run Test Suite
         run: npm test
 
