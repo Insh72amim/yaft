@@ -1075,13 +1075,31 @@ export function generateRandomDemoState(): DemoState {
   let txCounter = 1;
   const nextTxId = () => `tx-demo-${txCounter++}`;
 
+  const makeMonthDate = (
+    year: number,
+    month: number,
+    day: number,
+    hour: number,
+    minute: number,
+    isCurrentMonth: boolean,
+  ): Date => {
+    if (!isCurrentMonth) {
+      return new Date(Date.UTC(year, month, day, hour, minute, 0));
+    }
+    const maxDay = Math.max(1, now.getUTCDate());
+    const scaledDay = maxDay >= 28 ? day : Math.max(1, Math.min(maxDay, Math.ceil((day / 28) * maxDay)));
+    const candidate = new Date(Date.UTC(year, month, scaledDay, hour, minute, 0));
+    if (candidate > now) {
+      return new Date(now.getTime() - randInt(1, 18) * 3600 * 1000);
+    }
+    return candidate;
+  };
+
   for (let mOffset = 5; mOffset >= 0; mOffset--) {
+    const isCurrentMonth = mOffset === 0;
     const year = currentYear;
     const month = currentMonth - mOffset;
-    const payDate = new Date(Date.UTC(year, month, 28, 9, 30, 0));
-    if (payDate > now) {
-      payDate.setUTCDate(Math.max(1, now.getUTCDate() - 1));
-    }
+    const payDate = makeMonthDate(year, month, 1, 9, 30, isCurrentMonth);
     const payPeriodDate = new Date(Date.UTC(year, month, 1));
     const bonus = mOffset === 2 ? 4500000 : 0; // Festive bonus 2 months ago
     const grossEarnings = baseBasic + baseHra + baseSpecial + bonus;
@@ -1123,7 +1141,8 @@ export function generateRandomDemoState(): DemoState {
       transactionId: salTxId,
     });
 
-    // Salary Credit Transaction in HDFC
+    // 1. External Inflows across all 3 Banks
+    // 1a. Salary Credit Transaction in HDFC
     transactions.push({
       id: salTxId,
       accountId: 'acc-hdfc-salary',
@@ -1151,114 +1170,228 @@ export function generateRandomDemoState(): DemoState {
       },
     });
 
-    // EPFO Monthly Contribution
-    const epfoDate = new Date(Date.UTC(year, month, 15, 10, 0, 0));
-    if (epfoDate <= now) {
-      transactions.push({
-        id: nextTxId(),
-        accountId: 'acc-epfo',
-        postedAt: epfoDate.toISOString(),
-        description: `EPFO Monthly Contribution (Employee + Employer) - ${monthLabel}`,
-        merchant: 'EPFO India',
-        category: 'EPFO Contribution',
-        categoryId: 'cat-epfo',
-        categoryVerified: true,
-        amount: pfDeduction * 2,
-        kind: TransactionKind.INVESTMENT,
-        tagIds: [],
-      });
-    }
+    // 1b. Axis Bank External Inbound (Advisory / Dividend / Interest Credit)
+    const axisInflowDate = makeMonthDate(year, month, 3, 10, 15, isCurrentMonth);
+    const axisInflowAmt = roundTo100Paise(randInt(1850000, 2650000)); // ₹18,500 - ₹26,500
+    transactions.push({
+      id: nextTxId(),
+      accountId: 'acc-axis-savings',
+      postedAt: axisInflowDate.toISOString(),
+      description: 'NEFT CR-NSDL DIVIDEND & ADVISORY PAYOUT-AXIS PRIORITY',
+      merchant: 'Equity Dividend & Retainer',
+      category: 'Interest & Dividends',
+      categoryId: 'cat-interest',
+      categoryVerified: true,
+      amount: axisInflowAmt,
+      kind: TransactionKind.INCOME,
+      tagIds: [],
+    });
 
-    // House Rent (3rd of month from HDFC)
-    const rentDate = new Date(Date.UTC(year, month, 3, 11, 15, 0));
-    if (rentDate <= now) {
-      transactions.push({
-        id: nextTxId(),
-        accountId: 'acc-hdfc-salary',
-        postedAt: rentDate.toISOString(),
-        description: 'UPI/DR/0000000000/LANDLORD LANDLORD APARTMENT/RENT',
-        merchant: 'Apartment Rent',
-        category: 'Housing & Rent',
-        categoryId: 'cat-housing',
-        categoryVerified: true,
-        amount: -3800000, // -₹38,000
-        kind: TransactionKind.EXPENSE,
-        tagIds: [],
-      });
-    }
+    // 1c. SBI Savings External Inbound (FD Interest Payout & Rewards)
+    const sbiInflowDate = makeMonthDate(year, month, 4, 11, 0, isCurrentMonth);
+    const sbiInflowAmt = roundTo100Paise(randInt(680000, 1120000)); // ₹6,800 - ₹11,200
+    transactions.push({
+      id: nextTxId(),
+      accountId: 'acc-sbi-savings',
+      postedAt: sbiInflowDate.toISOString(),
+      description: 'BULK CR-SBI TERM DEPOSIT INTEREST & TREASURY PAYOUT',
+      merchant: 'SBI Treasury Interest',
+      category: 'Interest & Dividends',
+      categoryId: 'cat-interest',
+      categoryVerified: true,
+      amount: sbiInflowAmt,
+      kind: TransactionKind.INCOME,
+      tagIds: [],
+    });
 
-    // SIPs (5th, 10th, 15th)
-    const sip1Date = new Date(Date.UTC(year, month, 5, 8, 30, 0));
-    if (sip1Date <= now) {
-      transactions.push({
+    // 2. Inter-Bank Self Transfers (HDFC Salary -> Axis Savings & HDFC Salary -> SBI Savings)
+    const hdfcToAxisDate = makeMonthDate(year, month, 2, 10, 0, isCurrentMonth);
+    const hdfcToAxisAmt = 4500000; // ₹45,000
+    const hdfcToAxisPairId = `pair-ib-axis-${mOffset}`;
+    transactions.push(
+      {
         id: nextTxId(),
         accountId: 'acc-hdfc-salary',
-        postedAt: sip1Date.toISOString(),
-        description: 'ACH DR-INDIAN CLEARING CORP-GROWW PPFAS FLEXI CAP SIP',
-        merchant: 'Groww Mutual Funds',
-        category: 'Mutual Fund SIP',
-        categoryId: 'cat-sip',
+        postedAt: hdfcToAxisDate.toISOString(),
+        description: 'IMPS/DR/AXIS PRIORITY SAVINGS ALLOCATION/XX0002',
+        merchant: 'Axis Bank Priority Savings',
+        category: 'Self Transfer',
+        categoryId: 'cat-self-transfer',
         categoryVerified: true,
-        amount: -2500000,
-        kind: TransactionKind.INVESTMENT,
+        amount: -hdfcToAxisAmt,
+        kind: TransactionKind.TRANSFER,
+        transferPairId: hdfcToAxisPairId,
+        transferAccountId: 'acc-axis-savings',
         tagIds: [],
-      });
-    }
-    const sip2Date = new Date(Date.UTC(year, month, 10, 8, 30, 0));
-    if (sip2Date <= now) {
-      transactions.push({
-        id: nextTxId(),
-        accountId: 'acc-hdfc-salary',
-        postedAt: sip2Date.toISOString(),
-        description: 'ACH DR-INDIAN CLEARING CORP-GROWW MOTILAL MIDCAP SIP',
-        merchant: 'Groww Mutual Funds',
-        category: 'Mutual Fund SIP',
-        categoryId: 'cat-sip',
-        categoryVerified: true,
-        amount: -1500000,
-        kind: TransactionKind.INVESTMENT,
-        tagIds: [],
-      });
-    }
-    const sip3Date = new Date(Date.UTC(year, month, 15, 8, 30, 0));
-    if (sip3Date <= now) {
-      transactions.push({
+      },
+      {
         id: nextTxId(),
         accountId: 'acc-axis-savings',
-        postedAt: sip3Date.toISOString(),
-        description: 'NACH-DR-ICCL GROWW SBI SMALL CAP SIP',
-        merchant: 'Groww Mutual Funds',
-        category: 'Mutual Fund SIP',
-        categoryId: 'cat-sip',
+        postedAt: hdfcToAxisDate.toISOString(),
+        description: 'IMPS/CR/FROM HDFC SALARY A/C XX0001/SELF TRANSFER',
+        merchant: 'HDFC Bank Salary Account',
+        category: 'Self Transfer',
+        categoryId: 'cat-self-transfer',
         categoryVerified: true,
-        amount: -1000000,
-        kind: TransactionKind.INVESTMENT,
+        amount: hdfcToAxisAmt,
+        kind: TransactionKind.TRANSFER,
+        transferPairId: hdfcToAxisPairId,
+        transferAccountId: 'acc-hdfc-salary',
         tagIds: [],
-      });
-    }
+      },
+    );
 
-    // Car Loan EMI (7th of month from HDFC)
-    const emiDate = new Date(Date.UTC(year, month, 7, 9, 0, 0));
-    if (emiDate <= now) {
-      const emiTxId = nextTxId();
-      transactions.push({
-        id: emiTxId,
+    const hdfcToSbiDate = makeMonthDate(year, month, 2, 10, 30, isCurrentMonth);
+    const hdfcToSbiAmt = 2500000; // ₹25,000
+    const hdfcToSbiPairId = `pair-ib-sbi-${mOffset}`;
+    transactions.push(
+      {
+        id: nextTxId(),
         accountId: 'acc-hdfc-salary',
-        postedAt: emiDate.toISOString(),
-        description: 'ACH DR-HDFC BANK AUTO LOAN EMI #0006',
-        merchant: 'HDFC Car Loan',
-        category: 'Loan EMI',
-        categoryId: 'cat-emi',
+        postedAt: hdfcToSbiDate.toISOString(),
+        description: 'NEFT/DR/SBI SAVINGS HOUSEHOLD & EQUITY POOL/XX0003',
+        merchant: 'State Bank of India Savings',
+        category: 'Self Transfer',
+        categoryId: 'cat-self-transfer',
         categoryVerified: true,
-        amount: -loanEmi,
-        kind: TransactionKind.EXPENSE,
+        amount: -hdfcToSbiAmt,
+        kind: TransactionKind.TRANSFER,
+        transferPairId: hdfcToSbiPairId,
+        transferAccountId: 'acc-sbi-savings',
         tagIds: [],
-      });
-    }
+      },
+      {
+        id: nextTxId(),
+        accountId: 'acc-sbi-savings',
+        postedAt: hdfcToSbiDate.toISOString(),
+        description: 'NEFT/CR/FROM HDFC SALARY A/C XX0001/SELF TRANSFER',
+        merchant: 'HDFC Bank Salary Account',
+        category: 'Self Transfer',
+        categoryId: 'cat-self-transfer',
+        categoryVerified: true,
+        amount: hdfcToSbiAmt,
+        kind: TransactionKind.TRANSFER,
+        transferPairId: hdfcToSbiPairId,
+        transferAccountId: 'acc-hdfc-salary',
+        tagIds: [],
+      },
+    );
 
-    // Recurring Deposit Installment (12th of month from Axis, except current month so it stays pending to test)
-    const rdDate = new Date(Date.UTC(year, month, 12, 9, 0, 0));
-    if (rdDate <= now && mOffset > 0) {
+    // 3. EPFO Monthly Contribution
+    const epfoDate = makeMonthDate(year, month, 15, 10, 0, isCurrentMonth);
+    transactions.push({
+      id: nextTxId(),
+      accountId: 'acc-epfo',
+      postedAt: epfoDate.toISOString(),
+      description: `EPFO Monthly Contribution (Employee + Employer) - ${monthLabel}`,
+      merchant: 'EPFO India',
+      category: 'EPFO Contribution',
+      categoryId: 'cat-epfo',
+      categoryVerified: true,
+      amount: pfDeduction * 2,
+      kind: TransactionKind.INVESTMENT,
+      tagIds: [],
+    });
+
+    // 4. House Rent (3rd of month from HDFC)
+    const rentDate = makeMonthDate(year, month, 3, 11, 15, isCurrentMonth);
+    transactions.push({
+      id: nextTxId(),
+      accountId: 'acc-hdfc-salary',
+      postedAt: rentDate.toISOString(),
+      description: 'UPI/DR/0000000000/LANDLORD LANDLORD APARTMENT/RENT',
+      merchant: 'Apartment Rent',
+      category: 'Housing & Rent',
+      categoryId: 'cat-housing',
+      categoryVerified: true,
+      amount: -3800000, // -₹38,000
+      kind: TransactionKind.EXPENSE,
+      tagIds: [],
+    });
+
+    // 5. Investments across HDFC, Axis, and SBI
+    const sip1Date = makeMonthDate(year, month, 5, 8, 30, isCurrentMonth);
+    transactions.push({
+      id: nextTxId(),
+      accountId: 'acc-hdfc-salary',
+      postedAt: sip1Date.toISOString(),
+      description: 'ACH DR-INDIAN CLEARING CORP-GROWW PPFAS FLEXI CAP SIP',
+      merchant: 'Groww Mutual Funds',
+      category: 'Mutual Fund SIP',
+      categoryId: 'cat-sip',
+      categoryVerified: true,
+      amount: -2500000,
+      kind: TransactionKind.INVESTMENT,
+      tagIds: [],
+    });
+
+    const sip2Date = makeMonthDate(year, month, 10, 8, 30, isCurrentMonth);
+    transactions.push({
+      id: nextTxId(),
+      accountId: 'acc-hdfc-salary',
+      postedAt: sip2Date.toISOString(),
+      description: 'ACH DR-INDIAN CLEARING CORP-GROWW MOTILAL MIDCAP SIP',
+      merchant: 'Groww Mutual Funds',
+      category: 'Mutual Fund SIP',
+      categoryId: 'cat-sip',
+      categoryVerified: true,
+      amount: -1500000,
+      kind: TransactionKind.INVESTMENT,
+      tagIds: [],
+    });
+
+    const sip3Date = makeMonthDate(year, month, 15, 8, 30, isCurrentMonth);
+    transactions.push({
+      id: nextTxId(),
+      accountId: 'acc-axis-savings',
+      postedAt: sip3Date.toISOString(),
+      description: 'NACH-DR-ICCL GROWW SBI SMALL CAP SIP',
+      merchant: 'Groww Mutual Funds',
+      category: 'Mutual Fund SIP',
+      categoryId: 'cat-sip',
+      categoryVerified: true,
+      amount: -1000000,
+      kind: TransactionKind.INVESTMENT,
+      tagIds: [],
+    });
+
+    // SBI Equity Investment via Zerodha
+    const sbiStockDate = makeMonthDate(year, month, 11, 9, 45, isCurrentMonth);
+    const sbiStockAmt = roundTo100Paise(randInt(1200000, 1650000)); // ₹12,000 - ₹16,500
+    transactions.push({
+      id: nextTxId(),
+      accountId: 'acc-sbi-savings',
+      postedAt: sbiStockDate.toISOString(),
+      description: 'UPI/DR/ZERODHA BROKING LTD/EQUITY DEMAT TOPUP',
+      merchant: 'Zerodha Broking',
+      category: 'Stock Investments',
+      categoryId: 'cat-stocks',
+      categoryVerified: true,
+      amount: -sbiStockAmt,
+      kind: TransactionKind.INVESTMENT,
+      tagIds: [],
+    });
+
+    // 6. Car Loan EMI (7th of month from HDFC)
+    const emiDate = makeMonthDate(year, month, 7, 9, 0, isCurrentMonth);
+    const emiTxId = nextTxId();
+    transactions.push({
+      id: emiTxId,
+      accountId: 'acc-hdfc-salary',
+      postedAt: emiDate.toISOString(),
+      description: 'ACH DR-HDFC BANK AUTO LOAN EMI #0006',
+      merchant: 'HDFC Car Loan',
+      category: 'Loan EMI',
+      categoryId: 'cat-emi',
+      categoryVerified: true,
+      amount: -loanEmi,
+      kind: TransactionKind.EXPENSE,
+      tagIds: [],
+    });
+
+    // 7. Recurring Deposit Installment (12th of month from Axis, except current month so it stays pending to test)
+    const rdDate = makeMonthDate(year, month, 12, 9, 0, isCurrentMonth);
+    if (mOffset > 0) {
       transactions.push({
         id: nextTxId(),
         accountId: 'acc-axis-savings',
@@ -1274,28 +1407,31 @@ export function generateRandomDemoState(): DemoState {
       });
     }
 
-    // Monthly Expenses across Bank & Credit Cards
+    // 8. Monthly Expenses across all 3 Banks & 4 Credit Cards
     const monthlyExpenseTemplates = [
-      { day: 2, acc: 'acc-cc-infinia', desc: 'SWIGGY INSTAMART BENGALURU', merchant: 'Swiggy Instamart', cat: 'Groceries', catId: 'cat-groceries', min: 850, max: 2400, tags: [] },
-      { day: 4, acc: 'acc-cc-infinia', desc: 'ZOMATO LIMITED GURUGRAM', merchant: 'Zomato', cat: 'Food & Dining', catId: 'cat-food', min: 520, max: 1650, tags: [] },
-      { day: 6, acc: 'acc-axis-savings', desc: 'UPI/DR/BLINKIT GROCERIES/gurgaon@axis', merchant: 'Blinkit', cat: 'Groceries', catId: 'cat-groceries', min: 640, max: 1890, tags: [] },
-      { day: 8, acc: 'acc-cc-icici', desc: 'AMAZON PAY INDIA PVT LTD BENGALURU', merchant: 'Amazon India', cat: 'Shopping & Lifestyle', catId: 'cat-shopping', min: 1499, max: 6499, tags: mOffset === 1 ? ['tag-setup'] : [] },
-      { day: 9, acc: 'acc-hdfc-salary', desc: 'BBPS/BESCOM ELECTRICITY BILL BLR', merchant: 'BESCOM Electricity', cat: 'Bills & Utilities', catId: 'cat-bills', min: 2100, max: 3850, tags: [] },
+      { day: 2, acc: 'acc-cc-infinia', desc: 'SWIGGY INSTAMART BENGALURU', merchant: 'Swiggy Instamart', cat: 'Groceries', catId: 'cat-groceries', min: 1150, max: 2600, tags: [] },
+      { day: 4, acc: 'acc-cc-infinia', desc: 'ZOMATO LIMITED GURUGRAM', merchant: 'Zomato', cat: 'Food & Dining', catId: 'cat-food', min: 720, max: 1850, tags: [] },
+      { day: 6, acc: 'acc-axis-savings', desc: 'UPI/DR/BLINKIT GROCERIES/gurgaon@axis', merchant: 'Blinkit', cat: 'Groceries', catId: 'cat-groceries', min: 1100, max: 2250, tags: [] },
+      { day: 8, acc: 'acc-cc-icici', desc: 'AMAZON PAY INDIA PVT LTD BENGALURU', merchant: 'Amazon India', cat: 'Shopping & Lifestyle', catId: 'cat-shopping', min: 2199, max: 6999, tags: mOffset === 1 ? ['tag-setup'] : [] },
+      { day: 9, acc: 'acc-hdfc-salary', desc: 'BBPS/BESCOM ELECTRICITY BILL BLR', merchant: 'BESCOM Electricity', cat: 'Bills & Utilities', catId: 'cat-bills', min: 2350, max: 3950, tags: [] },
+      { day: 10, acc: 'acc-sbi-savings', desc: 'UPI/DR/DMART READY SUPERMARKET/dmart@sbi', merchant: 'DMart Ready', cat: 'Groceries', catId: 'cat-groceries', min: 2450, max: 3850, tags: [] },
       { day: 11, acc: 'acc-cc-tata', desc: 'BIGBASKET AVENUE SUPERMARTS BLR', merchant: 'BigBasket', cat: 'Groceries', catId: 'cat-groceries', min: 1800, max: 3600, tags: [] },
-      { day: 13, acc: 'acc-cc-axis', desc: 'SHELL INDIA MARKETS FUEL STATION', merchant: 'Shell Fuel', cat: 'Transport & Fuel', catId: 'cat-transport', min: 2200, max: 3800, tags: [] },
+      { day: 13, acc: 'acc-cc-axis', desc: 'SHELL INDIA MARKETS FUEL STATION', merchant: 'Shell Fuel', cat: 'Transport & Fuel', catId: 'cat-transport', min: 2400, max: 4100, tags: [] },
       { day: 14, acc: 'acc-cc-infinia', desc: 'NETFLIX.COM MUMBAI SUBSCRIPTION', merchant: 'Netflix', cat: 'Entertainment & OTT', catId: 'cat-entertainment', min: 649, max: 649, tags: [] },
-      { day: 16, acc: 'acc-cc-infinia', desc: 'THIRD WAVE COFFEE ROASTERS INDIRANAGAR', merchant: 'Third Wave Coffee', cat: 'Food & Dining', catId: 'cat-food', min: 440, max: 980, tags: [] },
-      { day: 17, acc: 'acc-axis-savings', desc: 'UPI/DR/AIRTEL BLACK FIBER/airtel@axis', merchant: 'Airtel Broadband', cat: 'Bills & Utilities', catId: 'cat-bills', min: 1178, max: 1178, tags: [] },
-      { day: 19, acc: 'acc-cc-axis', desc: 'UBER INDIA SYSTEMS PVT LTD', merchant: 'Uber', cat: 'Transport & Fuel', catId: 'cat-transport', min: 480, max: 1250, tags: [] },
-      { day: 21, acc: 'acc-cc-icici', desc: 'APOLLO PHARMACY & DIAGNOSTICS BLR', merchant: 'Apollo Pharmacy', cat: 'Medical & Fitness', catId: 'cat-health', min: 750, max: 2600, tags: [] },
-      { day: 22, acc: 'acc-cc-infinia', desc: 'MYNTRA DESIGNS PVT LTD BENGALURU', merchant: 'Myntra', cat: 'Shopping & Lifestyle', catId: 'cat-shopping', min: 1850, max: 4900, tags: mOffset === 2 ? ['tag-festive'] : [] },
-      { day: 24, acc: 'acc-cc-tata', desc: 'CROMA INFINITI RETAIL ELECTRONICS', merchant: 'Croma', cat: 'Shopping & Lifestyle', catId: 'cat-shopping', min: 2400, max: 8900, tags: mOffset === 0 ? ['tag-setup'] : [] },
-      { day: 26, acc: 'acc-sbi-savings', desc: 'UPI/DR/CULT FIT GYM MEMBERSHIP', merchant: 'Cult.fit', cat: 'Medical & Fitness', catId: 'cat-health', min: 1500, max: 1500, tags: [] },
+      { day: 15, acc: 'acc-hdfc-salary', desc: 'UPI/DR/THIRD WAVE COFFEE ROASTERS/twc@hdfcbank', merchant: 'Third Wave Coffee', cat: 'Food & Dining', catId: 'cat-food', min: 680, max: 1380, tags: [] },
+      { day: 16, acc: 'acc-cc-axis', desc: 'MAKEMYTRIP INDIA PVT LTD GURUGRAM', merchant: 'MakeMyTrip', cat: 'Travel & Vacations', catId: 'cat-travel', min: 3200, max: 6800, tags: [] },
+      { day: 17, acc: 'acc-axis-savings', desc: 'UPI/DR/AIRTEL BLACK FIBER/airtel@axis', merchant: 'Airtel Broadband', cat: 'Bills & Utilities', catId: 'cat-bills', min: 1768, max: 1768, tags: [] },
+      { day: 18, acc: 'acc-axis-savings', desc: 'UPI/DR/NAMMA YATRI AUTO & CAB/ny@axis', merchant: 'Namma Yatri', cat: 'Transport & Fuel', catId: 'cat-transport', min: 780, max: 1490, tags: [] },
+      { day: 19, acc: 'acc-cc-axis', desc: 'UBER INDIA SYSTEMS PVT LTD', merchant: 'Uber', cat: 'Transport & Fuel', catId: 'cat-transport', min: 880, max: 1750, tags: [] },
+      { day: 20, acc: 'acc-sbi-savings', desc: 'UPI/DR/BOOKMYSHOW CINEMA & EVENTS/bms@sbi', merchant: 'BookMyShow', cat: 'Entertainment & OTT', catId: 'cat-entertainment', min: 850, max: 1650, tags: [] },
+      { day: 21, acc: 'acc-cc-icici', desc: 'APOLLO PHARMACY & DIAGNOSTICS BLR', merchant: 'Apollo Pharmacy', cat: 'Medical & Fitness', catId: 'cat-health', min: 950, max: 2800, tags: [] },
+      { day: 22, acc: 'acc-cc-infinia', desc: 'MYNTRA DESIGNS PVT LTD BENGALURU', merchant: 'Myntra', cat: 'Shopping & Lifestyle', catId: 'cat-shopping', min: 2250, max: 5400, tags: mOffset === 2 ? ['tag-festive'] : [] },
+      { day: 24, acc: 'acc-cc-tata', desc: 'CROMA INFINITI RETAIL ELECTRONICS', merchant: 'Croma', cat: 'Shopping & Lifestyle', catId: 'cat-shopping', min: 2800, max: 8900, tags: mOffset === 0 ? ['tag-setup'] : [] },
+      { day: 26, acc: 'acc-sbi-savings', desc: 'UPI/DR/CULT FIT GYM & WELLNESS', merchant: 'Cult.fit', cat: 'Medical & Fitness', catId: 'cat-health', min: 1850, max: 2450, tags: [] },
     ];
 
     for (const item of monthlyExpenseTemplates) {
-      const txDate = new Date(Date.UTC(year, month, item.day, 14, randInt(10, 55), 0));
-      if (txDate > now) continue;
+      const txDate = makeMonthDate(year, month, item.day, 14, randInt(10, 55), isCurrentMonth);
       const amtPaise = -roundTo100Paise(randInt(item.min * 100, item.max * 100));
       const id = nextTxId();
       const hasEmail = mOffset <= 1 && (item.acc.startsWith('acc-cc') || item.acc === 'acc-hdfc-salary');
@@ -1361,68 +1497,118 @@ export function generateRandomDemoState(): DemoState {
       );
     }
 
-    // Credit Card Bill Payment (Linked internal transfer for past months, and 1 unlinked pair in current month so user can test Transfer Reconciliation!)
-    const ccBillDate = new Date(Date.UTC(year, month, 4, 12, 0, 0));
-    if (ccBillDate <= now) {
-      const billAmt = roundTo100Paise(randInt(2400000, 4200000));
-      const bankTxId = nextTxId();
-      const ccTxId = nextTxId();
-      const isLinked = mOffset > 0; // Leave current month's CC payment unlinked so /transfers/suggestions shows a suggestion!
-      const pairId = isLinked ? `pair-cc-${mOffset}` : null;
+    // 9. Credit Card Bill Settlements across HDFC, Axis, and SBI
+    // 9a. HDFC Bank -> HDFC Regalia Gold Credit Card (Linked transfer)
+    const hdfcCcBillDate = makeMonthDate(year, month, 5, 12, 0, isCurrentMonth);
+    const hdfcBillAmt = roundTo100Paise(randInt(2600000, 3600000));
+    const hdfcCcPairId = `pair-cc-hdfc-${mOffset}`;
+    transactions.push(
+      {
+        id: nextTxId(),
+        accountId: 'acc-hdfc-salary',
+        postedAt: hdfcCcBillDate.toISOString(),
+        description: 'CRED CLUB CC BILL PAYMENT HDFC REGALIA XX0001',
+        merchant: 'CRED Club (HDFC Regalia)',
+        category: 'CC Bill Payment',
+        categoryId: 'cat-cc-transfer',
+        categoryVerified: true,
+        amount: -hdfcBillAmt,
+        kind: TransactionKind.TRANSFER,
+        transferPairId: hdfcCcPairId,
+        transferAccountId: 'acc-cc-infinia',
+        tagIds: [],
+      },
+      {
+        id: nextTxId(),
+        accountId: 'acc-cc-infinia',
+        postedAt: hdfcCcBillDate.toISOString(),
+        description: 'NEFT PAYMENT RECEIVED VIA CRED THANK YOU',
+        merchant: 'CRED Payment',
+        category: 'CC Bill Payment',
+        categoryId: 'cat-cc-transfer',
+        categoryVerified: true,
+        amount: hdfcBillAmt,
+        kind: TransactionKind.TRANSFER,
+        transferPairId: hdfcCcPairId,
+        transferAccountId: 'acc-hdfc-salary',
+        tagIds: [],
+      },
+    );
 
-      transactions.push(
-        {
-          id: bankTxId,
-          accountId: 'acc-hdfc-salary',
-          postedAt: ccBillDate.toISOString(),
-          description: 'CRED CLUB CC BILL PAYMENT HDFC REGALIA XX0001',
-          merchant: 'CRED Club',
-          category: 'CC Bill Payment',
-          categoryId: 'cat-cc-transfer',
-          categoryVerified: isLinked,
-          amount: -billAmt,
-          kind: isLinked ? TransactionKind.TRANSFER : TransactionKind.EXPENSE,
-          transferPairId: pairId,
-          transferAccountId: isLinked ? 'acc-cc-infinia' : null,
-          tagIds: [],
-        },
-        {
-          id: ccTxId,
-          accountId: 'acc-cc-infinia',
-          postedAt: ccBillDate.toISOString(),
-          description: 'NEFT PAYMENT RECEIVED VIA CRED THANK YOU',
-          merchant: 'CRED Payment',
-          category: 'CC Bill Payment',
-          categoryId: 'cat-cc-transfer',
-          categoryVerified: isLinked,
-          amount: billAmt,
-          kind: isLinked ? TransactionKind.TRANSFER : TransactionKind.INCOME,
-          transferPairId: pairId,
-          transferAccountId: isLinked ? 'acc-hdfc-salary' : null,
-          tagIds: [],
-        },
-      );
-    }
+    // 9b. Axis Bank -> Axis Atlas Credit Card (Linked transfer)
+    const axisCcBillDate = makeMonthDate(year, month, 6, 15, 0, isCurrentMonth);
+    const axisBillAmt = roundTo100Paise(randInt(1650000, 2350000));
+    const axisCcPairId = `pair-cc-axis-${mOffset}`;
+    transactions.push(
+      {
+        id: nextTxId(),
+        accountId: 'acc-axis-savings',
+        postedAt: axisCcBillDate.toISOString(),
+        description: 'BILLDESK PG AXIS ATLAS CC BILL SETTLEMENT XX0003',
+        merchant: 'Axis Atlas Card Bill',
+        category: 'CC Bill Payment',
+        categoryId: 'cat-cc-transfer',
+        categoryVerified: true,
+        amount: -axisBillAmt,
+        kind: TransactionKind.TRANSFER,
+        transferPairId: axisCcPairId,
+        transferAccountId: 'acc-cc-axis',
+        tagIds: [],
+      },
+      {
+        id: nextTxId(),
+        accountId: 'acc-cc-axis',
+        postedAt: axisCcBillDate.toISOString(),
+        description: 'ONLINE PAYMENT RECEIVED AXIS ATLAS CARD THANK YOU',
+        merchant: 'Axis Card Payment',
+        category: 'CC Bill Payment',
+        categoryId: 'cat-cc-transfer',
+        categoryVerified: true,
+        amount: axisBillAmt,
+        kind: TransactionKind.TRANSFER,
+        transferPairId: axisCcPairId,
+        transferAccountId: 'acc-axis-savings',
+        tagIds: [],
+      },
+    );
 
-    // Quarterly Savings Bank Interest
-    if (mOffset === 2 || mOffset === 5) {
-      const intDate = new Date(Date.UTC(year, month, 25, 18, 0, 0));
-      if (intDate <= now) {
-        transactions.push({
-          id: nextTxId(),
-          accountId: 'acc-axis-savings',
-          postedAt: intDate.toISOString(),
-          description: 'QUARTERLY SAVINGS INTEREST CREDIT',
-          merchant: 'Axis Bank Interest',
-          category: 'Interest & Dividends',
-          categoryId: 'cat-interest',
-          categoryVerified: true,
-          amount: randInt(240000, 410000),
-          kind: TransactionKind.INCOME,
-          tagIds: [],
-        });
-      }
-    }
+    // 9c. SBI Savings -> ICICI Amazon Pay Credit Card (Linked in past months, unlinked in current month so user can test /transfers/suggestions!)
+    const sbiCcBillDate = makeMonthDate(year, month, 8, 16, 30, isCurrentMonth);
+    const sbiBillAmt = roundTo100Paise(randInt(780000, 1180000));
+    const isSbiCcLinked = mOffset > 0;
+    const sbiCcPairId = isSbiCcLinked ? `pair-cc-icici-${mOffset}` : null;
+    transactions.push(
+      {
+        id: nextTxId(),
+        accountId: 'acc-sbi-savings',
+        postedAt: sbiCcBillDate.toISOString(),
+        description: 'BBPS CC BILL PAYMENT ICICI AMAZON PAY XX0004',
+        merchant: 'ICICI Amazon Pay Card Bill',
+        category: 'CC Bill Payment',
+        categoryId: 'cat-cc-transfer',
+        categoryVerified: isSbiCcLinked,
+        amount: -sbiBillAmt,
+        kind: isSbiCcLinked ? TransactionKind.TRANSFER : TransactionKind.EXPENSE,
+        transferPairId: sbiCcPairId,
+        transferAccountId: isSbiCcLinked ? 'acc-cc-icici' : null,
+        tagIds: [],
+      },
+      {
+        id: nextTxId(),
+        accountId: 'acc-cc-icici',
+        postedAt: sbiCcBillDate.toISOString(),
+        description: 'BBPS PAYMENT RECEIVED ICICI AMAZON PAY CARD',
+        merchant: 'BBPS Card Payment',
+        category: 'CC Bill Payment',
+        categoryId: 'cat-cc-transfer',
+        categoryVerified: isSbiCcLinked,
+        amount: sbiBillAmt,
+        kind: isSbiCcLinked ? TransactionKind.TRANSFER : TransactionKind.INCOME,
+        transferPairId: sbiCcPairId,
+        transferAccountId: isSbiCcLinked ? 'acc-sbi-savings' : null,
+        tagIds: [],
+      },
+    );
   }
 
   // Sort transactions chronologically to compute running balances per account
@@ -1662,7 +1848,7 @@ export function generateRandomDemoState(): DemoState {
   ];
 
   return {
-    version: 1,
+    version: 2,
     seedId: `seed-${Math.random().toString(36).slice(2, 9)}`,
     generatedAt: now.toISOString(),
     user: {
