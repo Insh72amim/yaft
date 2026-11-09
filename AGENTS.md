@@ -4,9 +4,9 @@ YAFT handles private financial records. Every agent must keep real statements, e
 
 ## Non-negotiable worktree isolation
 
-- The primary checkout at `/Users/yaft/Code/js/yaft` is coordination-only for agents and subagents. They may inspect it, but must not edit project files, install dependencies, run code generators, format files, create commits, or run commands that write build or test artefacts there.
+- The primary checkout at `./` (or `<repo-root>`) is coordination-only for agents and subagents. They may inspect it, but must not edit project files, install dependencies, run code generators, format files, create commits, or run commands that write build or test artefacts there.
 - Every implementation, integration, review fix, or experiment must run in its own Git worktree on its own branch. This includes the integrator. Two active agents must never share a worktree or branch.
-- Put worktrees in the ignored `/Users/yaft/Code/js/yaft/yaft-worktrees/<task-slug>` directory inside the repository (which is listed in `.gitignore`), never in tracked source directories or `YAFT-private-inputs`.
+- Put worktrees in the ignored `yaft-worktrees/<task-slug>` directory inside the repository (which is listed in `.gitignore`), never in tracked source directories or `yaft-private-inputs`.
 - Branch names use `agent/<task-slug>` for workers and `integrator/<initiative-slug>` for integration. A reused agent gets a new worktree and branch for each unrelated task.
 - Every agent work session that changes tracked files must end with the retained changes committed on its assigned branch and a clean worktree. An agent must not leave completed or partial retained work uncommitted for another agent.
 - Successful work gets a normal task commit. If an agent is blocked but has safe, useful partial work to retain, it must create a clearly labelled `wip:` commit and state that the commit is not integration-ready. If no change should be retained, restore only the files in the agent's write set and report that there is no commit; never create an empty or knowingly broken commit merely to satisfy this rule.
@@ -16,9 +16,7 @@ YAFT handles private financial records. Every agent must keep real statements, e
 The coordinator creates worktrees before starting agents. For example:
 
 ```sh
-git -C /Users/yaft/Code/js/yaft worktree add \
-  /Users/yaft/Code/js/yaft/yaft-worktrees/<task-slug> \
-  -b agent/<task-slug> <base-commit>
+git worktree add yaft-worktrees/<task-slug> -b agent/<task-slug> <base-commit>
 ```
 
 Before changing files, every agent must verify and report:
@@ -49,7 +47,7 @@ Task: <task-slug>
 Objective: <one bounded outcome>
 Reason: <why this change is needed>
 Base commit: <full commit SHA>
-Worktree: /Users/yaft/Code/js/yaft/yaft-worktrees/<task-slug>
+Worktree: <repo-root>/yaft-worktrees/<task-slug>
 Branch: agent/<task-slug>
 Write set: <exact files/directories>
 Current behavior: <observable behavior or unknown>
@@ -85,7 +83,7 @@ Decision authority: <decisions allowed and decisions requiring approval>
 
 ## Repository boundaries
 
-- Real input files live only in `/Users/yaft/Code/js/yaft-private-inputs`.
+- Real input files live only in `yaft-private-inputs` outside the repository.
 - Temporary parsing artefacts live outside the repository and must be removed after use.
 - Never commit `.env`, `samples/`, `tmp/`, `work/`, `uploads/`, PDFs, spreadsheets, extracted text, or rendered statement pages.
 - Never add a Git remote unless the owner explicitly requests one.
@@ -159,7 +157,7 @@ Decision authority: <decisions allowed and decisions requiring approval>
 ## Verification and commits
 
 - Each parser branch must include synthetic tests for its supported layout and its rejection paths.
-- Private smoke tests may read the owner's sample from `/Users/yaft/Code/js/yaft-private-inputs`, but must never copy it into a worktree.
+- Private smoke tests may read the owner's sample from `yaft-private-inputs` outside the repository, but must never copy it into a worktree.
 - Before committing, run the assigned tests plus `git diff --check`, inspect `git status --short`, and verify every changed path is in the task's write set.
 - Stage explicit paths; never use broad staging as a substitute for reviewing the change. Review `git diff --cached --stat` and `git diff --cached` before every commit.
 - Creating the branch commit is part of the task, not an optional follow-up. An agent that changed tracked files must not send its final handoff until it has committed the retained changes and verified that `git status --short` is empty.
