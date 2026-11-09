@@ -89,6 +89,12 @@ npm run dev
 
 ---
 
+## 📄 License
+
+This project is open-source and available under the [MIT License](LICENSE).
+
+---
+
 <div align="center">
   <i>Run full test suite and build:</i><br/>
   <code>npm run test && npm run build</code>
