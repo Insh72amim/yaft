@@ -136,7 +136,7 @@ export default function Register() {
 
       <section className="auth-panel">
         <div className="auth-card-inner">
-          <Link href="/" className="brand" title="Yet Another Financial Tool">
+          <Link href="/" className="brand" title="Yet Another Financial Tracker">
             <span className="brand-mark">
               <Landmark size={22} />
             </span>

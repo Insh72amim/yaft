@@ -92,7 +92,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         />
       )}
       <aside className={`sidebar ${open ? "open" : ""}`}>
-        <div className="brand" title="Yet Another Financial Tool">
+        <div className="brand" title="Yet Another Financial Tracker">
           <span className="brand-mark">
             <Landmark size={21} />
           </span>
