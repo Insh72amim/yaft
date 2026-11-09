@@ -23,7 +23,7 @@
     "@nestjs/swagger": "^11.4.6",
     "@nestjs/throttler": "^6.4.0",
     "@pdfsmaller/pdf-decrypt": "^1.0.1",
-    "@prisma/client": "^6.12.0",
+    "@prisma/client": "^7.10.1",
     "@yaft/shared": "*",
     "argon2": "^0.43.0",
     "class-transformer": "^0.5.1",
