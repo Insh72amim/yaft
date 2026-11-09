@@ -7,8 +7,8 @@
     "packages/*"
   ],
   "devDependencies": {
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "scripts": {
     "dev": "npm run dev --workspace @yaft/web & npm run start:dev --workspace @yaft/api",
@@ -31,6 +31,6 @@
     "node": ">=20.11"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1090.0"
+    "@aws-sdk/client-s3": "^3.1164.0"
   }
 }
