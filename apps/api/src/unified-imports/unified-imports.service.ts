@@ -232,7 +232,7 @@ export class UnifiedImportsService {
     }
     if (spec.kind === 'UPI_STATEMENT') {
       const review = await this.imports.create(userId, account!.id, file,
-        { pdfPassword: dto.pdfPassword }, spec.source as any);
+        { pdfPassword: dto.pdfPassword }, spec.source as import('../imports/bank-pdf-parser').BankPdfParser['id']);
       return { kind: spec.kind, source: spec.source, mode: spec.commitMode,
         review: this.safeBankReview(review), actions: this.bankActions(review.id) };
     }
@@ -248,6 +248,12 @@ export class UnifiedImportsService {
 
   async updateBankReview(userId: string, batchId: string, rowId: string, dto: UpdateStagedDto) {
     const review = await this.imports.update(userId, batchId, rowId, dto);
+    return { kind: 'BANK_STATEMENT' as const, mode: 'REVIEW_REQUIRED' as const, review: this.safeBankReview(review),
+      actions: this.bankActions(review.id) };
+  }
+
+  async bulkUpdateBankReview(userId: string, batchId: string, include: boolean) {
+    const review = await this.imports.updateAllRows(userId, batchId, include);
     return { kind: 'BANK_STATEMENT' as const, mode: 'REVIEW_REQUIRED' as const, review: this.safeBankReview(review),
       actions: this.bankActions(review.id) };
   }
@@ -317,20 +323,14 @@ export class UnifiedImportsService {
     return {
       id: review.id, filename: review.filename, status: review.status, rowCount: review.rowCount,
       createdAt: review.createdAt, committedAt: review.committedAt,
-      account: { id: review.account.id, name: review.account.name, institution: (review.account as any).institution ?? null, last4: (review.account as any).last4 ?? null },
+      account: { id: review.account.id, name: review.account.name, institution: review.account.institution ?? null, last4: review.account.last4 ?? null },
       categories: review.categories.map((category) => ({ id: category.id, name: category.name, color: category.color })),
       staged: review.staged.map((row) => ({
         id: row.id, rowNumber: row.rowNumber, transactionDate: row.transactionDate, postedDate: row.postedDate,
         descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: row.amount, reference: row.reference,
         categoryId: row.categoryId, isDuplicate: row.isDuplicate, include: row.include, confidence: row.confidence,
-        category: (row as any).category ? { id: (row as any).category.id, name: (row as any).category.name, color: (row as any).category.color } : null,
-        emailReference: (row as any).emailReference ?? ((row as any).emailSnippet || (row as any).emailMessageId || (row as any).emailSubject ? {
-          messageId: (row as any).emailMessageId,
-          subject: (row as any).emailSubject,
-          sender: (row as any).emailSender,
-          date: (row as any).emailDate,
-          snippet: (row as any).emailSnippet,
-        } : null),
+        category: row.category ? { id: row.category.id, name: row.category.name, color: row.category.color } : null,
+        emailReference: row.emailReference ?? null,
       })),
     };
   }
@@ -343,7 +343,7 @@ export class UnifiedImportsService {
       currency: review.currency, grossEarnings: review.grossEarnings, grossDeductions: review.grossDeductions,
       directPayment: review.directPayment, netPay: review.netPay, filename: review.filename,
       status: review.status, createdAt: review.createdAt, committedAt: review.committedAt,
-      lineItems: review.lineItems.map((item: any) => ({ id: item.id, type: item.type, description: item.description,
+      lineItems: review.lineItems.map((item) => ({ id: item.id, type: item.type, description: item.description,
         currentAmount: item.currentAmount, ytdAmount: item.ytdAmount })),
     };
   }

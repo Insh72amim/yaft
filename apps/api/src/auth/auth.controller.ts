@@ -28,8 +28,8 @@ export class AuthController {
   me(@CurrentUser() user: { id: string }) { return this.auth.profile(user.id); }
 
   private setCookie(response: Response, token: string) {
-    const webOrigin = this.config.get<string>('WEB_ORIGIN') ?? 'http://localhost:3000';
-    response.cookie('finance_session', token, { httpOnly: true, sameSite: 'strict',
+    const webOrigin = this.config.get<string>('WEB_ORIGIN') ?? 'http://yaft.localhub.com';
+    response.cookie('finance_session', token, { httpOnly: true, sameSite: 'lax',
       secure: webOrigin.startsWith('https://'), maxAge: 7 * 24 * 60 * 60 * 1000, path: '/' });
   }
 }

@@ -11,6 +11,7 @@ enum AccountType {
   BANK
   SAVINGS
   FIXED_DEPOSIT
+  RECURRING_DEPOSIT
   CREDIT_CARD
   CASH
   MUTUAL_FUND
@@ -123,9 +124,11 @@ model Account {
   statementDay   Int?
   dueDay         Int?
   archived       Boolean       @default(false)
+  emailSyncEnabled Boolean     @default(false)
   createdAt      DateTime      @default(now())
   transactions   Transaction[]
   loans          Loan[]
+  recurringDeposits RecurringDeposit[]
   imports        ImportBatch[]
   holdings       PortfolioHolding[]
   documents      AccountDocument[]
@@ -255,6 +258,7 @@ model StagedTransaction {
   descriptionRaw String
   merchant       String?
   amount         BigInt
+  balance        BigInt?
   reference      String?
   categoryId     String?
   category       Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -424,6 +428,40 @@ model LoanInstallment {
   createdAt        DateTime          @default(now())
 
   @@index([loanId, dueDate])
+}
+
+model RecurringDeposit {
+  id              String                        @id @default(cuid())
+  accountId       String
+  account         Account                       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  startDate       DateTime
+  monthlyAmount   BigInt                        // monthly installment in paise
+  interestRate    Decimal                       // annual percentage (e.g. 7.1 for 7.1%)
+  depositDay      Int                           // day of month for deposit (1-31)
+  termMonths      Int                           // tenure in months (e.g. 12, 24, 36)
+  maturityAmount  BigInt?                       // estimated maturity amount in paise
+  autoIncrease    Boolean                       @default(true) // auto increase balance on/after deposit day
+  sourceAccountId String?                       // optional linked bank account ID
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @default(now()) @updatedAt
+  installments    RecurringDepositInstallment[]
+
+  @@index([accountId])
+}
+
+model RecurringDepositInstallment {
+  id                 String            @id @default(cuid())
+  recurringDepositId String
+  recurringDeposit   RecurringDeposit  @relation(fields: [recurringDepositId], references: [id], onDelete: Cascade)
+  installmentNumber  Int
+  dueDate            DateTime
+  amount             BigInt            // monthly installment amount in paise
+  accumulatedBalance BigInt            // total principal deposited up to this installment
+  status             InstallmentStatus @default(FUTURE)
+  confirmedAt        DateTime?
+  createdAt          DateTime          @default(now())
+
+  @@index([recurringDepositId, dueDate])
 }
 
 model ActiveSip {

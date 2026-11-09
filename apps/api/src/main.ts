@@ -27,7 +27,7 @@ async function bootstrap() {
   app.use(cookieParser());
   app.use(express.json({ limit: '100mb' }));
   app.use(express.urlencoded({ limit: '100mb', extended: true }));
-  const configuredOrigins = (process.env.WEB_ORIGIN ?? 'http://localhost:3000')
+  const configuredOrigins = (process.env.WEB_ORIGIN ?? 'http://yaft.localhub.com,http://localhost:3001,http://127.0.0.1:3001')
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean);
@@ -58,6 +58,6 @@ async function bootstrap() {
     customSiteTitle: 'YAFT API Docs',
   });
 
-  await app.listen(Number(process.env.API_PORT ?? 4000), '0.0.0.0');
+  await app.listen(Number(process.env.API_PORT ?? 4001), '0.0.0.0');
 }
 bootstrap();

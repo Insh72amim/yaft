@@ -29,12 +29,15 @@ import {
   EyeOff,
   Pencil,
   Check,
+  ChevronDown,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shell } from "@/components/shell";
 import { api, errorMessage, isUnauthorized, money } from "@/lib/api";
 import { CategoryPickerPopover } from "@/components/category-picker-popover";
+import { useTransactionMutations } from "@/hooks/useTransactionMutations";
+import { useTransactionFilters } from "@/hooks/useTransactionFilters";
 import { EmailProofModal } from "@/components/email-proof-modal";
 
 type Mode = "CREDIT_CARD" | "BANK" | "UPI" | "UPI_LITE" | "ALL";
@@ -126,20 +129,43 @@ export function TransactionsSection({
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(forceMode || "BANK");
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"ALL" | "EXPENSE" | "INCOME">(
-    "ALL",
-  );
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<TransactionsApiResponse | null>(null);
+  const [error, setError] = useState("");
+  const {
+    search, setSearch,
+    typeFilter, setTypeFilter,
+    categoryId, setCategoryId,
+    accountId, setAccountId,
+    tagId, setTagId,
+    minAmount, setMinAmount,
+    maxAmount, setMaxAmount,
+    startDate, setStartDate,
+    endDate, setEndDate,
+    hasActiveFilters,
+    clearFilters
+  } = useTransactionFilters();
+
+
+
+const [editingTxTagId, setEditingTxTagId] = useState<string | null>(null);
+  const {
+    editingTxCatId, setEditingTxCatId,
+    updatingCatId,
+    editingTxDescId, setEditingTxDescId,
+    editMerchantDraft, setEditMerchantDraft,
+    savingTxDescId,
+    batchUpdating,
+    batchCatPickerOpen, setBatchCatPickerOpen,
+    error: mutationsError, setError: setMutationsError,
+    updateCategory,
+    updateMerchant,
+    deleteTransaction,
+    bulkUpdateCategory
+  } = useTransactionMutations({ onMutated: () => fetchTransactions(), setData });
   const [categoryGroup, setCategoryGroup] = useState<
     "ALL" | "EXPENSE" | "INCOME" | "INVESTMENT" | "TRANSFER"
   >("ALL");
-  const [categoryId, setCategoryId] = useState("all");
-  const [accountId, setAccountId] = useState("all");
-  const [tagId, setTagId] = useState("all");
-  const [minAmount, setMinAmount] = useState("");
-  const [maxAmount, setMaxAmount] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
 
   const [showFilters, setShowFilters] = useState(false);
   const [showCategoryEdit, setShowCategoryEdit] = useState(false);
@@ -147,15 +173,8 @@ export function TransactionsSection({
   const [selectedTagToAssign, setSelectedTagToAssign] = useState("");
   const [assigningTags, setAssigningTags] = useState(false);
 
-  const [editingTxCatId, setEditingTxCatId] = useState<string | null>(null);
-  const [editingTxTagId, setEditingTxTagId] = useState<string | null>(null);
-  const [editingTxDescId, setEditingTxDescId] = useState<string | null>(null);
-  const [editMerchantDraft, setEditMerchantDraft] = useState<string>("");
-  const [savingTxDescId, setSavingTxDescId] = useState<string | null>(null);
-  const [updatingCatId, setUpdatingCatId] = useState<string | null>(null);
-  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
-  const [batchUpdating, setBatchUpdating] = useState(false);
-  const [selectedEmailTx, setSelectedEmailTx] = useState<Transaction | null>(null);
+              const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+      const [selectedEmailTx, setSelectedEmailTx] = useState<Transaction | null>(null);
 
   const startEditingTxMerchant = (tx: Transaction) => {
     setEditingTxDescId(tx.id);
@@ -167,47 +186,7 @@ export function TransactionsSection({
     setEditMerchantDraft("");
   };
 
-  const handleSaveTxMerchant = async (tx: Transaction) => {
-    const newMerchant = editMerchantDraft.trim();
-    if (!newMerchant) {
-      return;
-    }
-
-    // Optimistic UI update
-    setData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        transactions: prev.transactions.map((t) =>
-          t.id === tx.id
-            ? {
-                ...t,
-                description: newMerchant,
-              }
-            : t
-        ),
-      };
-    });
-
-    setSavingTxDescId(tx.id);
-    setEditingTxDescId(null);
-
-    try {
-      await api(`/transactions/${tx.accountId}/${tx.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          merchant: newMerchant,
-        }),
-      });
-    } catch (err) {
-      setError(errorMessage(err, "Failed to update merchant name."));
-      void fetchTransactions();
-    } finally {
-      setSavingTxDescId(null);
-    }
-  };
-
-  const handleSingleTxTagAssign = async (
+    const handleSingleTxTagAssign = async (
     txId: string,
     tagId: string,
     currentTags?: Array<{ id: string }>,
@@ -233,9 +212,9 @@ export function TransactionsSection({
     text: string;
   } | null>(null);
 
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<TransactionsApiResponse | null>(null);
-  const [error, setError] = useState("");
+
+
+
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
@@ -340,47 +319,7 @@ export function TransactionsSection({
     }
   };
 
-  const handleUpdateCategory = async (
-    targetAccountId: string,
-    transactionId: string,
-    newCategoryId: string,
-  ) => {
-    setUpdatingCatId(transactionId);
-    try {
-      const res = await api<{
-        id: string;
-        categoryId: string | null;
-        category: string;
-        categoryColor: string;
-      }>(`/accounts/${targetAccountId}/transactions/${transactionId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ categoryId: newCategoryId || null }),
-      });
-
-      setData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          transactions: prev.transactions.map((tx) =>
-            tx.id === transactionId
-              ? {
-                  ...tx,
-                  categoryId: res.categoryId,
-                  category: res.category,
-                  categoryColor: res.categoryColor,
-                }
-              : tx,
-          ),
-        };
-      });
-    } catch (err) {
-      setError(errorMessage(err, "Could not update transaction category."));
-    } finally {
-      setUpdatingCatId(null);
-    }
-  };
-
-  const toggleSelectTx = (id: string) => {
+    const toggleSelectTx = (id: string) => {
     setSelectedTxIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
@@ -395,35 +334,7 @@ export function TransactionsSection({
     }
   };
 
-  const handleBatchUpdateCategory = async (targetCatId: string) => {
-    if (selectedTxIds.length === 0) return;
-    setBatchUpdating(true);
-    try {
-      await api("/categories/batch-update", {
-        method: "POST",
-        body: JSON.stringify({
-          transactionIds: selectedTxIds,
-          categoryId: targetCatId || null,
-        }),
-      }).catch(() =>
-        api("/category-rules/batch-update", {
-          method: "POST",
-          body: JSON.stringify({
-            transactionIds: selectedTxIds,
-            categoryId: targetCatId || null,
-          }),
-        }),
-      );
-      setSelectedTxIds([]);
-      fetchTransactions();
-    } catch (reason) {
-      setError(errorMessage(reason, "Could not bulk update categories."));
-    } finally {
-      setBatchUpdating(false);
-    }
-  };
-
-  const handleAssignTagToSelected = async (action: "ADD" | "REMOVE" | "SET") => {
+    const handleAssignTagToSelected = async (action: "ADD" | "REMOVE" | "SET") => {
     if (selectedTxIds.length === 0 || !selectedTagToAssign) return;
     setAssigningTags(true);
     try {
@@ -1880,7 +1791,7 @@ export function TransactionsSection({
                             value={editMerchantDraft}
                             onChange={(e) => setEditMerchantDraft(e.target.value)}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") void handleSaveTxMerchant(tx);
+                              if (e.key === "Enter") void updateMerchant(tx.id, tx.accountId, editMerchantDraft);
                               if (e.key === "Escape") cancelEditingTxMerchant();
                             }}
                             placeholder="Merchant name (e.g. ZOMATO)"
@@ -1899,7 +1810,7 @@ export function TransactionsSection({
                           />
                           <button
                             type="button"
-                            onClick={() => void handleSaveTxMerchant(tx)}
+                            onClick={() => void updateMerchant(tx.id, tx.accountId, editMerchantDraft)}
                             disabled={savingTxDescId === tx.id}
                             title="Save merchant name"
                             style={{
@@ -2096,7 +2007,7 @@ export function TransactionsSection({
                           categories={data?.categories || []}
                           currentCategoryId={tx.categoryId ?? null}
                           onSelect={(newCatId) => {
-                            void handleUpdateCategory(tx.accountId, tx.id, newCatId);
+                            void updateCategory(tx.id, tx.accountId, newCatId);
                             setEditingTxCatId(null);
                           }}
                           onClose={() => setEditingTxCatId(null)}
@@ -2144,65 +2055,41 @@ export function TransactionsSection({
                   {selectedTxIds.length === 1 ? "" : "s"} selected
                 </span>
                 <div
-                  style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <select
+                  style={{ position: "relative", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    type="button"
+                    className="secondary compact"
                     disabled={batchUpdating}
-                    onChange={(e) =>
-                      void handleBatchUpdateCategory(e.target.value)
-                    }
-                    defaultValue=""
+                    onClick={() => setBatchCatPickerOpen(!batchCatPickerOpen)}
                     style={{
                       height: "34px",
                       fontSize: "12px",
                       fontWeight: 600,
                       borderRadius: "8px",
-                      border: "1px solid var(--line)",
-                      padding: "0 10px",
-                      background: "var(--background)",
-                      color: "var(--ink)",
+                      padding: "0 12px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                       cursor: "pointer",
+                      background: "var(--background)",
+                      border: "1px solid var(--line)",
+                      color: "var(--ink)",
                     }}>
-                    <option value="" disabled>
-                      Set category for all selected…
-                    </option>
-                    <option value="">Uncategorised</option>
-                    {(() => {
-                      const cats = data.categories || [];
-                      const groups: { [key: string]: typeof cats } = {};
-                      const unassigned: typeof cats = [];
-                      cats.forEach((c) => {
-                        const groupName = c.superCategoryName || (c.type ? `${c.type.charAt(0) + c.type.slice(1).toLowerCase()}` : "");
-                        if (groupName) {
-                          if (!groups[groupName]) groups[groupName] = [];
-                          groups[groupName].push(c);
-                        } else {
-                          unassigned.push(c);
-                        }
-                      });
-                      return (
-                        <>
-                          {Object.entries(groups).map(([grp, items]) => (
-                            <optgroup key={grp} label={grp}>
-                              {items.map((cat) => (
-                                <option key={cat.id} value={cat.id}>
-                                  {cat.name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                          {unassigned.length > 0 && (
-                            <optgroup label="General">
-                              {unassigned.map((cat) => (
-                                <option key={cat.id} value={cat.id}>
-                                  {cat.name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </select>
+                    <span>{batchUpdating ? "Updating…" : "Set category for all selected…"}</span>
+                    <ChevronDown size={13} style={{ color: "var(--muted)" }} />
+                  </button>
+
+                  {batchCatPickerOpen && (
+                    <CategoryPickerPopover
+                      categories={data.categories || []}
+                      currentCategoryId={null}
+                      onSelect={(newCatId) => {
+                        void bulkUpdateCategory(selectedTxIds, newCatId);
+                        setBatchCatPickerOpen(false);
+                      }}
+                      onClose={() => setBatchCatPickerOpen(false)}
+                    />
+                  )}
 
                   <button
                     type="button"

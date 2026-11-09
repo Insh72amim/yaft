@@ -303,7 +303,7 @@ export class TransactionsService {
       where: { id: accountId, userId, archived: false },
       select: {
         id: true, name: true, type: true, institution: true, currency: true, openingBalance: true,
-        creditLimit: true, statementDay: true, dueDay: true, parentAccountId: true,
+        creditLimit: true, statementDay: true, dueDay: true, parentAccountId: true, emailSyncEnabled: true,
         parentAccount: { select: { id: true, name: true, creditLimit: true, statementDay: true, dueDay: true } },
         childAccounts: { select: { id: true, name: true, creditLimit: true } },
         vaultEntry: { select: { last4: true, cardNetwork: true } },
@@ -319,7 +319,7 @@ export class TransactionsService {
 
     const transactionWhere = buildTransactionWhere(userId, accountId, search, minAmount, maxAmount, type, startDate, endDate, categoryId);
 
-    const [total, amount, transactions, userCategories] = await Promise.all([
+    const [total, amount, transactions, userCategories, allAccountTxs] = await Promise.all([
       this.prisma.transaction.count({ where: transactionWhere }),
       this.prisma.transaction.aggregate({ where: { accountId, account: { userId } }, _sum: { amount: true } }),
       this.prisma.transaction.findMany({
@@ -344,7 +344,76 @@ export class TransactionsService {
         include: { superCategory: { select: { id: true, name: true, color: true, kind: true } } },
         orderBy: { name: 'asc' },
       }),
+      this.prisma.transaction.findMany({
+        where: { accountId, account: { userId } },
+        select: { id: true, amount: true, transactionDate: true, createdAt: true },
+        orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+      }),
     ]);
+
+    const balanceMap = new Map<string, number>();
+    let runningBalance = Number(account.openingBalance);
+    for (const t of allAccountTxs) {
+      runningBalance += Number(t.amount);
+      balanceMap.set(t.id, runningBalance);
+    }
+
+    // Calculate Monthly Average Balance (MAB) and current month cash flow metrics
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const todayDate = now.getDate();
+
+    const startOfMonth = new Date(currentYear, currentMonth, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
+
+    let monthInflow = 0;
+    let monthOutflow = 0;
+    let monthCreditCount = 0;
+    let monthDebitCount = 0;
+
+    for (const t of allAccountTxs) {
+      const d = new Date(t.transactionDate);
+      if (d >= startOfMonth && d <= endOfMonth) {
+        const amt = Number(t.amount);
+        if (amt > 0) {
+          monthInflow += amt;
+          monthCreditCount++;
+        } else if (amt < 0) {
+          monthOutflow += Math.abs(amt);
+          monthDebitCount++;
+        }
+      }
+    }
+
+    let balAtStartOfMonth = Number(account.openingBalance);
+    for (const t of allAccountTxs) {
+      if (new Date(t.transactionDate) < startOfMonth) {
+        balAtStartOfMonth = balanceMap.get(t.id) ?? balAtStartOfMonth;
+      }
+    }
+
+    let currentDayBal = balAtStartOfMonth;
+    let dailyBalancesSum = 0;
+    const daysTracked = Math.max(1, todayDate);
+
+    for (let day = 1; day <= daysTracked; day++) {
+      const dayStart = new Date(currentYear, currentMonth, day, 0, 0, 0, 0);
+      const dayEnd = new Date(currentYear, currentMonth, day, 23, 59, 59, 999);
+
+      const dayTxs = allAccountTxs.filter((t) => {
+        const d = new Date(t.transactionDate);
+        return d >= dayStart && d <= dayEnd;
+      });
+
+      if (dayTxs.length > 0) {
+        const lastTx = dayTxs[dayTxs.length - 1];
+        currentDayBal = balanceMap.get(lastTx.id) ?? currentDayBal;
+      }
+      dailyBalancesSum += currentDayBal;
+    }
+
+    const monthlyAverageBalance = Math.round(dailyBalancesSum / daysTracked);
 
     const effectiveCreditLimit = account.creditLimit !== null
       ? Number(account.creditLimit)
@@ -354,6 +423,13 @@ export class TransactionsService {
       account: {
         id: account.id, name: account.name, type: account.type, institution: account.institution, currency: account.currency,
         openingBalance: Number(account.openingBalance), balance: Number(account.openingBalance) + Number(amount._sum.amount ?? 0n),
+        monthlyAverageBalance,
+        monthInflow,
+        monthOutflow,
+        monthNet: monthInflow - monthOutflow,
+        monthCreditCount,
+        monthDebitCount,
+        monthTotalCount: monthCreditCount + monthDebitCount,
         creditLimit: effectiveCreditLimit,
         statementDay: account.statementDay ?? account.parentAccount?.statementDay ?? null,
         dueDay: account.dueDay ?? account.parentAccount?.dueDay ?? null,
@@ -363,6 +439,7 @@ export class TransactionsService {
         isChild: Boolean(account.parentAccountId),
         cardLast4: account.type === AccountType.CREDIT_CARD ? account.vaultEntry?.last4 ?? null : null,
         cardNetwork: account.type === AccountType.CREDIT_CARD ? account.vaultEntry?.cardNetwork ?? null : null,
+        emailSyncEnabled: Boolean((account as any).emailSyncEnabled),
       },
       transactions: transactions.map((item) => ({
         id: item.id,
@@ -371,6 +448,7 @@ export class TransactionsService {
         description: item.merchant || item.descriptionRaw,
         details: item.merchant ? item.descriptionRaw : null,
         amount: Number(item.amount),
+        balance: balanceMap.get(item.id) ?? (Number(account.openingBalance) + Number(item.amount)),
         categoryId: item.categoryId,
         category: item.category?.name ?? 'Uncategorised',
         categoryColor: item.category?.color ?? '#94a3b8',

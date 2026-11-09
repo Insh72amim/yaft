@@ -9,6 +9,81 @@ import {
 import { PrismaService } from '../common/prisma.service';
 import { extractBeneficiaryName, getMonthDateRange, isRefundOrReversal, computeCreditCardCurrentBalance } from '../common/utils/transaction-utils';
 
+
+export function classifyTransaction(
+  tx: any,
+  accounts: any[],
+  activeVaults: any[],
+  activeSips: any[] = []
+): 'TRANSFER' | 'CC_PAYMENT' | 'UPI_LITE' | 'INVESTMENT' | 'OTHER' | 'EXPENSE' {
+  const desc = (tx.descriptionRaw || '').toLowerCase();
+  const catName = tx.category?.name || '';
+  const catType = tx.category?.type || '';
+  const superKind = tx.category?.superCategory?.kind || '';
+
+  let destAccountId: string | undefined;
+  for (const v of activeVaults) {
+    if (v.last4 && v.accountId !== tx.accountId && tx.descriptionRaw.includes(v.last4)) {
+      destAccountId = v.accountId;
+      break;
+    }
+  }
+  const destAcc = destAccountId ? accounts.find((a: any) => a.id === destAccountId) : undefined;
+
+  if (destAcc?.type === 'CREDIT_CARD' || /^\s*(?:cc\s*transfer|credit\s*card\s*payment|cc\s*payment)\s*$/i.test(catName) || /cred\.club|cred\s+rent|cred\s+pay|credit\s*card\s*payment|cc\s*bill|billdesk.*card|payment\s*to\s*card/i.test(desc)) {
+    return 'CC_PAYMENT';
+  }
+
+  if (destAcc?.type === 'UPI_LITE' || /upi\s*lite/i.test(catName) || /upi\s*lite/i.test(desc)) {
+    return 'UPI_LITE';
+  }
+
+  if (tx.transferGroupId || catType === 'TRANSFER' || superKind === 'TRANSFER' || /^\s*(?:self\s*transfer|internal\s*transfer|transfer|trf)\s*$/i.test(catName) || /self\s*tra|tcd\s*no|firdftfr|own\s*acc|self\s*transfer|trf\s*to/i.test(desc) || destAccountId) {
+    return 'TRANSFER';
+  }
+
+  if (catType === 'INVESTMENT' || superKind === 'INVESTMENT' || /invest|mutual|sip|stock|broker|equity|zerodha|groww|etmoney/i.test(catName) || /mutual|fund|zerodha|groww|bse|nse|sgb|nps|indiabulls|icici\s*prudential|mf\s*central|razorpay\s*mf|cams|kfintech/i.test(desc)) {
+    return 'INVESTMENT';
+  }
+
+  const matchesSip = activeSips.some((sip: any) => {
+    const accountMatch = !sip.sourceAccountId || sip.sourceAccountId === tx.accountId;
+    const merchantLower = (tx.merchant || '').toLowerCase();
+    const keywordMatch =
+      (sip.billerKeyword && desc.includes(sip.billerKeyword.toLowerCase())) ||
+      (sip.name && desc.includes(sip.name.toLowerCase())) ||
+      (sip.destinationAccount && desc.includes(sip.destinationAccount.toLowerCase())) ||
+      (sip.name && merchantLower.includes(sip.name.toLowerCase()));
+    return accountMatch && keywordMatch;
+  });
+  if (matchesSip) return 'INVESTMENT';
+
+  if (catType === 'OTHER' || superKind === 'OTHER' || /loan|emi|tax|penalty|bank\s*charge|annual\s*fee/i.test(catName)) {
+    return 'OTHER';
+  }
+
+  return 'EXPENSE';
+}
+
+export function getAccountAssetCategory(account: { type: string; name: string; institution?: string | null }): 'SAVINGS' | 'DEPOSITS' | 'STOCKS' | 'MUTUAL_FUNDS' | 'EPFO' | 'DEBT' {
+  const isLoan = account.type === 'LOAN';
+  const nameLower = (account.name + ' ' + (account.institution || '')).toLowerCase();
+
+  if (isLoan) {
+    return 'DEBT';
+  } else if (account.type === 'FIXED_DEPOSIT' || account.type === 'RECURRING_DEPOSIT' || nameLower.includes('fixed deposit') || nameLower.includes('recurring deposit') || nameLower.includes('rd-') || nameLower.includes('-rd') || nameLower.includes('fd-') || nameLower.includes('-fd')) {
+    return 'DEPOSITS';
+  } else if (account.type === 'EPFO' || nameLower.includes('epfo') || nameLower.includes('provident')) {
+    return 'EPFO';
+  } else if (account.type === 'MUTUAL_FUND' || nameLower.includes('mutual') || nameLower.includes('fund') || nameLower.includes('sip') || nameLower.includes('groww')) {
+    return 'MUTUAL_FUNDS';
+  } else if (account.type === 'STOCKS' || nameLower.includes('zerodha') || nameLower.includes('demat') || nameLower.includes('stocks')) {
+    return 'STOCKS';
+  } else {
+    return 'SAVINGS';
+  }
+}
+
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
@@ -34,11 +109,8 @@ export class DashboardService {
       select: { accountId: true, last4: true },
     });
 
-    const activeSips = (this.prisma as any).activeSip
-      ? await (this.prisma as any).activeSip.findMany({
-          where: { userId, status: 'ACTIVE' },
-        })
-      : [];
+    // TODO: populate from activeSip model once Prisma schema is migrated
+    const activeSips: any[] = [];
 
     const monthTransactions = await this.prisma.transaction.findMany({
       where: {
@@ -56,66 +128,15 @@ export class DashboardService {
       orderBy: { transactionDate: 'desc' },
     });
 
-    const isInternalTransfer = (tx: (typeof monthTransactions)[0]) => {
-      if (tx.transferGroupId) return true;
-      if (tx.category?.type === 'TRANSFER' || tx.category?.superCategory?.kind === 'TRANSFER') return true;
-      if (tx.category?.name && /^\s*(?:self\s*transfer|internal\s*transfer|transfer|trf)\s*$/i.test(tx.category.name)) return true;
 
-      const desc = tx.descriptionRaw.toLowerCase();
-      if (/self\s*tra|tcd\s*no|firdftfr|own\s*acc|self\s*transfer|trf\s*to/i.test(desc)) {
-        return true;
-      }
 
-      for (const v of activeVaults) {
-        if (v.last4 && v.accountId !== tx.accountId && tx.descriptionRaw.includes(v.last4)) {
-          return true;
-        }
-      }
-      return false;
-    };
 
-    const isCCPayment = (tx: (typeof monthTransactions)[0], destAcc?: { type?: string }) => {
-      if (destAcc?.type === 'CREDIT_CARD') return true;
-      if (tx.category?.name && /^\s*(?:cc\s*transfer|credit\s*card\s*payment|cc\s*payment)\s*$/i.test(tx.category.name)) return true;
-      const desc = tx.descriptionRaw.toLowerCase();
-      return /cred\.club|cred\s+rent|cred\s+pay|credit\s*card\s*payment|cc\s*bill|billdesk.*card|payment\s*to\s*card/i.test(desc);
-    };
 
-    const isUpiLiteTransfer = (tx: (typeof monthTransactions)[0], destAcc?: { type?: string }) => {
-      if (destAcc?.type === 'UPI_LITE') return true;
-      if (tx.category?.name && /upi\s*lite/i.test(tx.category.name)) return true;
-      const desc = tx.descriptionRaw.toLowerCase();
-      return /upi\s*lite/i.test(desc);
-    };
-
-    const isInvestment = (tx: (typeof monthTransactions)[0]) => {
-      if (tx.category?.type === 'INVESTMENT' || tx.category?.superCategory?.kind === 'INVESTMENT') return true;
-      if (tx.category?.name && /invest|mutual|sip|stock|broker|equity|zerodha|groww|etmoney/i.test(tx.category.name)) return true;
-      const matchesSip = activeSips.some((sip: any) => {
-        const accountMatch = !sip.sourceAccountId || sip.sourceAccountId === tx.accountId;
-        const descLower = tx.descriptionRaw.toLowerCase();
-        const merchantLower = (tx.merchant || '').toLowerCase();
-        const keywordMatch =
-          (sip.billerKeyword && descLower.includes(sip.billerKeyword.toLowerCase())) ||
-          (sip.name && descLower.includes(sip.name.toLowerCase())) ||
-          (sip.destinationAccount && descLower.includes(sip.destinationAccount.toLowerCase())) ||
-          (sip.name && merchantLower.includes(sip.name.toLowerCase()));
-        return accountMatch && keywordMatch;
-      });
-      if (matchesSip) return true;
-      const desc = tx.descriptionRaw.toLowerCase();
-      return /mutual|fund|zerodha|groww|bse|nse|sgb|nps|indiabulls|icici\s*prudential|mf\s*central|razorpay\s*mf|cams|kfintech/i.test(desc);
-    };
-
-    const isOtherObligation = (tx: (typeof monthTransactions)[0]) => {
-      if (tx.category?.type === 'OTHER' || tx.category?.superCategory?.kind === 'OTHER') return true;
-      if (tx.category?.name && /loan|emi|tax|penalty|bank\s*charge|annual\s*fee/i.test(tx.category.name)) return true;
-      return false;
-    };
 
     const isRefund = (tx: (typeof monthTransactions)[0]) => {
       if (tx.amount <= 0) return false;
-      if (isInternalTransfer(tx)) return false;
+      const txKind = classifyTransaction(tx, accounts, activeVaults, activeSips);
+      if (txKind === 'TRANSFER' || txKind === 'CC_PAYMENT' || txKind === 'UPI_LITE') return false;
 
       const desc = tx.descriptionRaw.toLowerCase();
       if (tx.account.type === 'CREDIT_CARD') {
@@ -201,7 +222,8 @@ export class DashboardService {
       if (!accFlow) return;
 
       const amt = Math.abs(Number(tx.amount));
-      const internal = isInternalTransfer(tx);
+      const txKind = classifyTransaction(tx, accounts, activeVaults, activeSips);
+      const internal = txKind === 'TRANSFER';
       if (tx.amount > 0) {
         if (internal) {
           accFlow.internalInbound += amt;
@@ -240,7 +262,7 @@ export class DashboardService {
         const catName = tx.category?.name ?? 'Uncategorised';
         const catColor = tx.category?.color ?? '#94a3b8';
 
-        if (isCCPayment(tx, destAcc)) {
+        if (txKind === 'CC_PAYMENT' || (destAcc && destAcc.type === 'CREDIT_CARD')) {
           accFlow.creditCardPayments += amt;
           addCatAmt(accFlow.ccCategories, catName, catColor, amt);
           addCatAmt(overallCcCategories, catName, catColor, amt);
@@ -254,7 +276,7 @@ export class DashboardService {
               amount: amt,
             });
           }
-        } else if (isUpiLiteTransfer(tx, destAcc)) {
+        } else if (txKind === 'UPI_LITE' || (destAcc && destAcc.type === 'UPI_LITE')) {
           accFlow.upiLiteTransfers += amt;
           addCatAmt(accFlow.upiLiteCategories, catName, catColor, amt);
           addCatAmt(overallUpiLiteCategories, catName, catColor, amt);
@@ -286,11 +308,11 @@ export class DashboardService {
               targetFlow.internalInbound += amt;
             }
           }
-        } else if (isInvestment(tx)) {
+        } else if (txKind === 'INVESTMENT') {
           accFlow.investments += amt;
           addCatAmt(accFlow.investmentCategories, catName, catColor, amt);
           addCatAmt(overallInvestmentCategories, catName, catColor, amt);
-        } else if (isOtherObligation(tx)) {
+        } else if (txKind === 'OTHER') {
           accFlow.other += amt;
           addCatAmt(accFlow.otherCategories, catName, catColor, amt);
           addCatAmt(overallOtherCategories, catName, catColor, amt);
@@ -313,6 +335,81 @@ export class DashboardService {
 
     const totalSettlementsAndSpends = totalExpenses + totalInvestments + totalOther + totalCreditCardPayments + totalUpiLiteTransfers;
     const totalAllOutbound = totalSettlementsAndSpends + totalInterBankTransfers;
+
+    // Collect direct CC and UPI Lite spends for intermediate layer category distribution
+    const directCcCategoryMap = new Map<string, { name: string; color: string; amount: number }>();
+    const directUpiLiteCategoryMap = new Map<string, { name: string; color: string; amount: number }>();
+    let totalDirectCcSpend = 0;
+    let totalDirectUpiLiteSpend = 0;
+
+    monthTransactions.forEach((tx) => {
+      const acc = accounts.find((a) => a.id === tx.accountId);
+      if (!acc) return;
+      const amt = Math.abs(Number(tx.amount));
+      const txKind2 = classifyTransaction(tx, accounts, activeVaults, activeSips);
+      if (tx.amount < 0 && txKind2 !== 'TRANSFER') {
+        const catName = tx.category?.name ?? 'Uncategorised';
+        const catColor = tx.category?.color ?? '#94a3b8';
+        const isCcTransferCat = /^\s*cc transfer\s*$/i.test(catName);
+        const isUpiLiteCat = /^\s*upi lite\s*$/i.test(catName);
+
+        if (acc.type === 'CREDIT_CARD' && !isCcTransferCat) {
+          totalDirectCcSpend += amt;
+          const ex = directCcCategoryMap.get(catName) || { name: catName, color: catColor, amount: 0 };
+          directCcCategoryMap.set(catName, { name: catName, color: catColor, amount: ex.amount + amt });
+        } else if (acc.type === 'UPI_LITE' && !isUpiLiteCat) {
+          totalDirectUpiLiteSpend += amt;
+          const ex = directUpiLiteCategoryMap.get(catName) || { name: catName, color: catColor, amount: 0 };
+          directUpiLiteCategoryMap.set(catName, { name: catName, color: catColor, amount: ex.amount + amt });
+        }
+      }
+    });
+
+    // Helper to distribute a settlement amount across true categories
+    const distributeCategories = (
+      settlementAmount: number,
+      sourceCategories: Map<string, { name: string; color: string; amount: number }>,
+      totalSourceSpend: number,
+      fallbackName: string,
+      fallbackColor: string,
+    ) => {
+      if (settlementAmount <= 0) return [];
+      if (totalSourceSpend > 0) {
+        const list: Array<{ name: string; color: string; amount: number }> = [];
+        let allocated = 0;
+        const entries = [...sourceCategories.values()].sort((a, b) => b.amount - a.amount);
+        entries.forEach((cat, idx) => {
+          if (idx === entries.length - 1) {
+            const remainder = settlementAmount - allocated;
+            if (remainder > 0) list.push({ name: cat.name, color: cat.color, amount: remainder });
+          } else {
+            const share = Math.round(settlementAmount * (cat.amount / totalSourceSpend));
+            if (share > 0) {
+              list.push({ name: cat.name, color: cat.color, amount: share });
+              allocated += share;
+            }
+          }
+        });
+        return list.filter((c) => c.amount > 0);
+      }
+      return [{ name: fallbackName, color: fallbackColor, amount: settlementAmount }];
+    };
+
+    const overallDistributedCcCategories = distributeCategories(
+      totalCreditCardPayments,
+      directCcCategoryMap,
+      totalDirectCcSpend,
+      'Card Living Expenses',
+      '#10b981',
+    );
+
+    const overallDistributedUpiLiteCategories = distributeCategories(
+      totalUpiLiteTransfers,
+      directUpiLiteCategoryMap,
+      totalDirectUpiLiteSpend,
+      'Daily Micro-Spends',
+      '#06b6d4',
+    );
 
     const overallSupergroups = [
       {
@@ -345,7 +442,7 @@ export class DashboardService {
         kind: 'TRANSFER',
         color: '#10b981',
         amount: totalCreditCardPayments,
-        categories: [...overallCcCategories.values()].sort((a, b) => b.amount - a.amount),
+        categories: overallDistributedCcCategories,
       },
       ...(totalUpiLiteTransfers > 0
         ? [
@@ -355,7 +452,7 @@ export class DashboardService {
               kind: 'TRANSFER',
               color: '#06b6d4',
               amount: totalUpiLiteTransfers,
-              categories: [...overallUpiLiteCategories.values()].sort((a, b) => b.amount - a.amount),
+              categories: overallDistributedUpiLiteCategories,
             },
           ]
         : []),
@@ -364,6 +461,22 @@ export class DashboardService {
     const accountDetailedFlows = [...savingsMap.values()].map((acc) => {
       const accountSpendingAndSettlements = acc.expenses + acc.investments + acc.other + acc.creditCardPayments + acc.upiLiteTransfers;
       const totalOutboundAmt = accountSpendingAndSettlements + acc.interbankOutbound;
+
+      const bankDistributedCcCategories = distributeCategories(
+        acc.creditCardPayments,
+        directCcCategoryMap,
+        totalDirectCcSpend,
+        'Card Living Expenses',
+        '#10b981',
+      );
+
+      const bankDistributedUpiLiteCategories = distributeCategories(
+        acc.upiLiteTransfers,
+        directUpiLiteCategoryMap,
+        totalDirectUpiLiteSpend,
+        'Daily Micro-Spends',
+        '#06b6d4',
+      );
 
       const accountSupergroups = [
         {
@@ -396,7 +509,7 @@ export class DashboardService {
           kind: 'TRANSFER',
           color: '#10b981',
           amount: acc.creditCardPayments,
-          categories: [...acc.ccCategories.values()].sort((a, b) => b.amount - a.amount),
+          categories: bankDistributedCcCategories,
         },
         ...(acc.upiLiteTransfers > 0
           ? [
@@ -406,7 +519,7 @@ export class DashboardService {
                 kind: 'TRANSFER',
                 color: '#06b6d4',
                 amount: acc.upiLiteTransfers,
-                categories: [...acc.upiLiteCategories.values()].sort((a, b) => b.amount - a.amount),
+                categories: bankDistributedUpiLiteCategories,
               },
             ]
           : []),
@@ -457,7 +570,8 @@ export class DashboardService {
 
         const destAcc = destAccountId ? accounts.find((a) => a.id === destAccountId) : undefined;
         const isCCCategory = Boolean(t.category?.name && /^\s*cc transfer\s*$/i.test(t.category.name));
-        const internalFlow = isInternalTransfer(t) || destAcc !== undefined || isCCCategory;
+        const tKind = classifyTransaction(t, accounts, activeVaults, activeSips);
+        const internalFlow = tKind === 'TRANSFER' || tKind === 'CC_PAYMENT' || tKind === 'UPI_LITE' || destAcc !== undefined || isCCCategory;
 
         let name = '';
         if (destAcc) {
@@ -556,6 +670,8 @@ export class DashboardService {
       ...overallExpenseCategories.values(),
       ...overallInvestmentCategories.values(),
       ...overallOtherCategories.values(),
+      ...overallDistributedCcCategories,
+      ...overallDistributedUpiLiteCategories,
     ]
       .filter((c) => !/^\s*(?:cc transfer|upi lite|internal transfer|transfer|self transfer|credit card payment|credit card|card payment|wallet top-up|wallet transfer)\s*$/i.test(c.name))
       .forEach((c) => {
@@ -596,7 +712,8 @@ export class DashboardService {
         }
         const destAcc = destAccountId ? accounts.find((a) => a.id === destAccountId) : undefined;
         const isCCCategory = Boolean(t.category?.name && /^\s*cc transfer\s*$/i.test(t.category.name));
-        const internalFlow = isInternalTransfer(t) || destAcc !== undefined || isCCCategory;
+        const tKind = classifyTransaction(t, accounts, activeVaults, activeSips);
+        const internalFlow = tKind === 'TRANSFER' || tKind === 'CC_PAYMENT' || tKind === 'UPI_LITE' || destAcc !== undefined || isCCCategory;
 
         if (internalFlow) return;
 
@@ -652,15 +769,19 @@ export class DashboardService {
             outboundCategories: [
               ...overallExpenseCategories.values(),
               ...overallOtherCategories.values(),
+              ...overallDistributedCcCategories,
+              ...overallDistributedUpiLiteCategories,
             ]
               .filter((c) => !/^\s*(cc transfer|upi lite|internal transfer)\s*$/i.test(c.name))
               .sort((a, b) => b.amount - a.amount),
-            creditCardCategories: [...overallCcCategories.values()].sort((a, b) => b.amount - a.amount),
+            creditCardCategories: overallDistributedCcCategories,
             investmentCategories: [...overallInvestmentCategories.values()].sort((a, b) => b.amount - a.amount),
             overallCategories: [
               ...overallExpenseCategories.values(),
               ...overallInvestmentCategories.values(),
               ...overallOtherCategories.values(),
+              ...overallDistributedCcCategories,
+              ...overallDistributedUpiLiteCategories,
             ]
               .filter((c) => !/^\s*(cc transfer|upi lite|internal transfer)\s*$/i.test(c.name))
               .sort((a, b) => b.amount - a.amount),
@@ -680,6 +801,7 @@ export class DashboardService {
             AccountType.SAVINGS,
             AccountType.BANK,
             AccountType.FIXED_DEPOSIT,
+            AccountType.RECURRING_DEPOSIT,
             AccountType.CASH,
             AccountType.MUTUAL_FUND,
             AccountType.STOCKS,
@@ -689,10 +811,6 @@ export class DashboardService {
         },
       },
       include: {
-        transactions: {
-          select: { id: true, amount: true, transactionDate: true },
-          orderBy: { transactionDate: 'asc' },
-        },
         holdings: {
           include: { asset: true },
         },
@@ -703,8 +821,22 @@ export class DashboardService {
             },
           },
         },
+        recurringDeposits: {
+          include: {
+            installments: {
+              orderBy: { dueDate: 'asc' },
+            },
+          },
+        },
       },
     });
+
+    const currentBalances = await this.prisma.transaction.groupBy({
+      by: ['accountId'],
+      where: { account: { userId } },
+      _sum: { amount: true },
+    });
+    const currentTxSum = new Map(currentBalances.map((b) => [b.accountId, Number(b._sum.amount || 0)]));
 
     const now = new Date();
     const months: { label: string; year: number; month: number; start: Date; end: Date }[] = [];
@@ -718,6 +850,18 @@ export class DashboardService {
       const end = new Date(year, month + 1, 1, 0, 0, 0, 0);
       months.push({ label: monthLabel, year, month, start, end });
     }
+
+    const monthlyBalances = await Promise.all(
+      months.map(async (m) => {
+        const balancesByAccount = await this.prisma.transaction.groupBy({
+          by: ['accountId'],
+          where: { account: { userId }, transactionDate: { lt: m.end } },
+          _sum: { amount: true },
+        });
+        return { label: m.label, map: new Map(balancesByAccount.map((b) => [b.accountId, Number(b._sum.amount || 0)])) };
+      })
+    );
+    const monthlyTxSums = new Map(monthlyBalances.map((mb) => [mb.label, mb.map]));
 
     let savingsTotal = 0;
     let depositsTotal = 0;
@@ -743,38 +887,41 @@ export class DashboardService {
           }
           balance = -loanOutstanding;
         } else {
-          const ledgerBalance = Number(account.openingBalance) + (account.transactions || []).reduce((sum: number, row: any) => sum + Number(row.amount), 0);
+          const ledgerBalance = Number(account.openingBalance) + (currentTxSum.get(account.id) || 0);
           balance = ledgerBalance < 0 ? ledgerBalance : -ledgerBalance;
         }
+      } else if (account.type === 'RECURRING_DEPOSIT' && (account.recurringDeposits || [])[0]) {
+        const rd = account.recurringDeposits[0];
+        const now = new Date();
+        const todayYMD = now.toISOString().slice(0, 10);
+        const paidInsts = (rd.installments || []).filter((i: any) => {
+          if (i.status === 'PAID') return true;
+          if (rd.autoIncrease && (new Date(i.dueDate) <= now || new Date(i.dueDate).toISOString().slice(0, 10) <= todayYMD)) return true;
+          return false;
+        });
+        const totalDeposited = paidInsts.reduce((sum: number, i: any) => sum + Number(i.amount), 0);
+        const txSum = currentTxSum.get(account.id) || 0;
+        balance = totalDeposited + Number(account.openingBalance) + txSum;
       } else {
-        const ledgerBalance = Number(account.openingBalance) + (account.transactions || []).reduce((sum: number, row: any) => sum + Number(row.amount), 0);
+        const ledgerBalance = Number(account.openingBalance) + (currentTxSum.get(account.id) || 0);
         const hasCompleteValuation = holdingsList.length > 0 && holdingsList.every((holding: any) => holding.currentValue !== null);
         balance = isPortfolio && hasCompleteValuation
           ? holdingsList.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0)
           : ledgerBalance;
       }
 
-      let category = 'SAVINGS';
-      const nameLower = (account.name + ' ' + (account.institution || '')).toLowerCase();
-      if (isLoan) {
-        category = 'DEBT';
-        if (balance < 0) {
-          debtTotal += Math.abs(balance);
-        }
-      } else if (account.type === 'FIXED_DEPOSIT' || nameLower.includes('fixed deposit') || nameLower.includes('fd-') || nameLower.includes('-fd')) {
-        category = 'DEPOSITS';
+      let category = getAccountAssetCategory(account);
+      if (category === 'DEBT') {
+        if (balance < 0) debtTotal += Math.abs(balance);
+      } else if (category === 'DEPOSITS') {
         if (balance > 0) depositsTotal += balance;
-      } else if (account.type === 'EPFO' || nameLower.includes('epfo') || nameLower.includes('provident')) {
-        category = 'EPFO';
+      } else if (category === 'EPFO') {
         if (balance > 0) epfoTotal += balance;
-      } else if (account.type === 'MUTUAL_FUND' || nameLower.includes('mutual') || nameLower.includes('fund') || nameLower.includes('sip') || nameLower.includes('groww')) {
-        category = 'MUTUAL_FUNDS';
+      } else if (category === 'MUTUAL_FUNDS') {
         if (balance > 0) mutualFundsTotal += balance;
-      } else if (account.type === 'STOCKS' || nameLower.includes('zerodha') || nameLower.includes('demat') || nameLower.includes('stocks')) {
-        category = 'STOCKS';
+      } else if (category === 'STOCKS') {
         if (balance > 0) stocksTotal += balance;
       } else {
-        category = 'SAVINGS';
         if (balance > 0) savingsTotal += balance;
       }
 
@@ -832,33 +979,42 @@ export class DashboardService {
               debt += Math.abs(Number(loan.principal));
             }
           } else {
-            const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
-            const cumLedger = Number(account.openingBalance) + txsUpToMonth.reduce((sum: number, row: any) => sum + Number(row.amount), 0);
+            const cumLedger = Number(account.openingBalance) + (monthlyTxSums.get(m.label)?.get(account.id) || 0);
             debt += Math.abs(cumLedger);
           }
           return;
         }
 
-        const txsUpToMonth = (account.transactions || []).filter((tx: any) => new Date(tx.transactionDate) < m.end);
-        const cumLedger = Number(account.openingBalance) + txsUpToMonth.reduce((sum: number, row: any) => sum + Number(row.amount), 0);
+        const cumLedger = Number(account.openingBalance) + (monthlyTxSums.get(m.label)?.get(account.id) || 0);
         const isPortfolio = account.type === 'MUTUAL_FUND' || account.type === 'STOCKS';
         const holdingsList = account.holdings || [];
         const hasCompleteValuation = holdingsList.length > 0 && holdingsList.every((holding: any) => holding.currentValue !== null);
-        const bal = isPortfolio && hasCompleteValuation
+
+        let bal = isPortfolio && hasCompleteValuation
           ? holdingsList.reduce((sum: number, holding: any) => sum + Number(holding.currentValue), 0)
           : cumLedger;
 
+        if (account.type === 'RECURRING_DEPOSIT' && (account.recurringDeposits || [])[0]) {
+          const rd = account.recurringDeposits[0];
+          const instsUpToMonth = (rd.installments || []).filter((i: any) => new Date(i.dueDate) <= m.end);
+          const paidUpToMonth = instsUpToMonth.filter((i: any) => i.status === 'PAID' || (rd.autoIncrease && new Date(i.dueDate) <= m.end));
+          const depositedUpToMonth = paidUpToMonth.reduce((sum: number, i: any) => sum + Number(i.amount), 0);
+          bal = depositedUpToMonth + cumLedger;
+        }
+
         if (bal <= 0) return;
 
-        const nameLower = (account.name + ' ' + (account.institution || '')).toLowerCase();
-        if (account.type === 'FIXED_DEPOSIT' || nameLower.includes('fixed deposit') || nameLower.includes('fd-') || nameLower.includes('-fd')) {
+        const category = getAccountAssetCategory(account);
+        if (category === 'DEPOSITS') {
           deposits += bal;
-        } else if (account.type === 'EPFO' || nameLower.includes('epfo') || nameLower.includes('provident')) {
+        } else if (category === 'EPFO') {
           epfo += bal;
-        } else if (account.type === 'MUTUAL_FUND' || nameLower.includes('mutual') || nameLower.includes('fund') || nameLower.includes('sip') || nameLower.includes('groww')) {
+        } else if (category === 'MUTUAL_FUNDS') {
           mutualFunds += bal;
-        } else if (account.type === 'STOCKS' || nameLower.includes('zerodha') || nameLower.includes('demat') || nameLower.includes('stocks')) {
+        } else if (category === 'STOCKS') {
           stocks += bal;
+        } else if (category === 'DEBT') {
+          // debt already handled above
         } else {
           savings += bal;
         }
@@ -963,26 +1119,6 @@ export class DashboardService {
       orderBy: { transactionDate: 'asc' },
     });
 
-    const classifyTxnType = (tx: (typeof transactions)[0]): 'EXPENSE' | 'OTHER' | 'INVESTMENT' | 'TRANSFER' => {
-      if (tx.transferGroupId) return 'TRANSFER';
-      if (tx.category?.type === 'TRANSFER' || tx.category?.superCategory?.kind === 'TRANSFER') return 'TRANSFER';
-      if (tx.category?.name && /^\s*(?:self\s*transfer|internal\s*transfer|transfer|trf)\s*$/i.test(tx.category.name)) return 'TRANSFER';
-
-      const desc = tx.descriptionRaw.toLowerCase();
-      if (/self\s*tra|tcd\s*no|firdftfr|own\s*acc|self\s*transfer|trf\s*to/i.test(desc)) return 'TRANSFER';
-      if (tx.account.type !== 'CREDIT_CARD' && /cred\.club|cred\s+rent|cred\s+pay|credit\s*card\s*payment|cc\s*bill|billdesk.*card|payment\s*to\s*card/i.test(desc)) {
-        return 'TRANSFER';
-      }
-
-      if (tx.category?.type === 'INVESTMENT' || tx.category?.superCategory?.kind === 'INVESTMENT') return 'INVESTMENT';
-      if (tx.category?.name && /invest|mutual|sip|stock|broker|equity|zerodha|groww|etmoney/i.test(tx.category.name)) return 'INVESTMENT';
-      if (/mutual|fund|zerodha|groww|bse|nse|sgb|nps|indiabulls|icici\s*prudential|mf\s*central|razorpay\s*mf|cams|kfintech/i.test(desc)) return 'INVESTMENT';
-
-      if (tx.category?.type === 'OTHER' || tx.category?.superCategory?.kind === 'OTHER') return 'OTHER';
-      if (tx.category?.name && /loan|emi|tax|penalty|bank\s*charge|annual\s*fee/i.test(tx.category.name)) return 'OTHER';
-
-      return 'EXPENSE';
-    };
 
     // Calculate available category types summary across the date range
     const typeSummaries = {
@@ -993,7 +1129,8 @@ export class DashboardService {
     };
 
     for (const tx of transactions) {
-      const t = classifyTxnType(tx);
+      const txKind = classifyTransaction(tx, [], [], []);
+      const t = txKind === 'CC_PAYMENT' || txKind === 'UPI_LITE' ? 'TRANSFER' : txKind;
       const absAmount = Math.abs(Number(tx.amount));
       typeSummaries[t].count += 1;
       typeSummaries[t].totalAmount += absAmount;
@@ -1012,7 +1149,8 @@ export class DashboardService {
     }
 
     const expenseTxns = transactions.filter((tx) => {
-      const t = classifyTxnType(tx);
+      const txKind = classifyTransaction(tx, [], [], []);
+      const t = txKind === 'CC_PAYMENT' || txKind === 'UPI_LITE' ? 'TRANSFER' : txKind;
       return activeTypes.has(t);
     });
 

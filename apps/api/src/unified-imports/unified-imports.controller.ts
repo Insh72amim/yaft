@@ -33,6 +33,15 @@ export class UnifiedImportsController {
     return this.unifiedImports.updateBankReview(user.id, batchId, rowId, dto);
   }
 
+  @Patch('bank-reviews/:batchId/bulk')
+  bulkUpdateBankReview(
+    @CurrentUser() user: { id: string },
+    @Param('batchId') batchId: string,
+    @Body() dto: { include: boolean },
+  ) {
+    return this.unifiedImports.bulkUpdateBankReview(user.id, batchId, Boolean(dto.include));
+  }
+
   @Post('bank-reviews/:batchId/commit')
   commitBankReview(@CurrentUser() user: { id: string }, @Param('batchId') batchId: string) {
     return this.unifiedImports.commitBankReview(user.id, batchId);

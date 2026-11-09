@@ -7,16 +7,18 @@ import { AccountsService } from '../../src/accounts/accounts.service';
 import { TransactionsService } from '../../src/transactions/transactions.service';
 import { CreditCardsService } from '../../src/accounts/credit-cards.service';
 import { LoansService } from '../../src/loans/loans.service';
+import { RecurringDepositsService } from '../../src/recurring-deposits/recurring-deposits.service';
 
 const accountDocuments = () => ({ purgeForAccount: jest.fn() }) as unknown as AccountDocumentsService;
 
 const createTestController = (prisma: PrismaService, credentials: StatementCredentialsService = {} as StatementCredentialsService) => {
   const loansService = new LoansService(prisma);
+  const recurringDepositsService = new RecurringDepositsService(prisma);
   const transactionsService = new TransactionsService(prisma);
   const creditCardsService = new CreditCardsService(prisma);
-  const accountsService = new AccountsService(prisma, credentials, accountDocuments(), loansService);
+  const accountsService = new AccountsService(prisma, credentials, accountDocuments(), loansService, recurringDepositsService);
   const controller = new AccountsController(accountsService, transactionsService, creditCardsService, loansService);
-  return { accountsService, transactionsService, creditCardsService, loansService, controller };
+  return { accountsService, transactionsService, creditCardsService, loansService, recurringDepositsService, controller };
 };
 
 describe('AccountsController & AccountsService statement credential exposure', () => {
@@ -132,7 +134,7 @@ describe('AccountsController & AccountsService transaction history', () => {
 
     expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'account-a', userId: 'owner-a', archived: false } }));
     expect(result.account).toMatchObject({ id: 'account-a', openingBalance: 1000, balance: 750 });
-    expect(result.transactions[0]).toMatchObject({ id: 'transaction-a', description: 'Synthetic merchant', amount: -250, category: 'Shopping' });
+    expect(result.transactions[0]).toMatchObject({ id: 'transaction-a', description: 'Synthetic merchant', amount: -250, balance: 750, category: 'Shopping' });
     expect(result.pagination).toEqual({ page: 1, pageSize: 50, total: 1, pages: 1 });
   });
 

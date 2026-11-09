@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import {
   Lock, Eye, EyeOff, CreditCard, Landmark, PiggyBank, TrendingUp,
   ChartPieIcon as ChartPie, Building2, BadgeIndianRupee, Pencil,
-  Trash2, Save, X, Check, Copy, Wifi
+  Trash2, Save, X, Check, Copy, Wifi, Repeat
 } from 'lucide-react';
 import { api, errorMessage, isUnauthorized } from '@/lib/api';
 import { CardScanner, type CardScanResult } from '@/components/card-scanner';
@@ -36,7 +36,7 @@ interface RevealedData {
   cvv?: string;
 }
 
-const BANK_TYPES = [AccountType.SAVINGS, AccountType.FIXED_DEPOSIT, AccountType.BANK];
+const BANK_TYPES = [AccountType.SAVINGS, AccountType.FIXED_DEPOSIT, AccountType.RECURRING_DEPOSIT, AccountType.BANK];
 const CARD_TYPES = [AccountType.CREDIT_CARD];
 
 function isBankAccount(type: string) { return BANK_TYPES.includes(type as AccountType); }
@@ -49,6 +49,7 @@ function getIcon(type: string) {
   if (type === AccountType.EPFO) return <Building2 size={18} />;
   if (type === AccountType.LOAN) return <BadgeIndianRupee size={18} />;
   if (type === AccountType.SAVINGS) return <PiggyBank size={18} />;
+  if (type === AccountType.RECURRING_DEPOSIT) return <Repeat size={18} />;
   return <Landmark size={18} />;
 }
 

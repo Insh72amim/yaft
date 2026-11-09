@@ -23,23 +23,25 @@ export class S3Service implements OnModuleInit {
   }
 
   async onModuleInit() {
+    interface AwsErrorShape { $metadata?: { httpStatusCode?: number }; name?: string; message?: string }
     try {
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
       this.logger.log(`S3 bucket "${this.bucket}" is ready`);
-    } catch (error: any) {
-      const status = error.$metadata?.httpStatusCode;
-      if (status === 404 || error.name === 'NotFound') {
+    } catch (error: unknown) {
+      const err = error as AwsErrorShape;
+      const status = err.$metadata?.httpStatusCode;
+      if (status === 404 || err.name === 'NotFound') {
         try {
           await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
           this.logger.log(`Created S3 bucket "${this.bucket}"`);
-        } catch (createError: any) {
-          this.logger.warn(`Failed to create S3 bucket "${this.bucket}": ${createError.message}`);
+        } catch (createError: unknown) {
+          const ce = createError as AwsErrorShape;
+          this.logger.warn(`Failed to create S3 bucket "${this.bucket}": ${ce.message ?? String(createError)}`);
         }
       } else if (status === 403) {
         this.logger.warn(`S3 access denied for bucket "${this.bucket}". Check credentials and bucket policy.`);
       } else {
-        this.logger.warn(`S3 bucket check failed: ${error.message}`);
-        throw error;
+        this.logger.warn(`S3 bucket check failed: ${err.message ?? String(error)}. Document storage operations may fail until S3 is available.`);
       }
     }
   }
@@ -59,7 +61,7 @@ export class S3Service implements OnModuleInit {
       Key: key,
     }));
     const chunks: Buffer[] = [];
-    for await (const chunk of response.Body as any) {
+    for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
       chunks.push(Buffer.from(chunk));
     }
     return Buffer.concat(chunks);

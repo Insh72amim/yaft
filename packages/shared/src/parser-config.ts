@@ -12,6 +12,7 @@ export interface StatementColumnAliases {
   credit: string[];
   reference: string[];
   status: string[];
+  balance: string[];
 }
 
 export const STATEMENT_COLUMN_ALIASES: StatementColumnAliases = {
@@ -22,6 +23,7 @@ export const STATEMENT_COLUMN_ALIASES: StatementColumnAliases = {
   credit: ['credit', 'deposit', 'deposit amt.', 'credit amount', 'cr amount', 'cr amt'],
   reference: ['reference', 'reference number', 'ref no', 'chq./ref.no.', 'transaction id', 'txn id', 'cheque no', 'utr'],
   status: ['status', 'transaction status', 'txn status', 'payment status', 'state', 'result'],
+  balance: ['balance', 'closing balance', 'running balance', 'bal', 'avail bal', 'available balance', 'book balance', 'net balance', 'balance inr', 'bal inr', 'balance rs'],
 };
 
 export const TRANSACTION_STATUS_CONFIG = {
@@ -121,6 +123,11 @@ export const BRAND_CANONICAL_RULES: BrandCanonicalRule[] = [
   { pattern: /razorpay/i, canonical: 'Razorpay' },
   { pattern: /\bcred\b/i, canonical: 'CRED' },
   { pattern: /payment\s*received/i, canonical: 'Payment Received' },
+  { pattern: /\bneft\s*transfer\b|\bthru\s*neft\b/i, canonical: 'NEFT Transfer' },
+  { pattern: /\bimps\s*transfer\b|\bthru\s*imps\b/i, canonical: 'IMPS Transfer' },
+  { pattern: /\bupi\s*transfer\b/i, canonical: 'UPI Transfer' },
+  { pattern: /\brtgs\s*transfer\b/i, canonical: 'RTGS Transfer' },
+  { pattern: /deposit\s*by\s*transfer/i, canonical: 'Deposit by Transfer' },
 ];
 
 export function cleanBeneficiaryToken(token: string): string {
@@ -140,7 +147,14 @@ export function canonicalizeMerchantName(raw: string): string {
 
   let s = raw.trim();
 
-  // 1. If it's a UPI VPA e.g. "paytm-urbancompany@ptybl", "payzomato@hdfcbank", "airtel-billpayment.paytm@ptybl"
+  // 1. Check direct brand canonical rules early
+  for (const rule of BRAND_CANONICAL_RULES) {
+    if (rule.pattern.test(s)) {
+      return rule.canonical.toUpperCase();
+    }
+  }
+
+  // 2. If it's a UPI VPA e.g. "paytm-urbancompany@ptybl", "payzomato@hdfcbank", "airtel-billpayment.paytm@ptybl"
   if (s.includes('@')) {
     s = s.replace(/@[a-zA-Z0-9.-]+$/, '');
     s = s.replace(/^paytm[-.]?/i, '');
@@ -149,7 +163,7 @@ export function canonicalizeMerchantName(raw: string): string {
     s = s.replace(/^upi[-.]?/i, '');
   }
 
-  // 2. If it's a POS / PUR / UPI path e.g. "PUR/YOUTUBEGOOGLE/YOUTUBEGOOGLE/123456" or "UPI/P2A/100000000005/MERCHANT_ONE"
+  // 3. If it's a POS / PUR / UPI path e.g. "PUR/YOUTUBEGOOGLE/YOUTUBEGOOGLE/123456" or "UPI/P2A/100000000001/SAMPLE MERCHANT"
   if (s.includes('/')) {
     const parts = s.split('/').filter((p) => p && !/^\d+$/.test(p) && !/^(PUR|POS|UPI|P2A|P2M|P2P|INF|NEFT|IMPS)$/i.test(p));
     if (parts.length > 0) {
@@ -157,7 +171,7 @@ export function canonicalizeMerchantName(raw: string): string {
     }
   }
 
-  // 3. Known cleanups and brand canonicalization
+  // 4. Known cleanups
   s = s
     .replace(/^(VPA|UPI|VPS|POS|INF|NEFT|IMPS|PUR)\s*[\/:\*]?\s*/i, '')
     .replace(/^(?:PVT\s*LTD|PVT\s*LT|LTD|LIMITED|SERVICES|INDIA)$/i, '')
@@ -167,8 +181,7 @@ export function canonicalizeMerchantName(raw: string): string {
 
   for (const rule of BRAND_CANONICAL_RULES) {
     if (rule.pattern.test(s)) {
-      s = rule.canonical;
-      break;
+      return rule.canonical.toUpperCase();
     }
   }
 
@@ -179,7 +192,7 @@ export function canonicalizeMerchantName(raw: string): string {
     .toUpperCase();
 
   if (!s || s.length < 2 || /^(VPA|ACCOUNT|A\/C|BANK|REF|TRANSACTION|PURCHASE|CUSTOMER|SUPPORT|HELP|ORM)$/i.test(s)) {
-    return 'General Merchant';
+    return 'GENERAL MERCHANT';
   }
 
   return s;
@@ -195,7 +208,7 @@ export const EMAIL_ALERT_PATTERNS = {
   CREDIT_TXN_REGEX: /credited|received|deposited|refund/i,
   DEBIT_TXN_REGEX: /debited|spent|used|charged|purchase|auto\s*debit|sip\s*debit|invested|\bdebit\b/i,
 
-  LIMITS_NOISE_REGEX: /(?:available\s*(?:credit)?\s*limit|total\s*(?:credit)?\s*limit|credit\s*limit|total\s*due|total\s*outstanding|available\s*balance|bal\s*limit|available\s*a\/c\s*bal|clear\s*bal)\*?\s*(?:is|:)?\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*[\d,]+(?:\.\d{1,2})?/gi,
+  LIMITS_NOISE_REGEX: /(?:available\s*(?:credit)?\s*limit|total\s*(?:credit)?\s*limit|credit\s*limit|total\s*due|total\s*outstanding|available\s*balance|bal\s*limit|available\s*a\/c\s*bal|clear\s*bal|aval\s*bal|avl\s*bal|avail\s*bal|avbl\s*bal)\*?\s*(?:is|:)?\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*[\d,]+(?:\.\d{1,2})?/gi,
 
   LABEL_AMOUNT_REGEX: /(?:transaction\s*amount|amount\s*debited|amount\s*credited|amount\s*invested|sip\s*amount|amount)\s*[:=]\s*(?:rs\.?|inr|₹|&#8377;|&#x20b9;)?\s*([\d,]+(?:\.\d{1,2})?)/i,
   VERB_AMOUNT_REGEXES: [
@@ -208,9 +221,9 @@ export const EMAIL_ALERT_PATTERNS = {
   ],
 
   ACCOUNT_LAST4_REGEXES: [
-    /(?:credit\s*card|account\s*number|a\/c\s*no\.?|a\/c|account|card)\s*(?:no\.?|is|:)?\s*(?:\d{4}\s*[xX*]+[\s*xX\d-]*|4[xX]+[\s*xX\d-]*|[xX*]{4,}[\s*xX\d-]*)\s*(\d{4})\b/i,
+    /(?:credit\s*card|account\s*number|a\/c\s*no\.?|a\/c|account|ac|card)\s*(?:no\.?|is|:)?\s*(?:\d{4}\s*[xX*]+[\s*xX\d-]*|4[xX]+[\s*xX\d-]*|[xX*]{4,}[\s*xX\d-]*)\s*(\d{4})\b/i,
     /(?:ending\s+(?:with|in)|ending|ending\s+xx)\s*(?:XX|\*+)?(\d{4,8})\b/i,
-    /(?:credit\s*card|account\s*number|a\/c\s*no\.?|a\/c|account|card)\s*(?:ending\s*(?:with|in)?|no\.?|is|:)?\s*(?:XX|\*+|4[xX]+)?(\d{4,8})\b/i,
+    /(?:credit\s*card|account\s*number|a\/c\s*no\.?|a\/c|account|ac|card)\s*(?:ending\s*(?:with|in)?|no\.?|is|:)?\s*(?:XX|\*+|4[xX]+)?(\d{4,8})\b/i,
     /\b(?:XX|\*+|4[xX]+)(\d{4,8})\b/i,
   ],
 
@@ -317,6 +330,12 @@ export function extractAlertRawMerchant(text: string, senderOrSubject?: string):
     if (rule.pattern.test(combinedContext)) {
       return rule.canonical;
     }
+  }
+
+  // Check for transfer mechanism / mode (e.g. thru NEFT, via IMPS, by UPI)
+  const thruMatch = text.match(/\b(?:thru|through|via|by|mode:?)\s+(NEFT|IMPS|RTGS|UPI|ACH|NACH)\b/i);
+  if (thruMatch) {
+    return `${thruMatch[1].toUpperCase()} Transfer`;
   }
 
   return 'General Merchant';

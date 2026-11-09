@@ -1,12 +1,13 @@
-import { PiggyBank, Landmark, TrendingUp, ChartPie, CreditCard, BadgeIndianRupee, Building2 } from 'lucide-react';
+import { PiggyBank, Landmark, TrendingUp, ChartPie, CreditCard, BadgeIndianRupee, Building2, Repeat } from 'lucide-react';
 import { FormEvent, useState } from 'react';
-import { api, errorMessage } from '@/lib/api';
+import { api, errorMessage, money } from '@/lib/api';
 
 export const accountChoices = [
   { group: 'BANK', type: 'SAVINGS', label: 'Savings account', detail: 'Salary or everyday banking', icon: PiggyBank },
   { group: 'INVESTMENTS', type: 'MUTUAL_FUND', label: 'Mutual Funds', detail: 'Groww, Zerodha Coin, AMC or folio holdings', icon: ChartPie },
   { group: 'INVESTMENTS', type: 'STOCKS', label: 'Stocks', detail: 'Groww, Zerodha Kite, Angel One broker account', icon: TrendingUp },
-  { group: 'INVESTMENTS', type: 'FIXED_DEPOSIT', label: 'Fixed & recurring deposit', detail: 'Bank FD, RD and term deposits', icon: Landmark },
+  { group: 'INVESTMENTS', type: 'FIXED_DEPOSIT', label: 'Fixed deposit', detail: 'Bank FD and term deposits', icon: Landmark },
+  { group: 'INVESTMENTS', type: 'RECURRING_DEPOSIT', label: 'Recurring deposit', detail: 'Monthly recurring bank savings deposit', icon: Repeat },
   { group: 'OTHER', type: 'CREDIT_CARD', label: 'Credit card', detail: 'Limit, outstanding and due day', icon: CreditCard },
   { group: 'OTHER', type: 'LOAN', label: 'Loan account', detail: 'Home, vehicle or personal loan', icon: BadgeIndianRupee },
   { group: 'INVESTMENTS', type: 'EPFO', label: 'EPFO account', detail: 'Provident-fund balance', icon: Building2 },
@@ -78,16 +79,22 @@ export const creditCardInstitutions = [
   'Yes Bank'
 ];
 
-export const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savings account', FIXED_DEPOSIT: 'Fixed & recurring deposit',
+export const typeLabel: Record<string, string> = { BANK: 'Bank account', SAVINGS: 'Savings account', FIXED_DEPOSIT: 'Fixed deposit', RECURRING_DEPOSIT: 'Recurring deposit',
   CREDIT_CARD: 'Credit card', LOAN: 'Loan account', STOCKS: 'Stocks account', MUTUAL_FUND: 'Mutual Funds account', INVESTMENT: 'Mutual Funds account', EPFO: 'EPFO account', CASH: 'Cash' };
 
 export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [adding, setAdding] = useState(false); 
-  const [accountError, setAccountError] = useState(''); 
+  const [adding, setAdding] = useState(false);
+  const [accountError, setAccountError] = useState('');
   const [newType, setNewType] = useState('SAVINGS');
   const [existingCards, setExistingCards] = useState<any[]>([]);
   const [isSharedLimit, setIsSharedLimit] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState('');
+
+  // RD Form State for live preview calculation
+  const [rdMonthly, setRdMonthly] = useState('5000');
+  const [rdRate, setRdRate] = useState('7.0');
+  const [rdTerm, setRdTerm] = useState('12');
+  const [rdAutoIncrease, setRdAutoIncrease] = useState(true);
 
   useState(() => {
     api<any[]>('/accounts')
@@ -98,6 +105,24 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
       })
       .catch(() => {});
   });
+
+  // Calculate live RD preview
+  const monthlyPaise = Math.round((Number(rdMonthly) || 0) * 100);
+  const rateNum = Number(rdRate) || 0;
+  const termNum = Math.max(1, Math.min(600, Number(rdTerm) || 12));
+
+  let calculatedMaturityPaise = 0;
+  if (monthlyPaise > 0 && rateNum >= 0) {
+    const quarterlyRate = rateNum / 400;
+    for (let k = 1; k <= termNum; k++) {
+      const remainingMonths = termNum - k + 1;
+      const quarters = remainingMonths / 3;
+      calculatedMaturityPaise += monthlyPaise * Math.pow(1 + quarterlyRate, quarters);
+    }
+  }
+  const totalInvestmentPaise = monthlyPaise * termNum;
+  const maturityPaise = Math.round(calculatedMaturityPaise);
+  const interestGainPaise = Math.max(0, maturityPaise - totalInvestmentPaise);
 
   async function handleCreate(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -136,6 +161,19 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
       const startDate = form.get('loanStartDate');
       body.loanStartDate = startDate ? String(startDate) : undefined;
     }
+    if (newType === 'RECURRING_DEPOSIT') {
+      const monthly = form.get('rdMonthlyAmount');
+      body.rdMonthlyAmount = monthly ? Math.round(Number(monthly) * 100) : undefined;
+      const rate = form.get('rdInterestRate');
+      body.rdInterestRate = rate ? Number(rate) : undefined;
+      const depositDay = form.get('rdDepositDay');
+      body.rdDepositDay = depositDay ? Number(depositDay) : undefined;
+      const term = form.get('rdTermMonths');
+      body.rdTermMonths = term ? Number(term) : undefined;
+      const startDate = form.get('rdStartDate');
+      body.rdStartDate = startDate ? String(startDate) : undefined;
+      body.rdAutoIncrease = rdAutoIncrease;
+    }
     try {
       await api('/accounts', { method: 'POST', body: JSON.stringify(body) });
       onSuccess();
@@ -150,6 +188,8 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
   const accountPlaceholder = (type: string) => {
     if (type === 'CREDIT_CARD') return 'e.g. Amazon Pay / Coral RuPay';
     if (type === 'SAVINGS') return 'e.g. Salary account';
+    if (type === 'FIXED_DEPOSIT') return 'e.g. 1-Year SBI FD';
+    if (type === 'RECURRING_DEPOSIT') return 'e.g. 12-Month RD';
     return 'Account name';
   };
   const institutionPlaceholder = (type: string) => {
@@ -159,6 +199,7 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
   };
 
   const selectedParentCard = existingCards.find((c) => c.id === selectedParentId);
+  const todayYMD = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="modal-wrap">
@@ -184,7 +225,7 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
         </div>
         <div className="account-fields">
           <label>Account name<input name="name" required placeholder={accountPlaceholder(newType)} /></label>
-          {newType === 'SAVINGS' || newType === 'FIXED_DEPOSIT' ? (
+          {newType === 'SAVINGS' || newType === 'FIXED_DEPOSIT' || newType === 'RECURRING_DEPOSIT' ? (
             <label>Institution<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported bank</option>{savingsInstitutions.map((bank) => <option value={bank} key={bank}>{bank}</option>)}</select></label>
           ) : newType === 'STOCKS' ? (
             <label>Broker<select name="institution" required defaultValue=""><option value="" disabled>Choose a supported broker</option>{stockBrokers.map((broker) => <option value={broker} key={broker}>{broker}</option>)}</select></label>
@@ -256,6 +297,64 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
             <label>Opening balance (₹)<input name="openingBalance" type="number" step="0.01" defaultValue="0" /></label>
           )}
 
+          {newType === 'RECURRING_DEPOSIT' && (
+            <>
+              <div className="form-row">
+                <label>RD start date<input name="rdStartDate" type="date" required defaultValue={todayYMD} /></label>
+                <label>Monthly deposit (₹)<input name="rdMonthlyAmount" type="number" min="1" step="0.01" required value={rdMonthly} onChange={(e) => setRdMonthly(e.target.value)} placeholder="e.g. 5000" /></label>
+              </div>
+              <div className="form-row">
+                <label>Interest rate (% p.a.)<input name="rdInterestRate" type="number" min="0.01" max="100" step="0.01" required value={rdRate} onChange={(e) => setRdRate(e.target.value)} placeholder="e.g. 7.1" /></label>
+                <label>Deposit day of month (1-31)<input name="rdDepositDay" type="number" min="1" max="31" required defaultValue="5" placeholder="e.g. 5" /></label>
+              </div>
+              <div className="form-row">
+                <label>Tenure (months)<input name="rdTermMonths" type="number" min="1" max="600" required value={rdTerm} onChange={(e) => setRdTerm(e.target.value)} placeholder="e.g. 12" /></label>
+              </div>
+
+              {/* Auto-Increase Balance Switch */}
+              <div className="rd-auto-increase-toggle-card">
+                <label className="rd-toggle-control">
+                  <input
+                    type="checkbox"
+                    checked={rdAutoIncrease}
+                    onChange={(e) => setRdAutoIncrease(e.target.checked)}
+                  />
+                  <div>
+                    <strong>Auto-increase balance after deposit day</strong>
+                    <small>
+                      {rdAutoIncrease
+                        ? 'Active: Deposits will automatically mark as paid and increase the RD balance on each monthly due day.'
+                        : 'Manual: You will manually confirm each deposit before it reflects in the account balance.'}
+                    </small>
+                  </div>
+                </label>
+              </div>
+
+              {/* Live Maturity Preview Card */}
+              {monthlyPaise > 0 && (
+                <div className="rd-preview-card">
+                  <div className="rd-preview-title">
+                    <span>Maturity Preview (Quarterly Compounding)</span>
+                  </div>
+                  <div className="rd-preview-grid">
+                    <div>
+                      <small>Total Investment</small>
+                      <strong>{money(totalInvestmentPaise)}</strong>
+                    </div>
+                    <div>
+                      <small>Interest Earned</small>
+                      <strong className="gain">+{money(interestGainPaise)}</strong>
+                    </div>
+                    <div>
+                      <small>Estimated Maturity</small>
+                      <strong className="highlight">{money(maturityPaise)}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
           {newType === 'LOAN' && (
             <>
               <div className="form-row">
@@ -284,7 +383,7 @@ export function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; o
 }
 
 function AccountChoice({ choice, selected, onSelect }: { choice: typeof accountChoices[number]; selected: boolean; onSelect: (type: string) => void }) {
-  const Icon = choice.icon; 
+  const Icon = choice.icon;
   return (
     <button type="button" className={`account-choice ${selected ? 'selected' : ''}`} onClick={() => onSelect(choice.type)}>
       <Icon/><span><strong>{choice.label}</strong><small>{choice.detail}</small></span>

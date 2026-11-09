@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files, Pencil, Trash, TrendingUp, Search, Filter, RotateCcw, SlidersHorizontal, X, Tag, Workflow, Mail, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, ArrowDownLeft, CalendarDays, Landmark, ReceiptText, ShieldAlert, Trash2, Lock, Settings, Plus, CreditCard, Files, Pencil, Trash, TrendingUp, Search, Filter, RotateCcw, RefreshCw, SlidersHorizontal, X, Tag, Workflow, Mail, Eye, EyeOff, Scale, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -10,6 +10,8 @@ import { AccountDocuments } from '@/components/account-documents';
 import { SipModal, type Sip } from '@/components/sip-modal';
 import { SpendRulesModal } from '@/components/spend-rules-modal';
 import { CategoryPickerPopover } from '@/components/category-picker-popover';
+import { useTransactionMutations } from '@/hooks/useTransactionMutations';
+import { useTransactionFilters } from '@/hooks/useTransactionFilters';
 import { EmailProofModal } from '@/components/email-proof-modal';
 
 import { AccountType } from '@/lib/constants';
@@ -25,6 +27,13 @@ type AccountLedger = {
     currency: string;
     openingBalance: number;
     balance: number;
+    monthlyAverageBalance?: number | null;
+    monthInflow?: number | null;
+    monthOutflow?: number | null;
+    monthNet?: number | null;
+    monthCreditCount?: number | null;
+    monthDebitCount?: number | null;
+    monthTotalCount?: number | null;
     creditLimit?: number | null;
     statementDay?: number | null;
     dueDay?: number | null;
@@ -34,6 +43,7 @@ type AccountLedger = {
     isChild?: boolean;
     cardLast4?: string | null;
     cardNetwork?: string | null;
+    emailSyncEnabled?: boolean;
   };
   transactions: {
     id: string;
@@ -42,6 +52,7 @@ type AccountLedger = {
     description: string;
     details: string | null;
     amount: number;
+    balance?: number | null;
     categoryId?: string | null;
     category: string;
     categoryColor?: string;
@@ -70,6 +81,7 @@ const typeLabel: Record<string, string> = {
   [AccountType.BANK]: 'Bank account',
   [AccountType.SAVINGS]: 'Savings account',
   [AccountType.FIXED_DEPOSIT]: 'Fixed deposit',
+  [AccountType.RECURRING_DEPOSIT]: 'Recurring deposit',
   [AccountType.CREDIT_CARD]: 'Credit card',
   [AccountType.LOAN]: 'Loan account',
   [AccountType.STOCKS]: 'Stock account',
@@ -86,19 +98,29 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [error, setError] = useState('');
   const [deleteStep, setDeleteStep] = useState(0);
   const [deleteAction, setDeleteAction] = useState<'CLEAR_TRANSACTIONS' | 'DELETE_ACCOUNT'>('CLEAR_TRANSACTIONS');
+  const [clearDays, setClearDays] = useState<number | null>(30);
   const [confirmationName, setConfirmationName] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [showVault, setShowVault] = useState(false);
   const [activeTab, setActiveTab] = useState<'TRANSACTIONS' | 'FLOW' | 'TIMELINE' | 'DOCUMENTS'>('TRANSACTIONS');
 
-  // Credit Card details edit states
-  const [showEditCc, setShowEditCc] = useState(false);
+  // Account details edit states
+  const [showEditAccount, setShowEditAccount] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editInstitution, setEditInstitution] = useState('');
+  const [editOpeningBalance, setEditOpeningBalance] = useState('');
   const [ccLimit, setCcLimit] = useState('');
   const [ccStatementDay, setCcStatementDay] = useState('');
   const [ccDueDay, setCcDueDay] = useState('');
-  const [savingCc, setSavingCc] = useState(false);
-  const [saveCcError, setSaveCcError] = useState('');
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [saveAccountError, setSaveAccountError] = useState('');
+
+  // Email sync states
+  const [updatingEmailSync, setUpdatingEmailSync] = useState(false);
+  const [syncingBankEmail, setSyncingBankEmail] = useState(false);
+  const [emailSyncNotice, setEmailSyncNotice] = useState<string | null>(null);
+  const [editEmailSync, setEditEmailSync] = useState(false);
 
   // EPFO manual add states
   const [showAddEpfo, setShowAddEpfo] = useState(false);
@@ -108,19 +130,36 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const [epfoIsCredit, setEpfoIsCredit] = useState(true);
   const [savingEpfo, setSavingEpfo] = useState(false);
   const [saveEpfoError, setSaveEpfoError] = useState('');
+  const {
+    editingTxCatId, setEditingTxCatId,
+    batchUpdating,
+    batchCatPickerOpen, setBatchCatPickerOpen,
+    error: mutationsError, setError: setMutationsError,
+    updateCategory,
+    deleteTransaction,
+    bulkUpdateCategory
+  } = useTransactionMutations({ onMutated: () => load(), setData });
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [minAmount, setMinAmount] = useState('');
-  const [maxAmount, setMaxAmount] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'EXPENSE' | 'INCOME'>('ALL');
-  const [selectedCategoryFilterId, setSelectedCategoryFilterId] = useState('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const {
+    search: searchQuery, setSearch: setSearchQuery,
+    typeFilter, setTypeFilter,
+    categoryId: selectedCategoryFilterId, setCategoryId: setSelectedCategoryFilterId,
+    minAmount, setMinAmount,
+    maxAmount, setMaxAmount,
+    startDate, setStartDate,
+    endDate, setEndDate,
+    hasActiveFilters,
+    clearFilters
+  } = useTransactionFilters();
+
+
+
+
+                const [showFilters, setShowFilters] = useState(false);
   const [showCategoryEdit, setShowCategoryEdit] = useState(false);
-  const [showRulesModal, setShowRulesModal] = useState(false);
-  const [editingTxCatId, setEditingTxCatId] = useState<string | null>(null);
-  const [selectedEmailTx, setSelectedEmailTx] = useState<AccountLedger['transactions'][0] | null>(null);
+  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+      const [showRulesModal, setShowRulesModal] = useState(false);
+    const [selectedEmailTx, setSelectedEmailTx] = useState<AccountLedger['transactions'][0] | null>(null);
 
   const load = useCallback(() => {
     setError('');
@@ -140,22 +179,26 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
     });
   }, [accountId, requestedPage, searchQuery, selectedCategoryFilterId, minAmount, maxAmount, typeFilter, startDate, endDate, router]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setActiveTab('TRANSACTIONS'); }, [accountId]);
 
-  const handleUpdateCategory = async (transactionId: string, categoryId: string) => {
-    try {
-      await api(`/accounts/${accountId}/transactions/${transactionId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ categoryId: categoryId || null }),
-      });
-      load();
-    } catch (reason) {
-      if (isUnauthorized(reason)) router.replace('/login');
-      else alert(errorMessage(reason, 'Could not update category.'));
+  useEffect(() => { setActiveTab('TRANSACTIONS'); setSelectedTxIds([]); }, [accountId]);
+  useEffect(() => { setSelectedTxIds([]); }, [requestedPage, selectedCategoryFilterId, searchQuery, minAmount, maxAmount, typeFilter, startDate, endDate]);
+
+  const toggleSelectTx = (id: string) => {
+    setSelectedTxIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (!data?.transactions) return;
+    if (selectedTxIds.length === data.transactions.length) {
+      setSelectedTxIds([]);
+    } else {
+      setSelectedTxIds(data.transactions.map((t) => t.id));
     }
   };
 
-  if (!data) {
+      if (!data) {
     const errorState = error ? <section className="panel account-ledger-error"><ReceiptText/><h2>Account unavailable</h2><p>{error}</p><Link className="secondary" href="/dashboard"><ArrowLeft/>Back to overview</Link></section> : <div className="loading"><span/><p>Loading account transactions…</p></div>;
     return embedded ? errorState : <Shell>{errorState}</Shell>;
   }
@@ -163,20 +206,66 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
   const { account, transactions, pagination } = data;
   const isCreditCard = account.type === AccountType.CREDIT_CARD;
   const supportsDocuments = true;
-  const supportsStatementImport = [AccountType.BANK, AccountType.SAVINGS].includes(account.type as AccountType);
+  const isSavingsOrBank = [AccountType.BANK, AccountType.SAVINGS].includes(account.type as AccountType);
+  const supportsStatementImport = isSavingsOrBank;
   const statementImportHref = `/import?kind=BANK_STATEMENT&accountId=${encodeURIComponent(account.id)}`;
   const cardOutstanding = Math.max(0, -account.balance);
   const availableCredit = account.creditLimit == null ? null : Math.max(0, account.creditLimit - cardOutstanding);
   const maskedCardNumber = account.cardLast4 ? `••••  ••••  ••••  ${account.cardLast4}` : 'Card number not stored';
   const goToPage = (page: number) => router.push(`/accounts?page=${page}&account=${accountId}`);
-  const closeDelete = () => { if (!deleting) { setDeleteStep(0); setConfirmationName(''); setDeleteError(''); } };
+  const CLEAR_PRESETS: { days: number | null; label: string }[] = [
+    { days: 15, label: '15 Days' },
+    { days: 30, label: '30 Days' },
+    { days: 60, label: '60 Days' },
+    { days: 90, label: '90 Days' },
+    { days: 180, label: '180 Days' },
+    { days: 365, label: '1 Year' },
+    { days: null, label: 'All Time' },
+  ];
+
+  const getClearRangeInfo = (days: number | null) => {
+    if (days === null) {
+      return {
+        label: 'All Time',
+        desc: 'Clear all transactions in this account and reset opening balance to ₹0.00.',
+        rangeText: 'All historical transactions up to today',
+      };
+    }
+    const today = new Date();
+    const cutoff = new Date();
+    cutoff.setDate(today.getDate() - days);
+    const fmt = (d: Date) =>
+      d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return {
+      label: days >= 365 ? `${Math.round(days / 365)} Year` : `${days} Days`,
+      desc: `Clear transactions dated on or after ${fmt(cutoff)} (from ${fmt(cutoff)} to ${fmt(today)}).`,
+      rangeText: `${fmt(cutoff)} – ${fmt(today)} (Today)`,
+    };
+  };
+
+  const closeDelete = () => {
+    if (!deleting) {
+      setDeleteStep(0);
+      setConfirmationName('');
+      setDeleteError('');
+      setClearDays(30);
+    }
+  };
+
   const handleDeleteConfirm = async () => {
     setDeleting(true); setDeleteError('');
     try {
       const endpoint = deleteAction === 'CLEAR_TRANSACTIONS'
         ? `/accounts/${account.id}/transactions`
         : `/accounts/${account.id}`;
-      await api<void>(endpoint, { method: 'DELETE', body: JSON.stringify({ confirmationName }) });
+      const payload: { confirmationName: string; days?: number } = { confirmationName };
+      if (deleteAction === 'CLEAR_TRANSACTIONS' && clearDays !== null) {
+        payload.days = clearDays;
+      }
+      await api<{ deletedCount?: number; message?: string } | void>(endpoint, {
+        method: 'DELETE',
+        body: JSON.stringify(payload),
+      });
       if (deleteAction === 'CLEAR_TRANSACTIONS') {
         closeDelete();
         load();
@@ -190,32 +279,100 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
     } finally { setDeleting(false); }
   };
 
-  const openEditCc = () => {
+  const openEditAccount = () => {
+    setEditName(account.name);
+    setEditInstitution(account.institution || '');
+    setEditOpeningBalance(account.openingBalance !== undefined ? String(account.openingBalance / 100) : '0');
     setCcLimit(account.creditLimit ? String(account.creditLimit / 100) : '');
     setCcStatementDay(account.statementDay ? String(account.statementDay) : '');
     setCcDueDay(account.dueDay ? String(account.dueDay) : '');
-    setSaveCcError('');
-    setShowEditCc(true);
+    setEditEmailSync(Boolean(account.emailSyncEnabled));
+    setSaveAccountError('');
+    setShowEditAccount(true);
   };
 
-  const handleSaveCc = async (event: React.FormEvent) => {
+  const handleSaveAccount = async (event: React.FormEvent) => {
     event.preventDefault();
-    setSavingCc(true);
-    setSaveCcError('');
+    setSavingAccount(true);
+    setSaveAccountError('');
     try {
-      const body = {
-        creditLimit: ccLimit ? Math.round(Number(ccLimit) * 100) : null,
-        statementDay: ccStatementDay ? Number(ccStatementDay) : null,
-        dueDay: ccDueDay ? Number(ccDueDay) : null,
+      const body: any = {
+        name: editName.trim(),
+        institution: editInstitution.trim() || null,
       };
+      if (account.type === 'CREDIT_CARD') {
+        body.creditLimit = ccLimit ? Math.round(Number(ccLimit) * 100) : null;
+        body.statementDay = ccStatementDay ? Number(ccStatementDay) : null;
+        body.dueDay = ccDueDay ? Number(ccDueDay) : null;
+      } else {
+        body.openingBalance = editOpeningBalance !== '' ? Math.round(Number(editOpeningBalance) * 100) : 0;
+        if (isSavingsOrBank) {
+          body.emailSyncEnabled = editEmailSync;
+        }
+      }
       await api(`/accounts/${accountId}`, { method: 'PATCH', body: JSON.stringify(body) });
-      setShowEditCc(false);
+      setShowEditAccount(false);
       load();
     } catch (reason) {
       if (isUnauthorized(reason)) router.replace('/login');
-      else setSaveCcError(errorMessage(reason, 'Could not save card details.'));
+      else setSaveAccountError(errorMessage(reason, 'Could not save account details.'));
     } finally {
-      setSavingCc(false);
+      setSavingAccount(false);
+    }
+  };
+
+  const handleToggleEmailSync = async () => {
+    if (!account || updatingEmailSync) return;
+    const currentStatus = Boolean(account.emailSyncEnabled);
+    const newStatus = !currentStatus;
+    setUpdatingEmailSync(true);
+    setEmailSyncNotice(null);
+    try {
+      await api(`/accounts/${account.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ emailSyncEnabled: newStatus }),
+      });
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              account: {
+                ...prev.account,
+                emailSyncEnabled: newStatus,
+              },
+            }
+          : prev,
+      );
+      setEmailSyncNotice(newStatus ? 'Email sync enabled' : 'Email sync disabled');
+      setTimeout(() => setEmailSyncNotice(null), 3500);
+      load();
+    } catch (err: any) {
+      alert(errorMessage(err, 'Failed to update email sync status.'));
+    } finally {
+      setUpdatingEmailSync(false);
+    }
+  };
+
+  const handleSyncBankEmails = async () => {
+    if (!account || syncingBankEmail) return;
+    setSyncingBankEmail(true);
+    setEmailSyncNotice(null);
+    try {
+      const res = await api<any>('/email-ingestion/google/sync', {
+        method: 'POST',
+        body: JSON.stringify({
+          accountScope: 'CUSTOM',
+          targetAccountIds: [account.id],
+          days: 90,
+        }),
+      });
+      setEmailSyncNotice(res.message || 'Email sync complete.');
+      setTimeout(() => setEmailSyncNotice(null), 5000);
+      load();
+    } catch (err: any) {
+      alert(errorMessage(err, 'Failed to sync bank emails. Make sure your Gmail account is connected in the Import section.'));
+    } finally {
+      setSyncingBankEmail(false);
     }
   };
 
@@ -250,18 +407,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
     }
   };
 
-  const handleDeleteTransaction = async (transactionId: string) => {
-    if (!window.confirm('Are you sure you want to delete this transaction?')) return;
-    try {
-      await api(`/accounts/${accountId}/transactions/${transactionId}`, { method: 'DELETE' });
-      load();
-    } catch (reason) {
-      if (isUnauthorized(reason)) router.replace('/login');
-      else alert(errorMessage(reason, 'Could not delete this transaction.'));
-    }
-  };
-
-  const content = (
+    const content = (
     <div className={`account-detail-content ${embedded ? 'embedded' : ''}`}>
       {!embedded && (
         <header className="page-header">
@@ -308,27 +454,41 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
           </article>
         </section>
       ) : (
-        <section className="summary-grid account-ledger-summary">
+        <section className="summary-grid account-ledger-summary four-cards">
           <article>
             <span className="summary-icon income"><Landmark /></span>
             <div>
               <small>Current balance</small>
               <strong>{money(account.balance)}</strong>
+              <em>Net available balance</em>
             </div>
           </article>
           <article>
-            <span className="summary-icon saved"><CalendarDays /></span>
+            <span className="summary-icon saved"><Scale /></span>
             <div>
-              <small>Opening balance</small>
-              <strong>{money(account.openingBalance)}</strong>
+              <small>Monthly avg balance (MAB)</small>
+              <strong>{money(account.monthlyAverageBalance ?? account.balance)}</strong>
+              <em>Daily average this month</em>
             </div>
           </article>
           <article>
-            <span className="summary-icon expense"><ReceiptText /></span>
+            <span className="summary-icon income"><ArrowDownLeft /></span>
             <div>
-              <small>Transactions</small>
-              <strong>{pagination.total.toLocaleString('en-IN')}</strong>
-              <em>Reviewed ledger entries</em>
+              <small>Money in ({new Date().toLocaleString('en-IN', { month: 'short' })})</small>
+              <strong style={{ color: 'var(--green)' }}>+{money(account.monthInflow ?? 0)}</strong>
+              <em>{account.monthCreditCount ? `${account.monthCreditCount} credit entries` : 'No credits this month'}</em>
+            </div>
+          </article>
+          <article>
+            <span className="summary-icon expense"><ArrowUpRight /></span>
+            <div>
+              <small>Money out ({new Date().toLocaleString('en-IN', { month: 'short' })})</small>
+              <strong style={{ color: 'var(--red)' }}>-{money(account.monthOutflow ?? 0)}</strong>
+              <em>
+                {account.monthNet !== undefined && account.monthNet !== null
+                  ? `Net: ${account.monthNet >= 0 ? '+' : ''}${money(account.monthNet)}`
+                  : `${pagination.total.toLocaleString('en-IN')} total entries`}
+              </em>
             </div>
           </article>
         </section>
@@ -368,17 +528,78 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
             </button>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {isSavingsOrBank && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                className={`secondary compact ${account.emailSyncEnabled ? 'active' : ''}`}
+                onClick={handleToggleEmailSync}
+                disabled={updatingEmailSync}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: account.emailSyncEnabled ? 'rgba(59, 130, 246, 0.12)' : undefined,
+                  borderColor: account.emailSyncEnabled ? 'rgba(59, 130, 246, 0.4)' : undefined,
+                  color: account.emailSyncEnabled ? 'var(--accent, #3b82f6)' : undefined,
+                  fontWeight: 600,
+                  cursor: updatingEmailSync ? 'wait' : 'pointer',
+                }}
+                title={account.emailSyncEnabled ? "Email sync is enabled for this bank account. Click to turn off." : "Click to enable email transaction sync for this bank account"}
+              >
+                <Mail size={14} style={{ color: account.emailSyncEnabled ? 'var(--accent, #3b82f6)' : 'currentColor' }} />
+                <span>Email Sync: {account.emailSyncEnabled ? 'ON' : 'OFF'}</span>
+              </button>
+
+              {account.emailSyncEnabled && (
+                <button
+                  type="button"
+                  className="secondary compact"
+                  onClick={handleSyncBankEmails}
+                  disabled={syncingBankEmail}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(59, 130, 246, 0.08)',
+                    borderColor: 'rgba(59, 130, 246, 0.3)',
+                    color: 'var(--accent, #3b82f6)',
+                    fontWeight: 600,
+                  }}
+                  title={`Sync emails specifically for ${account.name}`}
+                >
+                  <RefreshCw size={13} className={syncingBankEmail ? 'spin' : ''} />
+                  {syncingBankEmail ? 'Syncing…' : 'Sync Email'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {emailSyncNotice && (
+            <span
+              style={{
+                fontSize: '12px',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                background: 'rgba(16, 185, 129, 0.12)',
+                color: 'var(--green, #10b981)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                fontWeight: 500,
+              }}
+            >
+              {emailSyncNotice}
+            </span>
+          )}
+
           {account.type === 'EPFO' && (
             <button type="button" className="secondary compact" onClick={openAddEpfo}>
               <Plus size={14} /> Add
             </button>
           )}
-          {account.type === 'CREDIT_CARD' && (
-            <button type="button" className="secondary compact" onClick={openEditCc}>
-              <Settings size={14} /> Edit
-            </button>
-          )}
+          <button type="button" className="secondary compact" onClick={openEditAccount}>
+            <Settings size={14} /> Edit
+          </button>
           <button type="button" className="secondary compact" onClick={() => setShowVault(true)}>
             <Lock size={14} /> Credentials
           </button>
@@ -389,6 +610,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
               setDeleteStep(1);
               setDeleteError('');
             }}
+            title="Delete account or clear transactions"
           >
             <Trash2 size={14} />
           </button>
@@ -605,24 +827,52 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                           </div>
                         </div>
                         {/* Presets */}
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
-                          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const y = now.getUTCFullYear(); const m = String(now.getUTCMonth() + 1).padStart(2, '0'); setStartDate(`${y}-${m}-01`); setEndDate(''); }}>This Month</button>
-                          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); let y = now.getUTCFullYear(); let m = now.getUTCMonth(); if (m === 0) { m = 12; y -= 1; } const mStr = String(m).padStart(2, '0'); setStartDate(`${y}-${mStr}-01`); setEndDate(`${y}-${mStr}-31`); }}>Last Month</button>
-                          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const today = now.toISOString().split('T')[0]; const d = new Date(now); d.setMonth(d.getMonth() - 6); setStartDate(d.toISOString().split('T')[0]); setEndDate(today); }}>Last 6 Months</button>
-                          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const y = now.getUTCFullYear(); const startYr = now.getUTCMonth() >= 3 ? y : y - 1; setStartDate(`${startYr}-04-01`); setEndDate(`${startYr + 1}-03-31`); }}>This FY</button>
-                          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => { const now = new Date(); const y = now.getUTCFullYear(); const currentStart = now.getUTCMonth() >= 3 ? y : y - 1; const prevStart = currentStart - 1; setStartDate(`${prevStart}-04-01`); setEndDate(`${currentStart}-03-31`); }}>Previous FY</button>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => {
+                            const now = new Date();
+                            const first = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+                            const last = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+                            setStartDate(first); setEndDate(last);
+                          }}>This Month</button>
+                          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => {
+                            const now = new Date();
+                            const first = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
+                            const last = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
+                            setStartDate(first); setEndDate(last);
+                          }}>Last Month</button>
+                          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => {
+                            const now = new Date();
+                            const first = new Date(now.getFullYear(), now.getMonth() - 6, 1).toISOString().slice(0, 10);
+                            const last = now.toISOString().slice(0, 10);
+                            setStartDate(first); setEndDate(last);
+                          }}>Last 6 Months</button>
+                          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => {
+                            const now = new Date();
+                            const curYear = now.getFullYear();
+                            const isAfterMarch = now.getMonth() >= 3;
+                            const fyStart = isAfterMarch ? `${curYear}-04-01` : `${curYear - 1}-04-01`;
+                            const fyEnd = isAfterMarch ? `${curYear + 1}-03-31` : `${curYear}-03-31`;
+                            setStartDate(fyStart); setEndDate(fyEnd);
+                          }}>This FY</button>
+                          <button type="button" className="ghost compact" style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--line)' }} onClick={() => {
+                            const now = new Date();
+                            const curYear = now.getFullYear();
+                            const isAfterMarch = now.getMonth() >= 3;
+                            const prevFyStart = isAfterMarch ? `${curYear - 1}-04-01` : `${curYear - 2}-04-01`;
+                            const prevFyEnd = isAfterMarch ? `${curYear}-03-31` : `${curYear - 1}-03-31`;
+                            setStartDate(prevFyStart); setEndDate(prevFyEnd);
+                          }}>Previous FY</button>
                         </div>
                       </div>
 
-                      {/* 💰 Amount Range Card */}
-                      <div style={{ background: 'var(--background)', borderRadius: '10px', padding: '12px 14px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Amount Range (₹)</span>
-                          {(minAmount || maxAmount) && <small style={{ fontSize: '11px', color: '#8b5cf6', fontWeight: 600 }}>Filter active</small>}
+                      {/* Amount Range with Presets */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700, color: 'var(--muted)' }}>Amount Range (₹)</span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '3px' }}>Min ₹</label>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>Min ₹</label>
                             <input
                               type="number"
                               placeholder="0"
@@ -631,8 +881,8 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                               style={{ width: '100%', height: '34px', fontSize: '12px', padding: '0 8px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--background-alt)', color: 'var(--ink)' }}
                             />
                           </div>
-                          <div>
-                            <label style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', marginBottom: '3px' }}>Max ₹</label>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '2px' }}>Max ₹</label>
                             <input
                               type="number"
                               placeholder="No max"
@@ -657,12 +907,23 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
             );
           })()}
 
-        {transactions.length ? <div className={`account-transaction-table ${account.type === 'EPFO' ? 'has-actions' : ''}`}>
+        {transactions.length ? <div className={`account-transaction-table ${account.type === 'EPFO' ? 'has-actions' : ''} ${showCategoryEdit ? 'has-checkboxes' : ''}`}>
           <header>
+            {showCategoryEdit && (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(transactions.length && selectedTxIds.length === transactions.length)}
+                  onChange={toggleSelectAll}
+                  style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                />
+              </span>
+            )}
             <span>Date</span>
             <span>Description</span>
             <span>Category</span>
             <span style={{ textAlign: 'right' }}>Amount</span>
+            <span style={{ textAlign: 'right' }}>Balance</span>
             {account.type === 'EPFO' && <span style={{ textAlign: 'center' }}>Action</span>}
           </header>
           {transactions.map((transaction) => {
@@ -672,6 +933,16 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                 key={transaction.id}
                 className={`transaction-row ${isPopoverOpen ? "has-popover-open" : ""}`}
                 style={{ position: "relative", zIndex: isPopoverOpen ? 100 : 1 }}>
+                {showCategoryEdit && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedTxIds.includes(transaction.id)}
+                      onChange={() => toggleSelectTx(transaction.id)}
+                      style={{ cursor: 'pointer', width: '15px', height: '15px' }}
+                    />
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <time className="transaction-time-cell">
                     <span className="date-text">{new Date(transaction.transactionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}</span>
@@ -773,7 +1044,7 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
                     categories={data.categories || []}
                     currentCategoryId={transaction.categoryId ?? null}
                     onSelect={(newCatId) => {
-                      void handleUpdateCategory(transaction.id, newCatId);
+                      void updateCategory(transaction.id, accountId, newCatId);
                       setEditingTxCatId(null);
                     }}
                     onClose={() => setEditingTxCatId(null)}
@@ -783,11 +1054,14 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
               <b className={`transaction-amount-cell ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
                 {transaction.amount > 0 ? '+' : ''}{money(transaction.amount)}
               </b>
+              <span className={`transaction-balance-cell ${transaction.balance !== undefined && transaction.balance !== null && transaction.balance < 0 ? 'negative' : ''}`}>
+                {transaction.balance !== undefined && transaction.balance !== null ? money(transaction.balance) : '—'}
+              </span>
               {account.type === 'EPFO' && (
                 <button
                   className="danger compact"
                   style={{ padding: '6px', minWidth: '0', height: '28px', width: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}
-                  onClick={() => handleDeleteTransaction(transaction.id)}
+                  onClick={() => deleteTransaction(transaction.id, accountId)}
                   title="Delete transaction"
                 >
                   <Trash2 size={13} />
@@ -797,33 +1071,337 @@ export function AccountTransactions({ accountId, embedded }: { accountId: string
             );
           })}
         </div> : <div className="account-ledger-empty"><ReceiptText/><strong>No transactions yet</strong><p>{account.type === 'EPFO' ? 'Add a manual transaction to populate the ledger.' : 'No transactions recorded for this account.'}</p></div>}
+
+        {/* Batch Categorization Floating Bar */}
+        {selectedTxIds.length > 0 && (
+          <div
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 9999,
+              background: 'var(--card)',
+              border: '1px solid var(--line)',
+              borderRadius: '16px',
+              boxShadow: '0 12px 30px rgba(0,0,0,0.3)',
+              padding: '10px 18px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>
+              {selectedTxIds.length} transaction{selectedTxIds.length === 1 ? '' : 's'} selected
+            </span>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                className="secondary compact"
+                disabled={batchUpdating}
+                onClick={() => setBatchCatPickerOpen(!batchCatPickerOpen)}
+                style={{
+                  height: '34px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  padding: '0 12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  background: 'var(--background)',
+                  border: '1px solid var(--line)',
+                  color: 'var(--ink)',
+                }}
+              >
+                <span>{batchUpdating ? 'Updating…' : 'Set category for all selected…'}</span>
+                <ChevronDown size={13} style={{ color: 'var(--muted)' }} />
+              </button>
+
+              {batchCatPickerOpen && (
+                <CategoryPickerPopover
+                  categories={data?.categories || []}
+                  currentCategoryId={null}
+                  onSelect={(newCatId) => {
+                    void bulkUpdateCategory(selectedTxIds, newCatId);
+                    setBatchCatPickerOpen(false);
+                  }}
+                  onClose={() => setBatchCatPickerOpen(false)}
+                />
+              )}
+
+              <button
+                type="button"
+                className="ghost compact"
+                onClick={() => setSelectedTxIds([])}
+                style={{ height: '34px', fontSize: '12px', color: 'var(--muted)' }}
+              >
+                Deselect
+              </button>
+            </div>
+          </div>
+        )}
+
         {pagination.pages > 1 && <footer className="ledger-pagination"><button className="secondary" disabled={pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}><ArrowLeft/>Previous</button><span>Page {pagination.page} of {pagination.pages}</span><button className="secondary" disabled={pagination.page >= pagination.pages} onClick={() => goToPage(pagination.page + 1)}>Next<ArrowRight/></button></footer>}
       </section>
       )}
-      {deleteStep > 0 && <div className="modal-wrap"><button className="backdrop" onClick={closeDelete} aria-label="Close deletion confirmation"/><section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title"><div className="delete-warning"><ShieldAlert/><span><strong>{deleteStep === 1 ? 'Select Action' : 'Final confirmation'}</strong><small>This action cannot be undone.</small></span></div>{deleteStep === 1 ? <><div><span className="eyebrow">First confirmation</span><h2 id="delete-account-title">Delete or Clear {account.name}?</h2><p>Choose whether to wipe all transactions/import history, or permanently delete the account itself.</p></div><div className="modal-actions" style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '12px' }}><button className="danger wide" onClick={() => { setDeleteAction('CLEAR_TRANSACTIONS'); setDeleteStep(2); setDeleteError(''); }}>Clear all transactions ({pagination.total.toLocaleString('en-IN')})</button><button className="danger wide" onClick={() => { setDeleteAction('DELETE_ACCOUNT'); setDeleteStep(2); setDeleteError(''); }}>Delete entire account</button><button className="ghost wide" onClick={closeDelete}>Cancel</button></div></> : <><div><span className="eyebrow">Second confirmation</span><h2 id="delete-account-title">Type the account name</h2><p>Enter <strong>{account.name}</strong> exactly to confirm {deleteAction === 'CLEAR_TRANSACTIONS' ? 'clearing all transactions' : 'permanent account deletion'}.</p></div><label>Account name<input autoFocus autoComplete="off" value={confirmationName} onChange={(event) => { setConfirmationName(event.target.value); setDeleteError(''); }} /></label>{deleteError && <p className="error">{deleteError}</p>}<div className="modal-actions"><button className="ghost" disabled={deleting} onClick={() => { setDeleteStep(1); setConfirmationName(''); setDeleteError(''); }}>Back</button><button className="danger" disabled={deleting || confirmationName !== account.name} onClick={handleDeleteConfirm}>{deleting ? 'Processing…' : deleteAction === 'CLEAR_TRANSACTIONS' ? 'Clear transactions' : 'Permanently delete'}</button></div></>}</section></div>}
+      {deleteStep > 0 && (
+        <div className="modal-wrap">
+          <button className="backdrop" onClick={closeDelete} aria-label="Close deletion confirmation" />
+          <section className="modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+            <div className="delete-warning">
+              <ShieldAlert />
+              <span>
+                <strong>
+                  {deleteStep === 1
+                    ? 'Select Action'
+                    : deleteStep === 2
+                    ? 'Bulk Clear Transactions'
+                    : 'Final Confirmation'}
+                </strong>
+                <small>This action cannot be undone.</small>
+              </span>
+            </div>
+
+            {deleteStep === 1 && (
+              <>
+                <div>
+                  <span className="eyebrow">Step 1 · Choose Option</span>
+                  <h2 id="delete-account-title">Manage or Delete {account.name}</h2>
+                  <p style={{ margin: '4px 0 14px', fontSize: '13px', color: 'var(--muted)' }}>
+                    Choose whether to wipe transactions in bulk from today backwards, or permanently delete the account itself.
+                  </p>
+                </div>
+                <div className="modal-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="danger wide"
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '12px 14px', gap: '3px', textAlign: 'left' }}
+                    onClick={() => {
+                      setDeleteAction('CLEAR_TRANSACTIONS');
+                      setClearDays(30);
+                      setDeleteStep(2);
+                      setDeleteError('');
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px' }}>
+                      <RotateCcw size={15} /> Clear transactions in bulk…
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 400, opacity: 0.85 }}>
+                      Wipe transactions from today backwards (15, 30, 60, 90, 180 days, 1 year, or all time).
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="danger wide"
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '12px 14px', gap: '3px', textAlign: 'left' }}
+                    onClick={() => {
+                      setDeleteAction('DELETE_ACCOUNT');
+                      setDeleteStep(3);
+                      setDeleteError('');
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '13px' }}>
+                      <Trash2 size={15} /> Delete entire account
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 400, opacity: 0.85 }}>
+                      Permanently remove this account, all history, documents, and credentials.
+                    </span>
+                  </button>
+                  <button type="button" className="ghost wide" onClick={closeDelete} style={{ marginTop: '4px' }}>Cancel</button>
+                </div>
+              </>
+            )}
+
+            {deleteStep === 2 && (
+              <>
+                <div>
+                  <span className="eyebrow">Step 2 of 3 · Timeframe selection</span>
+                  <h2 id="delete-account-title">Bulk Clear Transactions</h2>
+                  <p style={{ margin: '4px 0 12px', fontSize: '13px', color: 'var(--muted)' }}>
+                    Select a timeframe from <strong>today backwards</strong> to clear transactions from <strong>{account.name}</strong>.
+                  </p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(95px, 1fr))', gap: '8px', margin: '10px 0 14px' }}>
+                  {CLEAR_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      className={`secondary ${clearDays === preset.days ? 'active' : ''}`}
+                      style={{
+                        height: '36px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        ...(clearDays === preset.days
+                          ? { background: 'var(--ink)', color: 'var(--canvas)', borderColor: 'var(--ink)' }
+                          : {}),
+                      }}
+                      onClick={() => setClearDays(preset.days)}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(239, 68, 68, 0.05)',
+                    border: '1px solid rgba(239, 68, 68, 0.15)',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink)' }}>
+                      Target Window: {getClearRangeInfo(clearDays).label}
+                    </span>
+                    <span className="month-pill" style={{ fontSize: '10px' }}>
+                      Today Backwards
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--ink-secondary)', marginTop: '2px' }}>
+                    📅 <strong>{getClearRangeInfo(clearDays).rangeText}</strong>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px' }}>
+                    {getClearRangeInfo(clearDays).desc}
+                  </div>
+                </div>
+
+                <div className="modal-actions" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <button type="button" className="ghost" onClick={() => { setDeleteStep(1); setDeleteError(''); }}>Back</button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => {
+                      setDeleteStep(3);
+                      setDeleteError('');
+                    }}
+                  >
+                    Next: Confirm Deletion
+                  </button>
+                </div>
+              </>
+            )}
+
+            {deleteStep === 3 && (
+              <>
+                <div>
+                  <span className="eyebrow">Final confirmation</span>
+                  <h2 id="delete-account-title">Type the account name</h2>
+                  <p style={{ margin: '4px 0 10px', fontSize: '13px' }}>
+                    Enter <strong>{account.name}</strong> exactly to confirm{' '}
+                    {deleteAction === 'CLEAR_TRANSACTIONS' ? (
+                      <>clearing <strong>{getClearRangeInfo(clearDays).label}</strong> ({getClearRangeInfo(clearDays).rangeText})</>
+                    ) : (
+                      'permanent account deletion'
+                    )}.
+                  </p>
+                </div>
+                <label>
+                  Account name
+                  <input
+                    autoFocus
+                    autoComplete="off"
+                    value={confirmationName}
+                    placeholder={account.name}
+                    onChange={(event) => {
+                      setConfirmationName(event.target.value);
+                      setDeleteError('');
+                    }}
+                  />
+                </label>
+                {deleteError && <p className="error">{deleteError}</p>}
+                <div className="modal-actions">
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={deleting}
+                    onClick={() => {
+                      setDeleteStep(deleteAction === 'CLEAR_TRANSACTIONS' ? 2 : 1);
+                      setConfirmationName('');
+                      setDeleteError('');
+                    }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    disabled={deleting || confirmationName.trim().toLowerCase() !== account.name.trim().toLowerCase()}
+                    onClick={handleDeleteConfirm}
+                  >
+                    {deleting
+                      ? 'Processing…'
+                      : deleteAction === 'CLEAR_TRANSACTIONS'
+                      ? `Clear ${getClearRangeInfo(clearDays).label}`
+                      : 'Permanently delete'}
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      )}
       {showVault && <VaultModal accountId={account.id} onClose={() => setShowVault(false)} onChanged={load} />}
 
-      {showEditCc && (
+      {showEditAccount && (
         <div className="modal-wrap">
-          <button className="backdrop" onClick={() => setShowEditCc(false)} aria-label="Close edit modal" />
+          <button className="backdrop" onClick={() => setShowEditAccount(false)} aria-label="Close edit modal" />
           <section className="modal" role="dialog" aria-modal="true" style={{ width: 'min(440px, 100%)' }}>
             <header className="modal-header">
-              <h2>Edit Card Details</h2>
+              <h2>{account.type === 'CREDIT_CARD' ? 'Edit Card Details' : 'Edit Account Details'}</h2>
             </header>
-            <form onSubmit={handleSaveCc} style={{ display: 'grid', gap: '14px', marginTop: '10px' }}>
-              <label>Credit Limit (INR)
-                <input type="number" required min={0} value={ccLimit} onChange={(e) => setCcLimit(e.target.value)} placeholder="e.g. 100000" />
+            <form onSubmit={handleSaveAccount} style={{ display: 'grid', gap: '14px', marginTop: '10px' }}>
+              <label>Account Name
+                <input type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="e.g. SBI - Savings" />
               </label>
-              <label>Statement Cycle Day (1-31)
-                <input type="number" required min={1} max={31} value={ccStatementDay} onChange={(e) => setCcStatementDay(e.target.value)} placeholder="e.g. 15" />
-              </label>
-              <label>Payment Due Day (1-31)
-                <input type="number" required min={1} max={31} value={ccDueDay} onChange={(e) => setCcDueDay(e.target.value)} placeholder="e.g. 5" />
-              </label>
-              {saveCcError && <p className="error">{saveCcError}</p>}
+              {account.type !== 'CREDIT_CARD' && (
+                <>
+                  <label>Institution / Bank
+                    <input type="text" value={editInstitution} onChange={(e) => setEditInstitution(e.target.value)} placeholder="e.g. State Bank of India" />
+                  </label>
+                  <label>Opening Balance (₹)
+                    <input type="number" step="0.01" value={editOpeningBalance} onChange={(e) => setEditOpeningBalance(e.target.value)} placeholder="0.00" />
+                    <small style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px', display: 'block' }}>
+                      Initial account balance prior to any recorded transactions. The ledger running balance will recalculate from this value.
+                    </small>
+                  </label>
+                  {isSavingsOrBank && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '6px' }}>
+                      <input
+                        type="checkbox"
+                        checked={editEmailSync}
+                        onChange={(e) => setEditEmailSync(e.target.checked)}
+                      />
+                      <span style={{ fontSize: '13px', fontWeight: 500 }}>Enable Automated Email Alert Ingestion</span>
+                    </label>
+                  )}
+                </>
+              )}
+              {account.type === 'CREDIT_CARD' && (
+                <>
+                  <label>Credit Limit (INR)
+                    <input type="number" required min={0} value={ccLimit} onChange={(e) => setCcLimit(e.target.value)} placeholder="e.g. 100000" />
+                  </label>
+                  <label>Statement Cycle Day (1-31)
+                    <input type="number" required min={1} max={31} value={ccStatementDay} onChange={(e) => setCcStatementDay(e.target.value)} placeholder="e.g. 15" />
+                  </label>
+                  <label>Payment Due Day (1-31)
+                    <input type="number" required min={1} max={31} value={ccDueDay} onChange={(e) => setCcDueDay(e.target.value)} placeholder="e.g. 5" />
+                  </label>
+                </>
+              )}
+              {saveAccountError && <p className="error">{saveAccountError}</p>}
               <div className="modal-actions" style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                <button type="button" className="ghost" onClick={() => setShowEditCc(false)}>Cancel</button>
-                <button type="submit" className="primary" disabled={savingCc}>{savingCc ? 'Saving…' : 'Save Details'}</button>
+                <button type="button" className="ghost" onClick={() => setShowEditAccount(false)}>Cancel</button>
+                <button type="submit" className="primary" disabled={savingAccount}>{savingAccount ? 'Saving…' : 'Save Details'}</button>
               </div>
             </form>
           </section>

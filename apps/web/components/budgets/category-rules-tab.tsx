@@ -15,8 +15,10 @@ import {
   Tag as TagIcon,
   ShieldCheck,
   Code2,
+  ChevronDown,
 } from "lucide-react";
 import { money } from "@/lib/api";
+import { CategoryPickerPopover } from "@/components/category-picker-popover";
 import { CategoryOption } from "./envelopes-tab";
 
 export type CategoryRuleItem = {
@@ -102,6 +104,7 @@ export function CategoryRulesTab({
   activeTab,
 }: CategoryRulesTabProps) {
   const [ruleModalOpen, setRuleModalOpen] = useState(false);
+  const [catPickerOpen, setCatPickerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("ALL");
 
@@ -536,52 +539,75 @@ export function CategoryRulesTab({
                 </div>
               </div>
 
-              <div>
+              <div style={{ position: "relative" }}>
                 <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>
                   Assign Target Category *
                 </label>
-                <select
-                  value={ruleCategoryId}
-                  onChange={(e) => setRuleCategoryId(e.target.value)}
-                  required
-                  style={{ width: "100%", height: "42px", fontSize: "13px", padding: "0 12px", borderRadius: "10px", border: "1px solid var(--line)", background: "var(--background-alt)", color: "var(--ink)", fontWeight: 600 }}>
-                  <option value="">Select Target Category...</option>
-                  {(() => {
-                    const groups: { [key: string]: typeof categories } = {};
-                    const unassigned: typeof categories = [];
-                    categories.forEach((c) => {
-                      const groupName = c.superCategory?.name || (c.type ? `${c.type.charAt(0) + c.type.slice(1).toLowerCase()}` : "");
-                      if (groupName) {
-                        if (!groups[groupName]) groups[groupName] = [];
-                        groups[groupName].push(c);
-                      } else {
-                        unassigned.push(c);
-                      }
-                    });
-                    return (
-                      <>
-                        {Object.entries(groups).map(([grp, items]) => (
-                          <optgroup key={grp} label={grp}>
-                            {items.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                        {unassigned.length > 0 && (
-                          <optgroup label="General">
-                            {unassigned.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </>
-                    );
-                  })()}
-                </select>
+                {(() => {
+                  const selectedCat = categories.find((c) => c.id === ruleCategoryId);
+                  return (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setCatPickerOpen(!catPickerOpen)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          width: "100%",
+                          height: "42px",
+                          fontSize: "13px",
+                          padding: "0 12px",
+                          borderRadius: "10px",
+                          border: "1px solid var(--line)",
+                          background: "var(--background-alt)",
+                          color: "var(--ink)",
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, overflow: "hidden" }}>
+                          <span
+                            style={{
+                              width: "8px",
+                              height: "8px",
+                              borderRadius: "50%",
+                              background: selectedCat?.color || (ruleCategoryId ? "#3b82f6" : "#94a3b8"),
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontWeight: 600,
+                              color: ruleCategoryId ? "var(--ink)" : "var(--muted)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}>
+                            {selectedCat?.name || "Select Target Category..."}
+                          </span>
+                        </div>
+                        <ChevronDown size={14} color="var(--muted)" style={{ flexShrink: 0 }} />
+                      </button>
+                      {catPickerOpen && (
+                        <CategoryPickerPopover
+                          categories={categories.map((c) => ({
+                            id: c.id,
+                            name: c.name,
+                            color: c.color,
+                            superCategoryName: c.superCategory?.name,
+                            type: c.type,
+                          }))}
+                          currentCategoryId={ruleCategoryId}
+                          onSelect={(id) => {
+                            setRuleCategoryId(id);
+                            setCatPickerOpen(false);
+                          }}
+                          onClose={() => setCatPickerOpen(false)}
+                        />
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>

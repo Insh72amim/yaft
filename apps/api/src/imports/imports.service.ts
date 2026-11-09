@@ -55,7 +55,7 @@ export class ImportsService {
       }
     }
 
-    let lastError: any = null;
+    let lastError: unknown = null;
     for (const pwd of candidates) {
       try {
         return await parseStatementWithMetadata(file, {
@@ -64,7 +64,7 @@ export class ImportsService {
         });
       } catch (err) {
         lastError = err;
-        const msg = String((err as any)?.message || '').toLowerCase();
+        const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
         if (msg.includes('password') || msg.includes('protected') || msg.includes('incorrect')) {
           continue;
         }
@@ -156,7 +156,7 @@ export class ImportsService {
     const explicitPassword = isPdf && dto.pdfPassword?.length ? dto.pdfPassword : undefined;
     const savedPassword = isPdf && !explicitPassword ? await this.credentials.getPassword(userId, accountId) : undefined;
     const parsed = await this.parseWithPasswordFallback(file, account.institution ?? undefined, explicitPassword ?? savedPassword, userId, accountId);
-    if (isPdf && expectedParserId && parsed.parserId !== expectedParserId) {
+    if (isPdf && expectedParserId && expectedParserId !== 'GENERIC' && parsed.parserId !== expectedParserId && parsed.parserId !== 'GENERIC') {
       throw new BadRequestException(`The uploaded PDF does not match the selected ${expectedParserId} statement source.`);
     }
 
@@ -280,7 +280,9 @@ export class ImportsService {
       account: { id: batch.account.id, name: batch.account.name, institution: batch.account.institution, last4: batch.account.vaultEntry?.last4 ?? null },
       staged: batch.staged.map((row) => ({
         id: row.id, rowNumber: row.rowNumber, transactionDate: row.transactionDate, postedDate: row.postedDate,
-        descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: Number(row.amount), reference: row.reference,
+        descriptionRaw: row.descriptionRaw, merchant: row.merchant, amount: Number(row.amount),
+        balance: row.balance !== null && row.balance !== undefined ? Number(row.balance) : null,
+        reference: row.reference,
         categoryId: row.categoryId, isDuplicate: row.isDuplicate, include: row.include, confidence: row.confidence,
         category: row.category ? { id: row.category.id, name: row.category.name, color: row.category.color } : null,
         emailReference: (row.emailSnippet || row.emailMessageId || row.emailSubject) ? {
@@ -311,10 +313,20 @@ export class ImportsService {
     return this.get(userId, batchId);
   }
 
+  async updateAllRows(userId: string, batchId: string, include: boolean) {
+    const batch = await this.prisma.importBatch.findFirst({ where: { id: batchId, userId, status: 'REVIEW' } });
+    if (!batch) throw new NotFoundException('Import not found.');
+    await this.prisma.stagedTransaction.updateMany({
+      where: { batchId },
+      data: { include },
+    });
+    return this.get(userId, batchId);
+  }
+
   async commit(userId: string, batchId: string) {
     const batch = await this.prisma.importBatch.findFirst({ where: { id: batchId, userId, status: 'REVIEW' }, include: { staged: true, account: true } });
     if (!batch) throw new NotFoundException('Reviewable import not found.');
-    const included = batch.staged.filter((row) => row.include && !row.isDuplicate);
+    const included = batch.staged.filter((row) => row.include);
     
     // Pre-fetch vault records to do explicit matching on last4 digits
     const vaults = await this.prisma.accountVaultEntry.findMany({
@@ -478,6 +490,7 @@ export class ImportsService {
     });
 
     const isDeclinedOrFailed = isDeclinedOrFailedDescription(row.description);
+    const balance = row.balanceMinor !== undefined && row.balanceMinor !== null ? BigInt(row.balanceMinor) : null;
 
     return {
       rowNumber: row.rowNumber,
@@ -486,6 +499,7 @@ export class ImportsService {
       descriptionRaw: row.description.slice(0, 500),
       merchant,
       amount: BigInt(row.amountMinor),
+      balance,
       reference: row.reference?.slice(0, 100),
       fingerprint,
       isDuplicate,

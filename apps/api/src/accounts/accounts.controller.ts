@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/auth.guard';
-import { CreateAccountDto, DeleteAccountDto, UpdateAccountDto } from './accounts.dto';
+import { ClearTransactionsDto, CreateAccountDto, DeleteAccountDto, UpdateAccountDto } from './accounts.dto';
 import { AccountsService } from './accounts.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { CreditCardsService } from './credit-cards.service';
@@ -133,11 +133,11 @@ export class AccountsController {
   }
 
   @Delete(':accountId/transactions')
-  @HttpCode(204)
+  @HttpCode(200)
   async clearTransactions(
     @CurrentUser() user: { id: string },
     @Param('accountId') accountId: string,
-    @Body() dto: DeleteAccountDto,
+    @Body() dto: ClearTransactionsDto,
   ) {
     return this.accountsService.clearTransactions(user.id, accountId, dto);
   }

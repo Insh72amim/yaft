@@ -3,10 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
-dotenv.config({ path: '/Users/yaft/Code/YAFT/.env' });
-if (!process.env.DATABASE_URL) {
-  dotenv.config({ path: path.resolve(process.cwd(), '.env') });
-}
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 const WEB_BASE = process.env.WEB_ORIGIN || 'http://localhost:3000';
 const API_BASE = 'http://localhost:4000/api';
@@ -26,8 +23,13 @@ async function runUITests() {
   console.log('   YAFT Comprehensive UI & Sub-Pages End-to-End Test Suite');
   console.log('================================================================\n');
 
+  if (!process.env.JWT_SECRET) {
+    console.error('❌ Error: JWT_SECRET must be set in .env before running UI tests.');
+    process.exit(1);
+  }
+
   const prisma = new PrismaClient();
-  const jwt = new JwtService({ secret: process.env.JWT_SECRET || '<REDACTED_JWT_SECRET>' });
+  const jwt = new JwtService({ secret: process.env.JWT_SECRET });
 
   const user = await prisma.user.findFirst({
     where: {

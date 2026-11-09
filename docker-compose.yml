@@ -13,7 +13,7 @@ services:
     environment:
       PORT: 3000
       YAFT_API_INTERNAL_URL: http://api:4000
-      NEXT_PUBLIC_API_URL: http://localhost:${DOCKER_API_PORT:-4001}/api
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api.yaft.localhub.com/api}
     depends_on:
       - api
 
@@ -23,10 +23,10 @@ services:
       dockerfile: Dockerfile.api
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-yaft}:${POSTGRES_PASSWORD:-yaft-development-only}@postgres:5432/${POSTGRES_DB:-yaft_finance}?schema=public
-      JWT_SECRET: ${JWT_SECRET:-<REDACTED_JWT_SECRET>}
-      YAFT_CREDENTIAL_ENCRYPTION_KEY: ${YAFT_CREDENTIAL_ENCRYPTION_KEY:-<REDACTED_ENCRYPTION_KEY>}
-      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3001,http://yaft.mylocal.com,http://localhost:3000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-yaft}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-yaft_finance}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      YAFT_CREDENTIAL_ENCRYPTION_KEY: ${YAFT_CREDENTIAL_ENCRYPTION_KEY:?Set YAFT_CREDENTIAL_ENCRYPTION_KEY in .env}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://yaft.localhub.com,http://localhost:3001,http://127.0.0.1:3001}
       API_PORT: 4000
       NODE_ENV: production
       S3_ENDPOINT: http://minio:9000
@@ -52,7 +52,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-yaft_finance}
       POSTGRES_USER: ${POSTGRES_USER:-yaft}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yaft-development-only}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:

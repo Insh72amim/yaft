@@ -13,6 +13,7 @@ import {
   Files,
   Zap,
   RefreshCw,
+  PiggyBank,
 } from "lucide-react";
 import { Shell } from "@/components/shell";
 import { api, errorMessage, isUnauthorized, money, quantity, formatMoney } from "@/lib/api";
@@ -23,6 +24,7 @@ import { ZerodhaSyncModal } from "@/components/accounts/zerodha-sync-modal";
 import { GrowwSyncModal } from "@/components/accounts/groww-sync-modal";
 import { AccountDocuments } from "@/components/account-documents";
 import { LoanSchedule } from "@/components/loan-schedule";
+import { RecurringDepositSchedule } from "@/components/recurring-deposit-schedule";
 import { TransactionsSection } from "@/components/transactions-section";
 
 import { AccountsNav, AccountsTabType } from "@/components/accounts/accounts-nav";
@@ -173,12 +175,19 @@ function PortfolioContent() {
         </header>
         {isInvestment ? (
           <>
-            <section className="summary-grid account-ledger-summary">
+            <section className="summary-grid account-ledger-summary" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
               <article>
                 <span className="summary-icon saved"><BriefcaseBusiness /></span>
                 <div>
                   <small>Total holdings</small>
                   <strong>{portfolioData ? `${portfolioData.holdings.length} instruments` : '0'}</strong>
+                </div>
+              </article>
+              <article>
+                <span className="summary-icon saved"><PiggyBank /></span>
+                <div>
+                  <small>Invested value</small>
+                  <strong>{portfolioData ? money(portfolioData.investedValue) : '₹0'}</strong>
                 </div>
               </article>
               <article>
@@ -195,8 +204,13 @@ function PortfolioContent() {
                 <div>
                   <small>Unrealized P&amp;L</small>
                   <strong className={portfolioData && portfolioData.unrealizedPnl < 0 ? 'loss' : 'gain'}>
-                    {portfolioData ? money(portfolioData.unrealizedPnl) : '₹0'}
+                    {portfolioData ? `${portfolioData.unrealizedPnl >= 0 ? '+' : ''}${money(portfolioData.unrealizedPnl)}` : '₹0'}
                   </strong>
+                  {portfolioData && portfolioData.investedValue > 0 && (
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: portfolioData.unrealizedPnl < 0 ? '#ef4444' : 'var(--green)', marginTop: '2px', display: 'block' }}>
+                      {portfolioData.unrealizedPnl >= 0 ? '+' : ''}{((portfolioData.unrealizedPnl / portfolioData.investedValue) * 100).toFixed(2)}% overall
+                    </span>
+                  )}
                 </div>
               </article>
             </section>
@@ -363,8 +377,9 @@ function PortfolioContent() {
                           <th>Instrument</th>
                           <th>Quantity detail</th>
                           <th>Avg. cost</th>
+                          <th>Invested</th>
                           <th>Previous close</th>
-                          <th>Value</th>
+                          <th>Current Value</th>
                           <th>Unrealized P&amp;L</th>
                         </tr>
                       </thead>
@@ -399,6 +414,9 @@ function PortfolioContent() {
                                 )}
                               </td>
                               <td>{price(holding.averagePrice)}</td>
+                              <td>
+                                <strong>{money(invested)}</strong>
+                              </td>
                               <td>{price(holding.previousClosingPrice)}</td>
                               <td>
                                 <strong>
@@ -409,7 +427,7 @@ function PortfolioContent() {
                               </td>
                               <td className={pnl < 0 ? "loss" : "gain"}>
                                 <div className="pnl-badge">
-                                  <strong>{money(pnl)}</strong>
+                                  <strong>{pnl >= 0 ? `+${money(pnl)}` : money(pnl)}</strong>
                                   <span>
                                     {invested
                                       ? `${pnl >= 0 ? "+" : ""}${((pnl / invested) * 100).toFixed(2)}%`
@@ -473,6 +491,8 @@ function PortfolioContent() {
           </>
         ) : selectedAccount.type === "LOAN" ? (
           <LoanSchedule accountId={selectedAccountId} embedded={true} />
+        ) : selectedAccount.type === "RECURRING_DEPOSIT" ? (
+          <RecurringDepositSchedule accountId={selectedAccountId} embedded={true} />
         ) : (
           <AccountTransactions accountId={selectedAccountId} embedded={true} />
         )}

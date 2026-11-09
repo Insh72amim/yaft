@@ -16,6 +16,25 @@ import { ManualSalaryDto } from './salary.dto';
 
 type SalaryWithItems = Prisma.SalaryStatementGetPayload<{ include: { lineItems: true } }>;
 
+/** Minimal shape of an Organization record used in salary matching. */
+interface OrgRecord {
+  id: string;
+  name: string;
+  code: string | null;
+  color: string | null;
+  isCurrent: boolean;
+  currency?: string | null;
+  parsingConfig?: { documentAnchors?: string[] } | null;
+}
+
+/** Shape of a line item before it is persisted (from both dynamic and standard parsers). */
+interface RawLineItem {
+  type: import('@prisma/client').SalaryItemType;
+  description: string;
+  currentAmount: number;
+  ytdAmount?: number;
+}
+
 @Injectable()
 export class SalaryService {
   private _cipher: StatementCredentialCipher | null = null;
@@ -33,16 +52,21 @@ export class SalaryService {
     const hash = createHash('sha256').update(file.buffer).digest('hex');
 
     // Check user organizations for dynamic parsing
-    let matchedOrg: any = null;
-    const orgs = (this.prisma as any).organization ? await (this.prisma as any).organization.findMany({ where: { userId } }) : [];
+    let matchedOrg: OrgRecord | null = null;
+    // `organization` is an optional model — access via index signature to avoid compile errors if the model is absent
+    const prismaAny = this.prisma as unknown as Record<string, { findMany: (args: unknown) => Promise<OrgRecord[]> }>;
+    const orgs: OrgRecord[] = prismaAny['organization']
+      ? await prismaAny['organization'].findMany({ where: { userId } })
+      : [];
     if (payslipSchema && payslipSchema !== 'STANDARD_PAYSLIP' && payslipSchema !== 'GOLDMAN_SACHS') {
-      matchedOrg = orgs.find((o: any) => o.id === payslipSchema || o.name.toLowerCase() === payslipSchema.toLowerCase());
+      matchedOrg = orgs.find((o) => o.id === payslipSchema || o.name.toLowerCase() === payslipSchema.toLowerCase()) ?? null;
     }
 
-    let parsed: any;
+    let parsed: import('./payslip-parser').ParsedPayslip;
     if (matchedOrg) {
       const doc = await loadPdfStatementDocument(file.buffer, pdfPassword);
-      const fullText = doc.textPages.map((p: any) => p.text).join('\n');
+      const fullText = doc.textPages.map((p: { text: string }) => p.text).join('\n');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dynResult = parseDynamicPayslip(fullText, matchedOrg.parsingConfig as any, matchedOrg.name);
       parsed = {
         payPeriod: dynResult.payPeriod,
@@ -57,8 +81,8 @@ export class SalaryService {
         lineItems: dynResult.lineItems,
       };
     } else {
-      parsed = await parsePayslipPdf(file.buffer, (payslipSchema as any) || 'STANDARD_PAYSLIP', pdfPassword);
-      matchedOrg = orgs.find((o: any) => o.name.toLowerCase() === parsed.employer.toLowerCase());
+      parsed = await parsePayslipPdf(file.buffer, (payslipSchema as import('./payslip-parser').PayslipSchema) || 'STANDARD_PAYSLIP', pdfPassword);
+      matchedOrg = orgs.find((o) => o.name.toLowerCase() === parsed.employer.toLowerCase()) ?? null;
     }
 
     let targetEmployer = parsed.employer;
@@ -94,7 +118,7 @@ export class SalaryService {
         currency: parsed.currency, grossEarnings: BigInt(parsed.grossEarnings), grossDeductions: BigInt(parsed.grossDeductions),
         directPayment: BigInt(parsed.directPayment), netPay: BigInt(parsed.netPay), filename: file.originalname.slice(0, 200), fileHash: hash,
         organizationId: matchedOrg?.id,
-        lineItems: { create: parsed.lineItems.map((item: any) => ({ type: item.type, description: item.description,
+        lineItems: { create: parsed.lineItems.map((item: RawLineItem) => ({ type: item.type, description: item.description,
           currentAmount: BigInt(item.currentAmount), ytdAmount: item.ytdAmount === undefined ? undefined : BigInt(item.ytdAmount) })) },
       }, include: { lineItems: true } });
 
@@ -103,9 +127,9 @@ export class SalaryService {
         await this.prisma.salaryStatement.update({
           where: { id: statement.id },
           data: {
-            pdfPasswordCipher: enc.ciphertext as any,
-            pdfPasswordIv: enc.iv as any,
-            pdfPasswordTag: enc.authTag as any,
+            pdfPasswordCipher: Buffer.from(enc.ciphertext),
+            pdfPasswordIv: Buffer.from(enc.iv),
+            pdfPasswordTag: Buffer.from(enc.authTag),
             pdfPasswordKeyVersion: enc.keyVersion,
           },
         });
@@ -123,7 +147,10 @@ export class SalaryService {
   }
 
   async overview(userId: string) {
-    const orgs = (this.prisma as any).organization ? await (this.prisma as any).organization.findMany({ where: { userId } }) : [];
+    const prismaAny = this.prisma as unknown as Record<string, { findMany: (args: unknown) => Promise<OrgRecord[]> }>;
+    const orgs: OrgRecord[] = prismaAny['organization']
+      ? await prismaAny['organization'].findMany({ where: { userId } })
+      : [];
     const statements = await this.prisma.salaryStatement.findMany({
       where: { userId },
       include: {
@@ -133,13 +160,16 @@ export class SalaryService {
       orderBy: { payPeriod: 'desc' },
     });
 
+    type StatementRow = (typeof statements)[number];
+    type LineItemRow = StatementRow['lineItems'][number];
+
     for (const statement of statements) {
       if (!statement.organization && orgs.length > 0) {
         const matched = this.findMatchingOrganization(orgs, statement.employer);
         if (matched) {
           statement.organization = { id: matched.id, name: matched.name, code: matched.code, color: matched.color };
           statement.organizationId = matched.id;
-          (this.prisma as any).salaryStatement.update({
+          void this.prisma.salaryStatement.update({
             where: { id: statement.id },
             data: { organizationId: matched.id },
           }).catch(() => {});
@@ -147,23 +177,23 @@ export class SalaryService {
       }
     }
 
-    const committed = statements.filter((statement: any) => statement.status === 'COMMITTED');
-    const totalGross = committed.reduce((sum: number, statement: any) => sum + Number(statement.grossEarnings), 0);
-    const totalDeductions = committed.reduce((sum: number, statement: any) => sum + Number(statement.grossDeductions), 0);
-    const totalNet = committed.reduce((sum: number, statement: any) => sum + Number(statement.netPay), 0);
-    const allItems = committed.flatMap((statement: any) => statement.lineItems);
-    const employeePf = allItems.filter((item: any) => item.type === SalaryItemType.DEDUCTION && /\bpf\b|provident fund/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && Number(item.currentAmount) < 5000000).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
-    const employerPf = allItems.filter((item: any) => item.type === SalaryItemType.EMPLOYER_CONTRIBUTION && /\bpf\b|provident fund/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && Number(item.currentAmount) < 5000000).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
-    const taxes = allItems.filter((item: any) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && Number(item.currentAmount) < 50000000).reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
+    const committed = statements.filter((statement) => statement.status === 'COMMITTED');
+    const totalGross = committed.reduce((sum, statement) => sum + Number(statement.grossEarnings), 0);
+    const totalDeductions = committed.reduce((sum, statement) => sum + Number(statement.grossDeductions), 0);
+    const totalNet = committed.reduce((sum, statement) => sum + Number(statement.netPay), 0);
+    const allItems = committed.flatMap((statement) => statement.lineItems);
+    const employeePf = allItems.filter((item: LineItemRow) => item.type === SalaryItemType.DEDUCTION && /\bpf\b|provident fund/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && Number(item.currentAmount) < 5000000).reduce((sum, item: LineItemRow) => sum + Number(item.currentAmount), 0);
+    const employerPf = allItems.filter((item: LineItemRow) => item.type === SalaryItemType.EMPLOYER_CONTRIBUTION && /\bpf\b|provident fund/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && Number(item.currentAmount) < 5000000).reduce((sum, item: LineItemRow) => sum + Number(item.currentAmount), 0);
+    const taxes = allItems.filter((item: LineItemRow) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description) && !/accumulat|balance|closing|opening|ytd|total/i.test(item.description) && Number(item.currentAmount) < 50000000).reduce((sum, item: LineItemRow) => sum + Number(item.currentAmount), 0);
     const latest = committed[0];
     const monthly = new Map<string, { grossEarnings: number; netPay: number; tax: number }>();
-    [...committed].sort((left: any, right: any) => left.payPeriod.getTime() - right.payPeriod.getTime()).forEach((statement: any) => {
+    [...committed].sort((left, right) => left.payPeriod.getTime() - right.payPeriod.getTime()).forEach((statement) => {
       const month = statement.payPeriod.toISOString().slice(0, 7);
       const current = monthly.get(month) ?? { grossEarnings: 0, netPay: 0, tax: 0 };
       current.grossEarnings += Number(statement.grossEarnings);
       current.netPay += Number(statement.netPay);
-      current.tax += statement.lineItems.filter((item: any) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description))
-        .reduce((sum: number, item: any) => sum + Number(item.currentAmount), 0);
+      current.tax += statement.lineItems.filter((item: LineItemRow) => item.type === SalaryItemType.DEDUCTION && /tax/i.test(item.description))
+        .reduce((sum, item: LineItemRow) => sum + Number(item.currentAmount), 0);
       monthly.set(month, current);
     });
     let cumulativeGross = 0;
@@ -178,8 +208,8 @@ export class SalaryService {
       summary: { statementCount: committed.length, totalGross, totalDeductions, totalNet, employeePf, employerPf, taxes,
         latestNetPay: latest ? Number(latest.netPay) : 0 },
       timeline,
-      pending: statements.find((statement: any) => statement.status === 'REVIEW') ? this.serialize(statements.find((statement: any) => statement.status === 'REVIEW')!) : null,
-      statements: committed.map((statement: any) => this.serialize(statement)),
+      pending: statements.find((statement) => statement.status === 'REVIEW') ? this.serialize(statements.find((statement) => statement.status === 'REVIEW')!) : null,
+      statements: committed.map((statement) => this.serialize(statement)),
     };
   }
 
@@ -204,7 +234,7 @@ export class SalaryService {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return statements.map((statement: any) => this.serialize(statement));
+    return statements.map((statement) => this.serialize(statement));
   }
 
   async commit(userId: string, statementId: string) {
@@ -343,9 +373,10 @@ export class SalaryService {
     }
 
     // Find organization for this employer
-    let matchedOrg: any = null;
-    if ((this.prisma as any).organization) {
-      const orgs = await (this.prisma as any).organization.findMany({ where: { userId } });
+    let matchedOrg: OrgRecord | null = null;
+    const prismaAny = this.prisma as unknown as Record<string, { findMany: (args: unknown) => Promise<OrgRecord[]> }>;
+    if (prismaAny['organization']) {
+      const orgs: OrgRecord[] = await prismaAny['organization'].findMany({ where: { userId } });
       matchedOrg = this.findMatchingOrganization(orgs, dto.employer);
     }
 
@@ -377,7 +408,7 @@ export class SalaryService {
     }
 
     // Create line items for Tax and PF additions so timeline/summary calculations are correct
-    const lineItems: any[] = [];
+    const lineItems: Array<{ type: import('@prisma/client').SalaryItemType; description: string; currentAmount: bigint }> = [];
     if (dto.tax && BigInt(dto.tax) > 0n) {
       lineItems.push({ type: SalaryItemType.DEDUCTION, description: 'Income Tax', currentAmount: BigInt(dto.tax) });
     }
@@ -415,7 +446,9 @@ export class SalaryService {
     await this.prisma.salaryStatement.delete({ where: { id: statement.id } });
   }
 
-  private serialize(statement: any) {
+  private serialize(statement: SalaryWithItems & {
+    organization?: { id: string; name: string; code: string | null; color: string | null } | null;
+  }) {
     const { fileHash: _fileHash, ...safe } = statement;
     const orgName = statement.organization?.name;
     return {
@@ -424,7 +457,7 @@ export class SalaryService {
       rawEmployer: statement.employer,
       grossEarnings: Number(statement.grossEarnings),
       grossDeductions: Number(statement.grossDeductions),
-      directPayment: Number(statement.directPayment),
+      directPayment: Number(statement.directPayment ?? 0),
       netPay: Number(statement.netPay),
       organization: statement.organization
         ? {
@@ -434,15 +467,15 @@ export class SalaryService {
             color: statement.organization.color,
           }
         : null,
-      lineItems: (statement.lineItems || []).map((item: any) => ({
+      lineItems: statement.lineItems.map((item) => ({
         ...item,
         currentAmount: Number(item.currentAmount),
-        ytdAmount: item.ytdAmount === null ? null : Number(item.ytdAmount),
+        ytdAmount: item.ytdAmount === null || item.ytdAmount === undefined ? null : Number(item.ytdAmount),
       })),
     };
   }
 
-  private findMatchingOrganization(orgs: any[], rawEmployerName?: string, explicitOrgId?: string) {
+  private findMatchingOrganization(orgs: OrgRecord[], rawEmployerName?: string, explicitOrgId?: string): OrgRecord | null {
     if (!orgs || orgs.length === 0) return null;
     if (explicitOrgId && explicitOrgId !== 'STANDARD_PAYSLIP' && explicitOrgId !== 'GOLDMAN_SACHS') {
       const explicit = orgs.find((o) => o.id === explicitOrgId || o.name.toLowerCase() === explicitOrgId.toLowerCase());

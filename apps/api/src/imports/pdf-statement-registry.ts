@@ -8,8 +8,9 @@ import { pnbPdfParser } from './pnb-pdf-parser';
 import { sbiPdfParser } from './sbi-pdf-parser';
 import { epfoPdfParser } from './epfo-pdf-parser';
 import { gpayPdfParser } from './gpay-pdf-parser';
+import { genericBankPdfParser } from './generic-bank-pdf-parser';
 
-export const bankPdfParsers: readonly BankPdfParser[] = [pnbPdfParser, axisPdfParser, sbiPdfParser, epfoPdfParser, gpayPdfParser];
+export const bankPdfParsers: readonly BankPdfParser[] = [pnbPdfParser, axisPdfParser, sbiPdfParser, epfoPdfParser, gpayPdfParser, genericBankPdfParser];
 
 function institutionMatches(parser: BankPdfParser, institution: string) {
   return parser.institutionAliases.some((alias) => {
@@ -42,7 +43,7 @@ export function selectBankPdfParser(document: PdfStatementDocument, institution?
     return selected;
   }
 
-  const matches = parsers.filter((parser) => parser.matches(document));
+  const matches = parsers.filter((parser) => parser.id !== 'GENERIC' && parser.matches(document));
   if (matches.length === 1) return matches[0];
   if (matches.length > 1) {
     throw new BadRequestException('This PDF matches more than one supported bank layout. Set the account institution and try again.');
@@ -85,8 +86,29 @@ export function extractAccountDigitsFromDocument(document: PdfStatementDocument)
 
 export async function parseBankPdf(buffer: Buffer, options: ParseStatementOptions = {}) {
   const document = await loadPdfStatementDocument(buffer, options.pdfPassword);
-  const parser = selectBankPdfParser(document, options.institution);
-  const { rows, closingBalanceMinor } = parser.parse(document);
-  const extractedAccountDigits = extractAccountDigitsFromDocument(document);
-  return { rows, closingBalanceMinor, parserId: parser.id, extractedAccountDigits };
+
+  // 1. Try specific bank parser matching first
+  try {
+    const parser = selectBankPdfParser(document, options.institution);
+    const { rows, closingBalanceMinor } = parser.parse(document);
+    if (rows && rows.length > 0) {
+      const extractedAccountDigits = extractAccountDigitsFromDocument(document);
+      return { rows, closingBalanceMinor, parserId: parser.id, extractedAccountDigits };
+    }
+  } catch (_err) {
+    // If specific parser selection or parsing fails, seamlessly fallback to generic parser
+  }
+
+  // 2. Fallback to Universal Generic Bank PDF Parser
+  try {
+    const { rows, closingBalanceMinor } = genericBankPdfParser.parse(document);
+    if (rows && rows.length > 0) {
+      const extractedAccountDigits = extractAccountDigitsFromDocument(document);
+      return { rows, closingBalanceMinor, parserId: 'GENERIC' as const, extractedAccountDigits };
+    }
+  } catch (err) {
+    if (err instanceof BadRequestException) throw err;
+  }
+
+  throw new BadRequestException('No transaction rows could be extracted from this statement PDF. Ensure the PDF contains a standard Date, Description, Amount, and Balance table and is not a scanned image.');
 }

@@ -20,9 +20,10 @@ else
 fi
 
 # 2. Sync marketing folder if standalone directory exists
-if [ -d "/Users/yaft/Code/yaft-mkt" ] && [ -d "$ROOT_DIR/marketing" ]; then
-  echo "Syncing marketing site to /Users/yaft/Code/yaft-mkt..."
-  cp -R "$ROOT_DIR/marketing/"* /Users/yaft/Code/yaft-mkt/ 2>/dev/null || true
+YAFT_MKT_DIR="${YAFT_MKT_DIR:-$(dirname "$ROOT_DIR")/yaft-mkt}"
+if [ -d "$YAFT_MKT_DIR" ] && [ -d "$ROOT_DIR/marketing" ]; then
+  echo "Syncing marketing site to $YAFT_MKT_DIR..."
+  cp -R "$ROOT_DIR/marketing/"* "$YAFT_MKT_DIR/" 2>/dev/null || true
 fi
 
 echo "Building and launching Docker containers for Web (Port ${DOCKER_WEB_PORT:-3001}) and API (Port ${DOCKER_API_PORT:-4001})..."

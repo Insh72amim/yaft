@@ -5,6 +5,7 @@ export type ParsedRow = {
   postedDate?: Date;
   description: string;
   amountMinor: number;
+  balanceMinor?: number;
   reference?: string;
   dedupeKey?: string;
   rowNumber: number;
@@ -24,7 +25,7 @@ export type PdfStatementDocument = {
 };
 
 export type BankPdfParser = {
-  id: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'GPAY';
+  id: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'GPAY' | 'GENERIC';
   institutionAliases: readonly string[];
   matches(document: PdfStatementDocument): boolean;
   parse(document: PdfStatementDocument): { rows: ParsedRow[]; closingBalanceMinor?: number };

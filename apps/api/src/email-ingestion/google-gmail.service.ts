@@ -228,19 +228,28 @@ export class GoogleGmailService {
     let candidateAccounts = emailSupportedAccounts;
     if (accountScope === 'ALL_BANKS') {
       candidateAccounts = emailSupportedAccounts.filter((acc) =>
-        [AccountType.BANK, AccountType.SAVINGS].includes(acc.type as any)
+        [AccountType.BANK, AccountType.SAVINGS].includes(acc.type as any) && Boolean(acc.emailSyncEnabled)
       );
     } else if (accountScope === 'ALL_CARDS') {
       candidateAccounts = emailSupportedAccounts.filter((acc) => acc.type === AccountType.CREDIT_CARD);
     } else if (accountScope === 'CUSTOM' && targetAccountIds.length > 0) {
       candidateAccounts = emailSupportedAccounts.filter((acc) => targetAccountIds.includes(acc.id));
+    } else {
+      // Default ALL: credit cards always included; bank/savings accounts ONLY if emailSyncEnabled === true
+      candidateAccounts = emailSupportedAccounts.filter((acc) => {
+        if (acc.type === AccountType.CREDIT_CARD) return true;
+        if ([AccountType.BANK, AccountType.SAVINGS].includes(acc.type as any)) {
+          return Boolean(acc.emailSyncEnabled);
+        }
+        return false;
+      });
     }
 
     if (candidateAccounts.length === 0 && allUserAccounts.length > 0) {
       // If user filtered for a scope with 0 matching accounts, inform them gracefully
       return {
         success: true,
-        message: `No active accounts matched the selected sync scope (${accountScope}).`,
+        message: `No active accounts matched the selected sync scope (${accountScope}). Note: Bank accounts must have Email Sync enabled.`,
         batchIds: [],
         scannedCount: 0,
         parsedCount: 0,
@@ -270,9 +279,13 @@ export class GoogleGmailService {
           const senders = Array.from(new Set(cardConfigs.flatMap((c) => c.senders)));
           query = `from:(${senders.join(' OR ')}) (spent OR debited OR credited OR refund OR refunded OR reversal OR cashback OR "credit card" OR "card ending" OR "card ending with" OR "spent on your card" OR "transaction on your card" OR "amazon pay" OR "pixel" OR "card no" OR "card xx") after:${afterDateStr}`;
         } else if (accountScope === 'ALL_BANKS') {
-          const bankConfigs = INSTITUTION_EMAIL_CONFIGS.filter((c) => c.accountType === AccountType.BANK);
+          const bankConfigs = getEmailConfigsForAccounts(candidateAccounts).filter((c) => c.accountType === AccountType.BANK);
           const senders = Array.from(new Set(bankConfigs.flatMap((c) => c.senders)));
-          query = `from:(${senders.join(' OR ')}) (debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs." OR "UPI" OR "NEFT" OR "IMPS") after:${afterDateStr}`;
+          if (senders.length > 0) {
+            query = `from:(${senders.join(' OR ')}) (debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs." OR "UPI" OR "NEFT" OR "IMPS") after:${afterDateStr}`;
+          } else {
+            query = `(debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "a/c" OR "ending with" OR "XX" OR "INR" OR "Rs." OR "UPI" OR "NEFT" OR "IMPS") after:${afterDateStr}`;
+          }
         } else if (accountScope === 'CUSTOM') {
           const matchedConfigs = getEmailConfigsForAccounts(candidateAccounts);
           const allSenders = Array.from(new Set(matchedConfigs.flatMap((c) => c.senders)));
@@ -287,9 +300,15 @@ export class GoogleGmailService {
             query = `(debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.") after:${afterDateStr}`;
           }
         } else {
-          // Default ALL (Bank accounts and Credit cards only)
-          const allSenders = Array.from(new Set(INSTITUTION_EMAIL_CONFIGS.flatMap((c) => c.senders)));
-          query = `from:(${allSenders.join(' OR ')}) (debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.") after:${afterDateStr}`;
+          // Default ALL (Credit cards unconditionally + Bank accounts with emailSyncEnabled)
+          const matchedConfigs = getEmailConfigsForAccounts(candidateAccounts);
+          const allSenders = Array.from(new Set(matchedConfigs.flatMap((c) => c.senders)));
+          if (allSenders.length > 0) {
+            query = `from:(${allSenders.join(' OR ')}) (debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.") after:${afterDateStr}`;
+          } else {
+            const allPossibleSenders = Array.from(new Set(INSTITUTION_EMAIL_CONFIGS.flatMap((c) => c.senders)));
+            query = `from:(${allPossibleSenders.join(' OR ')}) (debited OR credited OR spent OR refund OR reversal OR alert OR transaction OR payment OR "credit card" OR "a/c" OR "INR" OR "Rs.") after:${afterDateStr}`;
+          }
         }
 
         let pageToken: string | undefined = undefined;
@@ -648,8 +667,13 @@ export class GoogleGmailService {
     const isInstitutionMatch = (acc: any, bName: string) => {
       const inst = (acc.institution || '').toLowerCase();
       const name = (acc.name || '').toLowerCase();
-      const b = (bName || '').toLowerCase();
-      if (!b || b === 'bank alert') return false;
+      let b = (bName || '').toLowerCase();
+      if (!b || b === 'bank alert') {
+        const sender = (alert.emailSender || '').toLowerCase();
+        const subj = (alert.emailSubject || '').toLowerCase();
+        b = `${sender} ${subj}`;
+      }
+      if (!b.trim()) return false;
 
       // Mutually exclusive bank checks
       const isSbiAlert = b.includes('sbi') || b.includes('state bank');

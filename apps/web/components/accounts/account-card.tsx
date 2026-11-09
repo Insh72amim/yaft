@@ -9,6 +9,7 @@ import {
   BadgeIndianRupee,
   PiggyBank,
   Landmark,
+  Repeat,
 } from "lucide-react";
 import { money } from "@/lib/api";
 import { getDomainForInstitution, getLocalLogo, findInstitution } from "@/lib/institutions";
@@ -26,6 +27,7 @@ export type Account = {
   cardNetwork: string | null;
   monthlyCredited: number;
   monthlyDebited: number;
+  emailSyncEnabled?: boolean;
   parentAccountId?: string | null;
   parentAccountName?: string | null;
   isShared?: boolean;
@@ -36,6 +38,24 @@ export type Account = {
   nextEmiAmount?: number;
   paidInstallments?: number;
   totalInstallments?: number;
+  nextDepositDate?: string;
+  nextDepositAmount?: number;
+  rdDetails?: {
+    id: string;
+    startDate: string;
+    monthlyAmount: number;
+    interestRate: number;
+    depositDay: number;
+    termMonths: number;
+    maturityAmount: number;
+    autoIncrease: boolean;
+    totalDeposited: number;
+    totalInterest: number;
+    paidCount: number;
+    totalCount: number;
+    nextDepositDate: string | null;
+    nextDepositAmount: number;
+  };
 };
 
 export type Holding = {
@@ -78,7 +98,8 @@ export const accountSections: AccountSection[] = [
     subsections: [
       { label: "Mutual Funds", types: ["MUTUAL_FUND", "INVESTMENT"] },
       { label: "Stocks", types: ["STOCKS", "DEMAT"] },
-      { label: "Fixed & recurring deposits", types: ["FIXED_DEPOSIT"] },
+      { label: "Fixed deposits", types: ["FIXED_DEPOSIT"] },
+      { label: "Recurring deposits", types: ["RECURRING_DEPOSIT"] },
       { label: "EPFO Retirement", types: ["EPFO"] },
     ],
   },
@@ -97,6 +118,7 @@ export function getIcon(type: string) {
   if (type === "EPFO") return <Building2 size={16} />;
   if (type === "LOAN") return <BadgeIndianRupee size={16} />;
   if (type === "SAVINGS") return <PiggyBank size={16} />;
+  if (type === "RECURRING_DEPOSIT") return <Repeat size={16} />;
   return <Landmark size={16} />;
 }
 
@@ -285,6 +307,33 @@ export function AccountCard({
                     month: "short",
                   })}
                 </span>
+              )}
+            </div>
+            <div className="loan-progress-bar">
+              <div
+                className="loan-progress-fill"
+                style={{
+                  width: `${((account.paidInstallments || 0) / (account.totalInstallments || 1)) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        ) : account.type === "RECURRING_DEPOSIT" && account.totalInstallments !== undefined ? (
+          <div className="loan-card-progress">
+            <div className="loan-progress-label">
+              <small>
+                {account.paidInstallments} of {account.totalInstallments} deposits
+              </small>
+              {account.nextDepositDate ? (
+                <span className="next-emi-tag" title={account.rdDetails?.autoIncrease ? 'Auto-increase enabled' : 'Manual deposit'}>
+                  {account.rdDetails?.autoIncrease ? '⚡ ' : ''}Next:{' '}
+                  {new Date(account.nextDepositDate).toLocaleDateString('en-IN', {
+                    day: '2-digit',
+                    month: 'short',
+                  })}
+                </span>
+              ) : (
+                <span className="next-emi-tag" style={{ color: 'var(--green)' }}>Completed</span>
               )}
             </div>
             <div className="loan-progress-bar">

@@ -56,10 +56,10 @@ export const INSTITUTIONS: InstitutionDefinition[] = [
     id: 'pnb',
     name: 'Punjab National Bank',
     domain: 'pnbindia.in',
-    aliases: ['pnb', 'punjab national bank', 'punjab national'],
+    aliases: ['pnb', 'punjab national bank', 'punjab national', 'pnb bank', 'pnb mail', 'pnbealert', 'pnb e-alerts'],
     localLogo: '/logos/pnb.jpeg',
     defaultType: AccountType.SAVINGS,
-    senderDomains: ['pnb.co.in', 'pnbindia.in'],
+    senderDomains: ['pnb.co.in', 'pnbindia.in', 'pnbmail.bank.in', 'pnb.bank.in', 'punjabnationalbank.in', 'pnbmail.in', 'pnbbank.in'],
   },
   {
     id: 'kotak',

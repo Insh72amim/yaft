@@ -10,7 +10,14 @@ export class ApiError extends Error {
   }
 }
 
-export const isUnauthorized = (reason: unknown): reason is ApiError => reason instanceof ApiError && reason.status === 401;
+export const isUnauthorized = (reason: unknown): boolean =>
+  Boolean(
+    reason &&
+      typeof reason === 'object' &&
+      ((reason as any).status === 401 ||
+        (reason as any).statusCode === 401 ||
+        ((reason as any).name === 'ApiError' && (reason as any).status === 401)),
+  );
 
 export const errorMessage = (reason: unknown, fallback = 'Something went wrong.') => reason instanceof Error ? reason.message : fallback;
 

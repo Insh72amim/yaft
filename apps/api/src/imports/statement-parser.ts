@@ -33,7 +33,8 @@ function dateValue(value: unknown): Date | null {
   return Number.isNaN(result.getTime()) ? null : result;
 }
 
-function normalize(rows: RawRow[]): ParsedRow[] {
+function normalize(rows: RawRow[]): { rows: ParsedRow[]; closingBalanceMinor?: number } {
+  let lastClosingBalance: number | undefined = undefined;
   const parsed = rows.map<ParsedRow | null>((row, index) => {
     const date = dateValue(find(row, STATEMENT_COLUMN_ALIASES.date));
     const description = String(find(row, STATEMENT_COLUMN_ALIASES.description) ?? '').trim();
@@ -50,15 +51,17 @@ function normalize(rows: RawRow[]): ParsedRow[] {
     const amountMinor = direct ?? (credit !== null ? Math.abs(credit) : debit !== null ? -Math.abs(debit) : null);
     if (!date || !description || amountMinor === null || amountMinor === 0) return null;
     const reference = String(find(row, STATEMENT_COLUMN_ALIASES.reference) ?? '').trim() || undefined;
-    return { date, description, amountMinor, reference, rowNumber: index + 2 };
+    const balanceMinor = parseMoneyToMinor(find(row, STATEMENT_COLUMN_ALIASES.balance));
+    if (balanceMinor !== null) lastClosingBalance = balanceMinor;
+    return { date, description, amountMinor, reference, balanceMinor: balanceMinor ?? undefined, rowNumber: index + 2 };
   }).filter((row): row is ParsedRow => row !== null);
   if (!parsed.length) throw new BadRequestException('No transaction rows were detected. Include date, description, and amount—or debit/credit—columns.');
-  return parsed;
+  return { rows: parsed, closingBalanceMinor: lastClosingBalance };
 }
 
 export type ParsedStatement = {
   rows: ParsedRow[];
-  parserId?: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'GPAY';
+  parserId?: 'PNB' | 'AXIS' | 'SBI' | 'EPFO' | 'GPAY' | 'GENERIC' | string;
   closingBalanceMinor?: number;
   extractedAccountDigits?: string;
 };
@@ -67,7 +70,8 @@ export async function parseStatementWithMetadata(file: Express.Multer.File, _opt
   if (file.originalname.toLowerCase().endsWith('.pdf')) return parseBankPdf(file.buffer, _options);
   if (file.originalname.toLowerCase().endsWith('.csv')) {
     const rows = parse(file.buffer, { columns: true, skip_empty_lines: true, bom: true, trim: true, relax_column_count: true }) as RawRow[];
-    return { rows: normalize(rows) };
+    const result = normalize(rows);
+    return { rows: result.rows, closingBalanceMinor: result.closingBalanceMinor, parserId: 'GENERIC' };
   }
   if (/\.xlsx?$/i.test(file.originalname)) {
     const workbook = new ExcelJS.Workbook();
@@ -84,7 +88,8 @@ export async function parseStatementWithMetadata(file: Express.Multer.File, _opt
       headers.forEach((header, column) => { if (header) record[header] = row.getCell(column).value; });
       rows.push(record);
     });
-    return { rows: normalize(rows) };
+    const result = normalize(rows);
+    return { rows: result.rows, closingBalanceMinor: result.closingBalanceMinor, parserId: 'GENERIC' };
   }
   throw new BadRequestException('Only CSV, XLSX, and supported bank-statement PDFs are accepted.');
 }

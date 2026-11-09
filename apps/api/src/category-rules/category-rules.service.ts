@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { MatchField, MatchType, CategoryRule } from '@prisma/client';
+import { MatchField, MatchType, CategoryRule, CategoryType } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { CreateCategoryRuleDto, UpdateCategoryRuleDto } from './category-rules.dto';
 
@@ -325,7 +325,7 @@ export class CategoryRulesService {
     userId: string,
     name: string,
     color?: string,
-    type?: any,
+    type?: CategoryType,
     superCategoryId?: string | null,
   ) {
     const trimmed = name.trim();
@@ -371,7 +371,7 @@ export class CategoryRulesService {
     id: string,
     name?: string,
     color?: string,
-    type?: any,
+    type?: CategoryType,
     superCategoryId?: string | null,
   ) {
     const existing = await this.prisma.category.findFirst({
@@ -420,8 +420,8 @@ export class CategoryRulesService {
           },
         },
       });
-    } catch (err: any) {
-      throw new BadRequestException(err?.message || 'Could not update category.');
+    } catch (err: unknown) {
+      throw new BadRequestException(err instanceof Error ? err.message : 'Could not update category.');
     }
   }
 

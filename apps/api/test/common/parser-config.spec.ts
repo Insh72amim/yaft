@@ -127,7 +127,7 @@ describe('Parser Config Registry (@yaft/shared)', () => {
 
     it('extracts reference numbers and UPI UTR IDs', () => {
       expect(extractAlertReferenceNumber('Ref: 100000000103 on 14-08-26')).toBe('100000000103');
-      expect(extractAlertReferenceNumber('UPI/P2M/100000000005/SWIGGY')).toBe('100000000005');
+      expect(extractAlertReferenceNumber('UPI/P2M/100000000001/SWIGGY')).toBe('100000000001');
     });
 
     it('extracts merchant strings from various bank alert formats', () => {

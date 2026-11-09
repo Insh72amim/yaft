@@ -138,60 +138,60 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
   });
 
   it('should parse Axis Bank Credit Card transaction with Merchant Name and IST time', () => {
-    const text = "15-08-2026 Dear Test User, Here's the summary of your Axis Bank Credit Card Transaction: Transaction Amount: INR 1611 Merchant Name: SWIGGY PVT Axis Bank Credit Card No. XX5678 Date & Time: 15-08-2026, 19:04:27 IST Available Limit*: INR 100000.00 Total Credit Limit*: INR 125000 *The information above includes the available and total credit limit across all of your Axis Bank credit cards. If this transaction was not initiated by you: Call us at: 18001035577";
+    const text = "15-08-2026 Dear Test Customer, Here's the summary of your Axis Bank Credit Card Transaction: Transaction Amount: INR 1500 Merchant Name: SWIGGY PVT Axis Bank Credit Card No. XX5678 Date & Time: 15-08-2026, 19:04:27 IST Available Limit*: INR 50000.00 Total Credit Limit*: INR 100000 *The information above includes the available and total credit limit across all of your Axis Bank credit cards. If this transaction was not initiated by you: Call us at: 18001800181";
     const result = parseEmailAlertSnippet(text, 'alerts@axis.bank.in');
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('Axis Bank');
     expect(result?.accountType).toBe('CREDIT_CARD');
-    expect(result?.accountLast4).toBe('8423');
+    expect(result?.accountLast4).toBe('5678');
     expect(result?.type).toBe('DEBIT');
-    expect(result?.amountDisplay).toBe(1611);
-    expect(result?.amountMinor).toBe(-161100n);
+    expect(result?.amountDisplay).toBe(1500);
+    expect(result?.amountMinor).toBe(-150000n);
     expect(result?.merchant).toBe('SWIGGY');
     expect(result?.transactionDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })).toBe('15/8/2026');
     expect(result?.transactionDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })).toBe('19:04:27');
   });
 
   it('should parse Axis Bank A/c debit with UPI transaction info without mistaking account as credit card', () => {
-    const text = "14-08-2026 Dear Test User, Here's the summary of your transaction: Amount Debited: INR 362.00 Account Number: XX1234 Date & Time: 14-08-26, 12:46:28 IST Transaction Info: UPI/P2A/100000000005/MERCHANT_ONE If this transaction was not initiated by you: To block UPI: SMS BLOCKUPI to +919000000000";
+    const text = "14-08-2026 Dear Test Customer, Here's the summary of your transaction: Amount Debited: INR 200.00 Account Number: XX1234 Date & Time: 14-08-26, 12:46:28 IST Transaction Info: UPI/P2A/100000000001/SAMPLE MERCHANT If this transaction was not initiated by you: To block UPI: SMS BLOCKUPI to +911800180018";
     const result = parseEmailAlertSnippet(text, 'alerts@axis.bank.in');
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('Axis Bank');
     expect(result?.accountType).toBe('BANK');
-    expect(result?.accountLast4).toBe('6785');
+    expect(result?.accountLast4).toBe('1234');
     expect(result?.type).toBe('DEBIT');
-    expect(result?.amountDisplay).toBe(362);
-    expect(result?.amountMinor).toBe(-36200n);
-    expect(result?.merchant).toBe('MERCHANT_ONE');
-    expect(result?.referenceNumber).toBe('100000000005');
+    expect(result?.amountDisplay).toBe(200);
+    expect(result?.amountMinor).toBe(-20000n);
+    expect(result?.merchant).toBe('SAMPLE MERCHANT');
+    expect(result?.referenceNumber).toBe('100000000001');
   });
 
   it('should parse Axis Bank A/c debit for online purchases with POS/PUR info', () => {
-    const text = '14-08-2026 Dear Customer, Thank you for banking with us. We wish to inform you that INR 59.00 has been debited from your A/c no. XX321234 on 14-08-2026 21:37:07 at PUR/YOUTUBEGOOGLE/YOUTUBEGOOGLE/123456. Available balance: INR 35000.00. Please SMS BLOCKCARD 7239';
+    const text = '14-08-2026 Dear Customer, Thank you for banking with us. We wish to inform you that INR 59.00 has been debited from your A/c no. XX321234 on 14-08-2026 21:37:07 at PUR/YOUTUBEGOOGLE/YOUTUBEGOOGLE/123456. Available balance: INR 10000.00. Please SMS BLOCKCARD 9012';
     const result = parseEmailAlertSnippet(text, 'alerts@axis.bank.in');
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('Axis Bank');
     expect(result?.accountType).toBe('BANK');
-    expect(result?.accountLast4).toBe('6785');
+    expect(result?.accountLast4).toBe('1234');
     expect(result?.amountDisplay).toBe(59);
     expect(result?.merchant).toBe('YOUTUBE GOOGLE');
   });
 
   it('should parse Axis Bank A/c credit alert as BANK account type and never CREDIT_CARD', () => {
-    const text = "09-05-2026 Dear Test User, Here's the summary of your transaction: Amount Credited: INR 125.00 Account Number: XX1234 Date & Time: 09-05-26, 14:15:00 IST Transaction Info: UPI/P2A/1234567890/MERCHANT THREE. If this transaction was not initiated by you: Call us at: 18001035577";
+    const text = "09-05-2026 Dear Test Customer, Here's the summary of your transaction: Amount Credited: INR 100.00 Account Number: XX1234 Date & Time: 09-05-26, 14:15:00 IST Transaction Info: UPI/P2A/1234567890/VENDOR XYZ. If this transaction was not initiated by you: Call us at: 18001800181";
     const result = parseEmailAlertSnippet(text, 'alerts@axis.bank.in');
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('Axis Bank');
     expect(result?.accountType).toBe('BANK');
-    expect(result?.accountLast4).toBe('6785');
+    expect(result?.accountLast4).toBe('1234');
     expect(result?.type).toBe('CREDIT');
-    expect(result?.amountDisplay).toBe(125);
-    expect(result?.amountMinor).toBe(12500n);
-    expect(result?.merchant).toBe('MERCHANT THREE');
+    expect(result?.amountDisplay).toBe(100);
+    expect(result?.amountMinor).toBe(10000n);
+    expect(result?.merchant).toBe('VENDOR XYZ');
   });
 
   it('should parse ICICI Credit Card with spaced merchant ZE PTO', () => {
@@ -281,7 +281,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
 
   it('should reject promotional, marketing, EMI conversion, OTP, and monthly statement emails', () => {
     // 1. Axis Bank Flexi EMI marketing offer
-    const axisEmi = 'Available on Axis Bank Credit Cards Turn your eligible spends into FLEXI EMI instantly! Dear Test User , Managing your expenses has never been easier. Convert transactions worth INR 1932 on your Axis Bank';
+    const axisEmi = 'Available on Axis Bank Credit Cards Turn your eligible spends into FLEXI EMI instantly! Dear Test Customer , Managing your expenses has never been easier. Convert transactions worth INR 2000 on your Axis Bank';
     expect(parseEmailAlertSnippet(axisEmi, 'Axis Bank Cards <info@digital.axisbankmail.bank.in>')).toBeNull();
 
     // 2. SBI Flexipay EMI conversion promo
@@ -321,7 +321,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
     expect(parseEmailAlertSnippet(rewardPoints, 'alerts@icicibank.com')).toBeNull();
 
     // 11. Debit / Credit card benefits and informational announcements
-    const debitCardBenefits = "31-07-2026 Dear Test User, We hope that you are enjoying the hand-picked benefits that come with your Online Rewards Debit Card no. XX9012, linked to your A/c no. XX1234. Here's a quick glance at the benefits on your card: • Earn accelerated EDGE REWARD Points on eligible categories • Avail voucher worth Rs. 500";
+    const debitCardBenefits = "31-07-2026 Dear Test Customer, We hope that you are enjoying the hand-picked benefits that come with your Online Rewards Debit Card no. XX9012, linked to your A/c no. XX1234. Here's a quick glance at the benefits on your card: • Earn accelerated EDGE REWARD Points on eligible categories • Avail voucher worth Rs. 500";
     expect(parseEmailAlertSnippet(debitCardBenefits, 'Axis Bank Alerts <alerts@axis.bank.in> Important information regarding your Axis Bank Online Rewards Debit Card')).toBeNull();
   });
 
@@ -486,24 +486,24 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
 
     expect(result).not.toBeNull();
     expect(result?.accountType).toBe('CREDIT_CARD');
-    expect(result?.accountLast4).toBe('8423');
+    expect(result?.accountLast4).toBe('5678');
     expect(result?.amountDisplay).toBe(450);
     expect(result?.merchant).toBe('STARBUCKS');
   });
 
   it('should parse Axis Bank credit alert containing counterparty /SBIN/ in UPI txn info without misidentifying as SBI', () => {
-    const text = "03-06-2026 Dear Test User, Here's the summary of your transaction: Amount Credited: INR 4000.00 Account Number: XX1234 Date & Time: 03-06-26, 23:13:43 IST Transaction Info: UPI/P2A/100000000009/Nustran /SBIN/pres Feel free to connect with us for any clarification.";
+    const text = "03-06-2026 Dear Test Customer, Here's the summary of your transaction: Amount Credited: INR 1000.00 Account Number: XX1234 Date & Time: 03-06-26, 23:13:43 IST Transaction Info: UPI/P2A/100000000002/SampleSender /SBIN/pres Feel free to connect with us for any clarification.";
     const result = parseEmailAlertSnippet(text, 'Axis Bank Alerts <alerts@axis.bank.in>');
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('Axis Bank');
     expect(result?.accountType).toBe('BANK');
-    expect(result?.accountLast4).toBe('6785');
+    expect(result?.accountLast4).toBe('1234');
     expect(result?.type).toBe('CREDIT');
-    expect(result?.amountDisplay).toBe(4000);
-    expect(result?.amountMinor).toBe(400000n);
-    expect(result?.merchant).toBe('NUSTRAN');
-    expect(result?.referenceNumber).toBe('100000000009');
+    expect(result?.amountDisplay).toBe(1000);
+    expect(result?.amountMinor).toBe(100000n);
+    expect(result?.merchant).toBe('SAMPLESENDER');
+    expect(result?.referenceNumber).toBe('100000000002');
   });
 
   it('should parse SBI Credit Card refund alert as positive CREDIT transaction', () => {
@@ -512,7 +512,7 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
 
     expect(result).not.toBeNull();
     expect(result?.accountType).toBe('CREDIT_CARD');
-    expect(result?.accountLast4).toBe('1026');
+    expect(result?.accountLast4).toBe('8888');
     expect(result?.type).toBe('CREDIT');
     expect(result?.amountDisplay).toBe(3285);
     expect(result?.amountMinor).toBe(328500n);
@@ -526,23 +526,23 @@ The Available Credit Limit on your card is INR 90,000.00 and Total Credit Limit 
 
     expect(result).not.toBeNull();
     expect(result?.accountType).toBe('CREDIT_CARD');
-    expect(result?.accountLast4).toBe('1026');
+    expect(result?.accountLast4).toBe('8888');
     expect(result?.type).toBe('CREDIT');
     expect(result?.amountDisplay).toBe(500);
     expect(result?.amountMinor).toBe(50000n);
   });
 
   it('should parse merchant/gateway refund confirmation email to credit card', () => {
-    const text = 'Hi Test User, We have successfully processed your refund of Rs. 4,799.00 for order #100001 to your SBI Card ending with 8888 on 23-Jul-2026. Ref: PAYU000001.';
+    const text = 'Hi Test Customer, We have successfully processed your refund of Rs. 1,000.00 for order #100001 to your SBI Card ending with 8888 on 23-Jul-2026. Ref: PAYU000001.';
     const result = parseEmailAlertSnippet(text, 'Myntra Updates <updates@myntra.com>');
 
     expect(result).not.toBeNull();
     expect(result?.bankName).toBe('State Bank of India');
     expect(result?.accountType).toBe('CREDIT_CARD');
-    expect(result?.accountLast4).toBe('1026');
+    expect(result?.accountLast4).toBe('8888');
     expect(result?.type).toBe('CREDIT');
-    expect(result?.amountDisplay).toBe(4799);
-    expect(result?.amountMinor).toBe(479900n);
+    expect(result?.amountDisplay).toBe(1000);
+    expect(result?.amountMinor).toBe(100000n);
     expect(result?.merchant).toBe('MYNTRA');
   });
 

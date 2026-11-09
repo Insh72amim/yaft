@@ -12,6 +12,7 @@ export enum AccountType {
   EPFO = 'EPFO',
   LOAN = 'LOAN',
   FIXED_DEPOSIT = 'FIXED_DEPOSIT',
+  RECURRING_DEPOSIT = 'RECURRING_DEPOSIT',
   UPI_LITE = 'UPI_LITE',
 }
 

@@ -5,10 +5,11 @@ import { AccountsService } from './accounts.service';
 import { CreditCardsService } from './credit-cards.service';
 import { AccountDocumentsModule } from '../account-documents/account-documents.module';
 import { LoansModule } from '../loans/loans.module';
+import { RecurringDepositsModule } from '../recurring-deposits/recurring-deposits.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 
 @Module({
-  imports: [AuthModule, AccountDocumentsModule, LoansModule, TransactionsModule],
+  imports: [AuthModule, AccountDocumentsModule, LoansModule, RecurringDepositsModule, TransactionsModule],
   controllers: [AccountsController],
   providers: [AccountsService, CreditCardsService],
   exports: [AccountsService, CreditCardsService],

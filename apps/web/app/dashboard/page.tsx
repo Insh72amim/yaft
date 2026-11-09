@@ -23,11 +23,13 @@ import {
   Target,
   Tag,
   Landmark,
+  ChevronDown,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Shell } from '@/components/shell';
 import { SpendRulesModal } from '@/components/spend-rules-modal';
+import { CategoryPickerPopover } from '@/components/category-picker-popover';
 import { CategoryBudgetsModal } from '@/components/category-budgets-modal';
 import { EnvelopesOverviewSection } from '@/components/dashboard/envelopes-overview-section';
 import { ExpenseAnalyticsChart } from '@/components/dashboard/expense-analytics-chart';
@@ -269,10 +271,24 @@ export default function DashboardPage() {
   if (!data)
     return (
       <Shell>
-        <div className="loading">
-          <span />
-          <p>Loading your dashboard…</p>
-        </div>
+        {error ? (
+          <div className="card" style={{ maxWidth: '480px', margin: '40px auto', textAlign: 'center', padding: '32px' }}>
+            <p style={{ color: 'var(--danger)', marginBottom: '16px', fontWeight: 500 }}>{error}</p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => load()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', margin: '0 auto' }}
+            >
+              <RefreshCw size={14} /> Retry
+            </button>
+          </div>
+        ) : (
+          <div className="loading">
+            <span />
+            <p>Loading your dashboard…</p>
+          </div>
+        )}
       </Shell>
     );
 
@@ -284,7 +300,7 @@ export default function DashboardPage() {
 
   const assetCategories = [
     { name: 'Savings Accounts', types: ['BANK', 'SAVINGS'], color: '#3b82f6' },
-    { name: 'Fixed Deposits', types: ['FIXED_DEPOSIT'], color: '#0ea5e9' },
+    { name: 'Fixed & Recurring Deposits', types: ['FIXED_DEPOSIT', 'RECURRING_DEPOSIT'], color: '#0ea5e9' },
     { name: 'Investments', types: ['STOCKS', 'MUTUAL_FUND', 'INVESTMENT'], color: '#10b981' },
     { name: 'EPFO', types: ['EPFO'], color: '#f59e0b' },
   ];
@@ -573,6 +589,7 @@ function CategoryRulesModal({ onClose, onUpdate }: { onClose: () => void; onUpda
   const [categories, setCategories] = useState<Category[]>([]);
   const [pattern, setPattern] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [catPickerOpen, setCatPickerOpen] = useState(false);
   const [matchField, setMatchField] = useState<'DESCRIPTION' | 'MERCHANT' | 'REFERENCE'>('DESCRIPTION');
   const [matchType, setMatchType] = useState<'CONTAINS' | 'EXACT' | 'STARTS_WITH' | 'REGEX'>('CONTAINS');
   const [busy, setBusy] = useState(false);
@@ -672,19 +689,61 @@ function CategoryRulesModal({ onClose, onUpdate }: { onClose: () => void; onUpda
               <option value="REGEX">Regex</option>
             </select>
           </label>
-          <label>
+          <label style={{ position: 'relative' }}>
             <span style={{ fontSize: '11px', fontWeight: 600 }}>Assign Category</span>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              style={{ fontSize: '12px', padding: '8px', width: '100%', height: '37px', borderRadius: '6px', border: '1px solid var(--line)' }}
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            {(() => {
+              const selectedCat = categories.find((c) => c.id === categoryId);
+              return (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setCatPickerOpen(!catPickerOpen)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '12px',
+                      padding: '8px 10px',
+                      width: '100%',
+                      height: '37px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--line)',
+                      background: 'var(--card)',
+                      color: 'var(--ink)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
+                      <span
+                        style={{
+                          width: '7px',
+                          height: '7px',
+                          borderRadius: '50%',
+                          background: selectedCat?.color || '#3b82f6',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 600 }}>
+                        {selectedCat?.name || 'Select Category...'}
+                      </span>
+                    </div>
+                    <ChevronDown size={13} color="var(--muted)" style={{ flexShrink: 0 }} />
+                  </button>
+                  {catPickerOpen && (
+                    <CategoryPickerPopover
+                      categories={categories}
+                      currentCategoryId={categoryId}
+                      onSelect={(id) => {
+                        setCategoryId(id);
+                        setCatPickerOpen(false);
+                      }}
+                      onClose={() => setCatPickerOpen(false)}
+                    />
+                  )}
+                </>
+              );
+            })()}
           </label>
           <button type="submit" className="primary" disabled={busy} style={{ height: '37px', padding: '0 14px' }}>
             <Plus size={14} /> Add
