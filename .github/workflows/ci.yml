@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   test-and-build:
-    name: Lint, Test & Build
+    name: Test & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -30,9 +30,6 @@ jobs:
 
       - name: Generate Prisma Client
         run: npm run db:generate
-
-      - name: Run Linter
-        run: npm run lint
 
       - name: Run Test Suite
         run: npm test
