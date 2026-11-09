@@ -19,8 +19,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
-import { api } from '@/lib/api';
+import { FormEvent, useEffect, useState } from 'react';
+import { api, enableDemoMode, isDemoMode } from '@/lib/api';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function Register() {
@@ -28,6 +28,17 @@ export default function Register() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    if (isDemoMode()) {
+      router.replace('/dashboard');
+    }
+  }, [router]);
+
+  function launchGuestSandbox() {
+    enableDemoMode(false);
+    router.replace('/dashboard');
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -221,6 +232,30 @@ export default function Register() {
                   <ArrowRight size={16} />
                 </>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={launchGuestSandbox}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                width: '100%',
+                marginTop: '10px',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                border: '1px solid rgba(22, 163, 74, 0.35)',
+                background: 'rgba(22, 163, 74, 0.08)',
+                color: 'var(--green)',
+                fontWeight: 600,
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              <span>Try Interactive Guest Sandbox (Local Data)</span>
+              <ArrowRight size={15} />
             </button>
           </form>
 

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { ZoomIn, ZoomOut, RotateCcw, Maximize, Minimize, X, Loader2, FileText, Download } from 'lucide-react';
-import { downloadFile } from '@/lib/api';
+import { downloadFile, isDemoMode, getDemoPdfPreviewHtml, getDemoState } from '@/lib/api';
 
 interface PdfViewerModalProps {
   statementId: string;
@@ -141,7 +141,8 @@ export function PdfViewerModal({ statementId, title, payPeriod, onClose }: PdfVi
           )}
           <div className="pdf-viewport">
             <iframe
-              src={`/api/salary-statements/${statementId}/view#toolbar=0`}
+              src={isDemoMode() ? undefined : `/api/salary-statements/${statementId}/view#toolbar=0`}
+              srcDoc={isDemoMode() ? getDemoPdfPreviewHtml(title, `Payslip for ${formattedDate}`, getDemoState(), statementId) : undefined}
               className="pdf-iframe"
               onLoad={() => setLoading(false)}
               style={{

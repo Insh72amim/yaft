@@ -22,8 +22,29 @@ export const isUnauthorized = (reason: unknown): boolean =>
 export const errorMessage = (reason: unknown, fallback = 'Something went wrong.') => reason instanceof Error ? reason.message : fallback;
 
 import { formatMoney, formatQuantity, formatPercent, formatMonthYear } from '@yaft/shared';
+import {
+  isDemoMode,
+  enableDemoMode,
+  disableDemoMode,
+  resetAndRandomizeDemoData,
+  getDemoState,
+  getDemoPdfPreviewHtml,
+  handleDemoApi,
+  handleDemoDownload,
+} from './demo-api';
 
-export { formatMoney, formatQuantity, formatPercent, formatMonthYear };
+export {
+  formatMoney,
+  formatQuantity,
+  formatPercent,
+  formatMonthYear,
+  isDemoMode,
+  enableDemoMode,
+  disableDemoMode,
+  resetAndRandomizeDemoData,
+  getDemoState,
+  getDemoPdfPreviewHtml,
+};
 
 // Backward compatible alias
 export const money = (minor: number | null | undefined, compact = false) =>
@@ -33,6 +54,9 @@ export const quantity = (value: string | number | null | undefined, maxDecimals 
   formatQuantity(value, maxDecimals);
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (isDemoMode()) {
+    return handleDemoApi<T>(path, init);
+  }
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: 'include',
@@ -71,6 +95,9 @@ api.patch = <T>(path: string, body?: unknown, init?: RequestInit) =>
 api.delete = <T>(path: string, init?: RequestInit) => api<T>(path, { ...init, method: 'DELETE' });
 
 export async function downloadFile(path: string, filename: string) {
+  if (isDemoMode()) {
+    return handleDemoDownload(path, filename);
+  }
   const response = await fetch(`${API_URL}${path}`, { credentials: 'include' });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -89,6 +116,9 @@ export async function downloadFile(path: string, filename: string) {
 }
 
 export async function downloadPostFile(path: string, bodyPayload: any, filename: string) {
+  if (isDemoMode()) {
+    return handleDemoDownload(path, filename, bodyPayload);
+  }
   const response = await fetch(`${API_URL}${path}`, {
     method: 'POST',
     credentials: 'include',

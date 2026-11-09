@@ -20,7 +20,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
-import { API_URL, api, downloadFile, errorMessage } from "@/lib/api";
+import { API_URL, api, downloadFile, errorMessage, isDemoMode, getDemoPdfPreviewHtml, getDemoState } from "@/lib/api";
 
 type AccountDocument = {
   id: string;
@@ -66,6 +66,29 @@ function DocumentViewer({
   useEffect(() => {
     const controller = new AbortController();
     let objectUrl = "";
+    if (isDemoMode()) {
+      if (isImage) {
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360">
+          <rect width="760" height="360" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+          <text x="40" y="60" font-family="sans-serif" font-size="20" font-weight="700" fill="#0f172a">YAFT Guest Sandbox — Synthetic Image Document</text>
+          <text x="40" y="95" font-family="sans-serif" font-size="14" fill="#475569">Document: ${document.name}</text>
+          <line x1="40" y1="120" x2="720" y2="120" stroke="#cbd5e1" stroke-dasharray="6,6"/>
+          <text x="40" y="175" font-family="monospace" font-size="16" fill="#0f172a">PAY TO: SELF / CANCELLED CHEQUE SPECIMEN</text>
+          <text x="40" y="215" font-family="monospace" font-size="15" fill="#15803d">A/C NO: 50100XXXXXXXX0001   IFSC: HDFC0000001</text>
+          <rect x="240" y="250" width="280" height="48" rx="8" fill="none" stroke="#ef4444" stroke-width="2"/>
+          <text x="305" y="280" font-family="sans-serif" font-size="18" font-weight="700" fill="#ef4444">CANCELLED</text>
+        </svg>`;
+        objectUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+      } else {
+        const html = getDemoPdfPreviewHtml(document.name, "Account Supporting Document", getDemoState());
+        objectUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      }
+      setSource(objectUrl);
+      setLoading(false);
+      return () => {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      };
+    }
     void fetch(
       `${API_URL}/accounts/${encodeURIComponent(accountId)}/documents/${encodeURIComponent(document.id)}/content`,
       { credentials: "include", signal: controller.signal },
@@ -86,7 +109,7 @@ function DocumentViewer({
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [accountId, document.id]);
+  }, [accountId, document.id, document.name, isImage]);
 
   useEffect(() => {
     const previousOverflow = documentBodyOverflow();
