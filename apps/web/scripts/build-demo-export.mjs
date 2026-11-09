@@ -4,8 +4,8 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(__dirname, '..');
-const webDir = path.join(rootDir, 'apps', 'web');
+const webDir = path.resolve(__dirname, '..');
+const rootDir = path.resolve(webDir, '../..');
 const apiRouteDir = path.join(webDir, 'app', 'api');
 const apiBackupDir = path.join(webDir, '.api-route-backup');
 const demoOutDir = path.join(webDir, '.next-demo');
