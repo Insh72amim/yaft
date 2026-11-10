@@ -55,7 +55,24 @@ export function Shell({ children }: { children: React.ReactNode }) {
     if (active) {
       setPersonaName(getDemoState().user.name);
     }
+    setOpen(false);
   }, [path]);
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
 
   const handleRandomize = () => {
     setRandomizing(true);
@@ -213,70 +230,30 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div
             role="region"
             aria-label="Guest Sandbox Controls"
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px",
-              padding: "10px 16px",
-              marginBottom: "18px",
-              borderRadius: "12px",
-              background: "linear-gradient(90deg, rgba(22, 163, 74, 0.12), rgba(14, 165, 233, 0.08))",
-              border: "1px solid rgba(22, 163, 74, 0.28)",
-              fontSize: "13px",
-            }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  padding: "3px 9px",
-                  borderRadius: "999px",
-                  background: "var(--green)",
-                  color: "#fff",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                }}>
-                <Sparkles size={12} /> Interactive Guest Sandbox
+            className="demo-sandbox-banner">
+            <div className="demo-sandbox-info">
+              <span className="demo-sandbox-badge">
+                <Sparkles size={12} /> Sandbox Mode
               </span>
-              <span style={{ color: "var(--ink)", fontWeight: 500 }}>
-                Playing as <strong>{personaName || "Guest User"}</strong> &mdash; create, edit, categorize, or import anything. All edits stay in your browser&apos;s <code>localStorage</code>.
+              <span className="demo-sandbox-text">
+                Playing as <strong>{personaName || "Guest User"}</strong> &mdash; changes stay in browser <code>localStorage</code>.
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div className="demo-sandbox-actions">
               <button
                 type="button"
                 className="secondary compact"
                 onClick={handleRandomize}
-                disabled={randomizing}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  padding: "6px 12px",
-                }}>
+                disabled={randomizing}>
                 <Dices size={14} />
-                {randomizing ? "Generating…" : "Randomize Data"}
+                <span>{randomizing ? "Generating…" : "Randomize"}</span>
               </button>
               <button
                 type="button"
                 className="ghost compact"
-                onClick={logout}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  fontSize: "12px",
-                  padding: "6px 10px",
-                }}>
+                onClick={logout}>
                 <ArrowLeft size={14} />
-                Exit Demo
+                <span>Exit Demo</span>
               </button>
             </div>
           </div>
